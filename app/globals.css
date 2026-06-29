@@ -1,0 +1,175 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: #03060F;
+  }
+  body {
+    @apply bg-bg-deep text-text-primary font-sans antialiased;
+    font-feature-settings: "tnum" 1, "cv11" 1;
+  }
+  /* Tabular numerics for scoreboards */
+  .num {
+    font-feature-settings: "tnum" 1, "lnum" 1;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Phone-frame wrapper — keeps everything constrained to a phone-width column.
+     On mobile, fills the screen. On desktop, floats as a phone-like card. */
+  .phone-frame {
+    @apply mx-auto bg-bg min-h-screen;
+    max-width: 430px;
+  }
+  @media (min-width: 640px) {
+    .phone-frame {
+      margin-top: 16px;
+      margin-bottom: 16px;
+      border-radius: 28px;
+      min-height: calc(100vh - 32px);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 20px 50px rgba(0, 0, 0, 0.6);
+      /* overflow:clip preserves rounded corners without breaking position:sticky */
+      overflow: clip;
+    }
+  }
+}
+
+@layer utilities {
+  .card {
+    @apply bg-bg-surface border border-line rounded-2xl;
+  }
+  .card-elevated {
+    @apply bg-bg-elevated border border-line rounded-2xl;
+  }
+  .glow-cyan {
+    box-shadow: 0 0 24px rgba(0, 229, 255, 0.25);
+  }
+  .glow-orange {
+    box-shadow: 0 0 24px rgba(255, 107, 53, 0.3);
+  }
+  .glow-wicket {
+    box-shadow: 0 0 32px rgba(239, 68, 68, 0.5);
+  }
+  .glow-six {
+    box-shadow: 0 0 32px rgba(168, 85, 247, 0.45);
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #1E293B;
+    border-radius: 2px;
+  }
+}
+
+/* Ball-replay keyframes — these drive the SVG ball-GIF component */
+@keyframes ball-deliver {
+  0% {
+    offset-distance: 0%;
+    transform: scale(0.8);
+    filter: brightness(1);
+  }
+  50% {
+    offset-distance: 50%;
+    transform: scale(0.85);
+    filter: brightness(1);
+  }
+  60% {
+    offset-distance: 60%;
+    transform: scale(0.9);
+  }
+  100% {
+    offset-distance: 100%;
+    transform: scale(1);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes shadow-bounce {
+  0% { transform: translate(0, 0); opacity: 0.5; }
+  40% { transform: translate(2px, 6px); opacity: 0.25; }
+  55% { transform: translate(0, 0); opacity: 0.7; }
+  100% { transform: translate(0, 0); opacity: 0.5; }
+}
+
+@keyframes wicket-flash {
+  0%, 100% { opacity: 0; }
+  10%, 30% { opacity: 0.6; }
+}
+
+@keyframes boundary-pulse {
+  0% { stroke-opacity: 0; r: 0; }
+  60% { stroke-opacity: 0.8; r: 80; }
+  100% { stroke-opacity: 0; r: 130; }
+}
+
+@keyframes crowd-wave {
+  0% { transform: scaleY(1); opacity: 0.4; }
+  50% { transform: scaleY(1.6); opacity: 0.9; }
+  100% { transform: scaleY(1); opacity: 0.4; }
+}
+
+@keyframes stumps-fly {
+  0% { transform: rotate(0deg) translateY(0); opacity: 1; }
+  30% { transform: rotate(45deg) translateY(-8px); opacity: 1; }
+  100% { transform: rotate(90deg) translateY(-22px); opacity: 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.live-dot {
+  animation: pulse-soft 1.5s infinite;
+}
+
+/* Smooth fade-in for ball-GIF scene swaps — Sarthak v0.9 #1 (de-jenk transitions) */
+@keyframes scene-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.scene-fade-in { animation: scene-fade-in 280ms ease-out backwards; }
+
+/* Modal slide-up — Sarthak v0.9 #6 expanded chart */
+@keyframes modal-slide-up {
+  from { opacity: 0; transform: translateY(40px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.modal-slide-up { animation: modal-slide-up 320ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+
+/* Filter animation — Sarthak v0.7 diff-aware:
+   Only the cards that NO LONGER match the filter exit (fade + slide + collapse).
+   Cards that match BOTH old + new filter stay put — they do NOT animate.
+   Newcomers (added by the new filter) pull up from below + fade in. */
+@keyframes leaver-out-left {
+  0%   { opacity: 1; transform: translateX(0) scale(1); max-height: 200px; margin-bottom: 8px; }
+  60%  { opacity: 0.15; transform: translateX(-40px) scale(0.94); }
+  100% { opacity: 0; transform: translateX(-60px) scale(0.9); max-height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }
+}
+@keyframes leaver-out-right {
+  0%   { opacity: 1; transform: translateX(0) scale(1); max-height: 200px; margin-bottom: 8px; }
+  60%  { opacity: 0.15; transform: translateX(40px) scale(0.94); }
+  100% { opacity: 0; transform: translateX(60px) scale(0.9); max-height: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }
+}
+@keyframes newcomer-pull-up {
+  0%   { opacity: 0; transform: translateY(60px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.anim-leave-left  { animation: leaver-out-left 700ms ease-in forwards; overflow: hidden; }
+.anim-leave-right { animation: leaver-out-right 700ms ease-in forwards; overflow: hidden; }
+.anim-pull-up     { animation: newcomer-pull-up 900ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+
+/* Subtle excitement glow */
+@keyframes excitement-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.4), 0 0 24px rgba(0, 229, 255, 0.25); }
+  50%      { box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.7), 0 0 36px rgba(0, 229, 255, 0.45); }
+}
+.excitement-glow {
+  animation: excitement-pulse 3s ease-in-out infinite;
+}
