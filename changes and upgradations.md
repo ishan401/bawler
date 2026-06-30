@@ -5,6 +5,32 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.1] 2026-06-30
+
+### Build stability hotfix
+
+#### Fixed — Truncated source files
+- 6 component/page files were truncated on disk (AIMetrics.tsx, BallGIF.tsx, FilterBar.tsx, MatchCard.tsx, MomentsStrip.tsx, app/layout.tsx) — missing closing JSX, helper functions, and return statements
+- Completed all truncated tails; all files now pass TypeScript strict mode
+
+#### Fixed — Missing React imports (8 files)
+- `React.CSSProperties` and `React.ReactNode` require `import React` (or a named type import) — Next.js JSX transform does NOT auto-import the React namespace
+- Added React to: MatchCard, FilterBar, layout, page, DeliveryCard, InlineNote, InsightsPanel, LineupsCard, Scorecard, ViewSwitcher
+
+#### Fixed — Null bytes in page.tsx
+- Thousands of `\x00` null bytes were appended after the closing `}` of page.tsx
+- TypeScript reported each as "Invalid character"; stripped all null bytes
+
+#### Fixed — Strict TypeScript null error in match/[id]/page.tsx
+- `ALL.find()` returns `Match | undefined`; `notFound()` throws before returning but TS couldn't infer that
+- Added non-null assertion `match!` (safe — `notFound()` never returns)
+
+#### Fixed — MatchCard.tsx missing "use client"
+- `fmtCountdown()` calls `Date.now()` at render time; component must be a client component
+- Added `"use client"` directive
+
+---
+
 ## [1.0.0] 2026-06-30
 
 ### UI/UX overhaul — navigation, readability, hierarchy
@@ -50,31 +76,4 @@ Format: `[version] YYYY-MM-DD — description`
 
 ### Fixed — Win probability chart hue accuracy (WinProbChart + MiniWinProb)
 - `brightness(3) saturate(2)` CSS filter was distorting MI's dark navy (#004BA0) into cyan — the filter boosted G and B channels equally, destroying the blue hue
-- Replaced CSS filter with `brightColor()` function: normalises hex → RGB so the max channel = 255, preserving exact hue ratios while making the color vivid
-- MI (#004BA0) now renders as vivid blue RGB(0,119,255), KKR (#3A225D) as vivid purple RGB(159,93,255)
-- Line stroke and current-position dot also use `brightColor()` for consistency
-
----
-
-## [0.9.7] 2026-06-30
-
-### Fixed — Win probability chart clutter (WinProbChart)
-- Removed event dots (W/6/★/↑ circles) from the chart line — they were large, overlapping, and created visual noise that looked like "intersecting lines"
-- Key Moments chips below the chart already show the same events clearly
-- Chart is now clean: only the probability line, team-coloured fills, and NOW marker
-
-### Fixed — Body background pure black (globals.css)
-- Removed `bg-bg-deep` from body @apply — body was still rendering as #03060F (dark navy) instead of pure black
-- Body now explicitly set to #000000, eliminating any visible tint outside the phone frame
-
----
-
-## [0.9.5] 2026-06-30
-
-### Fixed — Chart team colors truly distinct (WinProbChart + MiniWinProb)
-- MI (#004BA0) and KKR (#3A225D) are both dark colors — at low opacity on a dark background they appeared identical
-- Increased peak opacity: 0.55 → 0.90, minimum: 0.20 → 0.45
-- Both team zones are now clearly visible in their respective team colors
-
-### Fixed — Orange tint on outer background (globals.css)
-- html/body backgr
+- Replaced CSS filter with `brightColor()` function: normalises hex → RGB so the max channel = 255, preserving
