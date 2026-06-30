@@ -10,12 +10,12 @@ const config: Config = {
       colors: {
         // Bawler palette — dark, modern, data-viz-first
         bg: {
-          DEFAULT: "#0A0E1A",
-          surface: "#141B2D",
-          elevated: "#1B243A",
-          deep: "#03060F",
+          DEFAULT: "#000000",
+          surface: "#0F0F0F",
+          elevated: "#1A1A1A",
+          deep: "#000000",
         },
-        line: "#1E293B",
+        line: "#222222",
         text: {
           primary: "#F8FAFC",
           secondary: "#94A3B8",
