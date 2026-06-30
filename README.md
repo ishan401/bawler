@@ -1,129 +1,125 @@
-# Bawler — IPL Live Companion (v0.1 prototype)
+# Bawler — Cricket Live Companion (v0.9)
 
-Every ball, visualized. Predictions, surfaced stats, and a live SVG replay of every ball.
+Every ball, visualized. Win probability, key moments, and an animated SVG replay for every delivery.
 
-This is the **mocked v0.1 prototype** — UI is fully built, all data is faked but shaped to match the expected Roanuz Cricket API schema. When the real API is wired in, only the data-layer adapter changes.
+**Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
+**Status:** UI complete (v0.9 mock) — real data integration next.
+**Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
-## Run locally (≈ 2 minutes)
+---
+
+## Run locally
 
 ```bash
-cd "Sports tracker/bawler"
+cd bawler-main
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000
+Open http://localhost:3000. No env vars needed — all data is mocked.
 
-## Deploy to Vercel (≈ 3 minutes)
+## Deploy
 
-1. Create a new GitHub repo (private is fine), push this folder as the root.
-2. Go to vercel.com → New Project → import the repo.
-3. Vercel auto-detects Next.js. Just hit **Deploy**.
-4. Your URL will be something like `bawler-mvp.vercel.app`.
+```bash
+git push https://ishan401:<TOKEN>@github.com/ishan401/bawler.git main
+```
 
-No env vars needed yet — everything is mocked.
+Vercel auto-deploys on push via GitHub webhook. Build time ~40s.
 
-## What's in the prototype
+---
+
+## What's built (v0.9)
 
 ### Pages
 
-- **`/`** — home page with last 1 completed match + next 5 upcoming (R12). Live match featured at top.
-- **`/match/[id]`** — match page with the full live experience.
+| Route | Description |
+|---|---|
+| `/` | Home — live carousel + past/future match columns, filter bar, infinite scroll |
+| `/match/[id]` | Match page — full live experience |
+| `/schedule` | Full schedule list |
+| `/table` | Points table / standings |
 
-### Components on the match page (top-down on mobile)
+### Match page layout (top → bottom on mobile)
 
-1. **ScoreBar** — sticky top, shows score + chase context (need X off Y balls, RRR).
-2. **BallGIF** — the hero. Top-down 2D pitch diagram with the three height techniques (R14):
-   - **Shadow offset** — ball's shadow separates during delivery arc.
-   - **Dot scale + glow** — ball grows/glows during shot arc.
-   - **Inline mini side-strip** — height-vs-time below the pitch view.
-   Also includes tiered flourishes (R19): wickets get red flash + stumps fly, sixes get purple boundary pulse, fours get cyan pulse.
-3. **DemoControls** — play / pause / step / speed / jump-to-latest. So you can see the live feel without a real match.
-4. **WinProbChart** — annotated line chart with inflection-point dots for wickets, sixes, big overs (R-annotations).
-5. **ProjectedScore + PressureGauge** — two-up grid.
-6. **InsightFeed** — source-tier waterfall (R16): analyst > Cricbuzz > ESPN > bot.
+1. **ScoreBar** *(sticky)* — score, chase context (need X off Y, RRR), innings info
+2. **MiniInsightsBar** — scrolling ticker of live insights just below the score
+3. **MatchTabs** — Live / Scorecard / Info tab switcher
+4. **BallGIF** *(hero)* — animated SVG ball replay, two alternating clips per delivery:
+   - **Clip A (Bowler view):** 3/4-perspective delivery animation showing speed, swing, line, length as motion. Speed + ball type shown as text.
+   - **Clip B (Overhead field):** fielder dots + ball trajectory. Aerial vs ground distinction.
+   - Auto-advances every 24s in live-follow mode. Tapping a Moment holds that ball.
+5. **MomentsStrip** — horizontal timeline of key events (wickets, sixes, big overs). Tapping scrubs the entire page to that ball — GIF replays it, chart rewinds, metrics update.
+6. **MiniWinProb** — compact single-area sparkline. Shows both teams' current % side-by-side. Tap → full chart modal.
+7. **AIMetrics** — 4 condensed tiles: Projected score, Momentum (12-ball shift), Acceleration (RRR vs CRR), Next wicket impact.
+8. **CommentaryFeed** — ball-by-ball cards with insight overlays (stats vs opinions, tiered attribution).
 
-### Layers
+**Scorecard tab:** Full batting + bowling cards via **Scorecard** component.
+**Info tab:** Pitch report + lineups via **InfoTab**, **PitchReportCard**, **LineupsCard**.
 
-- **`lib/types.ts`** — TypeScript types matching the expected Roanuz Cricket API schema. Adjust here when real data shape becomes known.
-- **`lib/mockData.ts`** — a fully fleshed-out IPL 2026 match (KKR chasing 175 vs MI at Eden Gardens, mid-innings), plus 5 upcoming + 1 recent.
-- **`lib/winProb.ts`** — placeholder win-probability formula. To be replaced with the odds-scraper output in production.
+**Full win prob modal:** Tap MiniWinProb → **WinProbChart** slides up — single area chart, gradient fill, split probability bar header, key moments chips, zoom (Match / Innings / Recent), pinch-to-zoom.
 
-## Demo mode — how to use it
+### Home page
 
-The match page starts paused at the latest mocked ball. Use the demo controls to:
+- **LiveCarousel** — snap-scroll carousel of live matches with win-prob split bar
+- **MatchCard** (Past + Future variants) — split team background, excitement-glow treatment, result banner
+- **FilterBar** — team / tournament / venue filter with animated enter/leave transitions
+- **SplitTeamBg** — dual-color gradient background using team primary colors
+- Infinite scroll (loads 4 more past + 4 more future on scroll bottom)
+- Column expand — tap to go full-width on Past or Coming Up
 
-- **Play** at 1×/2×/5×/20× speed to watch the chase unfold ball-by-ball.
-- **Step back/forward** to inspect any moment.
-- **Jump to latest** to skip to current.
+---
 
-This is purely a dev tool — in the real product, the page subscribes to a Server-Sent Events stream from the server, which pushes new ball events as they happen.
-
-## What's NOT in the prototype (yet)
-
-- Roanuz API integration (the adapter is the next file to write).
-- Bookmaker odds scraping for real win prob.
-- Twitter / Cricbuzz / ESPN scraping for the insight feed.
-- Audio commentary transcription (cut from v1 per R-audio).
-- Player profile pages (de-scoped per R-historical).
-- User accounts / push notifications / share-to-WhatsApp (v2).
-- SEO meta + OG share images (Vercel adds basics auto, we'll polish later).
-
-## File map
+## Component map
 
 ```
-bawler/
-├── README.md                       # this file
-├── package.json
-├── tsconfig.json
-├── next.config.mjs
-├── tailwind.config.ts
-├── postcss.config.mjs
-├── .gitignore
-├── app/
-│   ├── globals.css                 # design tokens + keyframes
-│   ├── layout.tsx                  # root layout
-│   ├── page.tsx                    # home page
-│   └── match/[id]/page.tsx         # match page route
-├── components/
-│   ├── MatchCard.tsx               # used on home
-│   ├── MatchView.tsx               # the match page client component
-│   ├── ScoreBar.tsx                # sticky top
-│   ├── BallGIF.tsx                 # ⭐ Pillar 3 hero
-│   ├── WinProbChart.tsx            # Pillar 1 chart w/ annotations
-│   ├── PressureGauge.tsx           # Pillar 1 gauge
-│   ├── ProjectedScore.tsx          # Pillar 1 tile
-│   ├── InsightFeed.tsx             # Pillar 2 feed
-│   └── DemoControls.tsx            # dev-mode auto-advance
-└── lib/
-    ├── types.ts                    # schema (mirrors Roanuz)
-    ├── mockData.ts                 # the mocked match
-    └── winProb.ts                  # formula placeholder
-```
-
-## Color palette
-
-| Token | Hex | Used for |
-|---|---|---|
-| `bg` | `#0A0E1A` | page background |
-| `bg-surface` | `#141B2D` | cards |
-| `bg-elevated` | `#1B243A` | elevated cards (GIF, demo controls) |
-| `cyan` | `#00E5FF` | primary accent, win-prob line, 4-pulse |
-| `orange` | `#FF6B35` | secondary accent, projected/heat colors |
-| `boundary` | `#10B981` | comfortable / big-over green |
-| `wicket` | `#EF4444` | wicket flash, danger |
-| `six` | `#A855F7` | six pulse + glow |
-| `text-primary` | `#F8FAFC` | body |
-| `text-secondary` | `#94A3B8` | secondary |
-| `text-dim` | `#64748B` | labels |
-
-To change the theme, edit `tailwind.config.ts` and `app/globals.css`.
-
-## Next steps after you see it
-
-1. Tell me what's off — pacing of the GIF, density of any component, color tweaks.
-2. Once Roanuz responds with their API + sample data, I'll write the adapter that swaps mock data for real.
-3. Wire up the scraping workers (odds, Cricbuzz, Twitter) — that's the next codegen sprint.
-
-Have fun.
-
+components/
+├── Match page core
+│   ├── MatchView.tsx          # main match page client component, orchestrates all below
+│   ├── ScoreBar.tsx           # sticky header with score + chase context
+│   ├── MiniInsightsBar.tsx    # scrolling insight ticker
+│   ├── MatchTabs.tsx          # Live / Scorecard / Info tabs
+│   └── DemoControls.tsx       # dev-mode ball stepper (not shown in prod)
+│
+├── Ball GIF (Pillar 3)
+│   ├── BallGIF.tsx            # ⭐ hero — two-clip animated SVG delivery replay
+│   ├── MiniBallGIF.tsx        # compact version used in moments
+│   └── DeliveryCard.tsx       # single delivery summary card
+│
+├── Win probability (Pillar 1)
+│   ├── WinProbChart.tsx       # full-screen modal — single area chart, gradient fill
+│   └── MiniWinProb.tsx        # inline sparkline — both teams' % visible
+│
+├── Moments & events
+│   ├── MomentsStrip.tsx       # horizontal moments timeline (scrubs GIF + chart)
+│   └── MomentsCollapsible.tsx # expandable moments section
+│
+├── AI metrics
+│   ├── AIMetrics.tsx          # 4-tile condensed metrics row
+│   ├── ProjectedScore.tsx     # projected total tile
+│   ├── PressureGauge.tsx      # pressure 0-10 gauge
+│   └── MiniWinProb.tsx        # (also serves as win% tile)
+│
+├── Insights (Pillar 2)
+│   ├── CommentaryFeed.tsx     # ball-by-ball cards with insight overlays
+│   ├── InsightFeed.tsx        # standalone insight list
+│   ├── InsightsPanel.tsx      # panel with filter + feed
+│   ├── InlineNote.tsx         # small inline insight chip
+│   └── MiniInsightsBar.tsx    # scrolling ticker
+│
+├── Scorecard tab
+│   └── Scorecard.tsx          # batting + bowling cards
+│
+├── Info tab
+│   ├── InfoTab.tsx            # tab container
+│   ├── PitchReportCard.tsx    # surface type, pace/spin friendliness
+│   └── LineupsCard.tsx        # playing XI for both teams
+│
+├── Over summary
+│   └── OverSummary.tsx        # per-over dot/run/wicket summary
+│
+├── Home page
+│   ├── LiveCarousel.tsx       # snap-scroll live match carousel
+│   ├── MatchCard.tsx          # Past + Future + Live card variants
+│   ├── FilterBar.tsx          # team/tournament/venue filter
+│   ├── SplitTeamBg.tsx        # dual-color team background
+│   └�
