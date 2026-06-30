@@ -5,6 +5,14 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [0.9.1b] 2026-06-30 — hotfix
+
+### Fixed — Build failure (truncated JSX)
+- WinProbChart.tsx and MiniWinProb.tsx were truncated mid-string during initial write, breaking the Vercel build
+- Rewrote both files completely using Python to bypass the Write tool character limit
+- TypeScript compiler now passes with zero errors
+- Root cause: Write tool has a content size limit; large files must be written via bash/Python going forward
+
 ## [0.9.1] 2026-06-30
 
 ### Changed — Win Probability (WinProbChart + MiniWinProb)
