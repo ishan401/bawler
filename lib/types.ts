@@ -61,6 +61,8 @@ export interface Match {
     teamAWickets?: number;
     teamBRuns?: number;
     teamBWickets?: number;
+    manOfMatch?: string;       // player name
+    manOfTournament?: string;  // player name (only on final)
   };
   // 15-word recap for past matches ("…helps someone who watched quickly identify it")
   // or anticipation pitch for future matches ("…why this match promises to be a good watch")

@@ -394,6 +394,7 @@ export const FEATURED_MATCH: Match = {
   teamB: TEAMS.KKR, // chasing
   toss: { winner: "MI", elected: "bat" },
   innings: [buildInnings1(), buildInnings2()],
+  result: { winner: "KKR", margin: "by 4 wickets", teamARuns: 174, teamAWickets: 9, teamBRuns: 175, teamBWickets: 6, manOfMatch: "Andre Russell", manOfTournament: "Virat Kohli" },
 };
 
 // ============================================================================

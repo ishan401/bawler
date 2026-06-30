@@ -8,131 +8,77 @@ interface MiniWinProbProps {
   onExpand: () => void;
 }
 
-
-function brightColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const max = Math.max(r, g, b, 1);
-  const s = 255 / max;
-  return `rgb(${Math.min(255, Math.round(r * s))},${Math.min(255, Math.round(g * s))},${Math.min(255, Math.round(b * s))})`;
-}
-
+/**
+ * Condensed win-prob chart — Sarthak v0.9 #6.
+ *   - Default-visible on the match page (no separate area for chart).
+ *   - Shows ONLY the two team lines + 25/50/75 % horizontal gridlines.
+ *     No event markers, no labels, no annotations.
+ *   - Current win-prob shown in a tiny corner chip.
+ *   - Tap anywhere → expands to full-screen chart (caller handles).
+ */
 export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProps) {
-  if (points.length === 0) return null;
-
+  if (points.length === 0) {
+    return null;
+  }
   const last = points[points.length - 1];
   const teamA = match.teamA;
   const teamB = match.teamB;
-  const pctA = last.winProbTeamA;
-  const pctB = 1 - pctA;
-  const leaderA = pctA >= 0.5;
+  const leaderA = last.winProbTeamA >= 0.5;
+  const leaderTeam = leaderA ? teamA : teamB;
+  const leaderPct = leaderA ? last.winProbTeamA : 1 - last.winProbTeamA;
 
-  const W = 320;
-  const H = 72;
-  const PAD = { top: 8, right: 4, bottom: 8, left: 4 };
+  const W = 360;
+  const H = 64;
+  const PAD = { top: 6, right: 6, bottom: 6, left: 6 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
+  // Use overFloat 0..40 as full match range
   const xMin = 0, xMax = 40;
   const xToPx = (x: number) => PAD.left + ((x - xMin) / (xMax - xMin)) * innerW;
   const yToPx = (pct: number) => PAD.top + (1 - pct) * innerH;
 
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${xToPx(p.overFloat).toFixed(1)} ${yToPx(p.winProbTeamA).toFixed(1)}`)
-    .join(" ");
-
-  const firstX = xToPx(points[0].overFloat).toFixed(1);
-  const lastX = xToPx(last.overFloat).toFixed(1);
-  const bottomY = (PAD.top + innerH).toFixed(1);
-  const topY = PAD.top.toFixed(1);
-
-  // Area below line = team A territory; area above line = team B territory
-  const areaPathA = `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
-  const areaPathB = `M ${firstX} ${topY} L ${lastX} ${topY} L ${lastX} ${yToPx(points[points.length - 1].winProbTeamA).toFixed(1)} ${points.slice().reverse().map(p => `L ${xToPx(p.overFloat).toFixed(1)} ${yToPx(p.winProbTeamA).toFixed(1)}`).join(" ")} Z`;
+  const lineA = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xToPx(p.overFloat).toFixed(1)} ${yToPx(p.winProbTeamA).toFixed(1)}`).join(" ");
+  const lineB = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xToPx(p.overFloat).toFixed(1)} ${yToPx(1 - p.winProbTeamA).toFixed(1)}`).join(" ");
 
   return (
     <button
       onClick={onExpand}
-      className="card w-full px-3 py-2.5 hover:bg-bg-elevated transition-colors active:scale-[0.99] flex items-center gap-2"
+      className="card w-full p-2.5 hover:bg-bg-elevated transition-colors text-left flex items-center gap-3 active:scale-[0.99]"
     >
-      {/* Team A */}
-      <div className="flex flex-col items-start shrink-0 w-[44px]">
-        <span className="text-[11px] font-extrabold leading-none" style={{ color: teamA.primaryColor }}>
-          {teamA.shortName}
-        </span>
-        <span className={`text-base font-extrabold num leading-tight ${leaderA ? "text-text-primary" : "text-text-dim"}`}>
-          {Math.round(pctA * 100)}%
-        </span>
+      <div className="flex flex-col gap-0.5 shrink-0 min-w-[68px]">
+        <span className="text-[8.5px] uppercase tracking-widest text-text-dim font-bold">Win %</span>
+        <div className="flex items-baseline gap-1">
+          <span className="w-2 h-2 rounded-full" style={{ background: leaderTeam.primaryColor }} />
+          <span className="text-base font-extrabold num text-text-primary leading-none">{Math.round(leaderPct * 100)}%</span>
+        </div>
+        <span className="text-[9px] text-text-secondary leading-none">{leaderTeam.shortName}</span>
       </div>
 
-      {/* Sparkline */}
-      <div className="flex-1 min-w-0 relative">
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 text-[8px] font-bold uppercase tracking-widest text-text-dim leading-none">
-          Win %
-        </span>
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="none" style={{ height: 56 }}>
-          <defs>
-            <linearGradient id="mini-grad-a" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={brightColor(teamA.primaryColor)} stopOpacity="0.75" />
-              <stop offset="100%" stopColor={brightColor(teamA.primaryColor)} stopOpacity="0.25" />
-            </linearGradient>
-            <linearGradient id="mini-grad-b" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={brightColor(teamB.primaryColor)} stopOpacity="0.25" />
-              <stop offset="100%" stopColor={brightColor(teamB.primaryColor)} stopOpacity="0.75" />
-            </linearGradient>
-          </defs>
-
-          {/* Team B fill above the line */}
-          <path d={areaPathB} fill="url(#mini-grad-b)" />
-          {/* Team A fill below the line */}
-          <path d={areaPathA} fill="url(#mini-grad-a)" />
-
-          {/* 50% reference */}
-          <line
-            x1={PAD.left} y1={yToPx(0.5)}
-            x2={W - PAD.right} y2={yToPx(0.5)}
-            stroke="#475569" strokeWidth="0.7" strokeDasharray="3 3"
-          />
-
-          {/* Innings divider */}
-          {last.overFloat > 20 && (
+      <div className="flex-1 min-w-0">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="none" style={{ height: 60 }}>
+          {/* Gridlines: 25 / 50 / 75 */}
+          {[0.25, 0.5, 0.75].map(g => (
             <line
-              x1={xToPx(20)} y1={PAD.top}
-              x2={xToPx(20)} y2={PAD.top + innerH}
-              stroke="#334155" strokeWidth="0.6" strokeDasharray="2 3"
+              key={g}
+              x1={PAD.left} y1={yToPx(g)}
+              x2={W - PAD.right} y2={yToPx(g)}
+              stroke={g === 0.5 ? "#475569" : "#1E293B"}
+              strokeWidth={g === 0.5 ? "0.6" : "0.4"}
+              strokeDasharray={g === 0.5 ? "2 2" : "1.5 3"}
             />
-          )}
-
-          {/* Line always in team A colour — it represents team A win probability */}
-          <path
-            d={linePath}
-            stroke={brightColor(teamA.primaryColor)}
-            strokeWidth="1.8" fill="none" strokeLinejoin="round" strokeLinecap="round"
-          />
-
-          {/* Current position dot in team A colour */}
-          <circle
-            cx={xToPx(last.overFloat)} cy={yToPx(pctA)} r="3"
-            fill={brightColor(teamA.primaryColor)}
-            stroke="#0A0E1A" strokeWidth="1.2"
-          />
+          ))}
+          {/* Two team lines — no events, no markers */}
+          <path d={lineA} stroke={teamA.primaryColor} strokeWidth="1.6" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          <path d={lineB} stroke={teamB.primaryColor} strokeWidth="1.6" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          {/* End dot for current position */}
+          <circle cx={xToPx(last.overFloat)} cy={yToPx(last.winProbTeamA)} r="2.2" fill={teamA.primaryColor} stroke="#F8FAFC" strokeWidth="0.8" />
+          <circle cx={xToPx(last.overFloat)} cy={yToPx(1 - last.winProbTeamA)} r="2.2" fill={teamB.primaryColor} stroke="#F8FAFC" strokeWidth="0.8" />
         </svg>
       </div>
 
-      {/* Team B */}
-      <div className="flex flex-col items-end shrink-0 w-[44px]">
-        <span className="text-[11px] font-extrabold leading-none" style={{ color: teamB.primaryColor }}>
-          {teamB.shortName}
-        </span>
-        <span className={`text-base font-extrabold num leading-tight ${!leaderA ? "text-text-primary" : "text-text-dim"}`}>
-          {Math.round(pctB * 100)}%
-        </span>
-      </div>
-
-      {/* Expand icon */}
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-text-dim shrink-0 ml-0.5">
-        <path d="M3 6L8 11L13 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="text-text-dim shrink-0">
+        <path d="M3 7L8 12L13 7M3 4L8 9L13 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </button>
   );
