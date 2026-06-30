@@ -5,7 +5,7 @@
 @layer base {
   html {
     color-scheme: dark;
-    background: #03060F;
+    background: #000000;
   }
   body {
     @apply bg-bg-deep text-text-primary font-sans antialiased;

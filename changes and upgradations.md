@@ -5,6 +5,19 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [0.9.5] 2026-06-30
+
+### Fixed — Chart team colors truly distinct (WinProbChart + MiniWinProb)
+- MI (#004BA0) and KKR (#3A225D) are both dark colors — at low opacity on a dark background they appeared identical
+- Increased peak opacity: 0.55 → 0.90, minimum: 0.20 → 0.45
+- Both team zones are now clearly visible in their respective team colors
+
+### Fixed — Orange tint on outer background (globals.css)
+- html/body background changed from #03060F to #000000 pure black
+- Eliminates warm color cast visible in the blank area outside the phone frame on desktop
+
+---
+
 ## [0.9.4] 2026-06-30
 
 ### Fixed — Win probability chart gradient opacity (WinProbChart + MiniWinProb)
@@ -72,17 +85,4 @@ Format: `[version] YYYY-MM-DD — description`
 - Same single-area-chart treatment as MiniWinProb
 - New header: prominent split color bar showing both teams' percentages (same style as live match card)
 - Plain-language leading sentence: "KKR 68% chance to win"
-- Event dots now show letter codes inside (W=wicket, 6=six, 4=four, ★=milestone, ↑=big over) — no legend lookup needed
-- Key moments section replaced scrollable list with color-coded pill chips (over + label inline)
-- Reduced chart height (260px viewBox vs 580px) — less wasted space, more compact
-
----
-
-## [0.9.0] 2026-06-01 (baseline)
-
-Initial v0.9 prototype. Full UI built with mocked data.
-
-### Features
-- Home page: LiveCarousel, Past/Future split columns, FilterBar with animated transitions, infinite scroll
-- Match page: BallGIF (2-clip animated SVG), MomentsStrip, MiniWinProb, AIMetrics (4 tiles), CommentaryFeed
-- Scorecard tab: full batting + bow
+- Event dots now show letter codes inside (W=wicket, 6=six, 4=four, ★=milestone, ↑=b
