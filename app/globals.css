@@ -8,7 +8,8 @@
     background: #000000;
   }
   body {
-    @apply bg-bg-deep text-text-primary font-sans antialiased;
+    background-color: #000000;
+    @apply text-text-primary font-sans antialiased;
     font-feature-settings: "tnum" 1, "cv11" 1;
   }
   /* Tabular numerics for scoreboards */

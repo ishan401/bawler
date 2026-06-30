@@ -243,24 +243,6 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
               stroke={teamA.primaryColor}
               strokeWidth="2.2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
           )}
-
-          {/* Event dots — coloured by event type */}
-          {visibleEvents.map(e => {
-            const pt = chartPoints.find(p => p.overFloat >= e.overFloat) ?? chartPoints[chartPoints.length - 1];
-            if (!pt) return null;
-            const cx = xToPx(e.overFloat);
-            const cy = yToPx(pt.winProbTeamA);
-            const color = eventColor(e.kind);
-            return (
-              <g key={e.id}>
-                <circle cx={cx} cy={cy} r="5.5" fill={color} stroke="#0A0E1A" strokeWidth="1.5" />
-                <text x={cx} y={cy + 3.5} fill="#fff" fontSize="6.5" fontWeight="900" textAnchor="middle">
-                  {eventIcon(e.kind)}
-                </text>
-              </g>
-            );
-          })}
-
           {/* NOW marker — dot always in team A colour on team A line */}
           {last.overFloat >= xMin && last.overFloat <= xMax && (() => {
             const nx = xToPx(last.overFloat);
