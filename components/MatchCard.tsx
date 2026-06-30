@@ -1,3 +1,6 @@
+"use client";
+
+import React from "react";
 import Link from "next/link";
 import type { Match, Team } from "@/lib/types";
 import SplitTeamBg from "./SplitTeamBg";
@@ -325,7 +328,4 @@ export function FutureMatchCard({ match }: { match: Match }) {
         {match.summary && (
           <p className="text-[9.5px] leading-snug text-white/80 flex-1" style={clamp2}>
             {match.summary}
-          </p>
-        )}
-
-        {/* Row 4: bot
+       
