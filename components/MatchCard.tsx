@@ -6,10 +6,9 @@ import { calculateWinProbForMatch } from "@/lib/winProb";
 // ============================================================================
 // Fixed card heights — past + future identical so rows align perfectly
 // ============================================================================
-// Heights — Sarthak v0.8: shrunk so there's no empty space between venue + summary
-export const PAST_CARD_HEIGHT = 138;
-export const FUTURE_CARD_HEIGHT = 138;
-export const LIVE_CARD_HEIGHT = 138;
+export const PAST_CARD_HEIGHT = 148;
+export const FUTURE_CARD_HEIGHT = 148;
+export const LIVE_CARD_HEIGHT = 148;
 
 // ============================================================================
 // Helpers
@@ -20,6 +19,16 @@ function fmtDate(iso: string): string {
 }
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+function fmtCountdown(iso: string): string {
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff <= 0) return "Starting soon";
+  const days = Math.floor(diff / 86400000);
+  const hrs  = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (days > 0) return `in ${days}d ${hrs}h`;
+  if (hrs > 0)  return `in ${hrs}h ${mins}m`;
+  return `in ${mins}m`;
 }
 
 function RankPill({ rank }: { rank?: number }) {
@@ -284,7 +293,7 @@ function SideBlock({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
 }
 
 // ============================================================================
-// Future card — Sarthak v0.7: consistent layout, 3-line no-ellipsis description
+// Future card — balanced height, countdown timer + venue anchor at bottom
 // ============================================================================
 export function FutureMatchCard({ match }: { match: Match }) {
   const highlight = (match.excitement ?? 0) >= 8;
@@ -297,33 +306,26 @@ export function FutureMatchCard({ match }: { match: Match }) {
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="narrow" />
 
       <div className="relative h-full px-2 py-1.5 flex flex-col text-white gap-0.5">
-        {/* Row 1: date + time (same row, left) + badge (right) — Sarthak v0.8 #4 */}
+        {/* Row 1: badge (right) */}
         <div className="flex items-center justify-between gap-1 min-h-[13px]">
-          <span className="text-[9px] num text-white/75 leading-none truncate">
-            {fmtDate(match.startTimeIso).replace(",", "")} <span className="text-white/45">·</span> {fmtTime(match.startTimeIso)}
+          <span className="text-[9px] num text-white/65 leading-none truncate">
+            {fmtDate(match.startTimeIso).replace(",", "")}
           </span>
           <HighlightBadge text={match.highlightBadge} />
         </div>
 
-        {/* Row 2: teams with rank pills on OUTSIDE */}
+        {/* Row 2: teams with rank pills */}
         <div className="flex items-center justify-between gap-1">
           <SideBlock team={match.teamA} isWinner />
           <span className="text-[10px] font-extrabold text-white/40">vs</span>
           <SideBlock team={match.teamB} isWinner alignRight />
         </div>
 
-        {/* Row 3: venue */}
-        <div className="text-[9px] text-white/55 truncate leading-tight">
-          {match.venue.name}
-        </div>
-
-        {/* Row 4: 3-line description (no ellipsis) — NO mt-auto */}
+        {/* Row 3: summary (2-line clamp) */}
         {match.summary && (
-          <p className="text-[10px] leading-snug text-white/85" style={lines3NoEllipsis}>
+          <p className="text-[9.5px] leading-snug text-white/80 flex-1" style={clamp2}>
             {match.summary}
           </p>
         )}
-      </div>
-    </Link>
-  );
-}
+
+        {/* Row 4: bot

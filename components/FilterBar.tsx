@@ -11,6 +11,8 @@ export interface FilterDef {
   options: FilterValue[]; // list of selectable values
   /** When true (e.g. "Tournament"), the filter is always-on; no enable toggle is shown. */
   alwaysOn?: boolean;
+  /** Optional: returns a hex color for the given option value (e.g. team primary color) */
+  colorFn?: (value: FilterValue) => string | undefined;
 }
 
 interface FilterBarProps {
@@ -43,6 +45,7 @@ export default function FilterBar({ filters, values, enabled, onValueChange, onE
           value={values[f.key]}
           enabled={!!enabled[f.key]}
           open={openKey === f.key}
+          color={f.colorFn?.(values[f.key])}
           onToggleEnable={() => onEnabledChange(f.key, !enabled[f.key])}
           onOpen={() => setOpenKey(f.key)}
           onClose={() => setOpenKey(null)}
@@ -64,6 +67,7 @@ function FilterPill({
   value,
   enabled,
   open,
+  color,
   onToggleEnable,
   onOpen,
   onClose,
@@ -73,6 +77,7 @@ function FilterPill({
   value: FilterValue;
   enabled: boolean;
   open: boolean;
+  color?: string;
   onToggleEnable: () => void;
   onOpen: () => void;
   onClose: () => void;
@@ -132,6 +137,12 @@ function FilterPill({
         onClick={onOpen}
         className="flex items-center gap-0.5 pl-0.5 pr-1.5 py-1"
       >
+        {color && effectivelyOn && (
+          <span
+            className="w-2 h-2 rounded-full shrink-0 mr-0.5"
+            style={{ background: color, boxShadow: `0 0 4px ${color}88` }}
+          />
+        )}
         <span className="text-[7.5px] uppercase tracking-widest font-extrabold opacity-65 leading-none">{def.label}</span>
         <span className="text-[10.5px] leading-none">{displayValue}</span>
         <svg width="8" height="8" viewBox="0 0 12 12" fill="none" className={`transition-transform ${open ? "rotate-180" : ""}`} aria-hidden>
@@ -160,18 +171,4 @@ function FilterPill({
                 >
                   <span className="flex items-center justify-between">
                     <span>{opt}</span>
-                    {isActive && (
-                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 8L7 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    )}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+             

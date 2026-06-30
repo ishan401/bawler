@@ -51,25 +51,13 @@ export default function BallGIF({ ball, fielders, loopMs = 6000 }: BallGIFProps)
         transition: "background-color 600ms ease-out, border-color 600ms ease-out",
       }}
     >
-      {/* Outcome badge (top right) */}
-      <div className="absolute top-2 right-2 z-10">
-        <OutcomeBadge ball={ball} />
-      </div>
-
-      {/* Identity caption (top left) */}
-      <div className="absolute top-2 left-2 z-10 text-[9px] font-bold uppercase tracking-widest text-white/85 leading-tight">
-        <div className="text-white">{ball.bowlerName}</div>
-        <div className="text-white/45">to</div>
-        <div className="text-white">{ball.batterName}</div>
-      </div>
-
-      {/* Clip indicator dots — bottom-center, very subtle */}
+      {/* Clip indicator dots — top-center */}
       <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
         <span className={`w-1.5 h-1.5 rounded-full ${activeClip === "bowler" ? "bg-white" : "bg-white/25"}`} />
         <span className={`w-1.5 h-1.5 rounded-full ${activeClip === "overhead" ? "bg-white" : "bg-white/25"}`} />
       </div>
 
-      {/* Scene — keyed on activeClip+ball so animations restart, with fade-in to smooth transitions */}
+      {/* Scene */}
       <div key={`${activeClip}-${ball.id}`} className="scene-fade-in absolute inset-0">
         {activeClip === "bowler" ? (
           <BowlerView ball={ball} loopMs={loopMs / 2} />
@@ -78,10 +66,22 @@ export default function BallGIF({ ball, fielders, loopMs = 6000 }: BallGIFProps)
         )}
       </div>
 
-      {/* Bottom info — only speed + type (no line/length/height per spec) */}
-      <div className="absolute bottom-0 left-0 right-0 px-3 py-1.5 bg-black/45 backdrop-blur-sm border-t border-white/10 flex items-center gap-4">
-        <SpeedChip ball={ball} />
-        <TypeChip ball={ball} />
+      {/* Bottom info bar — delivery type (large) + speed + outcome badge + bowler→batsman */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/55 backdrop-blur-sm border-t border-white/10">
+        {/* Main row: delivery + speed on left, outcome badge on right */}
+        <div className="flex items-center justify-between px-3 pt-2 pb-1 gap-2">
+          <div className="flex flex-col gap-0 min-w-0">
+            <TypeChip ball={ball} large />
+            <SpeedChip ball={ball} />
+          </div>
+          <OutcomeBadge ball={ball} />
+        </div>
+        {/* Sub row: bowler → batsman */}
+        <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[9px] font-semibold text-white/55 leading-none truncate">
+          <span className="text-white/80 font-bold truncate">{ball.bowlerName}</span>
+          <span className="text-white/35">→</span>
+          <span className="text-white/80 font-bold truncate">{ball.batterName}</span>
+        </div>
       </div>
     </div>
   );
@@ -420,21 +420,23 @@ function SpeedChip({ ball }: { ball: Ball }) {
   const speed = ball.ballSpeedKmh ?? 0;
   const color = speed >= 140 ? "text-cyan" : speed >= 130 ? "text-text-primary" : speed >= 110 ? "text-orange" : "text-six";
   return (
-    <div className="flex items-baseline gap-1">
-      <span className={`text-base font-extrabold num ${color}`}>{speed}</span>
-      <span className="text-[9px] font-semibold uppercase tracking-widest text-text-dim">kmh</span>
+    <div className="flex items-baseline gap-0.5 leading-none">
+      <span className={`text-xs font-extrabold num ${color}`}>{speed}</span>
+      <span className="text-[8px] font-semibold uppercase tracking-widest text-text-dim">kmh</span>
     </div>
   );
 }
 
-function TypeChip({ ball }: { ball: Ball }) {
+function TypeChip({ ball, large }: { ball: Ball; large?: boolean }) {
   const variation = formatVariation(ball);
   const color =
     ball.spinDirection && ball.spinDirection !== "none" ? "text-six"
     : ball.swingDirection && ball.swingDirection !== "none" ? "text-cyan"
     : "text-text-primary";
   return (
-    <span className={`text-xs font-bold ${color}`}>{variation}</span>
+    <span className={`font-extrabold leading-tight ${color} ${large ? "text-sm" : "text-xs"}`}>
+      {variation}
+    </span>
   );
 }
 
@@ -483,7 +485,7 @@ function OutcomeBadge({ ball }: { ball: Ball }) {
   else if (ball.isBoundary4) { bg = "#00E5FF"; fg = "#0A0E1A"; label = "4"; }
   else if (ball.runs === 0 && !ball.extras) { label = "•"; }
   return (
-    <div className="w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-lg" style={{ background: bg, color: fg, boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}>{label}</div>
+    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-xl shrink-0" style={{ background: bg, color: fg, boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}>{label}</div>
   );
 }
 
@@ -492,10 +494,4 @@ function formatVariation(ball: Ball): string {
   if (ball.swingDirection === "in") return "Inswinger";
   if (ball.swingDirection === "out") return "Outswinger";
   if (ball.spinDirection === "off") return "Off-spin";
-  if (ball.spinDirection === "leg") return "Leg-spin";
-  if (ball.pace === "fast") return "Fast";
-  if (ball.pace === "slow") return "Slow";
-  return "Stock";
-}
-
-function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  if (ball.spinDirection === "leg") return 

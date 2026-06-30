@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
   title: "Bawler — Every Ball, Visualized",
@@ -25,8 +26,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen">
-        <div className="phone-frame">{children}</div>
-      </body>
-    </html>
-  );
-}
+        <div className="phone-frame">
+ 

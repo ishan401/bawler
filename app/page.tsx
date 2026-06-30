@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   LIVE_MATCHES,
@@ -24,6 +23,7 @@ const FILTERS: FilterDef[] = [
     label: "Team",
     defaultValue: TEAM_DEFAULT,
     options: Object.values(TEAMS).map(t => t.shortName).sort(),
+    colorFn: (val) => Object.values(TEAMS).find(t => t.shortName === val)?.primaryColor,
   },
   {
     key: "tournament",
@@ -196,7 +196,7 @@ export default function Home() {
   const futureBasis = expanded === "future" ? "basis-full" : expanded === "past" ? "hidden" : "basis-[37%]";
 
   return (
-    <main className="min-h-screen pb-8">
+    <main className="min-h-screen pb-20">
       {/* Compact header — logo + nav + filter on a single line */}
       <header className="px-3 pt-3 pb-2">
         <div className="flex items-center gap-1.5 flex-nowrap">
@@ -214,22 +214,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Schedule + Table nav buttons */}
-      <div className="px-3 flex items-center gap-2 mb-2">
-        <NavButton href="/schedule" label="Schedule" icon={
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-            <rect x="2.5" y="3.5" width="11" height="10" rx="1" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M2.5 6.5H13.5M6 2V5M10 2V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-        } />
-        <NavButton href="/table" label="Table" icon={
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-            <rect x="2.5" y="3.5" width="11" height="9" rx="1" stroke="currentColor" strokeWidth="1.4" />
-            <line x1="2.5" y1="7" x2="13.5" y2="7" stroke="currentColor" strokeWidth="1.2" />
-            <line x1="2.5" y1="10" x2="13.5" y2="10" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-        } />
-      </div>
+
 
       <section className="mt-1">
         <LiveCarousel matches={LIVE_MATCHES} />
@@ -279,17 +264,6 @@ export default function Home() {
 // Sub-components
 // ============================================================================
 
-function NavButton({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-bg-surface border border-line hover:border-cyan/50 hover:text-cyan transition-colors text-text-secondary"
-    >
-      <span className="text-text-dim">{icon}</span>
-      <span className="text-[10.5px] font-bold uppercase tracking-widest">{label}</span>
-    </Link>
-  );
-}
 
 function ColumnHeader({ title, count, expanded, onToggleExpand }: { title: string; count: number; expanded: boolean; onToggleExpand: () => void }) {
   return (
@@ -363,3 +337,4 @@ function Logo() {
     </svg>
   );
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
