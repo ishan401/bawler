@@ -67,10 +67,12 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
   const firstX = chartPoints.length > 0 ? xToPx(chartPoints[0].overFloat).toFixed(1) : "0";
   const lastX = chartPoints.length > 0 ? xToPx(chartPoints[chartPoints.length - 1].overFloat).toFixed(1) : "0";
 
+  // Team A fill: below the line (their probability territory)
   const areaPathA = chartPoints.length > 0
     ? `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`
     : "";
 
+  // Team B fill: above the line (their probability territory)
   const areaPathB = chartPoints.length > 0
     ? `M ${firstX} ${topY} L ${lastX} ${topY} L ${lastX} ${yToPx(chartPoints[chartPoints.length - 1].winProbTeamA).toFixed(1)} ${chartPoints.slice().reverse().map(p => `L ${xToPx(p.overFloat).toFixed(1)} ${yToPx(p.winProbTeamA).toFixed(1)}`).join(" ")} Z`
     : "";
@@ -166,10 +168,12 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
       <div ref={containerRef} className="flex-1 px-2 touch-none flex items-center">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="xMidYMid meet" style={{ maxHeight: 280 }}>
           <defs>
+            {/* Team A gradient: fills below line in team A colour */}
             <linearGradient id="wpc-grad-a" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.38" />
               <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.04" />
             </linearGradient>
+            {/* Team B gradient: fills above line in team B colour */}
             <linearGradient id="wpc-grad-b" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.04" />
               <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.3" />
@@ -179,8 +183,9 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
           {/* Chart border */}
           <rect x={PAD.left} y={PAD.top} width={innerW} height={innerH} fill="none" stroke="#1E293B" strokeWidth="0.5" />
 
-          {/* Fills */}
+          {/* Team B fill — above the line */}
           {areaPathB && <path d={areaPathB} fill="url(#wpc-grad-b)" />}
+          {/* Team A fill — below the line */}
           {areaPathA && <path d={areaPathA} fill="url(#wpc-grad-a)" />}
 
           {/* Gridlines */}
@@ -194,7 +199,8 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
                   strokeWidth={isMid ? "1" : "0.5"}
                   strokeDasharray={isMid ? "5 4" : "2 5"}
                 />
-                <text x={PAD.left - 8} y={yToPx(y) + 3.5} fill={isMid ? "#94A3B8" : "#475569"}
+                <text x={PAD.left - 8} y={yToPx(y) + 3.5}
+                  fill={isMid ? "#94A3B8" : "#475569"}
                   fontSize={isMid ? "9" : "8"} fontWeight={isMid ? "700" : "500"} textAnchor="end">
                   {Math.round(y * 100)}
                 </text>
@@ -202,7 +208,7 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
             );
           })}
 
-          {/* Team labels on y-axis */}
+          {/* Team labels on y-axis: team A at top, team B at bottom */}
           <text x={PAD.left - 8} y={PAD.top - 6} fill={teamA.primaryColor} fontSize="8" fontWeight="800" textAnchor="end">
             {teamA.shortName}
           </text>
@@ -231,14 +237,14 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
             </g>
           )}
 
-          {/* Main probability line */}
+          {/* Main line — always team A colour (line = team A win probability) */}
           {linePath && (
             <path d={linePath}
-              stroke={leaderA ? teamA.primaryColor : teamB.primaryColor}
+              stroke={teamA.primaryColor}
               strokeWidth="2.2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
           )}
 
-          {/* Event dots */}
+          {/* Event dots — coloured by event type */}
           {visibleEvents.map(e => {
             const pt = chartPoints.find(p => p.overFloat >= e.overFloat) ?? chartPoints[chartPoints.length - 1];
             if (!pt) return null;
@@ -255,16 +261,15 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
             );
           })}
 
-          {/* NOW marker */}
+          {/* NOW marker — dot always in team A colour on team A line */}
           {last.overFloat >= xMin && last.overFloat <= xMax && (() => {
             const nx = xToPx(last.overFloat);
             const ny = yToPx(last.winProbTeamA);
-            const color = leaderA ? teamA.primaryColor : teamB.primaryColor;
             return (
               <g>
                 <line x1={nx} y1={PAD.top} x2={nx} y2={PAD.top + innerH}
                   stroke="#F8FAFC" strokeWidth="1" strokeDasharray="2 3" strokeOpacity="0.35" />
-                <circle cx={nx} cy={ny} r="5.5" fill={color} stroke="#F8FAFC" strokeWidth="1.8" />
+                <circle cx={nx} cy={ny} r="5.5" fill={teamA.primaryColor} stroke="#F8FAFC" strokeWidth="1.8" />
                 <text x={Math.min(nx + 7, W - PAD.right - 16)} y={PAD.top + 9}
                   fill="#F8FAFC" fontSize="8" fontWeight="700" opacity="0.6">
                   NOW
@@ -275,7 +280,7 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
         </svg>
       </div>
 
-      {/* Key moments */}
+      {/* Key moments chips */}
       {visibleEvents.length > 0 && (
         <div className="px-4 pt-2 pb-5 border-t border-line shrink-0">
           <p className="text-[8.5px] uppercase tracking-widest text-text-dim mb-2">Key moments</p>

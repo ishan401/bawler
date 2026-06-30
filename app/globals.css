@@ -5,7 +5,7 @@
 @layer base {
   html {
     color-scheme: dark;
-    background: #000000;
+    background: #03060F;
   }
   body {
     @apply bg-bg-deep text-text-primary font-sans antialiased;
@@ -62,7 +62,7 @@
     height: 4px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #222222;
+    background: #1E293B;
     border-radius: 2px;
   }
 }

@@ -37,7 +37,8 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
   const bottomY = (PAD.top + innerH).toFixed(1);
   const topY = PAD.top.toFixed(1);
 
-  const areaPath = `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
+  // Area below line = team A territory; area above line = team B territory
+  const areaPathA = `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
   const areaPathB = `M ${firstX} ${topY} L ${lastX} ${topY} L ${lastX} ${yToPx(points[points.length - 1].winProbTeamA).toFixed(1)} ${points.slice().reverse().map(p => `L ${xToPx(p.overFloat).toFixed(1)} ${yToPx(p.winProbTeamA).toFixed(1)}`).join(" ")} Z`;
 
   return (
@@ -72,8 +73,10 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
             </linearGradient>
           </defs>
 
+          {/* Team B fill above the line */}
           <path d={areaPathB} fill="url(#mini-grad-b)" />
-          <path d={areaPath} fill="url(#mini-grad-a)" />
+          {/* Team A fill below the line */}
+          <path d={areaPathA} fill="url(#mini-grad-a)" />
 
           {/* 50% reference */}
           <line
@@ -91,17 +94,17 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
             />
           )}
 
-          {/* Probability line */}
+          {/* Line always in team A colour — it represents team A win probability */}
           <path
             d={linePath}
-            stroke={leaderA ? teamA.primaryColor : teamB.primaryColor}
+            stroke={teamA.primaryColor}
             strokeWidth="1.8" fill="none" strokeLinejoin="round" strokeLinecap="round"
           />
 
-          {/* Current position dot */}
+          {/* Current position dot in team A colour */}
           <circle
             cx={xToPx(last.overFloat)} cy={yToPx(pctA)} r="3"
-            fill={leaderA ? teamA.primaryColor : teamB.primaryColor}
+            fill={teamA.primaryColor}
             stroke="#0A0E1A" strokeWidth="1.2"
           />
         </svg>
