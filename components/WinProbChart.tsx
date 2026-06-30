@@ -3,6 +3,18 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { Match, WinProbPoint, MatchEvent } from "@/lib/types";
 
+
+// Normalise a dark hex colour to its vivid equivalent (max channel → 255)
+// so team fills are always clearly visible and hue-accurate on dark backgrounds.
+function brightColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const max = Math.max(r, g, b, 1);
+  const s = 255 / max;
+  return `rgb(${Math.min(255, Math.round(r * s))},${Math.min(255, Math.round(g * s))},${Math.min(255, Math.round(b * s))})`;
+}
+
 interface WinProbChartProps {
   match: Match;
   points: WinProbPoint[];
@@ -170,13 +182,13 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
           <defs>
             {/* Team A gradient: fills below line in team A colour */}
             <linearGradient id="wpc-grad-a" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.9" />
-              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.45" />
+              <stop offset="0%" stopColor={brightColor(teamA.primaryColor)} stopOpacity="0.75" />
+              <stop offset="100%" stopColor={brightColor(teamA.primaryColor)} stopOpacity="0.25" />
             </linearGradient>
             {/* Team B gradient: fills above line in team B colour */}
             <linearGradient id="wpc-grad-b" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.45" />
-              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.9" />
+              <stop offset="0%" stopColor={brightColor(teamB.primaryColor)} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={brightColor(teamB.primaryColor)} stopOpacity="0.75" />
             </linearGradient>
           </defs>
 
@@ -184,9 +196,9 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
           <rect x={PAD.left} y={PAD.top} width={innerW} height={innerH} fill="none" stroke="#1E293B" strokeWidth="0.5" />
 
           {/* Team B fill — above the line */}
-          {areaPathB && <path d={areaPathB} fill="url(#wpc-grad-b)" style={{filter:"brightness(3) saturate(2)"}} />}
+          {areaPathB && <path d={areaPathB} fill="url(#wpc-grad-b)" />}
           {/* Team A fill — below the line */}
-          {areaPathA && <path d={areaPathA} fill="url(#wpc-grad-a)" style={{filter:"brightness(3) saturate(2)"}} />}
+          {areaPathA && <path d={areaPathA} fill="url(#wpc-grad-a)" />}
 
           {/* Gridlines */}
           {[0, 0.25, 0.5, 0.75, 1].map(y => {
@@ -240,7 +252,7 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
           {/* Main line — always team A colour (line = team A win probability) */}
           {linePath && (
             <path d={linePath}
-              stroke={teamA.primaryColor}
+              stroke={brightColor(teamA.primaryColor)}
               strokeWidth="2.2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
           )}
           {/* NOW marker — dot always in team A colour on team A line */}

@@ -8,6 +8,16 @@ interface MiniWinProbProps {
   onExpand: () => void;
 }
 
+
+function brightColor(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const max = Math.max(r, g, b, 1);
+  const s = 255 / max;
+  return `rgb(${Math.min(255, Math.round(r * s))},${Math.min(255, Math.round(g * s))},${Math.min(255, Math.round(b * s))})`;
+}
+
 export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProps) {
   if (points.length === 0) return null;
 
@@ -64,19 +74,19 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="none" style={{ height: 56 }}>
           <defs>
             <linearGradient id="mini-grad-a" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.9" />
-              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.45" />
+              <stop offset="0%" stopColor={brightColor(teamA.primaryColor)} stopOpacity="0.75" />
+              <stop offset="100%" stopColor={brightColor(teamA.primaryColor)} stopOpacity="0.25" />
             </linearGradient>
             <linearGradient id="mini-grad-b" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.45" />
-              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.9" />
+              <stop offset="0%" stopColor={brightColor(teamB.primaryColor)} stopOpacity="0.25" />
+              <stop offset="100%" stopColor={brightColor(teamB.primaryColor)} stopOpacity="0.75" />
             </linearGradient>
           </defs>
 
           {/* Team B fill above the line */}
-          <path d={areaPathB} fill="url(#mini-grad-b)" style={{filter:"brightness(3) saturate(2)"}} />
+          <path d={areaPathB} fill="url(#mini-grad-b)" />
           {/* Team A fill below the line */}
-          <path d={areaPathA} fill="url(#mini-grad-a)" style={{filter:"brightness(3) saturate(2)"}} />
+          <path d={areaPathA} fill="url(#mini-grad-a)" />
 
           {/* 50% reference */}
           <line
@@ -97,14 +107,14 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
           {/* Line always in team A colour — it represents team A win probability */}
           <path
             d={linePath}
-            stroke={teamA.primaryColor}
+            stroke={brightColor(teamA.primaryColor)}
             strokeWidth="1.8" fill="none" strokeLinejoin="round" strokeLinecap="round"
           />
 
           {/* Current position dot in team A colour */}
           <circle
             cx={xToPx(last.overFloat)} cy={yToPx(pctA)} r="3"
-            fill={teamA.primaryColor}
+            fill={brightColor(teamA.primaryColor)}
             stroke="#0A0E1A" strokeWidth="1.2"
           />
         </svg>
