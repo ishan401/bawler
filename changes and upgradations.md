@@ -5,6 +5,18 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [0.9.4] 2026-06-30
+
+### Fixed — Win probability chart gradient opacity (WinProbChart + MiniWinProb)
+- Gradient fill opacities were too low — both team zones appeared as near-identical dark fills on the navy background
+- Increased all stopOpacity values significantly:
+  - Team A fill (below line): top 0.38 → 0.55, bottom 0.04 → 0.20
+  - Team B fill (above line): top 0.04 → 0.20, bottom 0.30 → 0.55
+  - MiniWinProb matched to same levels
+- Result: both team territories are now clearly distinct and color-coded to each team's brand color
+
+---
+
 ## [0.9.3] 2026-06-30
 
 ### Fixed — Win probability chart colours (WinProbChart + MiniWinProb)
@@ -73,15 +85,4 @@ Initial v0.9 prototype. Full UI built with mocked data.
 ### Features
 - Home page: LiveCarousel, Past/Future split columns, FilterBar with animated transitions, infinite scroll
 - Match page: BallGIF (2-clip animated SVG), MomentsStrip, MiniWinProb, AIMetrics (4 tiles), CommentaryFeed
-- Scorecard tab: full batting + bowling cards
-- Info tab: PitchReportCard, LineupsCard
-- Schedule page, Table/standings page
-- Win probability: formula-based (bookmaker-approximating), WinProbChart with zoom + pinch
-- Match events: wickets, sixes, milestones, big overs, phase shifts
-- Insight feed: tiered attribution (analyst > cricbuzz > espn > bot)
-- Data model: ball-level coordinates, delivery descriptors, shot tracking — Roanuz-schema-compatible
-
-### Stack
-- Next.js 14, React 18, TypeScript, Tailwind CSS
-- Deployed: Vercel (bawler-gold.vercel.app)
-- Repo: github.com/ishan401/bawler
+- Scorecard tab: full batting + bow

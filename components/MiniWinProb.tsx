@@ -64,12 +64,12 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="none" style={{ height: 56 }}>
           <defs>
             <linearGradient id="mini-grad-a" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.45" />
-              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.03" />
+              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.55" />
+              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.2" />
             </linearGradient>
             <linearGradient id="mini-grad-b" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.03" />
-              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.35" />
+              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.2" />
+              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.55" />
             </linearGradient>
           </defs>
 

@@ -170,13 +170,13 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
           <defs>
             {/* Team A gradient: fills below line in team A colour */}
             <linearGradient id="wpc-grad-a" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.38" />
-              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.04" />
+              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.55" />
+              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.2" />
             </linearGradient>
             {/* Team B gradient: fills above line in team B colour */}
             <linearGradient id="wpc-grad-b" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.04" />
-              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.3" />
+              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.2" />
+              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.55" />
             </linearGradient>
           </defs>
 
