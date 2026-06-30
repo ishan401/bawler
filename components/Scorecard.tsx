@@ -195,7 +195,7 @@ function BatterRow({
           <div className="text-[10px] text-boundary mt-0.5">not out</div>
         )}
       </td>
-      <td className={`py-2 px-1 text-right num font-bold ${isTopScorer ? "text-boundary" : ""}`}>
+      <td className={`py-2 px-1 text-right num font-bold ${isTopScorer ? "text-teal-400" : ""}`}>
         {row.runs}
       </td>
       <td className="py-2 px-1 text-right num text-text-secondary">{row.ballsFaced}</td>
