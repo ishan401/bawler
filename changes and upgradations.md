@@ -5,6 +5,21 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [0.9.2] 2026-06-30
+
+### Changed — Background color (tailwind.config.ts + globals.css)
+- Replaced navy/blue-tinted dark palette with pure blacks
+  - bg (page): #0A0E1A → #000000
+  - bg-surface (cards): #141B2D → #0F0F0F
+  - bg-elevated: #1B243A → #1A1A1A
+  - bg-deep: #03060F → #000000
+  - line (borders): #1E293B → #222222
+  - html background in globals.css: #03060F → #000000
+  - scrollbar thumb: #1E293B → #222222
+- Result: true AMOLED black — better on OLED screens, saves battery, removes the unintended blue cast
+
+---
+
 ## [0.9.1b] 2026-06-30 — hotfix
 
 ### Fixed — Build failure (truncated JSX)
