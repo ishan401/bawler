@@ -5,6 +5,19 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [0.9.3] 2026-06-30
+
+### Fixed — Win probability chart colours (WinProbChart + MiniWinProb)
+- Line and NOW dot were switching to team B colour when team B was leading, making both fills appear the same colour
+- Fixed: line always renders in team A colour (it always represents team A win probability); fills are always team A colour below the line and team B colour above — regardless of who is winning
+- Team label annotations on y-axis (team A name at top, team B name at bottom) now make the axis self-explanatory
+
+### Reverted — Background colour
+- Pure black (#000000) reverted to original navy dark palette (#0A0E1A / #141B2D / #1B243A)
+- Reason: user preference — original colour scheme retained
+
+---
+
 ## [0.9.2] 2026-06-30
 
 ### Changed — Background color (tailwind.config.ts + globals.css)
