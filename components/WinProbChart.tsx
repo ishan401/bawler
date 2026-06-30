@@ -184,9 +184,9 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
           <rect x={PAD.left} y={PAD.top} width={innerW} height={innerH} fill="none" stroke="#1E293B" strokeWidth="0.5" />
 
           {/* Team B fill — above the line */}
-          {areaPathB && <path d={areaPathB} fill="url(#wpc-grad-b)" />}
+          {areaPathB && <path d={areaPathB} fill="url(#wpc-grad-b)" style={{filter:"brightness(3) saturate(2)"}} />}
           {/* Team A fill — below the line */}
-          {areaPathA && <path d={areaPathA} fill="url(#wpc-grad-a)" />}
+          {areaPathA && <path d={areaPathA} fill="url(#wpc-grad-a)" style={{filter:"brightness(3) saturate(2)"}} />}
 
           {/* Gridlines */}
           {[0, 0.25, 0.5, 0.75, 1].map(y => {

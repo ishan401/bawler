@@ -74,9 +74,9 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
           </defs>
 
           {/* Team B fill above the line */}
-          <path d={areaPathB} fill="url(#mini-grad-b)" />
+          <path d={areaPathB} fill="url(#mini-grad-b)" style={{filter:"brightness(3) saturate(2)"}} />
           {/* Team A fill below the line */}
-          <path d={areaPathA} fill="url(#mini-grad-a)" />
+          <path d={areaPathA} fill="url(#mini-grad-a)" style={{filter:"brightness(3) saturate(2)"}} />
 
           {/* 50% reference */}
           <line
