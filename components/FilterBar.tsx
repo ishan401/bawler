@@ -171,4 +171,18 @@ function FilterPill({
                 >
                   <span className="flex items-center justify-between">
                     <span>{opt}</span>
-      
+                          {isActive && (
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 8L7 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

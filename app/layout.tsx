@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import type { ReactNode } from "react";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 
@@ -14,7 +15,7 @@ export const viewport: Viewport = {
   themeColor: "#0A0E1A",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -27,4 +28,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen">
         <div className="phone-frame">
- 
+          {children}
+          <BottomNav />
+        </div>
+      </body>
+    </html>
+  );
+}

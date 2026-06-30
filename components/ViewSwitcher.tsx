@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 export type GIFViewMode = "perspective" | "topdown" | "side";
 
 interface ViewSwitcherProps {

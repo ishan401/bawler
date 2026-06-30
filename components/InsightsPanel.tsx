@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import type { InsightV2 } from "@/lib/types";
 
 interface InsightsPanelProps {

@@ -1,3 +1,4 @@
+import React from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
 import { TEAMS } from "@/lib/mockData";
 

@@ -494,4 +494,10 @@ function formatVariation(ball: Ball): string {
   if (ball.swingDirection === "in") return "Inswinger";
   if (ball.swingDirection === "out") return "Outswinger";
   if (ball.spinDirection === "off") return "Off-spin";
-  if (ball.spinDirection === "leg") return 
+  if (ball.spinDirection === "leg") return "Leg-spin";
+  if (ball.pace === "fast") return "Fast";
+  if (ball.pace === "slow") return "Slow";
+  return "Stock";
+}
+
+function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }

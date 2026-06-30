@@ -1,3 +1,4 @@
+import React from "react";
 import type { Match } from "@/lib/types";
 
 interface LineupsCardProps {

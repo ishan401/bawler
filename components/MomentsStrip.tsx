@@ -84,4 +84,33 @@ function EventChip({ event, active, onClick }: { event: MatchEvent; active: bool
       }`}
       style={{ minWidth: 90, maxWidth: 120 }}
     >
-      {/* Top strip — color accent bar */}
+      {/* Top strip — color accent bar */}      <div
+        className="rounded-t-xl px-2.5 pt-2 pb-1.5 flex items-center gap-1.5"
+      >
+        <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-extrabold shrink-0 ${s.chipBg}`}>
+          {s.chip}
+        </span>
+        <span className="text-[11px] num font-extrabold text-white/90 leading-none">
+          {overStr}
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="px-2.5 pb-2.5">
+        <div className={`text-[11px] font-bold leading-tight truncate ${s.color}`}>
+          {event.label}
+        </div>
+        {event.context && (
+          <div className="text-[9.5px] text-text-dim leading-snug mt-0.5" style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical" as const,
+            overflow: "hidden",
+          }}>
+            {event.context}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+}

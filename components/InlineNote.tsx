@@ -1,3 +1,4 @@
+import React from "react";
 import type { InsightV2 } from "@/lib/types";
 
 interface InlineNoteProps {

@@ -50,3 +50,34 @@ function MetricTile({ metric }: { metric: AIMetric }) {
       </div>
 
       {/* Delta / secondary
+      {/* Delta / secondary — shown when available */}
+      {metric.trendDelta && (
+        <span className={`text-[7.5px] font-semibold leading-none truncate ${trendIcon?.color ?? "text-text-dim"}`}>
+          {metric.trendDelta}
+        </span>
+      )}
+
+      {/* Context label — always visible */}
+      <span className="text-[7px] text-text-dim leading-tight truncate" style={{ lineHeight: "1.1" }}>
+        {context}
+      </span>
+    </div>
+  );
+}
+
+function tintFg(tint?: AIMetric["tint"]): string {
+  switch (tint) {
+    case "cyan":     return "text-cyan";
+    case "orange":   return "text-orange";
+    case "wicket":   return "text-wicket";
+    case "boundary": return "text-boundary";
+    case "six":      return "text-six";
+    default:         return "text-text-primary";
+  }
+}
+
+function trendOf(trend?: AIMetric["trend"], tint?: AIMetric["tint"]): { icon: string; color: string } | null {
+  if (!trend || trend === "flat") return null;
+  const color = tint ? tintFg(tint) : trend === "up" ? "text-cyan" : "text-wicket";
+  return { icon: trend === "up" ? "↑" : "↓", color };
+}

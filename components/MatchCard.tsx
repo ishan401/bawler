@@ -328,4 +328,30 @@ export function FutureMatchCard({ match }: { match: Match }) {
         {match.summary && (
           <p className="text-[9.5px] leading-snug text-white/80 flex-1" style={clamp2}>
             {match.summary}
-       
+                 </p>
+        )}
+
+        {/* Row 4: bottom anchor — countdown + time + venue */}
+        <div
+          className="mt-auto rounded-md px-1.5 py-1 flex items-center justify-between gap-1"
+          style={{ background: "rgba(0,0,0,0.35)", borderTop: "1px solid rgba(255,255,255,0.10)" }}
+        >
+          {/* Clock countdown */}
+          <div className="flex items-center gap-1">
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-white/50 shrink-0">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 5v3l2 1.5" />
+            </svg>
+            <span className="text-[9px] font-extrabold text-cyan num leading-none">
+              {fmtCountdown(match.startTimeIso)}
+            </span>
+          </div>
+          {/* Time + venue */}
+          <span className="text-[8.5px] text-white/50 num truncate leading-none">
+            {fmtTime(match.startTimeIso)} · {match.venue.city}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}

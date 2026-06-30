@@ -11,7 +11,7 @@ export default function MatchPage({ params }: { params: { id: string } }) {
   // For now, all matches use the MatchView component
   // The component itself handles the 3 lifecycle states (pre-match, live, post-match)
   // based on match.status — for the prototype, we route everything through MatchView
-  return <MatchView match={match} />;
+  return <MatchView match={match!} />;
 }
 
 export function generateStaticParams() {

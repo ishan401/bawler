@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 import type { Ball } from "@/lib/types";
 import MiniBallGIF from "./MiniBallGIF";
 import { OUTCOME, outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
