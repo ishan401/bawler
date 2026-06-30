@@ -28,7 +28,7 @@ export default function Scorecard({ match }: ScorecardProps) {
           {motm && (
             <div className="card px-3 py-2 flex items-center gap-2">
               <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Match</span>
-              <span className="text-sm font-extrabold text-orange">{motm}</span>
+              <span className="text-sm font-extrabold text-yellow-400">{motm}</span>
             </div>
           )}
           {mots && (
@@ -168,7 +168,7 @@ function BatterRow({
   const nameColor = isMots
     ? "text-six"
     : isMotm
-    ? "text-orange"
+    ? "text-yellow-400"
     : row.out
     ? "text-text-secondary"
     : "text-text-primary";
@@ -182,7 +182,7 @@ function BatterRow({
             <span className="text-[9px] font-bold text-cyan tracking-widest">*</span>
           )}
           {isMotm && (
-            <span className="text-[8px] font-extrabold uppercase tracking-widest text-orange bg-orange/10 px-1 py-0.5 rounded leading-none">MOM</span>
+            <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
           )}
           {isMots && (
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
@@ -201,7 +201,7 @@ function BatterRow({
       <td className="py-2 px-1 text-right num text-text-secondary">{row.ballsFaced}</td>
       <td className="py-2 px-1 text-right num text-text-secondary">{row.fours}</td>
       <td className="py-2 px-1 text-right num text-text-secondary">{row.sixes}</td>
-      <td className={`py-2 pl-1 text-right num ${isTopSR ? "text-boundary font-bold" : "text-text-secondary"}`}>
+      <td className={`py-2 pl-1 text-right num ${isTopSR ? "text-blue-400 font-bold" : "text-text-secondary"}`}>
         {row.strikeRate.toFixed(1)}
       </td>
     </tr>
@@ -225,7 +225,7 @@ function BowlerRow({
   const nameColor = isMots
     ? "text-six"
     : isMotm
-    ? "text-orange"
+    ? "text-yellow-400"
     : "text-text-primary";
 
   return (
@@ -234,7 +234,7 @@ function BowlerRow({
         <div className="flex items-center gap-1.5">
           <span className={`font-medium ${nameColor}`}>{row.playerName}</span>
           {isMotm && (
-            <span className="text-[8px] font-extrabold uppercase tracking-widest text-orange bg-orange/10 px-1 py-0.5 rounded leading-none">MOM</span>
+            <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
           )}
           {isMots && (
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
