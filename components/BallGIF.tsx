@@ -111,7 +111,12 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
   // Length = how far down the pitch the ball lands (pitchY: 0=batter, 1=bowler)
   // Line = lateral position on the pitch
   const pitchY = ball.pitchY ?? 0.65;
-  const impactY = PITCH_BOT_Y - pitchY * (PITCH_BOT_Y - PITCH_TOP_Y);
+  // Perspective-correct Y: the trapezoid encodes a real perspective projection.
+  // Equal 3D distances on the pitch map non-linearly to screen Y.
+  // Near half (batter end) is visually stretched; far half (bowler end) is compressed.
+  // Formula derived from width ratio near/far = PITCH_BOT_W / PITCH_TOP_W = 2.75.
+  const _wRatio = PITCH_BOT_W / PITCH_TOP_W;
+  const impactY = PITCH_BOT_Y - (_wRatio * (PITCH_BOT_Y - PITCH_TOP_Y) * pitchY) / (1 + (_wRatio - 1) * pitchY);
   const { right: rightImpact, left: leftImpact } = pitchXAtY(impactY);
   const halfImpact = (rightImpact - leftImpact) / 2;
   const impactX = CX + (ball.pitchX ?? 0) * halfImpact * 0.9;
@@ -143,9 +148,13 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
     y: (releaseY + impactY) / 2 - 6,
   };
   const spinDelta = (ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : 0) * 18 * 2.2;
+  // After pitching, the ball bounces UPWARD (smaller screen Y) before coming down
+  // to the batter. Bounce height scales with pitchY: yorkers barely bounce (≈10px),
+  // bouncers rear up sharply (≈60px).
+  const _bounceH = 10 + pitchY * 50;
   const postPitchControl = {
     x: (impactX + batterArrivalX) / 2 + spinDelta,
-    y: (impactY + batterArrivalY) / 2,
+    y: impactY - _bounceH,
   };
 
   // Pace affects animation speed visually
