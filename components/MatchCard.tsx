@@ -109,7 +109,7 @@ export function LiveMatchCard({ match }: { match: Match }) {
   return (
     <Link
       href={`/match/${match.id}`}
-      className="relative block rounded-2xl overflow-hidden snap-center shrink-0 w-full"
+      className="tap-scale relative block rounded-2xl overflow-hidden snap-center shrink-0 w-full"
       style={{ height: LIVE_CARD_HEIGHT }}
     >
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="full" />
@@ -231,7 +231,7 @@ export function PastMatchCard({ match }: { match: Match }) {
   return (
     <Link
       href={`/match/${match.id}`}
-      className={`relative block rounded-xl overflow-hidden ${highlight ? "excitement-glow" : "border border-line"}`}
+      className={`tap-scale relative block rounded-xl overflow-hidden ${highlight ? "excitement-glow" : "border border-line"}`}
       style={{ height: PAST_CARD_HEIGHT }}
     >
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="wide" />
@@ -303,7 +303,7 @@ export function FutureMatchCard({ match }: { match: Match }) {
   return (
     <Link
       href={`/match/${match.id}`}
-      className={`relative block rounded-xl overflow-hidden ${highlight ? "excitement-glow" : "border border-line"}`}
+      className={`tap-scale relative block rounded-xl overflow-hidden ${highlight ? "excitement-glow" : "border border-line"}`}
       style={{ height: FUTURE_CARD_HEIGHT }}
     >
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="narrow" />

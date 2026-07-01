@@ -176,3 +176,32 @@
 .excitement-glow {
   animation: excitement-pulse 3s ease-in-out infinite;
 }
+
+/* ============================================================
+   Skeleton shimmer
+   ============================================================ */
+@keyframes shimmer-slide {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #1B243A 0%,
+    #2a3a54 40%,
+    #1B243A 80%
+  );
+  background-size: 1200px 100%;
+  animation: shimmer-slide 1.6s ease-in-out infinite;
+}
+
+/* ============================================================
+   Tap / press feedback — add class tap-scale to any tappable card
+   ============================================================ */
+.tap-scale {
+  transition: transform 100ms ease, filter 100ms ease;
+}
+.tap-scale:active {
+  transform: scale(0.97);
+  filter: brightness(0.78);
+}

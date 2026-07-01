@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import type { Match, MatchEvent } from "@/lib/types";
 import { calculateWinProbForMatch } from "@/lib/winProb";
 import { computeAIMetrics } from "@/lib/metrics";
@@ -12,7 +12,7 @@ import WinProbChart from "@/components/WinProbChart";
 import MiniWinProb from "@/components/MiniWinProb";
 import AIMetrics from "@/components/AIMetrics";
 import MomentsStrip from "@/components/MomentsStrip";
-import MatchTabs, { type TabKey } from "@/components/MatchTabs";
+import MatchTabs, { type TabKey, type TabBadge } from "@/components/MatchTabs";
 import Scorecard from "@/components/Scorecard";
 import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
@@ -59,6 +59,41 @@ export default function MatchView({ match }: MatchViewProps) {
   const [tab, setTab] = useState<TabKey>("live");
   const [showProbModal, setShowProbModal] = useState(false);
 
+  // ── Swipe between tabs ──────────────────────────────────────────
+  const TABS_ORDER: TabKey[] = ["live", "scorecard", "info"];
+  const swipeTouchX = useRef(0);
+  const swipeTouchY = useRef(0);
+  const onSwipeStart = (e: React.TouchEvent) => {
+    swipeTouchX.current = e.touches[0].clientX;
+    swipeTouchY.current = e.touches[0].clientY;
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - swipeTouchX.current;
+    const dy = Math.abs(e.changedTouches[0].clientY - swipeTouchY.current);
+    if (Math.abs(dx) < 60 || dy > Math.abs(dx) * 0.75) return;
+    const idx = TABS_ORDER.indexOf(tab);
+    if (dx < 0 && idx < TABS_ORDER.length - 1) setTab(TABS_ORDER[idx + 1]);
+    else if (dx > 0 && idx > 0) setTab(TABS_ORDER[idx - 1]);
+  };
+
+  // ── Scorecard badge on wicket / six ────────────────────────────
+  // currentBall needed here — declared early so badge effect can reference it
+  const currentBall = allBalls[activeBallIdx];
+  const [scorecardBadge, setScorecardBadge] = useState<TabBadge | null>(null);
+  const lastBadgedBallId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentBall || currentBall.id === lastBadgedBallId.current || tab === "scorecard") return;
+    lastBadgedBallId.current = currentBall.id;
+    if (currentBall.isWicket) {
+      setScorecardBadge({ tab: "scorecard", type: "wicket" });
+      setTimeout(() => setScorecardBadge(null), 4000);
+    } else if (currentBall.runs === 6 && currentBall.extras === 0) {
+      setScorecardBadge({ tab: "scorecard", type: "six" });
+      setTimeout(() => setScorecardBadge(null), 4000);
+    }
+  }, [currentBall, tab]);
+  useEffect(() => { if (tab === "scorecard") setScorecardBadge(null); }, [tab]);
+
   const truncatedMatch = useMemo(() => {
     const ballsToShow = activeBallIdx + 1;
     const i1Balls = match.innings[0]?.balls ?? [];
@@ -97,7 +132,6 @@ export default function MatchView({ match }: MatchViewProps) {
     return { ...match, innings };
   }, [match, activeBallIdx]);
 
-  const currentBall = allBalls[activeBallIdx];
   const winProbPoints = useMemo(() => calculateWinProbForMatch(truncatedMatch), [truncatedMatch]);
   const events = useMemo(() => extractMatchEvents(truncatedMatch), [truncatedMatch]);
   const metrics = useMemo(() => computeAIMetrics(truncatedMatch), [truncatedMatch]);
@@ -125,13 +159,13 @@ export default function MatchView({ match }: MatchViewProps) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Sticky header */}
-      <div className="sticky top-0 sm:top-4 z-30">
+      <div className="sticky top-0 z-30">
         <ScoreBar match={truncatedMatch} />
         <MiniInsightsBar match={truncatedMatch} insights={visibleInsights} />
-        <MatchTabs active={tab} onChange={setTab} />
+        <MatchTabs active={tab} onChange={setTab} badge={scorecardBadge} />
       </div>
 
-      <main className="flex-1 px-3 py-3 space-y-3">
+      <main className="flex-1 px-3 py-3 space-y-3" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
         {tab === "live" && (
           <>
             {/* 1. GIF (auto-advances every 24 sec when on live; held when a moment is selected) */}

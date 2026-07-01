@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   LIVE_MATCHES,
   PAST_MATCHES,
@@ -58,6 +58,38 @@ export default function Home() {
     tournament: true,
     venue: false,
   });
+
+  // ---- Boot skeleton (shows shimmer for 350ms on first load) ----
+  const [isBooting, setIsBooting] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setIsBooting(false), 350);
+    return () => clearTimeout(t);
+  }, []);
+
+  // ---- Pull-to-refresh ----
+  const [pullY, setPullY] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartY = useRef(0);
+  const onPullTouchStart = useCallback((e: React.TouchEvent) => {
+    const container = document.getElementById("main-scroll");
+    if (container && container.scrollTop > 2) return;
+    pullStartY.current = e.touches[0].clientY;
+  }, []);
+  const onPullTouchMove = useCallback((e: React.TouchEvent) => {
+    const container = document.getElementById("main-scroll");
+    if (container && container.scrollTop > 2) { setPullY(0); return; }
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta > 0) setPullY(Math.min(delta * 0.45, 65));
+  }, []);
+  const onPullTouchEnd = useCallback(() => {
+    if (pullY >= 55) {
+      setIsRefreshing(true);
+      setPullY(0);
+      setTimeout(() => setIsRefreshing(false), 1200);
+    } else {
+      setPullY(0);
+    }
+  }, [pullY]);
 
   // ---- Source lists (infinite scroll grows these) ----
   const [pastList, setPastList] = useState<Match[]>(PAST_MATCHES);
@@ -158,18 +190,19 @@ export default function Home() {
     };
   }, []);
 
-  // ---- Scroll-listener infinite scroll (no eager initial fire) ----
+  // ---- Scroll-listener infinite scroll — listens to #main-scroll container ----
   const loadingRef = useRef(false);
   useEffect(() => {
+    const container = document.getElementById("main-scroll");
+    if (!container) return;
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
       if (timeout) return;
       timeout = setTimeout(() => {
         timeout = null;
         if (loadingRef.current) return;
-        const scrollBottom = window.innerHeight + window.scrollY;
-        const docHeight = document.documentElement.scrollHeight;
-        if (scrollBottom > docHeight - 400) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        if (scrollTop + clientHeight > scrollHeight - 400) {
           loadingRef.current = true;
           setPastList(prev => {
             const earliest = prev.reduce((acc, m) => (m.startTimeIso < acc ? m.startTimeIso : acc), prev[0]?.startTimeIso ?? new Date().toISOString());
@@ -183,9 +216,9 @@ export default function Home() {
         }
       }, 250);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    container.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      container.removeEventListener("scroll", onScroll);
       if (timeout) clearTimeout(timeout);
     };
   }, []);
@@ -196,7 +229,24 @@ export default function Home() {
   const futureBasis = expanded === "future" ? "basis-full" : expanded === "past" ? "hidden" : "basis-[37%]";
 
   return (
-    <main className="min-h-screen">
+    <main
+      className="min-h-screen"
+      onTouchStart={onPullTouchStart}
+      onTouchMove={onPullTouchMove}
+      onTouchEnd={onPullTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      {(pullY > 5 || isRefreshing) && (
+        <div
+          className="flex items-center justify-center overflow-hidden transition-all"
+          style={{ height: isRefreshing ? 48 : pullY }}
+        >
+          <div
+            className={`w-5 h-5 rounded-full border-2 border-cyan border-t-transparent ${isRefreshing ? "animate-spin" : ""}`}
+            style={{ transform: isRefreshing ? undefined : `rotate(${pullY * 4}deg)` }}
+          />
+        </div>
+      )}
       {/* Compact header — logo + nav + filter on a single line */}
       <header className="px-3 pt-3 pb-2">
         <div className="flex items-center gap-1.5 flex-nowrap">
@@ -217,9 +267,12 @@ export default function Home() {
 
 
       <section className="mt-1">
-        <LiveCarousel matches={LIVE_MATCHES} />
+        <LiveCarousel matches={LIVE_MATCHES} nextMatch={UPCOMING_MATCHES[0]} />
       </section>
 
+      {isBooting ? (
+        <SkeletonColumns />
+      ) : (
       <section className="mt-4 px-3">
         <div className="flex gap-2 items-start">
           <div className={`${pastBasis} min-w-0`}>
@@ -256,6 +309,7 @@ export default function Home() {
           </div>
         </div>
       </section>
+      )}
     </main>
   );
 }
@@ -325,6 +379,28 @@ function CardColumn<T extends { id: string }>({
         );
       })}
     </div>
+  );
+}
+
+
+function SkeletonColumns() {
+  return (
+    <section className="mt-4 px-3">
+      <div className="flex gap-2 items-start">
+        <div className="basis-[63%] space-y-2">
+          <div className="skeleton rounded-xl" style={{ height: 14, width: "60%", marginBottom: 8 }} />
+          {[148, 148, 130, 120].map((h, i) => (
+            <div key={i} className="skeleton rounded-xl" style={{ height: h }} />
+          ))}
+        </div>
+        <div className="basis-[37%] space-y-2">
+          <div className="skeleton rounded-xl" style={{ height: 14, width: "70%", marginBottom: 8 }} />
+          {[148, 148, 130, 120].map((h, i) => (
+            <div key={i} className="skeleton rounded-xl" style={{ height: h }} />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
