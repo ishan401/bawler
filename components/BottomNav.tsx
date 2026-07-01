@@ -43,9 +43,6 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname();
 
-  // Hide on match pages — the match view has its own back nav
-  if (pathname.startsWith("/match/")) return null;
-
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex items-stretch"

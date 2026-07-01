@@ -47,12 +47,12 @@ export interface OutcomePalette {
 
 export const OUTCOME: Record<OutcomeKind, OutcomePalette> = {
   wicket: { primary: "#EF4444", badgeFg: "#FFFFFF", tint: "#EF4444", badgeText: "W" },
-  dot:    { primary: "#64748B", badgeFg: "#0A0E1A", tint: "#475569", badgeText: "•" },
-  single: { primary: "#86EFAC", badgeFg: "#0A0E1A", tint: "#4ADE80", badgeText: "1" },
+  dot:    { primary: "#64748B", badgeFg: "#FFFFFF", tint: "#475569", badgeText: "•" },
+  single: { primary: "#64748B", badgeFg: "#FFFFFF", tint: "#475569", badgeText: "1" }, // same as dot
   two:    { primary: "#4ADE80", badgeFg: "#0A0E1A", tint: "#22C55E", badgeText: "2" },
   three:  { primary: "#FBBF24", badgeFg: "#0A0E1A", tint: "#F59E0B", badgeText: "3" },
   four:   { primary: "#06B6D4", badgeFg: "#0A0E1A", tint: "#0EA5E9", badgeText: "4" },
-  six:    { primary: "#A855F7", badgeFg: "#FFFFFF", tint: "#A855F7", badgeText: "6" },
+  six:    { primary: "#2DD4BF", badgeFg: "#0A0E1A", tint: "#2DD4BF", badgeText: "6" }, // turquoise green
   extra:  { primary: "#94A3B8", badgeFg: "#0A0E1A", tint: "#94A3B8", badgeText: "+" },
 };
 

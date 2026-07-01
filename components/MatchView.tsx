@@ -57,7 +57,24 @@ export default function MatchView({ match }: MatchViewProps) {
   }, [selectedBallId, liveBallIdx, allBalls]);
 
   const [tab, setTab] = useState<TabKey>("live");
+  const [renderedTab, setRenderedTab] = useState<TabKey>("live");
+  const [animClass, setAnimClass] = useState("");
+  const transitioningRef = useRef(false);
   const [showProbModal, setShowProbModal] = useState(false);
+
+  // ── Book-page-turn tab switcher ───────────────────────────────
+  const goToTab = React.useCallback((newTab: TabKey) => {
+    if (newTab === tab || transitioningRef.current) return;
+    const dir = TABS_ORDER.indexOf(newTab) > TABS_ORDER.indexOf(tab) ? "forward" : "backward";
+    transitioningRef.current = true;
+    setTab(newTab); // header highlights new tab immediately
+    setAnimClass(`book-exit-${dir}`);
+    setTimeout(() => {
+      setRenderedTab(newTab);
+      setAnimClass(`book-enter-${dir}`);
+      setTimeout(() => { setAnimClass(""); transitioningRef.current = false; }, 320);
+    }, 220);
+  }, [tab]);
 
   // ── Swipe between tabs ──────────────────────────────────────────
   const TABS_ORDER: TabKey[] = ["live", "scorecard", "info"];
@@ -72,8 +89,8 @@ export default function MatchView({ match }: MatchViewProps) {
     const dy = Math.abs(e.changedTouches[0].clientY - swipeTouchY.current);
     if (Math.abs(dx) < 60 || dy > Math.abs(dx) * 0.75) return;
     const idx = TABS_ORDER.indexOf(tab);
-    if (dx < 0 && idx < TABS_ORDER.length - 1) setTab(TABS_ORDER[idx + 1]);
-    else if (dx > 0 && idx > 0) setTab(TABS_ORDER[idx - 1]);
+    if (dx < 0 && idx < TABS_ORDER.length - 1) goToTab(TABS_ORDER[idx + 1]);
+    else if (dx > 0 && idx > 0) goToTab(TABS_ORDER[idx - 1]);
   };
 
   // ── Scorecard badge on wicket / six ────────────────────────────
@@ -162,11 +179,12 @@ export default function MatchView({ match }: MatchViewProps) {
       <div className="sticky top-0 z-30">
         <ScoreBar match={truncatedMatch} />
         <MiniInsightsBar match={truncatedMatch} insights={visibleInsights} />
-        <MatchTabs active={tab} onChange={setTab} badge={scorecardBadge} />
+        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} />
       </div>
 
-      <main className="flex-1 px-3 py-3 space-y-3" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
-        {tab === "live" && (
+      <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} style={{ perspective: "900px" }}>
+        <div className={`space-y-3 ${animClass}`}>
+        {renderedTab === "live" && (
           <>
             {/* 1. GIF (auto-advances every 24 sec when on live; held when a moment is selected) */}
             {currentBall && <BallGIF ball={currentBall} fielders={fielders} loopMs={GIF_LOOP_MS} />}
@@ -200,12 +218,13 @@ export default function MatchView({ match }: MatchViewProps) {
           </>
         )}
 
-        {tab === "scorecard" && <Scorecard match={truncatedMatch} />}
-        {tab === "info" && <InfoTab match={truncatedMatch} />}
+        {renderedTab === "scorecard" && <Scorecard match={truncatedMatch} />}
+        {renderedTab === "info" && <InfoTab match={truncatedMatch} />}
 
         <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
           Bawler v0.9 · all data mocked
         </footer>
+        </div>
       </main>
 
       {/* Full-screen win-prob chart modal */}
