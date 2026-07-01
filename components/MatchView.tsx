@@ -182,7 +182,7 @@ export default function MatchView({ match }: MatchViewProps) {
         <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} />
       </div>
 
-      <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd} style={{ perspective: "900px" }}>
+      <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
         <div className={`space-y-3 ${animClass}`}>
         {renderedTab === "live" && (
           <>
