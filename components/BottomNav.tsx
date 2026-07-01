@@ -48,8 +48,10 @@ export default function BottomNav() {
       className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex items-stretch"
       style={{
         width: "min(430px, 100vw)",
-        background: "#0A0E1A",
+        background: "rgba(10,14,26,0.97)",
         borderTop: "1px solid rgba(255,255,255,0.08)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
       }}
     >
       {TABS.map(tab => {

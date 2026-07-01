@@ -67,7 +67,7 @@ export default function BallGIF({ ball, fielders, loopMs = 6000 }: BallGIFProps)
       </div>
 
       {/* Bottom info bar — delivery type (large) + speed + outcome badge + bowler→batsman */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/80 border-t border-white/10">
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/55 backdrop-blur-sm border-t border-white/10">
         {/* Main row: delivery + speed on left, outcome badge on right */}
         <div className="flex items-center justify-between px-3 pt-2 pb-1 gap-2">
           <div className="flex flex-col gap-0 min-w-0">

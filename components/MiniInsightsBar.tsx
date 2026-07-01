@@ -18,7 +18,7 @@ function MiniInsightsBar({ match, insights }: MiniInsightsBarProps) {
   const chips = deriveMiniInsights(match, insights);
   if (chips.length === 0) return null;
   return (
-    <div className="px-4 py-2 bg-bg border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-thin">
+    <div className="px-4 py-2 bg-bg/85 backdrop-blur border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-thin">
       {chips.map((c, i) => (
         <Chip key={i} chip={c} />
       ))}

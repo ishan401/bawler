@@ -22,7 +22,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 function MatchTabs({ active, onChange, badge }: MatchTabsProps) {
   return (
-    <div className="bg-bg border-b border-line">
+    <div className="bg-bg/95 backdrop-blur border-b border-line">
       <div className="px-4 flex items-stretch">
         {TABS.map(tab => {
           const isActive = tab.key === active;
