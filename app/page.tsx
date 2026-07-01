@@ -196,7 +196,7 @@ export default function Home() {
   const futureBasis = expanded === "future" ? "basis-full" : expanded === "past" ? "hidden" : "basis-[37%]";
 
   return (
-    <main className="min-h-screen pb-20">
+    <main className="min-h-screen">
       {/* Compact header — logo + nav + filter on a single line */}
       <header className="px-3 pt-3 pb-2">
         <div className="flex items-center gap-1.5 flex-nowrap">

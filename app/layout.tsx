@@ -26,9 +26,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen">
+      <body>
         <div className="phone-frame">
-          {children}
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+            {children}
+          </div>
           <BottomNav />
         </div>
       </body>
