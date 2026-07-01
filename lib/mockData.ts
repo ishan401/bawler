@@ -24,7 +24,7 @@ export const TEAMS: Record<string, Team> = {
   PBKS: { code: "PBKS", shortName: "PBKS", fullName: "Punjab Kings",              primaryColor: "#DD1F2D", secondaryColor: "#A7A9AC", currentRanking: 9 },
   RR:   { code: "RR",   shortName: "RR",   fullName: "Rajasthan Royals",          primaryColor: "#EA1A85", secondaryColor: "#254AA5", currentRanking: 2 },
   LSG:  { code: "LSG",  shortName: "LSG",  fullName: "Lucknow Super Giants",      primaryColor: "#00A2D6", secondaryColor: "#FF7F00", currentRanking: 10 },
-  GT:   { code: "GT",   shortName: "GT",   fullName: "Gujarat Titans",            primaryColor: "#1B2133", secondaryColor: "#B79964", currentRanking: 1 },
+  GT:   { code: "GT",   shortName: "GT",   fullName: "Gujarat Titans",            primaryColor: "#B79964", secondaryColor: "#1B2133", currentRanking: 1 },
 };
 
 // ============================================================================
