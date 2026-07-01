@@ -28,11 +28,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <div className="phone-frame">
-          <div id="main-scroll" style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
-            {children}
-          </div>
-          <BottomNav />
+          {children}
         </div>
+        <BottomNav />
       </body>
     </html>
   );

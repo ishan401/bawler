@@ -71,13 +71,11 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pullStartY = useRef(0);
   const onPullTouchStart = useCallback((e: React.TouchEvent) => {
-    const container = document.getElementById("main-scroll");
-    if (container && container.scrollTop > 2) return;
+    if (window.scrollY > 2) return;
     pullStartY.current = e.touches[0].clientY;
   }, []);
   const onPullTouchMove = useCallback((e: React.TouchEvent) => {
-    const container = document.getElementById("main-scroll");
-    if (container && container.scrollTop > 2) { setPullY(0); return; }
+    if (window.scrollY > 2) { setPullY(0); return; }
     const delta = e.touches[0].clientY - pullStartY.current;
     if (delta > 0) setPullY(Math.min(delta * 0.45, 65));
   }, []);
@@ -190,19 +188,18 @@ export default function Home() {
     };
   }, []);
 
-  // ---- Scroll-listener infinite scroll — listens to #main-scroll container ----
+  // ---- Scroll-listener infinite scroll ----
   const loadingRef = useRef(false);
   useEffect(() => {
-    const container = document.getElementById("main-scroll");
-    if (!container) return;
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const onScroll = () => {
       if (timeout) return;
       timeout = setTimeout(() => {
         timeout = null;
         if (loadingRef.current) return;
-        const { scrollTop, scrollHeight, clientHeight } = container;
-        if (scrollTop + clientHeight > scrollHeight - 400) {
+        const scrollBottom = window.innerHeight + window.scrollY;
+        const docHeight = document.documentElement.scrollHeight;
+        if (scrollBottom > docHeight - 400) {
           loadingRef.current = true;
           setPastList(prev => {
             const earliest = prev.reduce((acc, m) => (m.startTimeIso < acc ? m.startTimeIso : acc), prev[0]?.startTimeIso ?? new Date().toISOString());
@@ -216,9 +213,9 @@ export default function Home() {
         }
       }, 250);
     };
-    container.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
       if (timeout) clearTimeout(timeout);
     };
   }, []);
@@ -230,7 +227,7 @@ export default function Home() {
 
   return (
     <main
-      className="min-h-screen"
+      className="min-h-screen pb-24"
       onTouchStart={onPullTouchStart}
       onTouchMove={onPullTouchMove}
       onTouchEnd={onPullTouchEnd}

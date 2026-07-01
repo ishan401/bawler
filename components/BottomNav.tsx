@@ -48,8 +48,9 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="shrink-0 flex items-stretch w-full"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex items-stretch"
       style={{
+        width: "min(430px, 100vw)",
         background: "rgba(10,14,26,0.97)",
         borderTop: "1px solid rgba(255,255,255,0.08)",
         backdropFilter: "blur(16px)",

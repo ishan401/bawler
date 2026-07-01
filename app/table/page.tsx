@@ -5,7 +5,7 @@ import { STANDINGS, TEAMS } from "@/lib/mockData";
 
 export default function TablePage() {
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur border-b border-line px-3 py-3 flex items-center gap-3">
         <Link href="/" className="text-text-dim hover:text-text-primary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
