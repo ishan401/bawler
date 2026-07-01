@@ -67,7 +67,7 @@ export default function BallGIF({ ball, fielders, loopMs = 6000 }: BallGIFProps)
       </div>
 
       {/* Bottom info bar — delivery type (large) + speed + outcome badge + bowler→batsman */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/55 backdrop-blur-sm border-t border-white/10">
+      <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/80 border-t border-white/10">
         {/* Main row: delivery + speed on left, outcome badge on right */}
         <div className="flex items-center justify-between px-3 pt-2 pb-1 gap-2">
           <div className="flex flex-col gap-0 min-w-0">
@@ -175,10 +175,6 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
           <stop offset="0%" stopColor="#FFE9A0" />
           <stop offset="100%" stopColor="#FF6B35" />
         </radialGradient>
-        <filter id="glowB" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
         <path id="pre-B" d={`M ${releaseX} ${releaseY} Q ${prePitchControl.x} ${prePitchControl.y} ${impactX} ${impactY}`} />
         <path id="post-B" d={`M ${impactX} ${impactY} Q ${postPitchControl.x} ${postPitchControl.y} ${batterArrivalX} ${batterArrivalY}`} />
       </defs>
@@ -257,23 +253,21 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
       <circle r="4" fill="#000" opacity="0.5">
         <animateMotion dur={`${prePitchMs}ms`} repeatCount="indefinite" path={`M ${releaseX} ${releaseY + 8} L ${impactX} ${impactY}`} />
       </circle>
-      <circle r="6" fill="url(#ballB)" filter="url(#glowB)">
+      <circle r="6" fill="url(#ballB)">
         <animateMotion dur={`${prePitchMs}ms`} repeatCount="indefinite" keyTimes="0;1" keySplines="0.4 0 0.7 1">
           <mpath href="#pre-B" />
         </animateMotion>
         <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.05;0.5;0.95;1" dur={`${prePitchMs}ms`} repeatCount="indefinite" />
-        <animate attributeName="r" values={`${5 * depthAt(releaseY)};${5 * depthAt(impactY)}`} dur={`${prePitchMs}ms`} repeatCount="indefinite" />
       </circle>
 
       <circle r="4" fill="#000" opacity="0.5">
         <animateMotion dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite" path={`M ${impactX} ${impactY} L ${batterArrivalX} ${batterArrivalY}`} />
       </circle>
-      <circle r="6" fill="url(#ballB)" filter="url(#glowB)">
+      <circle r="6" fill="url(#ballB)">
         <animateMotion dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite">
           <mpath href="#post-B" />
         </animateMotion>
         <animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.05;0.5;0.95;1" dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite" />
-        <animate attributeName="r" values={`${5 * depthAt(impactY)};${6 * depthAt(batterArrivalY)}`} dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite" />
       </circle>
 
       {ball.isWicket && (
@@ -329,10 +323,6 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
           <stop offset="0%" stopColor="#FFE9A0" />
           <stop offset="100%" stopColor="#FF6B35" />
         </radialGradient>
-        <filter id="glowO" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
         <path id="shotPath" d={isAerial
           ? `M ${BATTER_X} ${BATTER_Y} Q ${(BATTER_X + shotEndX) / 2} ${Math.min(BATTER_Y, shotEndY) - 80 * (ball.shotLoft ?? 0.5)} ${shotEndX} ${shotEndY}`
           : `M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`} />
@@ -400,16 +390,10 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
               <animateMotion dur={`${loopMs * 0.9}ms`} repeatCount="indefinite" path={`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`} />
             </circle>
           )}
-          <circle r="6" fill="url(#ballO)" filter="url(#glowO)">
+          <circle r="6" fill="url(#ballO)">
             <animateMotion dur={`${loopMs * 0.9}ms`} repeatCount="indefinite">
               <mpath href="#shotPath" />
             </animateMotion>
-            <animate
-              attributeName="r"
-              values={`5;${5 + (ball.shotLoft ?? 0) * 6};5`}
-              dur={`${loopMs * 0.9}ms`}
-              repeatCount="indefinite"
-            />
           </circle>
         </>
       )}

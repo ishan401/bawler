@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 
 import type { Match, WinProbPoint } from "@/lib/types";
 
@@ -31,7 +32,7 @@ function brighten(hex: string): string {
  * Leader % is full-brightness; loser % is dimmed.
  * Tap anywhere → full-screen WinProbChart.
  */
-export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProps) {
+function MiniWinProb({ match, points, onExpand }: MiniWinProbProps) {
   if (points.length === 0) return null;
 
   const last  = points[points.length - 1];
@@ -199,3 +200,4 @@ export default function MiniWinProb({ match, points, onExpand }: MiniWinProbProp
     </button>
   );
 }
+export default memo(MiniWinProb);

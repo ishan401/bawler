@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 
 import type { Match, Ball, InsightV2 } from "@/lib/types";
 import DeliveryCard from "./DeliveryCard";
@@ -22,7 +23,7 @@ interface CommentaryFeedProps {
  *   - Inline notes (stats/opinions/predictions) sometimes appear between cards
  *     rather than always inline with a specific ball.
  */
-export default function CommentaryFeed({ match, insights }: CommentaryFeedProps) {
+function CommentaryFeed({ match, insights }: CommentaryFeedProps) {
   const items = buildFeed(match, insights);
 
   return (
@@ -185,3 +186,4 @@ function shotDirection(ball: Ball): string {
   if (a < 320) return "through cover";
   return "through the off side";
 }
+export default memo(CommentaryFeed);

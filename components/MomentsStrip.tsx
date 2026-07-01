@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 
 import type { MatchEvent } from "@/lib/types";
 
@@ -21,7 +22,7 @@ const KIND_STYLES: Record<MatchEvent["kind"], { color: string; bg: string; borde
   "key-bowling-change": { color: "text-text-secondary", bg: "bg-bg-surface", border: "border-line",   chip: "↻", chipBg: "bg-bg-elevated text-text-secondary" },
 };
 
-export default function MomentsStrip({ events, activeBallId, onSelect, isLive }: MomentsStripProps) {
+function MomentsStrip({ events, activeBallId, onSelect, isLive }: MomentsStripProps) {
   const sorted = [...events].sort((a, b) => b.overFloat - a.overFloat);
 
   return (
@@ -114,3 +115,4 @@ function EventChip({ event, active, onClick }: { event: MatchEvent; active: bool
     </button>
   );
 }
+export default memo(MomentsStrip);

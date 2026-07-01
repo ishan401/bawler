@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 
 export type TabKey = "live" | "scorecard" | "info";
 
@@ -19,9 +20,9 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "info", label: "Info" },
 ];
 
-export default function MatchTabs({ active, onChange, badge }: MatchTabsProps) {
+function MatchTabs({ active, onChange, badge }: MatchTabsProps) {
   return (
-    <div className="bg-bg/95 backdrop-blur border-b border-line">
+    <div className="bg-bg border-b border-line">
       <div className="px-4 flex items-stretch">
         {TABS.map(tab => {
           const isActive = tab.key === active;
@@ -52,3 +53,4 @@ export default function MatchTabs({ active, onChange, badge }: MatchTabsProps) {
     </div>
   );
 }
+export default memo(MatchTabs);

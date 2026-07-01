@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 
 import type { Match, InsightV2 } from "@/lib/types";
 
@@ -13,11 +14,11 @@ interface MiniInsightsBarProps {
  *
  * Each chip is at-a-glance: a short label + a punchy number.
  */
-export default function MiniInsightsBar({ match, insights }: MiniInsightsBarProps) {
+function MiniInsightsBar({ match, insights }: MiniInsightsBarProps) {
   const chips = deriveMiniInsights(match, insights);
   if (chips.length === 0) return null;
   return (
-    <div className="px-4 py-2 bg-bg/85 backdrop-blur border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-thin">
+    <div className="px-4 py-2 bg-bg border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-thin">
       {chips.map((c, i) => (
         <Chip key={i} chip={c} />
       ))}
@@ -108,3 +109,4 @@ function deriveMiniInsights(match: Match, _insights: InsightV2[]): MiniChip[] {
 
   return chips.slice(0, 4);
 }
+export default memo(MiniInsightsBar);

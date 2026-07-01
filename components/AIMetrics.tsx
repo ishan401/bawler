@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 
 import type { AIMetric } from "@/lib/types";
 
@@ -14,7 +15,7 @@ const METRIC_CONTEXT: Record<string, string> = {
   "next-wicket": "wicket probability · this over",
 };
 
-export default function AIMetrics({ metrics }: AIMetricsProps) {
+function AIMetrics({ metrics }: AIMetricsProps) {
   const tiles = metrics.filter(m => m.kind !== "win-prob");
   return (
     <div className="grid grid-cols-4 gap-1.5">
@@ -81,3 +82,4 @@ function trendOf(trend?: AIMetric["trend"], tint?: AIMetric["tint"]): { icon: st
   const color = tint ? tintFg(tint) : trend === "up" ? "text-cyan" : "text-wicket";
   return { icon: trend === "up" ? "↑" : "↓", color };
 }
+export default memo(AIMetrics);

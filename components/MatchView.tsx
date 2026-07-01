@@ -163,15 +163,14 @@ export default function MatchView({ match }: MatchViewProps) {
   );
   const fielders = currentInnings?.fieldingPositions ?? match.innings[match.innings.length - 1]?.fieldingPositions;
 
-  const handleMomentSelect = (event: MatchEvent | null) => {
+  const handleMomentSelect = React.useCallback((event: MatchEvent | null) => {
     if (event === null) {
       setSelectedBallId(null);
       setLiveBallIdx(allBalls.length - 1);
     } else if (event.ballId) {
-      // Clicking a moment plays that ball in the GIF area
       setSelectedBallId(event.ballId);
     }
-  };
+  }, [allBalls.length]);
 
   return (
     <div className="min-h-screen flex flex-col">
