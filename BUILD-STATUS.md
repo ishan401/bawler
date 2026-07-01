@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.7 (deployed)
+**Current version:** v1.0.10 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -10,6 +10,8 @@
 ---
 
 ## Shipped ✅
+
+- ✅ **Performance** — feGaussianBlur SVG filters removed from animated balls (biggest GPU bottleneck); animate-r geometry invalidation removed; React.memo on 7 components; useCallback on moment selection handler
 
 ### Home page (`/`)
 
@@ -52,12 +54,15 @@
 - ✅ **Swipe between tabs** — left = forward, right = backward; ignores vertical swipes
 - ✅ **Score event badge** — red pulsing dot (wicket) or teal dot (six) on Scorecard tab; clears after 4s
 - ✅ **BallGIF** — two clips (bowler perspective + overhead) 3s each, 4 reps/ball (24s dwell)
+- ✅ **Perspective-correct impact Y** — uses trapezoid width ratio (220/80=2.75) for accurate pitch length display
+- ✅ **Post-pitch bounce arc** — bezier control above impact point; bounce height scales with pitchY (10–55px)
+- ✅ **No SVG filter on animated balls** — feGaussianBlur removed; perf fix; gradient fill preserved
   - ✅ Stick figures with name labels; speed + ball type as text
   - ✅ Exaggerated swing (1.8×) + spin (2.2×) for visual punch
   - ✅ Background tint by outcome (unified palette) — no whitish wash (perspective fix)
   - ✅ Cross-fade between clips (280ms); smooth bg transition between balls (600ms)
 - ✅ **Moments strip** — two-zone chips (badge + over top; label + 2-line context bottom); Live chip with pulsing dot
-- ✅ MiniWinProb — two-crossing-lines sparkline; team A vs team B probability
+- ✅ **MiniWinProb** — both teams' win% large + bold; gradient area fills; split colour bar; brighten() for dark team colours; namespaced SVG IDs (mwp-fa/mwp-fb)
 - ✅ AI metrics tiles — primary value + trend arrow + delta line + plain-English context label
 - ✅ Win-prob chart modal — full-screen, two team lines, hue-accurate via `brightColor()`
 - ✅ **Commentary feed** — colour-coded ball outcomes:
@@ -143,7 +148,7 @@
 - [ ] Service worker for offline-cached last-seen match state
 - [ ] WCAG colour-contrast audit on `text-dim` values
 - [ ] Lighthouse-mobile to 95+ (currently ~88)
-- [ ] MiniWinProb redesign — large leading % + single sparkline (deferred by user)
+- [x] MiniWinProb redesign — completed v1.0.8 (both teams visible, gradient fills)
 
 ---
 
@@ -158,6 +163,9 @@
 | v1.0.3 | Bottom nav fixed — BottomNav moved outside phone-frame, never clipped |
 | v1.0.2 | Scorecard highlights (teal top scorer, red wicket-taker, blue SR, gold MOM, purple MOS); win-prob reverted |
 | v1.0.1 | Build hotfix: 6 truncated files, 8 missing React imports, null bytes, TS null error |
+| v1.0.10 | Performance: SVG filter removal, React.memo x7, useCallback |
+| v1.0.9 | BallGIF: perspective-correct impact Y + post-pitch bounce arc |
+| v1.0.8 | MiniWinProb redesign: both teams visible, gradient fills |
 | v1.0.0 | UX overhaul: bottom nav, AI tile labels, Moments redesign, BallGIF hierarchy, countdown cards, team colour filter |
 | v0.9.8 | brightColor() hue-accurate team colours in win-prob |
 | v0.9.x | Win-prob iterations, gradient opacities, chart cleanup |

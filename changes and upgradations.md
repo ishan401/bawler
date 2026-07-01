@@ -5,6 +5,76 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.10] 2026-07-01
+
+### Performance — faster animations, smarter re-renders
+
+#### Removed — feGaussianBlur SVG filter from animated ball circles (BallGIF.tsx)
+- `#glowB` (BowlerView) and `#glowO` (OverheadView) filters used `feGaussianBlur stdDeviation="3"`
+- SVG filters are CPU-rasterized on every animation frame (60fps) — the single biggest GPU bottleneck
+- Removed `filter="url(#glowB/O)"` from all animated circles; ball gradient fill remains fully visible
+
+#### Removed — `animate attributeName="r"` from animated ball circles
+- Changing the SVG `r` attribute per-frame forces geometry recalculation and full repaint
+- Removed from pre-pitch ball, post-pitch ball (BowlerView), and overhead ball (OverheadView)
+- Ball size is now fixed per phase rather than interpolated — visually indistinguishable
+
+#### Added — React.memo on 7 heavy components
+- `ScoreBar`, `MatchTabs`, `MiniInsightsBar`, `AIMetrics`, `MomentsStrip`, `CommentaryFeed`, `MiniWinProb`
+- Components skip re-render when their props haven't changed shallowly
+- `handleMomentSelect` in MatchView.tsx wrapped in `useCallback([allBalls.length])` so
+  `MomentsStrip`'s `onSelect` prop is a stable reference between renders
+
+#### Unchanged — Sticky header backdrop-blur
+- `backdrop-blur` temporarily removed then restored; static sticky elements only re-composite
+  on scroll — negligible compared to the 60fps SVG filter work that was the real bottleneck
+- ScoreBar, MatchTabs, MiniInsightsBar, BottomNav frosted-glass look fully preserved
+
+---
+
+## [1.0.9] 2026-07-01
+
+### Ball visualizer accuracy — perspective mapping + bounce arc
+
+#### Fixed — Perspective-correct impact Y position (BallGIF.tsx — BowlerView)
+- Previous formula: `impactY = PITCH_BOT_Y - pitchY * (PITCH_BOT_Y - PITCH_TOP_Y)` (linear)
+- Linear is wrong for a perspective projection. The pitch trapezoid (220px wide at batter end,
+  80px wide at bowler end) encodes a real perspective with width ratio 2.75.
+- In a perspective view, equal 3D distances on the pitch map non-linearly to screen Y:
+  the near half (batter end) takes up proportionally more visual space than the far half.
+- New formula: `impactY = PITCH_BOT_Y - (wRatio × range × pitchY) / (1 + (wRatio-1) × pitchY)`
+  where `wRatio = PITCH_BOT_W / PITCH_TOP_W = 220 / 80 = 2.75`
+- Effect: good-length balls now appear in the upper third of the pitch (not the visual middle);
+  short balls appear close to the bowler's crease; full deliveries barely change (near end
+  where linear and perspective converge). Matches real TV broadcast pitch map expectations.
+
+#### Fixed — Post-pitch bounce arc (BallGIF.tsx — BowlerView)
+- Previous: `postPitchControl.y = (impactY + batterArrivalY) / 2` — control point on the
+  straight line midpoint, producing zero upward arc. Ball appeared to slide along pitch.
+- New: `postPitchControl.y = impactY - bounceH` where `bounceH = 10 + pitchY * 50`
+- Control point sits above the impact point, creating a quadratic bezier that arcs upward
+  after pitching then curves back down to the batter — physically accurate bounce shape
+- Bounce height scales with delivery type: yorkers ≈ 10px, good-length ≈ 33px, bouncers ≈ 55px
+
+---
+
+## [1.0.8] 2026-07-01
+
+### MiniWinProb — full redesign, both teams visible
+
+#### Redesigned — MiniWinProb component (MiniWinProb.tsx)
+- Previous design showed only the leading team's win% in a small chip — other team was hidden
+- New design shows both teams' percentages side-by-side, both in `text-2xl font-bold`
+- Leader is `text-text-primary`; trailing team is `text-text-dim` — clear hierarchy without hiding data
+- SVG chart: gradient area fills below each team's line (30% opacity at line → 3% at bottom)
+- Lines are 2.4px; ends have a dot with an outer glow ring in team colour
+- Split colour bar at the bottom (same style as home page match cards)
+- Chart height 72px; SVG gradient IDs namespaced (`mwp-fa`/`mwp-fb`) to prevent DOM conflicts
+- `brighten()` helper normalises dark team colours (MI navy, KKR purple) so they're visible
+  on the dark background — preserves hue, pushes brightest channel to 255
+
+---
+
 ## [1.0.7] 2026-07-01
 
 ### UX polish — nav cleanup, team colours, scorecard orientation
