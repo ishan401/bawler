@@ -49,6 +49,13 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
   const startY = useRef(0);
   const [translateY, setTranslateY] = useState(0);
 
+  // Lock body scroll while sheet is open so background page doesn't scroll
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   const onTouchStart = (e: React.TouchEvent) => { startY.current = e.touches[0].clientY; dragY.current = 0; };
   const onTouchMove  = (e: React.TouchEvent) => {
     const delta = e.touches[0].clientY - startY.current;
