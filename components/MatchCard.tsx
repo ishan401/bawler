@@ -34,10 +34,30 @@ function fmtCountdown(iso: string): string {
   return `in ${mins}m`;
 }
 
+// Map team code → flagcdn.com ISO 2-letter code
+const FLAG_ISO: Record<string, string> = {
+  IND: "in", AUS: "au", ENG: "gb-eng", PAK: "pk", SA: "za",
+  NZ: "nz", BAN: "bd", SL: "lk", AFG: "af", WI: "tt",
+  IRE: "ie", ZIM: "zw", SCO: "gb-sct", NED: "nl", USA: "us",
+  UAE: "ae", NAM: "na", PNG: "pg", OMA: "om", CAN: "ca",
+};
+
 function FlagOrRank({ team }: { team: Team }) {
-  // National teams → show flag emoji; franchise teams → show ranking number
-  if (team.type === "national" && team.flagEmoji) {
-    return <span className="text-base leading-none">{team.flagEmoji}</span>;
+  // National teams → show country flag image (works on all OS including Windows)
+  if (team.type === "national") {
+    const iso = FLAG_ISO[team.code];
+    if (iso) {
+      return (
+        <img
+          src={`https://flagcdn.com/20x15/${iso}.png`}
+          width={20}
+          height={15}
+          alt={team.shortName}
+          className="rounded-[2px] shrink-0 shadow-sm"
+          style={{ objectFit: "cover" }}
+        />
+      );
+    }
   }
   if (!team.currentRanking) return null;
   return (
