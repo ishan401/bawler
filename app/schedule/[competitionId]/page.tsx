@@ -1,33 +1,31 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ALL_LIVE_MATCHES, ALL_UPCOMING_MATCHES } from "@/lib/mockData";
 import type { Match } from "@/lib/types";
 
+export function generateStaticParams() {
+  const ids = new Set([
+    ...ALL_LIVE_MATCHES.map(m => m.competition.id),
+    ...ALL_UPCOMING_MATCHES.map(m => m.competition.id),
+  ]);
+  return Array.from(ids).map(id => ({ competitionId: id }));
+}
+
 export default function CompetitionSchedulePage({ params }: { params: { competitionId: string } }) {
   const { competitionId } = params;
-  const router = useRouter();
 
   const live     = ALL_LIVE_MATCHES.filter(m => m.competition.id === competitionId);
   const upcoming = ALL_UPCOMING_MATCHES.filter(m => m.competition.id === competitionId);
   const all      = [...live, ...upcoming];
   const comp     = all[0]?.competition;
 
-  if (!comp) {
-    return (
-      <main className="min-h-screen pb-24 flex flex-col items-center justify-center text-text-dim text-sm">
-        Competition not found.
-        <Link href="/schedule" className="mt-4 text-cyan text-xs font-bold">← Back to Schedule</Link>
-      </main>
-    );
-  }
+  if (!comp) notFound();
 
   return (
     <main className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur border-b border-line px-4 py-3">
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/schedule"
           className="flex items-center gap-1.5 text-text-secondary hover:text-cyan transition-colors mb-2"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -35,13 +33,13 @@ export default function CompetitionSchedulePage({ params }: { params: { competit
             <polyline points="15 18 9 12 15 6" />
           </svg>
           <span className="text-[11px] font-bold">Schedule</span>
-        </button>
+        </Link>
         <div className="flex items-center gap-2">
-          <div className="w-1 h-6 rounded-full shrink-0" style={{ background: comp.logoColor ?? "#64748B" }} />
+          <div className="w-1 h-6 rounded-full shrink-0" style={{ background: comp!.logoColor ?? "#64748B" }} />
           <div>
-            <h1 className="text-sm font-extrabold tracking-tight leading-tight">{comp.name}</h1>
+            <h1 className="text-sm font-extrabold tracking-tight leading-tight">{comp!.name}</h1>
             <p className="text-[9px] text-text-dim uppercase tracking-widest">
-              {comp.type} · {comp.format}
+              {comp!.type} · {comp!.format}
               {live.length > 0 && <span className="text-red-400 font-bold"> · {live.length} live</span>}
             </p>
           </div>
@@ -55,14 +53,6 @@ export default function CompetitionSchedulePage({ params }: { params: { competit
       </div>
     </main>
   );
-}
-
-export function generateStaticParams() {
-  const ids = new Set([
-    ...ALL_LIVE_MATCHES.map(m => m.competition.id),
-    ...ALL_UPCOMING_MATCHES.map(m => m.competition.id),
-  ]);
-  return Array.from(ids).map(id => ({ competitionId: id }));
 }
 
 function MatchRow({ match, isLive }: { match: Match; isLive: boolean }) {
