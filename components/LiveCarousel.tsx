@@ -37,6 +37,7 @@ function truncate10(text: string): string {
 }
 
 // ── Swipe-down-dismissible bottom sheet ───────────────────────────────────
+// Drag gesture is ONLY on the handle/header — content scrolls freely.
 function BottomSheet({ title, subtitle, onClose, onBack, children }: {
   title: string;
   subtitle?: string;
@@ -67,35 +68,38 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
       <div
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[85vh] flex flex-col overflow-hidden"
         style={{ maxWidth: 430, margin: "0 auto", transform: `translateY(${translateY}px)`, transition: translateY === 0 ? "transform 0.25s ease" : "none" }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
-        {/* Handle */}
-        <div className="w-10 h-1 rounded-full bg-line mx-auto mt-2.5 shrink-0" />
-        {/* Header */}
-        <div className="px-4 pt-2 pb-2.5 flex items-center justify-between border-b border-line shrink-0">
-          <div className="flex items-center gap-2">
-            {onBack && (
-              <button onClick={onBack} className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center mr-1">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            )}
-            <div>
-              <span className="text-sm font-extrabold">{title}</span>
-              {subtitle && <span className="ml-2 text-[10px] text-text-dim font-bold uppercase tracking-widest">{subtitle}</span>}
+        {/* Handle + header — swipe-down zone only */}
+        <div
+          className="shrink-0"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="w-10 h-1 rounded-full bg-line mx-auto mt-2.5" />
+          <div className="px-4 pt-2 pb-2.5 flex items-center justify-between border-b border-line">
+            <div className="flex items-center gap-2">
+              {onBack && (
+                <button onClick={onBack} className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center mr-1">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </button>
+              )}
+              <div>
+                <span className="text-sm font-extrabold">{title}</span>
+                {subtitle && <span className="ml-2 text-[10px] text-text-dim font-bold uppercase tracking-widest">{subtitle}</span>}
+              </div>
             </div>
+            <button onClick={onClose} className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </button>
           </div>
-          <button onClick={onClose} className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-            </svg>
-          </button>
         </div>
-        {/* Content */}
-        <div className="overflow-y-auto flex-1">
+        {/* Scrollable content — touch events NOT intercepted */}
+        <div className="overflow-y-auto flex-1 overscroll-contain">
           {children}
         </div>
       </div>
