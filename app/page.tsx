@@ -288,7 +288,7 @@ export default function Home() {
 
 
       <section className="mt-1">
-        <LiveCarousel matches={ALL_LIVE_MATCHES} nextMatch={ALL_UPCOMING_MATCHES[0]} />
+        <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
       </section>
 
       {isBooting ? (
