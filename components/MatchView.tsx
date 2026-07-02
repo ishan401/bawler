@@ -17,6 +17,7 @@ import Scorecard from "@/components/Scorecard";
 import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
 import { MOCK_INSIGHTS_V2 } from "@/lib/mockData";
+import LineupsCard from "@/components/LineupsCard";
 
 interface MatchViewProps {
   match: Match;
@@ -185,35 +186,123 @@ export default function MatchView({ match }: MatchViewProps) {
         <div className={`space-y-3 ${animClass}`}>
         {renderedTab === "live" && (
           <>
-            {/* 1. GIF (auto-advances every 24 sec when on live; held when a moment is selected) */}
-            {currentBall && <BallGIF ball={currentBall} fielders={fielders} loopMs={GIF_LOOP_MS} />}
+            {allBalls.length === 0 ? (
+              /* ── No ball-by-ball data — show score summary + squads ── */
+              <div className="space-y-4">
+                {/* Score / status card */}
+                <div className="card p-4 space-y-3">
+                  {/* Teams row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ background: match.teamA.primaryColor }} />
+                      <span className="text-base font-extrabold tracking-tight">{match.teamA.shortName}</span>
+                      {match.teamA.flagEmoji && <span className="text-lg leading-none">{match.teamA.flagEmoji}</span>}
+                    </div>
+                    <span className="text-xs font-bold text-text-dim">VS</span>
+                    <div className="flex items-center gap-2">
+                      {match.teamB.flagEmoji && <span className="text-lg leading-none">{match.teamB.flagEmoji}</span>}
+                      <span className="text-base font-extrabold tracking-tight">{match.teamB.shortName}</span>
+                      <span className="w-3 h-3 rounded-full" style={{ background: match.teamB.primaryColor }} />
+                    </div>
+                  </div>
 
-            {/* 2. Moments — always visible, just below GIF (Sarthak v0.9 #5) */}
-            <MomentsStrip
-              events={events}
-              activeBallId={currentBall?.id}
-              isLive={isLiveFollowing}
-              onSelect={handleMomentSelect}
-            />
+                  {/* Live status override */}
+                  {match.liveStatusOverride && (
+                    <div className="bg-surface rounded-lg px-3 py-2 text-center">
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">Live</span>
+                      </div>
+                      <p className="text-sm font-bold text-text-primary">{match.liveStatusOverride}</p>
+                    </div>
+                  )}
 
-            {/* 3. Mini win-prob chart — condensed, inline (Sarthak v0.9 #6) */}
-            <MiniWinProb
-              match={truncatedMatch}
-              points={winProbPoints}
-              onExpand={() => setShowProbModal(true)}
-            />
+                  {/* Result / summary */}
+                  {match.result && (
+                    <div className="text-center">
+                      <span className="text-xs font-bold uppercase tracking-wide px-2 py-1 rounded"
+                        style={{ background: `${match.teamA.primaryColor}22`, color: match.teamA.primaryColor }}>
+                        {match.result.winner !== "draw" && match.result.winner !== "tie" && match.result.winner !== "no-result" ? `${match.result.winner} won · ${match.result.margin}` : match.result.winner}
+                      </span>
+                    </div>
+                  )}
 
-            {/* 4. 4 AI tiles — condensed (Sarthak v0.9 #8) */}
-            <AIMetrics metrics={metrics} />
+                  {/* Win probability bar */}
+                  {match.liveWinProbOverride && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-text-dim font-bold uppercase tracking-wide">
+                        <span>{match.teamA.shortName}</span>
+                        <span>{match.teamB.shortName}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden flex">
+                        {(() => {
+                          const pct = match.liveWinProbOverride.teamCode === match.teamA.code
+                            ? match.liveWinProbOverride.pct
+                            : 100 - match.liveWinProbOverride.pct;
+                          return (
+                            <>
+                              <div style={{ width: `${pct}%`, background: match.teamA.primaryColor }} />
+                              <div style={{ width: `${100 - pct}%`, background: match.teamB.primaryColor }} />
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-text-dim">
+                        <span>{match.liveWinProbOverride.teamCode === match.teamA.code ? match.liveWinProbOverride.pct : 100 - match.liveWinProbOverride.pct}%</span>
+                        <span>{match.liveWinProbOverride.teamCode === match.teamB.code ? match.liveWinProbOverride.pct : 100 - match.liveWinProbOverride.pct}%</span>
+                      </div>
+                    </div>
+                  )}
 
-            {/* 5. Commentary — variable-height ball cards */}
-            <div className="pt-1">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Live commentary</span>
-                <span className="text-[10px] text-text-secondary">{visibleInsights.length} insights</span>
+                  {/* Match summary text */}
+                  {match.summary && (
+                    <p className="text-xs text-text-secondary leading-relaxed border-t border-line pt-2">{match.summary}</p>
+                  )}
+                </div>
+
+                {/* Venue + toss */}
+                <div className="card px-4 py-3 space-y-1">
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1">Match Info</div>
+                  <div className="text-xs text-text-primary">{match.venue.name}, {match.venue.city}</div>
+                  {match.toss && (
+                    <div className="text-xs text-text-secondary">
+                      Toss: <span className="text-text-primary font-semibold">{match.toss.winner}</span> elected to {match.toss.elected}
+                    </div>
+                  )}
+                  <div className="text-xs text-text-secondary">{match.competition.name} · {match.matchNumber}</div>
+                </div>
+
+                {/* Squads */}
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-2">Squads</div>
+                  <LineupsCard match={match} />
+                </div>
               </div>
-              <CommentaryFeed match={truncatedMatch} insights={visibleInsights} />
-            </div>
+            ) : (
+              /* ── Full ball-by-ball view ── */
+              <>
+                {currentBall && <BallGIF ball={currentBall} fielders={fielders} loopMs={GIF_LOOP_MS} />}
+                <MomentsStrip
+                  events={events}
+                  activeBallId={currentBall?.id}
+                  isLive={isLiveFollowing}
+                  onSelect={handleMomentSelect}
+                />
+                <MiniWinProb
+                  match={truncatedMatch}
+                  points={winProbPoints}
+                  onExpand={() => setShowProbModal(true)}
+                />
+                <AIMetrics metrics={metrics} />
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Live commentary</span>
+                    <span className="text-[10px] text-text-secondary">{visibleInsights.length} insights</span>
+                  </div>
+                  <CommentaryFeed match={truncatedMatch} insights={visibleInsights} />
+                </div>
+              </>
+            )}
           </>
         )}
 

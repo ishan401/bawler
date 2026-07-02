@@ -18,7 +18,7 @@ export default function InfoTab({ match }: InfoTabProps) {
           <span className="font-bold">{match.teamA.shortName}</span>
           <span className="text-text-dim"> vs </span>
           <span className="font-bold">{match.teamB.shortName}</span>
-          <span className="text-text-secondary"> · IPL {match.season}</span>
+          <span className="text-text-secondary"> · {match.competition.name}</span>
         </div>
         {match.toss && (
           <div className="text-xs text-text-secondary">
