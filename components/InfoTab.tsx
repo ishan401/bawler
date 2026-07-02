@@ -88,6 +88,12 @@ function getRainLabel(pct: number) {
   return             { label: "Very High",   color: "#ef4444" };
 }
 
+function fmt12(h: number, m: number) {
+  const ap = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
+}
+
 function formatMatchTime(iso: string) {
   const d = new Date(iso);
   const now = new Date();
@@ -97,6 +103,13 @@ function formatMatchTime(iso: string) {
 
   const dateStr = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const timeStr = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+  // IST = UTC + 5:30
+  const istTotalMin = d.getUTCHours() * 60 + d.getUTCMinutes() + 330;
+  const istH = Math.floor(istTotalMin / 60) % 24;
+  const istM = istTotalMin % 60;
+  const istStr = `${fmt12(istH, istM)} IST`;
+  const utcStr = `${fmt12(d.getUTCHours(), d.getUTCMinutes())} UTC`;
 
   let countdown = "";
   if (diffMs < 0) {
@@ -111,7 +124,7 @@ function formatMatchTime(iso: string) {
     countdown = `in ${diffD} days`;
   }
 
-  return { dateStr, timeStr, countdown };
+  return { dateStr, timeStr, istStr, utcStr, countdown };
 }
 
 interface InfoTabProps {
@@ -123,65 +136,63 @@ export default function InfoTab({ match }: InfoTabProps) {
   const weather = CITY_WEATHER[match.venue.city] ?? DEFAULT_WEATHER;
   const rain = getRainLabel(weather.rainChance);
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
-  const { dateStr, timeStr, countdown } = formatMatchTime(match.startTimeIso);
+  const { dateStr, timeStr, istStr, utcStr, countdown } = formatMatchTime(match.startTimeIso);
 
   return (
     <div className="space-y-4">
 
       {/* ── Date & Time ───────────────────────────────────────────────── */}
-      <div className="card px-4 py-3 space-y-1">
+      <div className="card px-4 py-3">
         <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-2">Match Date & Time</div>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm font-bold text-text-primary">{dateStr}</div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-text-primary leading-snug">{dateStr}</div>
             <div className="text-xs text-text-secondary mt-0.5">{timeStr} local · {match.venue.city}</div>
+            <div className="text-[10px] text-text-dim mt-0.5">({istStr} · {utcStr})</div>
             <div className="text-[10px] text-text-dim mt-0.5">{match.competition.name} · {match.matchNumber}</div>
           </div>
-          <div className="text-right">
-            <div className="text-xs font-bold px-2 py-1 rounded-full"
-              style={{ background: isUpcoming ? "#00A0C622" : "#22c55e22",
-                       color: isUpcoming ? "#00A0C6" : "#22c55e" }}>
-              {countdown}
-            </div>
-          </div>
+          <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap"
+            style={{ background: isUpcoming ? "#00A0C622" : "#22c55e22",
+                     color: isUpcoming ? "#00A0C6" : "#22c55e" }}>
+            {countdown}
+          </span>
         </div>
       </div>
 
       {/* ── Weather Forecast ──────────────────────────────────────────── */}
       <div className="card px-4 py-3">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-3">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-2">
           Weather Forecast · {match.venue.city}
         </div>
-        <div className="flex items-center gap-4 mb-3">
-          <span className="text-4xl leading-none">{weather.icon}</span>
-          <div>
-            <div className="text-2xl font-extrabold tracking-tight">{weather.tempC}°C</div>
-            <div className="text-xs text-text-secondary">{weather.condition}</div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-text-primary leading-snug flex items-center gap-1.5">
+              <span className="text-base leading-none">{weather.icon}</span>
+              <span>{weather.tempC}°C</span>
+            </div>
+            {/* All four stats in one row */}
+            <div className="text-xs text-text-secondary mt-0.5 flex items-center flex-wrap gap-x-1 gap-y-0">
+              <span>{weather.condition}</span>
+              <span className="text-text-dim">·</span>
+              <span>💧 {weather.humidity}%</span>
+              <span className="text-text-dim">·</span>
+              <span>💨 {weather.windKmh} km/h</span>
+              <span className="text-text-dim">·</span>
+              <span style={{ color: rain.color }}>🌧️ {weather.rainChance}%</span>
+            </div>
+            {weather.rainChance >= 30 && (
+              <div className="text-[10px] mt-0.5" style={{ color: rain.color }}>
+                {rain.label} rain risk · may affect play
+              </div>
+            )}
           </div>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-surface rounded-lg px-2 py-2 text-center">
-            <div className="text-[10px] text-text-dim uppercase tracking-wide mb-0.5">Humidity</div>
-            <div className="text-sm font-bold">{weather.humidity}%</div>
-          </div>
-          <div className="bg-surface rounded-lg px-2 py-2 text-center">
-            <div className="text-[10px] text-text-dim uppercase tracking-wide mb-0.5">Wind</div>
-            <div className="text-sm font-bold">{weather.windKmh} km/h</div>
-          </div>
-          <div className="bg-surface rounded-lg px-2 py-2 text-center">
-            <div className="text-[10px] text-text-dim uppercase tracking-wide mb-0.5">Rain</div>
-            <div className="text-sm font-bold" style={{ color: rain.color }}>{weather.rainChance}%</div>
-          </div>
-        </div>
-        {weather.rainChance >= 30 && (
-          <div className="mt-2 flex items-center gap-1.5 px-2 py-1.5 rounded-lg"
-            style={{ background: `${rain.color}18`, border: `1px solid ${rain.color}44` }}>
-            <span className="text-base">🌧️</span>
-            <span className="text-[11px]" style={{ color: rain.color }}>
-              {rain.label} rain risk · may affect play
+          {weather.rainChance >= 30 && (
+            <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap"
+              style={{ background: `${rain.color}22`, color: rain.color }}>
+              ⚠️ Rain
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ── Match Context ─────────────────────────────────────────────── */}
