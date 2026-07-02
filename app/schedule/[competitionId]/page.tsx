@@ -1,13 +1,12 @@
 "use client";
 
-import { use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ALL_LIVE_MATCHES, ALL_UPCOMING_MATCHES } from "@/lib/mockData";
 import type { Match } from "@/lib/types";
 
-export default function CompetitionSchedulePage({ params }: { params: Promise<{ competitionId: string }> }) {
-  const { competitionId } = use(params);
+export default function CompetitionSchedulePage({ params }: { params: { competitionId: string } }) {
+  const { competitionId } = params;
   const router = useRouter();
 
   const live     = ALL_LIVE_MATCHES.filter(m => m.competition.id === competitionId);
@@ -50,13 +49,20 @@ export default function CompetitionSchedulePage({ params }: { params: Promise<{ 
       </header>
 
       <div className="px-3 mt-3 space-y-1.5">
-        {all.map(m => {
-          const isLive = live.includes(m);
-          return <MatchRow key={m.id} match={m} isLive={isLive} />;
-        })}
+        {all.map(m => (
+          <MatchRow key={m.id} match={m} isLive={live.includes(m)} />
+        ))}
       </div>
     </main>
   );
+}
+
+export function generateStaticParams() {
+  const ids = new Set([
+    ...ALL_LIVE_MATCHES.map(m => m.competition.id),
+    ...ALL_UPCOMING_MATCHES.map(m => m.competition.id),
+  ]);
+  return Array.from(ids).map(id => ({ competitionId: id }));
 }
 
 function MatchRow({ match, isLive }: { match: Match; isLive: boolean }) {
@@ -64,7 +70,6 @@ function MatchRow({ match, isLive }: { match: Match; isLive: boolean }) {
     <Link href={`/match/${match.id}`}
       className="card flex items-center gap-3 px-3 py-3 active:scale-[0.99] transition-transform">
       <div className="flex-1 min-w-0">
-        {/* Teams */}
         <div className="flex items-center gap-2">
           <TeamChip name={match.teamA.shortName} color={match.teamA.primaryColor} />
           <span className="text-text-dim text-[10px]">vs</span>
@@ -75,14 +80,11 @@ function MatchRow({ match, isLive }: { match: Match; isLive: boolean }) {
             </span>
           )}
         </div>
-        {/* Meta */}
-        <div className="flex items-center gap-2 mt-1 flex-wrap">
+        <div className="flex items-center gap-2 mt-1">
           <span className="text-[9px] text-text-dim">{match.matchNumber}</span>
           <span className="text-[9px] text-text-dim">· {match.venue.name}, {match.venue.city}</span>
         </div>
       </div>
-
-      {/* Time / status */}
       <div className="text-right shrink-0">
         {isLive ? (
           <div className="text-[10px] text-text-secondary font-medium max-w-[110px] leading-snug">
