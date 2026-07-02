@@ -170,3 +170,31 @@
 | D5 | **Twitter analyst list: 19 curated accounts** via Nitter (top of `data-sources.md` § D) | Better signal than open Twitter firehose. |
 | D6 | **Historical data: Cricsheet free dataset** | 5+ seasons of ball-by-ball; powers par-score table + insight aggregation. |
 | D7 | **De-scope: no deep player career-stats screen
+
+## Live match experience (home page)
+
+| # | Decision | Reason |
+|---|---|---|
+| LM1 | **TABLE button is dynamic — appears only for the currently snapped live card** | Showing all league TABLE buttons at once was noisy. The button tracks the snap position and shows only the relevant competition. |
+| LM2 | **Standings and team schedule open as bottom sheets, not page navigation** | Leaving the home page to view standings interrupts the live match context. Sheets overlay without losing scroll position. |
+| LM3 | **Team schedule popup shows all matches ascending (past → live → future)** | Chronological order lets the viewer read the story of the tournament for that team. |
+| LM4 | **Swipe-down gesture restricted to handle/header only** | Putting gesture on the full sheet captured content scroll touches, making the list unscrollable. Header-only drag is the native pattern (iOS sheets). |
+| LM5 | **Body scroll locked (`overflow:hidden`) when any sheet is open** | Without lock, touch events bubbled to the page and scrolled the background instead of the sheet content. |
+| LM6 | **Sheet content uses `min-h-0` + no `overflow-hidden` on outer container** | `flex-1 + overflow-y-auto` without `min-h-0` causes the div to expand rather than scroll — a well-known CSS flex bug. `overflow-hidden` on the outer container additionally blocked the inner scroll. |
+
+## Score and data correctness
+
+| # | Decision | Reason |
+|---|---|---|
+| SC1 | **`battingTeam` field is the single source of truth for innings attribution** | Array position (`innings[0]` = teamA) breaks when the visiting team bats first after winning the toss. The `battingTeam` string on each innings object is always correct. |
+| SC2 | **Test match live cards show prior innings score before current: "199/10 & 88/4"** | Standard cricket scoreboard notation. Readers need both innings to understand the match state. Only applied when team has `≥ 2` innings in the array. |
+| SC3 | **Worldwide popularity formula: `COMP_POP + TEAM_POP(A) + TEAM_POP(B)`** | Simple additive score that surfaces India-involving matches and top leagues first — matches what a global cricket audience would instinctively want to see. |
+
+## Schedule + navigation
+
+| # | Decision | Reason |
+|---|---|---|
+| SN1 | **Schedule root = competition list, not match list** | The old flat match list with filter chips was overwhelming. Grouping by competition is how fans think ("I want IPL matches", not "show me all T20s"). |
+| SN2 | **Country flags via `flagcdn.com/w40/{iso}.png`, not emoji** | Flag emoji are invisible on Windows (regional indicator sequences not rendered). PNG images work on all platforms. `w40` endpoint (40px) is sharp on HiDPI. |
+| SN3 | **Playing XI = flat list, no batting/bowling sub-sections** | Sub-sections added visual complexity without adding information. A single list of 11 names is what fans actually want during a live match. |
+

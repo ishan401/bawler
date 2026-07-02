@@ -5,6 +5,136 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.15] 2026-07-02
+
+### Home page — TABLE button + team schedule popup
+
+#### Added — Dynamic TABLE button on live carousel (LiveCarousel.tsx)
+- A **"[Comp] Table" pill button** appears below the live carousel only when the currently snapped card is a league or tournament match
+- Button is fully dynamic: swipe to an IPL card → "IPL Table" appears; swipe to a Test/bilateral card → button disappears; swipe to PSL → "PSL Table" appears
+- Carousel snap tracking rewritten to use `firstCard.getBoundingClientRect().width + 12px gap` (was using `el.clientWidth` which didn't account for the gap, causing index drift)
+
+#### Added — Standings bottom sheet (LiveCarousel.tsx)
+- Tapping the TABLE button opens a bottom sheet over the home page with full league standings
+- Sheet includes a drag handle, competition name/subtitle, close (×) button
+- Swipe-down gesture on the **handle/header only** dismisses the sheet; dragging >80px closes, less snaps back with spring transition
+- Body scroll (`document.body.style.overflow = "hidden"`) locked while sheet is open, preventing background page from scrolling
+
+#### Added — Team schedule popup (LiveCarousel.tsx, MiniStandings.tsx)
+- Tapping any team row in the standings sheet opens a **second bottom sheet** showing that team's full tournament schedule — no page navigation
+- Schedule sorted ascending (earliest match first)
+- Past matches: Won/Lost badge in team colour + 10-word truncated summary
+- Live match (if any): red left-border highlight + live status string
+- Upcoming matches: date/time + venue city
+- **Back button** (←) in the header returns to standings; close (×) closes everything
+- `MiniStandings` gains optional `onTeamClick` prop — when provided uses `<button>` instead of `<Link>` so it works inside the popup context
+
+#### Fixed — Sheet content scrolling (LiveCarousel.tsx)
+- Added `min-h-0` to the scrollable content div — the canonical fix for `flex-1 + overflow-y-auto` not scrolling inside a flex column (content expanded to fit rather than scrolling)
+- Removed `overflow-hidden` from the outer sheet container (was blocking inner scroll)
+- Added `WebkitOverflowScrolling: "touch"` for iOS momentum scroll
+- Touch gesture handlers moved exclusively to the header/handle zone — content area touch events no longer intercepted
+
+---
+
+## [1.0.14] 2026-07-02
+
+### Test match — dual-innings score display
+
+#### Added — Prior innings score on live Test match cards (MatchCard.tsx)
+- When a Test match is in the **2nd innings or later**, the team's completed prior innings score appears **before** the current innings score: e.g. `199/10 & 88/4 (28)`
+- Only triggers for `match.format === "Test"` and only when `innA.length >= 2` (team has played more than one innings)
+- Shown in muted white/40 so it doesn't compete visually with the live innings score
+- No change to T20/ODI display
+
+---
+
+## [1.0.13] 2026-07-02
+
+### Critical bug fix — score sync and live status attribution
+
+#### Fixed — LiveMatchCard score swap (MatchCard.tsx)
+- **Root cause**: `innings[0]` was assumed to be teamA's innings and `innings[1]` teamB's. This is wrong when the visiting team bats first — their innings is `innings[0]` but they are `teamB`.
+- **Fix**: Filter innings array by `battingTeam` field: `innA = innings.filter(i => i.battingTeam === teamA.code)`. Attribution is now correct regardless of toss outcome or batting order.
+- Affects score display, batting indicator dot, and status text placement on live cards.
+
+#### Fixed — liveStatusOf() status text swap (MatchCard.tsx)
+- Same positional bug: function used `innings[0]` and `innings[1]` by array position to determine which team is chasing
+- Rewritten to use `currentInn = innings[innings.length - 1]` and derive `battingTeam` / `fieldingTeam` from `currentInn.battingTeam`
+- Status text (e.g. "ENG need 45 off 32 balls") now always names the correct team
+
+---
+
+## [1.0.12] 2026-07-02
+
+### Cricket-first redesign — schedule, flags, lineup, popularity sort, win prob
+
+#### Changed — Schedule page: competitions list with drill-down (app/schedule/page.tsx, app/schedule/[competitionId]/page.tsx)
+- Schedule root now shows a **list of competitions** sorted by worldwide popularity — not individual matches
+- Each row: coloured left bar, competition name, live badge (if any match is live), type + format pills, chevron
+- Tapping a competition opens `/schedule/[competitionId]` showing all matches for that tournament
+- Filter chips removed from schedule root (were noisy; competition grouping is cleaner)
+- New server component `/schedule/[competitionId]/page.tsx` with `generateStaticParams`
+
+#### Added — Team schedule page (app/schedule/[competitionId]/[teamCode]/page.tsx)
+- Server component, pre-rendered for all `(competition, team)` pairs
+- Three sections: Live Now, Upcoming, Results (reversed chronological)
+- Past match rows show a Won/Lost colour bar indicator
+- Linked from MiniStandings team rows (when using Link variant)
+
+#### Added — Worldwide popularity sort for live + upcoming matches (app/page.tsx)
+- Formula: `COMP_POP[comp.id] + TEAM_POP[teamA.code] + TEAM_POP[teamB.code]`
+- `COMP_POP`: ICC T20 WC (100) → Ashes (90) → IPL (88) → bilateral series (68–80) → franchise leagues (40–66)
+- `TEAM_POP`: IND (20), AUS (14), ENG (12), PAK (11), MI/CSK (10), RCB (9)…
+- Applied to: live carousel, upcoming matches column, schedule competition list
+
+#### Added — Country flags for national teams (MatchCard.tsx)
+- `FlagOrRank` component replaces `RankPill` for national teams
+- Uses `flagcdn.com/w40/{iso}.png` (40px wide) for crisp HiDPI rendering
+- Flag ISO map covers 20 national teams; franchise teams still show `#rank` pill
+- Switched from flag emoji (invisible on Windows) to PNG images
+
+#### Changed — Playing XI: flat list, no subsections (LineupsCard.tsx)
+- Removed "Batting Order" and "Bowlers Used" sub-headers
+- Single `PlayerColumn` with `getXI()`: merges `battingCard + bowlingCard + squad`, deduped, max 11 players
+- Header label: "Playing XI"
+- Squad data (11 players) added to all 10 IPL teams in `mockData.ts`
+
+#### Improved — Win probability chart (WinProbChart.tsx)
+- Single smooth area chart with Catmull-Rom → cubic bezier smoothing, downsampled to ~60 points
+- Team-coloured area fills under each line
+- Clean header with team names + percentages; drag handle at top
+- Back button (← chevron) top-left
+
+#### Added — Win prob modal: back button + back-swipe gesture (MatchView.tsx)
+- `← Back` button in WinProbChart header closes the modal
+- `history.pushState({winProb:true})` on open; `popstate` listener fires `closeProbModal()` on browser back
+- Mobile back-swipe gesture triggers close without needing the button
+
+#### Added — Win prob modal: book page-turn animation (MatchView.tsx, globals.css)
+- Opens with `book-enter-forward` (220 ms), closes with `book-exit-backward` (240 ms)
+- `isClosingProb` state: animation plays before React unmounts the component
+
+#### Fixed — Win% float precision (MatchView.tsx)
+- `100 - 99.44` floating point error produced `0.5600000000000023%`
+- Fix: `Math.round(pctA)` / `Math.round(pctB)` before display
+
+#### Added — Live match: status text under batting team (MatchCard.tsx)
+- `LiveSide` now accepts `status?: string` prop
+- Status line rendered in cyan below the batting team's score (e.g. "CSK need 34 off 22 balls")
+- Only shown for the batting team, not the fielding team
+
+#### Added — MiniStandings in match Live tab for league matches (MatchView.tsx, MiniStandings.tsx)
+- Compact standings card (Team / W / L / NRR / Pts) rendered in the Live tab when `match.competition.type === "league"`
+- Each team row is a `<Link>` to `/schedule/{comp.id}/{team.code}`
+- Playoff line indicator (top-4 teal bar) + "Tap team for their schedule" hint
+
+#### Added — TABLE tab in match view (MatchView.tsx, MatchTabs.tsx, StandingsTab.tsx)
+- `showTable = competition.type === "league" || "international"`
+- When true, a fourth **Table** tab appears in the match tab bar
+- `StandingsTab` renders full standings with position numbers, NRR, playoff line, eliminated teams
+- `STANDINGS_MAP` currently maps `"ipl-2026"` → full IPL 2026 standings; other competitions show "coming soon"
+
 ## [1.0.11] 2026-07-02
 
 ### Team Data — accurate jersey colors + full league rosters
