@@ -12,7 +12,6 @@ import {
 import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator";
 import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
-import MiniStandings from "@/components/MiniStandings";
 import { PastMatchCard, FutureMatchCard } from "@/components/MatchCard";
 
 
@@ -290,22 +289,6 @@ export default function Home() {
 
       <section className="mt-1">
         <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
-        {/* Standings for any league/tournament that has a live match */}
-        {(() => {
-          const seen = new Set<string>();
-          const leagueComps = byPopularity(ALL_LIVE_MATCHES)
-            .filter(m => m.competition.type === "league" || m.competition.type === "international")
-            .map(m => m.competition)
-            .filter(c => { if (seen.has(c.id)) return false; seen.add(c.id); return true; });
-          if (leagueComps.length === 0) return null;
-          return (
-            <div className="mt-3 px-3 space-y-3">
-              {leagueComps.map(comp => (
-                <MiniStandings key={comp.id} competition={comp} />
-              ))}
-            </div>
-          );
-        })()}
       </section>
 
       {isBooting ? (
