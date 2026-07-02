@@ -124,7 +124,7 @@ function formatMatchTime(iso: string) {
     countdown = `in ${diffD} days`;
   }
 
-  return { dateStr, timeStr, istStr, utcStr, countdown };
+  return { dateStr, timeStr, utcStr, countdown };
 }
 
 interface InfoTabProps {
@@ -136,7 +136,7 @@ export default function InfoTab({ match }: InfoTabProps) {
   const weather = CITY_WEATHER[match.venue.city] ?? DEFAULT_WEATHER;
   const rain = getRainLabel(weather.rainChance);
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
-  const { dateStr, timeStr, istStr, utcStr, countdown } = formatMatchTime(match.startTimeIso);
+  const { dateStr, timeStr, utcStr, countdown } = formatMatchTime(match.startTimeIso);
 
   return (
     <div className="space-y-4">
@@ -147,8 +147,7 @@ export default function InfoTab({ match }: InfoTabProps) {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="text-sm font-bold text-text-primary leading-snug">{dateStr}</div>
-            <div className="text-xs text-text-secondary mt-0.5">{timeStr} local · {match.venue.city}</div>
-            <div className="text-[10px] text-text-dim mt-0.5">({istStr} · {utcStr})</div>
+            <div className="text-xs text-text-secondary mt-0.5">{timeStr} local · {match.venue.city} ({utcStr})</div>
             <div className="text-[10px] text-text-dim mt-0.5">{match.competition.name} · {match.matchNumber}</div>
           </div>
           <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap"
@@ -178,7 +177,7 @@ export default function InfoTab({ match }: InfoTabProps) {
               <span className="text-text-dim">·</span>
               <span>💨 {weather.windKmh} km/h</span>
               <span className="text-text-dim">·</span>
-              <span style={{ color: rain.color }}>🌧️ {weather.rainChance}%</span>
+              <span>🌧️ {weather.rainChance}%</span>
             </div>
             {weather.rainChance >= 30 && (
               <div className="text-[10px] mt-0.5" style={{ color: rain.color }}>
