@@ -31,12 +31,47 @@ function StandingsSheet({ compName, onClose, children }: {
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragY = useRef(0);
+  const startY = useRef(0);
+  const [translateY, setTranslateY] = useState(0);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY;
+    dragY.current = 0;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const delta = e.touches[0].clientY - startY.current;
+    if (delta < 0) return; // don't allow dragging up
+    dragY.current = delta;
+    setTranslateY(delta);
+  };
+
+  const onTouchEnd = () => {
+    if (dragY.current > 80) {
+      onClose();
+    } else {
+      setTranslateY(0); // snap back
+    }
+    dragY.current = 0;
+  };
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
+        ref={sheetRef}
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[80vh] flex flex-col overflow-hidden"
-        style={{ maxWidth: 430, margin: "0 auto" }}
+        style={{
+          maxWidth: 430,
+          margin: "0 auto",
+          transform: `translateY(${translateY}px)`,
+          transition: translateY === 0 ? "transform 0.25s ease" : "none",
+        }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
       >
         <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-line shrink-0">
           <div className="w-10 h-1 rounded-full bg-line absolute top-2 left-1/2 -translate-x-1/2" />
