@@ -10,9 +10,29 @@ interface ScorecardProps {
 
 export default function Scorecard({ match }: ScorecardProps) {
   if (match.innings.length === 0) {
+    const isLive = match.status === "live" || match.status === "toss";
+    const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
     return (
-      <div className="card p-6 text-center text-text-secondary">
-        Innings haven&apos;t started yet.
+      <div className="space-y-3">
+        <div className="card p-6 flex flex-col items-center gap-3 text-center">
+          <span className="text-3xl">{isUpcoming ? "🗓️" : isLive ? "📡" : "🏏"}</span>
+          <p className="text-sm font-bold text-text-primary">
+            {isUpcoming ? "Match hasn\'t started yet" : isLive ? "Scorecard updating…" : "Scorecard not available"}
+          </p>
+          <p className="text-xs text-text-secondary max-w-[220px]">
+            {isUpcoming
+              ? "The scorecard will appear here once the toss happens and the match begins."
+              : isLive
+              ? "Innings data will populate here as the match progresses. Check the Live tab for the current score."
+              : "Detailed innings data was not recorded for this match."}
+          </p>
+          {match.liveStatusOverride && (
+            <div className="mt-1 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ background: `${match.teamA.primaryColor}22`, color: match.teamA.primaryColor }}>
+              {match.liveStatusOverride}
+            </div>
+          )}
+        </div>
       </div>
     );
   }

@@ -191,43 +191,92 @@ export default function MatchView({ match }: MatchViewProps) {
         {renderedTab === "live" && (
           <>
             {allBalls.length === 0 ? (
-              /* ── No ball-by-ball data (live intl) — score summary only ── */
+              /* ── No ball-by-ball data — rich score card ── */
               <div className="space-y-3">
-                <div className="card p-4 space-y-3">
-                  {match.liveStatusOverride && (
-                    <div className="bg-surface rounded-lg px-3 py-2 text-center">
-                      <div className="flex items-center justify-center gap-1.5 mb-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">Live</span>
-                      </div>
-                      <p className="text-sm font-bold text-text-primary">{match.liveStatusOverride}</p>
+
+                {/* Team banners + score */}
+                <div className="card overflow-hidden">
+                  {/* Live badge */}
+                  {match.status === "live" && (
+                    <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">Live</span>
                     </div>
                   )}
+
+                  {/* Team A row */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ background: match.teamA.primaryColor }} />
+                    <span className="text-sm font-extrabold flex-1">{match.teamA.shortName}</span>
+                    <span className="text-lg font-extrabold num">
+                      {match.innings.find(i => i.battingTeam === match.teamA.code)
+                        ? `${match.innings.find(i => i.battingTeam === match.teamA.code)!.runs}/${match.innings.find(i => i.battingTeam === match.teamA.code)!.wickets}`
+                        : (match.liveWinProbOverride?.teamCode === match.teamA.code ? "—" : "—")}
+                    </span>
+                  </div>
+
+                  {/* Team B row */}
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ background: match.teamB.primaryColor }} />
+                    <span className="text-sm font-extrabold flex-1">{match.teamB.shortName}</span>
+                    <span className="text-lg font-extrabold num">
+                      {match.innings.find(i => i.battingTeam === match.teamB.code)
+                        ? `${match.innings.find(i => i.battingTeam === match.teamB.code)!.runs}/${match.innings.find(i => i.battingTeam === match.teamB.code)!.wickets}`
+                        : "—"}
+                    </span>
+                  </div>
+
+                  {/* Status line */}
+                  {match.liveStatusOverride && (
+                    <div className="px-4 py-2.5 bg-bg-surface border-t border-line">
+                      <p className="text-xs font-bold text-text-primary text-center">{match.liveStatusOverride}</p>
+                    </div>
+                  )}
+
+                  {/* Result */}
                   {match.result && (
-                    <div className="text-center">
-                      <span className="text-xs font-bold uppercase tracking-wide px-2 py-1 rounded"
+                    <div className="px-4 py-2.5 border-t border-line text-center">
+                      <span className="text-xs font-bold px-3 py-1 rounded-full"
                         style={{ background: `${match.teamA.primaryColor}22`, color: match.teamA.primaryColor }}>
                         {match.result.winner !== "draw" && match.result.winner !== "tie" && match.result.winner !== "no-result"
                           ? `${match.result.winner} won · ${match.result.margin}` : match.result.winner}
                       </span>
                     </div>
                   )}
-                  {match.liveWinProbOverride && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-text-dim font-bold uppercase tracking-wide">
-                        <span>{match.teamA.shortName}</span><span>{match.teamB.shortName}</span>
+                </div>
+
+                {/* Win probability */}
+                {match.liveWinProbOverride && (() => {
+                  const pctA = match.liveWinProbOverride.teamCode === match.teamA.code
+                    ? match.liveWinProbOverride.pct
+                    : 100 - match.liveWinProbOverride.pct;
+                  const pctB = 100 - pctA;
+                  return (
+                    <div className="card px-4 py-3 space-y-2">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">Win Probability</span>
+                      <div className="flex justify-between text-xs font-extrabold">
+                        <span style={{ color: match.teamA.primaryColor }}>{match.teamA.shortName} {pctA}%</span>
+                        <span style={{ color: match.teamB.primaryColor }}>{pctB}% {match.teamB.shortName}</span>
                       </div>
-                      <div className="h-1.5 rounded-full overflow-hidden flex">
-                        {(() => {
-                          const pct = match.liveWinProbOverride.teamCode === match.teamA.code ? match.liveWinProbOverride.pct : 100 - match.liveWinProbOverride.pct;
-                          return (<><div style={{ width: `${pct}%`, background: match.teamA.primaryColor }} /><div style={{ width: `${100 - pct}%`, background: match.teamB.primaryColor }} /></>);
-                        })()}
+                      <div className="h-2 rounded-full overflow-hidden flex">
+                        <div style={{ width: `${pctA}%`, background: match.teamA.primaryColor }} />
+                        <div style={{ width: `${pctB}%`, background: match.teamB.primaryColor }} />
                       </div>
                     </div>
-                  )}
-                  {match.summary && <p className="text-xs text-text-secondary leading-relaxed border-t border-line pt-2">{match.summary}</p>}
-                </div>
-                <p className="text-[11px] text-text-dim text-center">Ball-by-ball data not available · See <button className="text-cyan underline" onClick={() => goToTab("info")}>Info</button> for squads</p>
+                  );
+                })()}
+
+                {/* Summary */}
+                {match.summary && (
+                  <div className="card px-4 py-3">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim block mb-1.5">Match Summary</span>
+                    <p className="text-sm text-text-secondary leading-relaxed">{match.summary}</p>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-text-dim text-center pb-2">
+                  Ball-by-ball data unavailable · <button className="text-cyan underline" onClick={() => goToTab("info")}>Info tab</button> for squads & details
+                </p>
               </div>
             ) : (
               /* ── Full ball-by-ball view ── */
