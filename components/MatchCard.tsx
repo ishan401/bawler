@@ -209,11 +209,11 @@ function LiveSide({ team, runs, wickets, overs, batting, alignRight, status, pre
           <span className="text-lg font-extrabold drop-shadow leading-none">{team.shortName}</span>
           {runs !== undefined && (
             <span className={`text-[11px] num font-bold ${batting ? "text-cyan" : "text-white/85"} leading-tight`}>
+              {prevRuns !== undefined && (
+                <span className="text-white/40 text-[9px] font-medium mr-1">{prevRuns}/{prevWickets} &amp;</span>
+              )}
               {runs}<span className="text-white/55">/{wickets}</span>
               {overs !== undefined && <span className="text-white/55 text-[9px] font-medium"> ({overs})</span>}
-              {prevRuns !== undefined && (
-                <span className="text-white/40 text-[9px] font-medium ml-1">& {prevRuns}/{prevWickets}</span>
-              )}
             </span>
           )}
         </div>
