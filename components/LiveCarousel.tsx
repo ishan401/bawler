@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import type { Match } from "@/lib/types";
+import type { Match, Competition } from "@/lib/types";
 import { LiveMatchCard } from "./MatchCard";
 import MiniStandings from "./MiniStandings";
+import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES, ALL_TEAMS } from "@/lib/mockData";
 
 interface LiveCarouselProps {
   matches: Match[];
@@ -22,38 +23,41 @@ function fmtCountdown(iso: string): string {
   return `in ${mins}m`;
 }
 
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, weekday: "short" });
 }
 
-function StandingsSheet({ compName, onClose, children }: {
-  compName: string;
+function truncate10(text: string): string {
+  const words = text.split(" ");
+  return words.length <= 10 ? text : words.slice(0, 10).join(" ") + "…";
+}
+
+// ── Swipe-down-dismissible bottom sheet ───────────────────────────────────
+function BottomSheet({ title, subtitle, onClose, onBack, children }: {
+  title: string;
+  subtitle?: string;
   onClose: () => void;
+  onBack?: () => void;
   children: React.ReactNode;
 }) {
-  const sheetRef = useRef<HTMLDivElement>(null);
   const dragY = useRef(0);
   const startY = useRef(0);
   const [translateY, setTranslateY] = useState(0);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    startY.current = e.touches[0].clientY;
-    dragY.current = 0;
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onTouchStart = (e: React.TouchEvent) => { startY.current = e.touches[0].clientY; dragY.current = 0; };
+  const onTouchMove  = (e: React.TouchEvent) => {
     const delta = e.touches[0].clientY - startY.current;
-    if (delta < 0) return; // don't allow dragging up
+    if (delta < 0) return;
     dragY.current = delta;
     setTranslateY(delta);
   };
-
   const onTouchEnd = () => {
-    if (dragY.current > 80) {
-      onClose();
-    } else {
-      setTranslateY(0); // snap back
-    }
+    if (dragY.current > 80) { onClose(); }
+    else { setTranslateY(0); }
     dragY.current = 0;
   };
 
@@ -61,23 +65,28 @@ function StandingsSheet({ compName, onClose, children }: {
     <>
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        ref={sheetRef}
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[80vh] flex flex-col overflow-hidden"
-        style={{
-          maxWidth: 430,
-          margin: "0 auto",
-          transform: `translateY(${translateY}px)`,
-          transition: translateY === 0 ? "transform 0.25s ease" : "none",
-        }}
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[85vh] flex flex-col overflow-hidden"
+        style={{ maxWidth: 430, margin: "0 auto", transform: `translateY(${translateY}px)`, transition: translateY === 0 ? "transform 0.25s ease" : "none" }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
-        <div className="px-4 pt-3 pb-2 flex items-center justify-between border-b border-line shrink-0">
-          <div className="w-10 h-1 rounded-full bg-line absolute top-2 left-1/2 -translate-x-1/2" />
-          <div className="pt-1">
-            <span className="text-sm font-extrabold">{compName}</span>
-            <span className="ml-2 text-[10px] text-text-dim font-bold uppercase tracking-widest">Standings</span>
+        {/* Handle */}
+        <div className="w-10 h-1 rounded-full bg-line mx-auto mt-2.5 shrink-0" />
+        {/* Header */}
+        <div className="px-4 pt-2 pb-2.5 flex items-center justify-between border-b border-line shrink-0">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <button onClick={onBack} className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center mr-1">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+            <div>
+              <span className="text-sm font-extrabold">{title}</span>
+              {subtitle && <span className="ml-2 text-[10px] text-text-dim font-bold uppercase tracking-widest">{subtitle}</span>}
+            </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 rounded-full bg-bg-elevated flex items-center justify-center">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -85,7 +94,8 @@ function StandingsSheet({ compName, onClose, children }: {
             </svg>
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-3">
+        {/* Content */}
+        <div className="overflow-y-auto flex-1">
           {children}
         </div>
       </div>
@@ -93,18 +103,119 @@ function StandingsSheet({ compName, onClose, children }: {
   );
 }
 
+// ── Team schedule popup ────────────────────────────────────────────────────
+function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
+  competition: Competition;
+  teamCode: string;
+  onClose: () => void;
+  onBack: () => void;
+}) {
+  const team = ALL_TEAMS[teamCode];
+
+  const allMatches = [
+    ...ALL_PAST_MATCHES,
+    ...ALL_LIVE_MATCHES,
+    ...ALL_UPCOMING_MATCHES,
+  ]
+    .filter(m =>
+      m.competition.id === competition.id &&
+      (m.teamA.code === teamCode || m.teamB.code === teamCode)
+    )
+    .sort((a, b) => new Date(a.startTimeIso).getTime() - new Date(b.startTimeIso).getTime());
+
+  return (
+    <BottomSheet
+      title={team?.shortName ?? teamCode}
+      subtitle={competition.shortName + " Schedule"}
+      onClose={onClose}
+      onBack={onBack}
+    >
+      {allMatches.length === 0 && (
+        <p className="text-sm text-text-secondary text-center py-12">No matches found.</p>
+      )}
+      <div className="divide-y divide-line">
+        {allMatches.map(m => {
+          const isLive     = m.status === "live" || m.status === "toss" || m.status === "innings-break";
+          const isPast     = m.status === "post-match";
+          const isUpcoming = !isLive && !isPast;
+          const opponent   = m.teamA.code === teamCode ? m.teamB : m.teamA;
+          const teamFirst  = m.teamA.code === teamCode;
+
+          // Result string for past matches
+          let resultLine = "";
+          if (isPast && m.result) {
+            const won = m.result.winner === teamCode;
+            const draw = m.result.winner === "draw" || m.result.winner === "tie" || m.result.winner === "no-result";
+            resultLine = draw ? m.result.winner : (won ? `Won · ${m.result.margin}` : `Lost · ${m.result.margin}`);
+          }
+
+          return (
+            <div
+              key={m.id}
+              className={`px-4 py-3 ${isLive ? "bg-wicket/5 border-l-2 border-wicket" : ""}`}
+            >
+              {/* Date + competition round */}
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-bold text-text-dim uppercase tracking-widest">
+                  {fmtDate(m.startTimeIso)} · {m.matchNumber ?? ""}
+                </span>
+                {isLive && (
+                  <span className="text-[9px] font-extrabold text-wicket uppercase tracking-widest flex items-center gap-1">
+                    <span className="live-dot w-1 h-1 rounded-full bg-wicket inline-block" />Live
+                  </span>
+                )}
+              </div>
+
+              {/* Teams */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: team?.primaryColor }} />
+                  <span className="text-sm font-extrabold">{team?.shortName ?? teamCode}</span>
+                </div>
+                <span className="text-[10px] text-text-dim font-bold shrink-0">vs</span>
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-row-reverse">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: opponent.primaryColor }} />
+                  <span className="text-sm font-extrabold">{opponent.shortName}</span>
+                </div>
+              </div>
+
+              {/* Result or time */}
+              {isPast && (
+                <div className="mt-1 flex items-start gap-2">
+                  <span className={`text-[10px] font-extrabold shrink-0 ${resultLine.startsWith("Won") ? "text-boundary" : resultLine.startsWith("Lost") ? "text-wicket" : "text-text-dim"}`}>
+                    {resultLine}
+                  </span>
+                  {m.summary && (
+                    <span className="text-[10px] text-text-secondary leading-tight">{truncate10(m.summary)}</span>
+                  )}
+                </div>
+              )}
+              {isLive && m.liveStatusOverride && (
+                <p className="mt-1 text-[10px] text-wicket font-bold">{m.liveStatusOverride}</p>
+              )}
+              {isUpcoming && (
+                <p className="mt-1 text-[10px] text-text-dim">{fmtTime(m.startTimeIso)} · {m.venue.city}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </BottomSheet>
+  );
+}
+
+// ── Main carousel ─────────────────────────────────────────────────────────
 export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const [openCompId, setOpenCompId] = useState<string | null>(null);
+  const [view, setView] = useState<"none" | "standings" | "team-schedule">("none");
+  const [openTeamCode, setOpenTeamCode] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Track which card is snapped into view
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      const cardWidth = el.clientWidth; // each card = 100% of container width
-      const idx = Math.round(el.scrollLeft / cardWidth);
+      const idx = Math.round(el.scrollLeft / el.clientWidth);
       setActiveIdx(Math.max(0, Math.min(idx, matches.length - 1)));
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -115,7 +226,8 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
   const isLeague = activeMatch &&
     (activeMatch.competition.type === "league" || activeMatch.competition.type === "international");
   const activeComp = isLeague ? activeMatch.competition : null;
-  const openComp = activeComp?.id === openCompId ? activeComp : null;
+
+  const closeAll = () => { setView("none"); setOpenTeamCode(null); };
 
   if (matches.length === 0) {
     return (
@@ -162,10 +274,7 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
   return (
     <>
       <div className="px-3">
-        <div
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3"
-        >
+        <div ref={scrollRef} className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
           {matches.map(m => (
             <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
               <LiveMatchCard match={m} />
@@ -173,11 +282,10 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
           ))}
         </div>
 
-        {/* TABLE button — only for the currently visible card if it's a league match */}
         {activeComp && (
           <div className="mt-2">
             <button
-              onClick={() => setOpenCompId(activeComp.id)}
+              onClick={() => setView("standings")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale"
             >
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
@@ -192,11 +300,26 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
         )}
       </div>
 
-      {/* Standings bottom sheet */}
-      {openComp && (
-        <StandingsSheet compName={openComp.name} onClose={() => setOpenCompId(null)}>
-          <MiniStandings competition={openComp} />
-        </StandingsSheet>
+      {/* Standings sheet */}
+      {view === "standings" && activeComp && (
+        <BottomSheet title={activeComp.name} subtitle="Standings" onClose={closeAll}>
+          <div className="p-3">
+            <MiniStandings
+              competition={activeComp}
+              onTeamClick={(code) => { setOpenTeamCode(code); setView("team-schedule"); }}
+            />
+          </div>
+        </BottomSheet>
+      )}
+
+      {/* Team schedule sheet */}
+      {view === "team-schedule" && activeComp && openTeamCode && (
+        <TeamScheduleSheet
+          competition={activeComp}
+          teamCode={openTeamCode}
+          onClose={closeAll}
+          onBack={() => { setOpenTeamCode(null); setView("standings"); }}
+        />
       )}
     </>
   );

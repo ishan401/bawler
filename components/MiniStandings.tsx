@@ -6,7 +6,13 @@ const STANDINGS_MAP: Record<string, typeof STANDINGS> = {
   "ipl-2026": STANDINGS,
 };
 
-export default function MiniStandings({ competition }: { competition: Competition }) {
+export default function MiniStandings({
+  competition,
+  onTeamClick,
+}: {
+  competition: Competition;
+  onTeamClick?: (teamCode: string) => void;
+}) {
   const rows = STANDINGS_MAP[competition.id];
   if (!rows) return null;
 
@@ -31,12 +37,9 @@ export default function MiniStandings({ competition }: { competition: Competitio
         if (!team) return null;
         const isQualifier = idx < 4;
         const isEliminated = row.qualified === "eliminated";
-        return (
-          <Link
-            key={row.teamCode}
-            href={`/schedule/${competition.id}/${row.teamCode}`}
-            className="grid grid-cols-[1fr_24px_24px_40px_28px] gap-1 px-3 py-2 border-b border-line/40 last:border-b-0 items-center hover:bg-bg-elevated transition-colors"
-          >
+
+        const rowContent = (
+          <div className="grid grid-cols-[1fr_24px_24px_40px_28px] gap-1 px-3 py-2 border-b border-line/40 last:border-b-0 items-center w-full text-left">
             <div className="flex items-center gap-1.5 min-w-0">
               {isQualifier && <span className="w-1 h-4 rounded-full bg-boundary shrink-0" />}
               <span className="text-[10px] font-bold num text-text-dim w-4 shrink-0">{idx + 1}</span>
@@ -49,6 +52,24 @@ export default function MiniStandings({ competition }: { competition: Competitio
               {row.netRunRate > 0 ? "+" : ""}{row.netRunRate.toFixed(2)}
             </span>
             <span className="text-right text-xs num font-extrabold">{row.points}</span>
+          </div>
+        );
+
+        return onTeamClick ? (
+          <button
+            key={row.teamCode}
+            onClick={() => onTeamClick(row.teamCode)}
+            className="w-full hover:bg-bg-elevated transition-colors tap-scale"
+          >
+            {rowContent}
+          </button>
+        ) : (
+          <Link
+            key={row.teamCode}
+            href={`/schedule/${competition.id}/${row.teamCode}`}
+            className="block hover:bg-bg-elevated transition-colors"
+          >
+            {rowContent}
           </Link>
         );
       })}
