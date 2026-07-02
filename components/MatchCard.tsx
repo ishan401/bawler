@@ -34,11 +34,15 @@ function fmtCountdown(iso: string): string {
   return `in ${mins}m`;
 }
 
-function RankPill({ rank }: { rank?: number }) {
-  if (!rank) return null;
+function FlagOrRank({ team }: { team: Team }) {
+  // National teams → show flag emoji; franchise teams → show ranking number
+  if (team.type === "national" && team.flagEmoji) {
+    return <span className="text-base leading-none">{team.flagEmoji}</span>;
+  }
+  if (!team.currentRanking) return null;
   return (
     <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-black/40 border border-white/20 num leading-none">
-      #{rank}
+      #{team.currentRanking}
     </span>
   );
 }
@@ -166,7 +170,7 @@ export function LiveMatchCard({ match }: { match: Match }) {
 function LiveSide({ team, runs, wickets, overs, batting, alignRight }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean }) {
   return (
     <div className={`flex items-center gap-1.5 min-w-0 ${alignRight ? "flex-row-reverse" : ""}`}>
-      <RankPill rank={team.currentRanking} />
+      <FlagOrRank team={team} />
       <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
         <span className="text-lg font-extrabold drop-shadow leading-none">{team.shortName}</span>
         {runs !== undefined && (
@@ -306,7 +310,7 @@ function SideBlock({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
   // Rank pill on OUTSIDE — same pattern as future cards
   return (
     <div className={`flex items-center gap-1 min-w-0 ${alignRight ? "flex-row-reverse" : ""}`}>
-      <RankPill rank={team.currentRanking} />
+      <FlagOrRank team={team} />
       <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
         <span className={`text-[13px] font-extrabold drop-shadow leading-none ${isWinner ? "text-white" : "text-white/65"}`}>
           {team.shortName}
