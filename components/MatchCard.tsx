@@ -144,10 +144,22 @@ const lines3NoEllipsis: React.CSSProperties = {
 // Live card — full width, prominent split win-prob bar
 // ============================================================================
 export function LiveMatchCard({ match }: { match: Match }) {
-  const i1 = match.innings[0];
-  const i2 = match.innings[1];
+  const { teamA, teamB, innings } = match;
+
+  // Look up innings by battingTeam code — NOT by position.
+  // Position-based (innings[0] → teamA) breaks whenever the visiting team bats first.
+  const innA = innings.filter(i => i.battingTeam === teamA.code);
+  const innB = innings.filter(i => i.battingTeam === teamB.code);
+  const lastInnA = innA[innA.length - 1]; // most recent innings for teamA
+  const lastInnB = innB[innB.length - 1]; // most recent innings for teamB
+
+  // Current batting team = last innings in array
+  const currentBatter = innings[innings.length - 1]?.battingTeam;
+  const teamABatting  = currentBatter === teamA.code;
+  const teamBBatting  = currentBatter === teamB.code;
+
   const status = liveStatusOf(match);
-  const wp = liveWinProb(match);
+  const wp     = liveWinProb(match);
 
   return (
     <Link
@@ -170,11 +182,11 @@ export function LiveMatchCard({ match }: { match: Match }) {
           </div>
         </div>
 
-        {/* Row 2 — teams; batting team gets status inline below its score */}
+        {/* Row 2 — teams; innings attributed by battingTeam, not position */}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <LiveSide team={match.teamA} runs={i1?.runs} wickets={i1?.wickets} overs={i1?.overs} batting={!i2} status={!i2 ? status : undefined} />
+          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} status={teamABatting ? status : undefined} />
           <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
-          <LiveSide team={match.teamB} runs={i2?.runs} wickets={i2?.wickets} overs={i2?.overs} batting={!!i2} alignRight status={!!i2 ? status : undefined} />
+          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting ? status : undefined} />
         </div>
 
         {/* Row 4 — prominent win-prob split bar (highlighted) */}
@@ -234,23 +246,34 @@ function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: nu
 
 function liveStatusOf(match: Match): string {
   if (match.liveStatusOverride) return match.liveStatusOverride;
-  const i1 = match.innings[0];
-  const i2 = match.innings[1];
-  const target = i1 && i2 ? i1.runs + 1 : null;
-  if (i2 && target) {
-    const runs = i2.balls.reduce((s, b) => s + b.runs + b.extras, 0);
-    const ballsBowled = i2.balls.length;
-    const ballsLeft = 120 - ballsBowled;
-    const need = target - runs;
-    if (need <= 0) return `${match.teamB.shortName} won the chase`;
-    if (ballsLeft <= 0) return `${match.teamA.shortName} defended ${target - 1}`;
-    return `${match.teamB.shortName} need ${need} off ${ballsLeft} balls`;
+
+  const { innings, teamA, teamB } = match;
+  // Find innings by battingTeam — never assume position equals team order
+  const currentInn  = innings[innings.length - 1];
+  const prevInn     = innings.length >= 2 ? innings[innings.length - 2] : null;
+  if (!currentInn) return "Toss imminent";
+
+  const battingTeam   = currentInn.battingTeam === teamA.code ? teamA : teamB;
+  const fieldingTeam  = currentInn.battingTeam === teamA.code ? teamB : teamA;
+
+  if (prevInn) {
+    // 2nd innings — chasing
+    const target      = prevInn.runs + 1;
+    const runs        = currentInn.balls.reduce((s, b) => s + b.runs + b.extras, 0);
+    const ballsBowled = currentInn.balls.length;
+    const ballsLeft   = 120 - ballsBowled;
+    const need        = target - runs;
+    if (need <= 0)    return `${battingTeam.shortName} won the chase`;
+    if (ballsLeft <= 0) return `${fieldingTeam.shortName} defended ${target - 1}`;
+    return `${battingTeam.shortName} need ${need} off ${ballsLeft} balls`;
   }
-  if (i1 && i1.balls.length > 0 && !i2) {
-    const runs = i1.balls.reduce((s, b) => s + b.runs + b.extras, 0);
-    const ballsBowled = i1.balls.length;
-    const projected = ballsBowled > 0 ? Math.round((runs / ballsBowled) * 120) : 0;
-    return `${match.teamA.shortName} on pace for ${projected}`;
+
+  // 1st innings
+  if (currentInn.balls.length > 0) {
+    const runs        = currentInn.balls.reduce((s, b) => s + b.runs + b.extras, 0);
+    const ballsBowled = currentInn.balls.length;
+    const projected   = Math.round((runs / ballsBowled) * 120);
+    return `${battingTeam.shortName} on pace for ${projected}`;
   }
   return "Toss imminent";
 }
