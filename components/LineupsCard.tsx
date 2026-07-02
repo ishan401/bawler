@@ -2,22 +2,8 @@ import React from "react";
 import type { Match } from "@/lib/types";
 
 export default function LineupsCard({ match }: { match: Match }) {
-  const hasInnings = match.innings.length > 0;
-
-  // When innings exist, derive the XI from batting + bowling cards (unique names, batters first)
-  const playersA = hasInnings
-    ? unique([
-        ...(match.innings[0]?.battingCard.map(b => b.playerName) ?? []),
-        ...(match.innings[1]?.bowlingCard.map(b => b.playerName) ?? []),
-      ])
-    : (match.teamA.squad ?? []);
-
-  const playersB = hasInnings
-    ? unique([
-        ...(match.innings[1]?.battingCard.map(b => b.playerName) ?? []),
-        ...(match.innings[0]?.bowlingCard.map(b => b.playerName) ?? []),
-      ])
-    : (match.teamB.squad ?? []);
+  const playersA = getXI(match, "A");
+  const playersB = getXI(match, "B");
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -25,6 +11,28 @@ export default function LineupsCard({ match }: { match: Match }) {
       <PlayerColumn team={match.teamB} players={playersB} />
     </div>
   );
+}
+
+/** Derive complete playing XI — up to 11 names, never empty slots shown as "TBC" */
+function getXI(match: Match, side: "A" | "B"): string[] {
+  const team      = side === "A" ? match.teamA : match.teamB;
+  const ownInn    = side === "A" ? match.innings[0] : match.innings[1];
+  const oppInn    = side === "A" ? match.innings[1] : match.innings[0];
+  const squad     = team.squad ?? [];
+
+  // Collect players seen in innings data (batting or bowling)
+  const fromInnings = unique([
+    ...(ownInn?.battingCard.map(b => b.playerName) ?? []),
+    ...(oppInn?.bowlingCard.map(b => b.playerName) ?? []),
+  ]);
+
+  // Merge innings-seen players with squad, always preferring confirmed lineup
+  const merged = unique([...fromInnings, ...squad]);
+
+  // Return first 11; pad with "TBC" only if we have absolutely no data
+  const xi = merged.slice(0, 11);
+  if (xi.length === 0) return [];
+  return xi;
 }
 
 function PlayerColumn({
@@ -40,6 +48,7 @@ function PlayerColumn({
         <span className="w-2.5 h-2.5 rounded-full" style={{ background: team.primaryColor }} />
         <span className="text-sm font-bold">{team.shortName}</span>
         {team.flagEmoji && <span className="text-base leading-none">{team.flagEmoji}</span>}
+        <span className="ml-auto text-[9px] text-text-dim font-bold uppercase tracking-widest">Playing XI</span>
       </div>
       <div className="px-3 py-3">
         {players.length === 0 ? (
@@ -60,5 +69,5 @@ function PlayerColumn({
 }
 
 function unique(arr: string[]): string[] {
-  return Array.from(new Set(arr));
+  return Array.from(new Set(arr.filter(Boolean)));
 }

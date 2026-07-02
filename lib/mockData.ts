@@ -16,16 +16,16 @@ import type {
 // ============================================================================
 
 export const TEAMS: Record<string, Team> = {
-  MI:   { code: "MI",   shortName: "MI",   fullName: "Mumbai Indians",            primaryColor: "#004BA0", secondaryColor: "#D1AB3E", currentRanking: 6 },
-  CSK:  { code: "CSK",  shortName: "CSK",  fullName: "Chennai Super Kings",       primaryColor: "#FDB913", secondaryColor: "#005DB7", currentRanking: 3 },
-  KKR:  { code: "KKR",  shortName: "KKR",  fullName: "Kolkata Knight Riders",     primaryColor: "#3A225D", secondaryColor: "#F2C72A", currentRanking: 4 },
-  RCB:  { code: "RCB",  shortName: "RCB",  fullName: "Royal Challengers Bengaluru", primaryColor: "#DA1818", secondaryColor: "#000000", currentRanking: 5 },
-  DC:   { code: "DC",   shortName: "DC",   fullName: "Delhi Capitals",            primaryColor: "#17449B", secondaryColor: "#EF1B23", currentRanking: 8 },
-  SRH:  { code: "SRH",  shortName: "SRH",  fullName: "Sunrisers Hyderabad",       primaryColor: "#F7A721", secondaryColor: "#000000", currentRanking: 7 },
-  PBKS: { code: "PBKS", shortName: "PBKS", fullName: "Punjab Kings",              primaryColor: "#DD1F2D", secondaryColor: "#A7A9AC", currentRanking: 9 },
-  RR:   { code: "RR",   shortName: "RR",   fullName: "Rajasthan Royals",          primaryColor: "#EA1A85", secondaryColor: "#254AA5", currentRanking: 2 },
-  LSG:  { code: "LSG",  shortName: "LSG",  fullName: "Lucknow Super Giants",      primaryColor: "#00A2D6", secondaryColor: "#FF7F00", currentRanking: 10 },
-  GT:   { code: "GT",   shortName: "GT",   fullName: "Gujarat Titans",            primaryColor: "#4285F4", secondaryColor: "#1B2133", currentRanking: 1 },
+  MI:   { code: "MI",   shortName: "MI",   fullName: "Mumbai Indians",            primaryColor: "#004BA0", secondaryColor: "#D1AB3E", currentRanking: 6, squad: ["R Sharma","I Kishan","S Iyer","T Stubbs","H Pandya","K Pollard","T Boult","J Bumrah","P Chawla","A Tiwary","A Nair"] },
+  CSK:  { code: "CSK",  shortName: "CSK",  fullName: "Chennai Super Kings",       primaryColor: "#FDB913", secondaryColor: "#005DB7", currentRanking: 3, squad: ["R Gaikwad","D Conway","A Badoni","S Dube","MS Dhoni","S Samson","R Jadeja","M Theekshana","P Krishna","M Pathirana","T Mukesh"] },
+  KKR:  { code: "KKR",  shortName: "KKR",  fullName: "Kolkata Knight Riders",     primaryColor: "#3A225D", secondaryColor: "#F2C72A", currentRanking: 4, squad: ["P Salt","S Narine","A Raghuvanshi","V Iyer","R Pant","A Russell","S Gill","V Chakravarthy","H Rauf","Harshit Rana","V Iyer"] },
+  RCB:  { code: "RCB",  shortName: "RCB",  fullName: "Royal Challengers Bengaluru", primaryColor: "#DA1818", secondaryColor: "#000000", currentRanking: 5, squad: ["V Kohli","P Salt","R van der Dussen","L Livingstone","J Fraser-McGurk","D Parag","C Sakariya","K Siraj","Y Dayal","S Hazlewood","S Sanklecha"] },
+  DC:   { code: "DC",   shortName: "DC",   fullName: "Delhi Capitals",            primaryColor: "#17449B", secondaryColor: "#EF1B23", currentRanking: 8, squad: ["P Ingram","A Dutt","S Iyer","T Stubbs","A Patel","A Nair","S Thakur","K Rabada","M Shami","I Sharma","K Yadav"] },
+  SRH:  { code: "SRH",  shortName: "SRH",  fullName: "Sunrisers Hyderabad",       primaryColor: "#F7A721", secondaryColor: "#000000", currentRanking: 7, squad: ["A Sharma","T Head","N Pooran","A Markram","H Klaasen","P Dubey","S Cummins","S Bhuvneshwar","A Nortje","Z Khan","M Sundar"] },
+  PBKS: { code: "PBKS", shortName: "PBKS", fullName: "Punjab Kings",              primaryColor: "#DD1F2D", secondaryColor: "#A7A9AC", currentRanking: 9, squad: ["P Bavuma","S McDermott","J Inglis","R Bhanuka","L Livingstone","S Curran","A Tiwary","A Badoni","A Mathews","K Yadav","A Rashid"] },
+  RR:   { code: "RR",   shortName: "RR",   fullName: "Rajasthan Royals",          primaryColor: "#EA1A85", secondaryColor: "#254AA5", currentRanking: 2, squad: ["Y Jaiswal","J Buttler","S Samson","D Jurel","R Parag","S Dube","R Ashwin","T Boult","Sandeep Sharma","A Zampa","K Sharma"] },
+  LSG:  { code: "LSG",  shortName: "LSG",  fullName: "Lucknow Super Giants",      primaryColor: "#00A2D6", secondaryColor: "#FF7F00", currentRanking: 10, squad: ["KL Rahul","Q de Kock","M Vohra","D Hooda","M Stoinis","K Mayers","R Bishnoi","M Ali","S Thakur","Y Chahal","A Badoni"] },
+  GT:   { code: "GT",   shortName: "GT",   fullName: "Gujarat Titans",            primaryColor: "#4285F4", secondaryColor: "#1B2133", currentRanking: 1, squad: ["S Gill","W Saha","A Finch","H Pandya","D Miller","R Tewatia","R Khan","M Shami","J Mohammed","Y Dayal","K Anderson"] },
 };
 
 // ── National teams (jersey / kit colors) ────────────────────────────────────
