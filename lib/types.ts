@@ -37,6 +37,7 @@ export interface Team {
   type?: "national" | "franchise"; // national = country, franchise = league team
   flagEmoji?: string;       // "🇮🇳" — shown next to national team names
   country?: string;         // ISO 3-letter: "IND", "AUS" — for national teams
+  squad?: string[];         // current squad — 11-15 player short-names
 }
 
 export interface Player {
