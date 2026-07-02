@@ -2,10 +2,11 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
-  LIVE_MATCHES,
-  PAST_MATCHES,
-  UPCOMING_MATCHES,
-  TEAMS,
+  ALL_LIVE_MATCHES,
+  ALL_PAST_MATCHES,
+  ALL_UPCOMING_MATCHES,
+  ALL_TEAMS,
+  ALL_COMPETITION_NAMES,
   VENUES,
 } from "@/lib/mockData";
 import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator";
@@ -15,28 +16,28 @@ import { PastMatchCard, FutureMatchCard } from "@/components/MatchCard";
 import FilterBar, { type FilterDef } from "@/components/FilterBar";
 
 const TEAM_DEFAULT = "KKR";
-const VENUE_DEFAULT = "Kolkata";
 
 const FILTERS: FilterDef[] = [
+  {
+    key: "format",
+    label: "Format",
+    defaultValue: "T20",
+    options: ["T20", "T20I", "ODI", "Test"],
+    alwaysOn: false,
+  },
+  {
+    key: "competition",
+    label: "Tour",
+    defaultValue: "IPL",
+    options: ALL_COMPETITION_NAMES,
+    alwaysOn: false,
+  },
   {
     key: "team",
     label: "Team",
     defaultValue: TEAM_DEFAULT,
-    options: Object.values(TEAMS).map(t => t.shortName).sort(),
-    colorFn: (val) => Object.values(TEAMS).find(t => t.shortName === val)?.primaryColor,
-  },
-  {
-    key: "tournament",
-    label: "Tour",
-    defaultValue: "IPL",
-    options: ["IPL"],
-    alwaysOn: true,
-  },
-  {
-    key: "venue",
-    label: "Venue",
-    defaultValue: VENUE_DEFAULT,
-    options: Object.values(VENUES).map(v => v.city).sort(),
+    options: Object.values(ALL_TEAMS).map(t => t.shortName).sort(),
+    colorFn: (val) => Object.values(ALL_TEAMS).find(t => t.shortName === val)?.primaryColor,
   },
 ];
 
@@ -49,14 +50,14 @@ const ENTER_MS = 900;
 export default function Home() {
   // ---- Filter state ----
   const [filterValues, setFilterValues] = useState<Record<string, string>>({
+    format: "T20",
+    competition: "IPL",
     team: TEAM_DEFAULT,
-    tournament: "IPL",
-    venue: VENUE_DEFAULT,
   });
   const [filterEnabled, setFilterEnabled] = useState<Record<string, boolean>>({
+    format: false,
+    competition: false,
     team: false,
-    tournament: true,
-    venue: false,
   });
 
   // ---- Boot skeleton (shows shimmer for 350ms on first load) ----
@@ -90,12 +91,12 @@ export default function Home() {
   }, [pullY]);
 
   // ---- Source lists (infinite scroll grows these) ----
-  const [pastList, setPastList] = useState<Match[]>(PAST_MATCHES);
-  const [futureList, setFutureList] = useState<Match[]>(UPCOMING_MATCHES);
+  const [pastList, setPastList] = useState<Match[]>(ALL_PAST_MATCHES);
+  const [futureList, setFutureList] = useState<Match[]>(ALL_UPCOMING_MATCHES);
 
   // ---- What's actually on screen (can lag source during animation) ----
-  const [displayedPast, setDisplayedPast] = useState<Match[]>(PAST_MATCHES);
-  const [displayedFuture, setDisplayedFuture] = useState<Match[]>(UPCOMING_MATCHES);
+  const [displayedPast, setDisplayedPast] = useState<Match[]>(ALL_PAST_MATCHES);
+  const [displayedFuture, setDisplayedFuture] = useState<Match[]>(ALL_UPCOMING_MATCHES);
 
   // ---- Animation state ----
   const [leavingIds, setLeavingIds] = useState<Set<string>>(new Set());
@@ -111,11 +112,14 @@ export default function Home() {
   // Filter function — pure
   const filterMatches = useCallback((matches: Match[], values = filterValues, enabled = filterEnabled): Match[] => {
     return matches.filter(m => {
+      if (enabled.format && values.format) {
+        if (m.format !== values.format) return false;
+      }
+      if (enabled.competition && values.competition) {
+        if (m.competition.shortName !== values.competition) return false;
+      }
       if (enabled.team && values.team) {
         if (m.teamA.shortName !== values.team && m.teamB.shortName !== values.team) return false;
-      }
-      if (enabled.venue && values.venue) {
-        if (m.venue.city !== values.venue) return false;
       }
       return true;
     });
@@ -264,7 +268,7 @@ export default function Home() {
 
 
       <section className="mt-1">
-        <LiveCarousel matches={LIVE_MATCHES} nextMatch={UPCOMING_MATCHES[0]} />
+        <LiveCarousel matches={ALL_LIVE_MATCHES} nextMatch={UPCOMING_MATCHES[0]} />
       </section>
 
       {isBooting ? (

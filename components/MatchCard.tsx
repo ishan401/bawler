@@ -52,6 +52,25 @@ function HighlightBadge({ text }: { text?: string }) {
   );
 }
 
+function CompetitionBadge({ match }: { match: Match }) {
+  const c = match.competition;
+  const fmtLabel = match.format === "Test" ? "Test" : match.format === "ODI" ? "ODI" : null;
+  return (
+    <div className="flex items-center gap-1">
+      {fmtLabel && (
+        <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none"
+          style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)" }}>
+          {fmtLabel}
+        </span>
+      )}
+      <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none truncate max-w-[70px]"
+        style={{ background: c.logoColor ? `${c.logoColor}33` : "rgba(255,255,255,0.10)", color: c.logoColor ?? "rgba(255,255,255,0.65)", border: `1px solid ${c.logoColor ?? "rgba(255,255,255,0.12)"}44` }}>
+        {c.shortName}
+      </span>
+    </div>
+  );
+}
+
 /**
  * Small "Schedule" + "Table" buttons that sit inside a match card.
  * Each button stops the parent Link's navigation and routes elsewhere instead.
@@ -115,13 +134,16 @@ export function LiveMatchCard({ match }: { match: Match }) {
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="full" />
 
       <div className="relative h-full px-2.5 py-2 flex flex-col text-white">
-        {/* Row 1 — date+live badge (left) and venue (right) — consistent with cards */}
+        {/* Row 1 — Live badge (left) + competition badge + venue (right) */}
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10px] font-extrabold uppercase tracking-widest text-wicket flex items-center gap-1.5 leading-none">
             <span className="live-dot w-1.5 h-1.5 rounded-full bg-wicket inline-block" />
             Live
           </span>
-          <span className="text-[9px] text-white/70 num truncate leading-none">{match.venue.name} ({match.venue.city})</span>
+          <div className="flex items-center gap-1.5">
+            <CompetitionBadge match={match} />
+            <span className="text-[9px] text-white/60 num truncate leading-none hidden sm:inline">{match.venue.city}</span>
+          </div>
         </div>
 
         {/* Row 2 — teams with rank pills on OUTSIDE (consistent w/ past + future) */}
@@ -237,10 +259,13 @@ export function PastMatchCard({ match }: { match: Match }) {
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="wide" />
 
       <div className="relative h-full px-2 py-1.5 flex flex-col text-white gap-0.5">
-        {/* Row 1: date (left) + badge (right) — CONSISTENT with future */}
+        {/* Row 1: date (left) + competition badge + highlight badge (right) */}
         <div className="flex items-center justify-between gap-2 min-h-[13px]">
           <span className="text-[9.5px] num text-white/75 leading-none">{fmtDate(match.startTimeIso)}</span>
-          <HighlightBadge text={match.highlightBadge} />
+          <div className="flex items-center gap-1 shrink-0">
+            <CompetitionBadge match={match} />
+            <HighlightBadge text={match.highlightBadge} />
+          </div>
         </div>
 
         {/* Row 2: teams with rank pills on OUTSIDE — CONSISTENT */}
@@ -309,12 +334,15 @@ export function FutureMatchCard({ match }: { match: Match }) {
       <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="narrow" />
 
       <div className="relative h-full px-2 py-1.5 flex flex-col text-white gap-0.5">
-        {/* Row 1: badge (right) */}
+        {/* Row 1: date (left) + competition badge + highlight badge (right) */}
         <div className="flex items-center justify-between gap-1 min-h-[13px]">
           <span className="text-[9px] num text-white/65 leading-none truncate">
             {fmtDate(match.startTimeIso).replace(",", "")}
           </span>
-          <HighlightBadge text={match.highlightBadge} />
+          <div className="flex items-center gap-1 shrink-0">
+            <CompetitionBadge match={match} />
+            <HighlightBadge text={match.highlightBadge} />
+          </div>
         </div>
 
         {/* Row 2: teams with rank pills */}

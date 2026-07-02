@@ -1,5 +1,5 @@
+import { COMPETITIONS, TEAMS, VENUES } from "./mockData";
 import type { Match, Team, Venue } from "./types";
-import { TEAMS, VENUES } from "./mockData";
 
 const PAST_SUMMARIES = [
   "Late-order partnership flipped a stalled chase.",
@@ -63,7 +63,8 @@ export function generatePastMatches(earliestIso: string, batchSize: number): Mat
     const teamB: Team = TEAMS[bCode];
     return {
       id: `gen-past-${idx}`,
-      competition: "IPL",
+      competition: COMPETITIONS.ipl2026,
+      format: "T20" as const,
       season: 2026,
       startTimeIso: new Date(startMs).toISOString(),
       status: "post-match",
@@ -102,7 +103,8 @@ export function generateFutureMatches(latestIso: string, batchSize: number): Mat
     const excitement = 3 + Math.floor(seededRandom(idx + 51) * 8);
     return {
       id: `gen-fut-${idx}`,
-      competition: "IPL",
+      competition: COMPETITIONS.ipl2026,
+      format: "T20" as const,
       season: 2026,
       startTimeIso: new Date(startMs).toISOString(),
       status: "upcoming",

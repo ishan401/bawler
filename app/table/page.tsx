@@ -1,13 +1,14 @@
 "use client";
 
-import { STANDINGS, TEAMS } from "@/lib/mockData";
+import { useState } from "react";
+import { STANDINGS, ALL_TEAMS } from "@/lib/mockData";
 
 export default function TablePage() {
   return (
     <main className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur border-b border-line px-3 py-3">
         <h1 className="text-base font-extrabold tracking-tight">Table</h1>
-        <p className="text-[10px] text-text-secondary">IPL 2026 · standings · top 4 qualify</p>
+        <p className="text-[10px] text-text-secondary">IPL 2026 · top 4 qualify</p>
       </header>
 
       <div className="px-3 mt-3">
@@ -24,7 +25,7 @@ export default function TablePage() {
           </div>
 
           {STANDINGS.map((row, idx) => {
-            const team = TEAMS[row.teamCode];
+            const team = ALL_TEAMS[row.teamCode];
             const isQualifier = row.qualified === "playoff" || idx < 4;
             const isEliminated = row.qualified === "eliminated";
             return (

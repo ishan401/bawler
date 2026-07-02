@@ -46,9 +46,22 @@ function ScoreBar({ match }: ScoreBarProps) {
           <Team code={match.teamB.shortName} color={match.teamB.primaryColor} batting={!!i2} />
         </div>
 
-        <div className="text-[10px] uppercase tracking-widest text-text-dim flex items-center gap-1.5">
-          {isLive && <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-wicket" />}
-          {isLive ? "LIVE" : isPost ? "FINAL" : "PRE"}
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="text-[10px] uppercase tracking-widest text-text-dim flex items-center gap-1.5">
+            {isLive && <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-wicket" />}
+            {isLive ? "LIVE" : isPost ? "FINAL" : "PRE"}
+          </div>
+          <div className="flex items-center gap-1">
+            {match.format !== "T20" && (
+              <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none text-text-dim border border-line">
+                {match.format}
+              </span>
+            )}
+            <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none"
+              style={{ background: match.competition.logoColor ? `${match.competition.logoColor}22` : "rgba(255,255,255,0.06)", color: match.competition.logoColor ?? "var(--text-dim)", border: `1px solid ${match.competition.logoColor ?? "rgba(255,255,255,0.12)"}44` }}>
+              {match.competition.shortName}
+            </span>
+          </div>
         </div>
       </div>
       {/* Second row: chase context */}

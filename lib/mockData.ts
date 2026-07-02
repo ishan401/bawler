@@ -1,6 +1,7 @@
 import type {
   Match,
   Team,
+  Competition,
   Ball,
   Insight,
   Venue,
@@ -25,6 +26,82 @@ export const TEAMS: Record<string, Team> = {
   RR:   { code: "RR",   shortName: "RR",   fullName: "Rajasthan Royals",          primaryColor: "#EA1A85", secondaryColor: "#254AA5", currentRanking: 2 },
   LSG:  { code: "LSG",  shortName: "LSG",  fullName: "Lucknow Super Giants",      primaryColor: "#00A2D6", secondaryColor: "#FF7F00", currentRanking: 10 },
   GT:   { code: "GT",   shortName: "GT",   fullName: "Gujarat Titans",            primaryColor: "#4285F4", secondaryColor: "#1B2133", currentRanking: 1 },
+};
+
+// ── National teams ──────────────────────────────────────────────────────────
+export const NATIONAL_TEAMS: Record<string, Team> = {
+  IND: { code: "IND", shortName: "IND", fullName: "India",              primaryColor: "#1565C0", secondaryColor: "#F9A825", type: "national", flagEmoji: "🇮🇳", country: "IND", currentRanking: 1 },
+  ENG: { code: "ENG", shortName: "ENG", fullName: "England",            primaryColor: "#C8102E", secondaryColor: "#001689", type: "national", flagEmoji: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "ENG", currentRanking: 4 },
+  AUS: { code: "AUS", shortName: "AUS", fullName: "Australia",          primaryColor: "#006A4E", secondaryColor: "#FFD700", type: "national", flagEmoji: "🇦🇺", country: "AUS", currentRanking: 2 },
+  PAK: { code: "PAK", shortName: "PAK", fullName: "Pakistan",           primaryColor: "#006847", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇵🇰", country: "PAK", currentRanking: 6 },
+  NZ:  { code: "NZ",  shortName: "NZ",  fullName: "New Zealand",        primaryColor: "#000000", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇳🇿", country: "NZL", currentRanking: 5 },
+  SA:  { code: "SA",  shortName: "SA",  fullName: "South Africa",       primaryColor: "#007A4D", secondaryColor: "#FFB612", type: "national", flagEmoji: "🇿🇦", country: "RSA", currentRanking: 3 },
+  WI:  { code: "WI",  shortName: "WI",  fullName: "West Indies",        primaryColor: "#7B0041", secondaryColor: "#FFC61E", type: "national", flagEmoji: "🏴", country: "WI",  currentRanking: 9 },
+  SL:  { code: "SL",  shortName: "SL",  fullName: "Sri Lanka",          primaryColor: "#003478", secondaryColor: "#8D153A", type: "national", flagEmoji: "🇱🇰", country: "SL",  currentRanking: 8 },
+  BAN: { code: "BAN", shortName: "BAN", fullName: "Bangladesh",         primaryColor: "#006A4E", secondaryColor: "#F42A41", type: "national", flagEmoji: "🇧🇩", country: "BAN", currentRanking: 7 },
+  AFG: { code: "AFG", shortName: "AFG", fullName: "Afghanistan",        primaryColor: "#1F5DAA", secondaryColor: "#BE0027", type: "national", flagEmoji: "🇦🇫", country: "AFG", currentRanking: 10 },
+  IRE: { code: "IRE", shortName: "IRE", fullName: "Ireland",            primaryColor: "#169B62", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇮🇪", country: "IRE" },
+  ZIM: { code: "ZIM", shortName: "ZIM", fullName: "Zimbabwe",           primaryColor: "#006400", secondaryColor: "#D4AF37", type: "national", flagEmoji: "🇿🇼", country: "ZIM" },
+  SCO: { code: "SCO", shortName: "SCO", fullName: "Scotland",           primaryColor: "#003078", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", country: "SCO" },
+  NED: { code: "NED", shortName: "NED", fullName: "Netherlands",        primaryColor: "#FF6600", secondaryColor: "#003DA5", type: "national", flagEmoji: "🇳🇱", country: "NED" },
+  USA: { code: "USA", shortName: "USA", fullName: "United States",      primaryColor: "#B22234", secondaryColor: "#002868", type: "national", flagEmoji: "🇺🇸", country: "USA" },
+};
+
+// ── Franchise teams (other leagues) ─────────────────────────────────────────
+export const LEAGUE_TEAMS: Record<string, Team> = {
+  // BBL
+  SIXERS:   { code: "SIXERS",   shortName: "Sixers",   fullName: "Sydney Sixers",            primaryColor: "#FF1F8E", secondaryColor: "#FFFFFF", type: "franchise" },
+  STARS:    { code: "STARS",    shortName: "Stars",    fullName: "Melbourne Stars",           primaryColor: "#00A650", secondaryColor: "#FFFFFF", type: "franchise" },
+  HEAT:     { code: "HEAT",     shortName: "Heat",     fullName: "Brisbane Heat",             primaryColor: "#FF6600", secondaryColor: "#5B2D8E", type: "franchise" },
+  SCORCHERS:{ code: "SCORCHERS",shortName: "Scorchers",fullName: "Perth Scorchers",           primaryColor: "#F15A22", secondaryColor: "#003087", type: "franchise" },
+  HURRICANES:{code:"HURRICANES",shortName: "Canes",    fullName: "Hobart Hurricanes",         primaryColor: "#7F00FF", secondaryColor: "#00BFFF", type: "franchise" },
+  THUNDER:  { code: "THUNDER",  shortName: "Thunder",  fullName: "Sydney Thunder",            primaryColor: "#16A829", secondaryColor: "#FFDD00", type: "franchise" },
+  // PSL
+  LAH:      { code: "LAH",      shortName: "Lahore",   fullName: "Lahore Qalandars",          primaryColor: "#00A651", secondaryColor: "#C8102E", type: "franchise" },
+  KAR:      { code: "KAR",      shortName: "Karachi",  fullName: "Karachi Kings",             primaryColor: "#00AEEF", secondaryColor: "#FFD700", type: "franchise" },
+  PES:      { code: "PES",      shortName: "Peshawar", fullName: "Peshawar Zalmi",            primaryColor: "#F7A800", secondaryColor: "#C8102E", type: "franchise" },
+  QUE:      { code: "QUE",      shortName: "Quetta",   fullName: "Quetta Gladiators",         primaryColor: "#2D2D8F", secondaryColor: "#FFD700", type: "franchise" },
+  MUL:      { code: "MUL",      shortName: "Multan",   fullName: "Multan Sultans",            primaryColor: "#8B0000", secondaryColor: "#FFD700", type: "franchise" },
+  ISL:      { code: "ISL",      shortName: "Islamabad",fullName: "Islamabad United",          primaryColor: "#C8102E", secondaryColor: "#004B87", type: "franchise" },
+  // The Hundred
+  OVI:      { code: "OVI",      shortName: "Oval",     fullName: "Oval Invincibles",          primaryColor: "#FFD700", secondaryColor: "#6B2C91", type: "franchise" },
+  LSP:      { code: "LSP",      shortName: "London",   fullName: "London Spirit",             primaryColor: "#003DA5", secondaryColor: "#FFFFFF", type: "franchise" },
+  MOR:      { code: "MOR",      shortName: "Originals",fullName: "Manchester Originals",      primaryColor: "#FF6600", secondaryColor: "#000000", type: "franchise" },
+  SBR:      { code: "SBR",      shortName: "S Brave",  fullName: "Southern Brave",            primaryColor: "#1E3A5F", secondaryColor: "#FFFFFF", type: "franchise" },
+  // SA20
+  SEC:      { code: "SEC",      shortName: "Sunrisers",fullName: "Sunrisers Eastern Cape",    primaryColor: "#F7A800", secondaryColor: "#000000", type: "franchise" },
+  MICT:     { code: "MICT",     shortName: "MI Cape",  fullName: "MI Cape Town",              primaryColor: "#004BA0", secondaryColor: "#D1AB3E", type: "franchise" },
+  JSK:      { code: "JSK",      shortName: "Jo'burg",  fullName: "Joburg Super Kings",        primaryColor: "#FDB913", secondaryColor: "#005DB7", type: "franchise" },
+  // CPL
+  TKR:      { code: "TKR",      shortName: "TKR",      fullName: "Trinbago Knight Riders",    primaryColor: "#3A225D", secondaryColor: "#F2C72A", type: "franchise" },
+  BARB:     { code: "BARB",     shortName: "Royals",   fullName: "Barbados Royals",            primaryColor: "#EA1A85", secondaryColor: "#254AA5", type: "franchise" },
+  GAW:      { code: "GAW",      shortName: "Warriors", fullName: "Guyana Amazon Warriors",    primaryColor: "#008000", secondaryColor: "#FFD700", type: "franchise" },
+  // MLC
+  LAKR:     { code: "LAKR",     shortName: "LA KR",    fullName: "LA Knight Riders",          primaryColor: "#3A225D", secondaryColor: "#F2C72A", type: "franchise" },
+  TSK:      { code: "TSK",      shortName: "Texas SK", fullName: "Texas Super Kings",         primaryColor: "#FDB913", secondaryColor: "#005DB7", type: "franchise" },
+  MINE:     { code: "MINE",     shortName: "MI NY",    fullName: "MI New York",               primaryColor: "#004BA0", secondaryColor: "#D1AB3E", type: "franchise" },
+};
+
+// ── All teams combined ───────────────────────────────────────────────────────
+export const ALL_TEAMS: Record<string, Team> = {
+  ...TEAMS, ...NATIONAL_TEAMS, ...LEAGUE_TEAMS,
+};
+
+// ── Competitions registry ────────────────────────────────────────────────────
+export const COMPETITIONS: Record<string, Competition> = {
+  ipl2026:       { id: "ipl-2026",         name: "IPL 2026",                      shortName: "IPL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#F7A800" },
+  t20wc2026:     { id: "icc-t20wc-2026",   name: "ICC T20 World Cup 2026",        shortName: "T20 WC",    type: "international", format: "T20I", season: "2026",    logoColor: "#00A2D6" },
+  ct2025:        { id: "icc-ct-2025",      name: "ICC Champions Trophy 2025",     shortName: "Champ. Tr.",type: "international", format: "ODI",  season: "2025",    logoColor: "#00A2D6" },
+  ashes2526:     { id: "ashes-2025-26",    name: "The Ashes 2025-26",             shortName: "Ashes",     type: "bilateral",     format: "Test", season: "2025-26", logoColor: "#8B6914" },
+  indEngTest2026:{ id: "ind-eng-test-2026",name: "India tour of England 2026",    shortName: "IND v ENG", type: "bilateral",     format: "Test", season: "2026",    logoColor: "#1565C0" },
+  indAusT20i2026:{ id: "ind-aus-t20i-2026",name: "India tour of Australia 2026",  shortName: "IND v AUS", type: "bilateral",     format: "T20I", season: "2026",    logoColor: "#1565C0" },
+  engSaOdi2026:  { id: "eng-sa-odi-2026",  name: "South Africa tour of England 2026", shortName: "ENG v SA", type: "bilateral", format: "ODI",  season: "2026",    logoColor: "#C8102E" },
+  bbl2526:       { id: "bbl-2025-26",      name: "Big Bash League 2025-26",       shortName: "BBL",       type: "league",        format: "T20",  season: "2025-26", logoColor: "#00BFFF" },
+  psl2026:       { id: "psl-2026",         name: "HBL PSL 2026",                  shortName: "PSL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#00A651" },
+  hundred2026:   { id: "hundred-2026",     name: "The Hundred 2026",              shortName: "Hundred",   type: "league",        format: "T20",  season: "2026",    logoColor: "#6B2C91" },
+  sa202026:      { id: "sa20-2026",        name: "SA20 2026",                     shortName: "SA20",      type: "league",        format: "T20",  season: "2026",    logoColor: "#007A4D" },
+  cpl2025:       { id: "cpl-2025",         name: "CPL 2025",                      shortName: "CPL",       type: "league",        format: "T20",  season: "2025",    logoColor: "#7B0041" },
+  mlc2026:       { id: "mlc-2026",         name: "Major League Cricket 2026",     shortName: "MLC",       type: "league",        format: "T20",  season: "2026",    logoColor: "#B22234" },
 };
 
 // ============================================================================
@@ -385,8 +462,8 @@ function buildInnings2(): Innings {
 
 export const FEATURED_MATCH: Match = {
   id: "ipl2026-m37-kkrvmi",
-  competition: "IPL",
-  season: 2026,
+  competition: COMPETITIONS.ipl2026,
+  format: "T20",
   startTimeIso: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
   status: "live",
   venue: VENUES.eden,
@@ -412,8 +489,8 @@ function hourFromNow(h: number): string {
 export const PAST_MATCHES: Match[] = [
   {
     id: "ipl2026-m36-cskvrcb",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-22),
     status: "post-match",
     venue: VENUES.chinnaswamy,
@@ -428,8 +505,8 @@ export const PAST_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m35-givsmi",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-46),
     status: "post-match",
     venue: VENUES.motera,
@@ -444,8 +521,8 @@ export const PAST_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m34-lsgvpbks",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-70),
     status: "post-match",
     venue: VENUES.wankhede,
@@ -458,8 +535,8 @@ export const PAST_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m33-kkrvrr",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-94),
     status: "post-match",
     venue: VENUES.eden,
@@ -472,8 +549,8 @@ export const PAST_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m32-dcvsrh",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-118),
     status: "post-match",
     venue: VENUES.chepauk,
@@ -486,8 +563,8 @@ export const PAST_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m31-rrvkkr",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-142),
     status: "post-match",
     venue: VENUES.eden,
@@ -500,8 +577,8 @@ export const PAST_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m30-mivcsk",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(-166),
     status: "post-match",
     venue: VENUES.wankhede,
@@ -522,8 +599,8 @@ export const PAST_MATCHES: Match[] = [
 export const UPCOMING_MATCHES: Match[] = [
   {
     id: "ipl2026-m38-rrvgt",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(20),
     status: "upcoming",
     venue: VENUES.motera,
@@ -536,8 +613,8 @@ export const UPCOMING_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m39-pbksvlsg",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(44),
     status: "upcoming",
     venue: VENUES.wankhede,
@@ -549,8 +626,8 @@ export const UPCOMING_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m40-mivsrh",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(68),
     status: "upcoming",
     venue: VENUES.wankhede,
@@ -563,8 +640,8 @@ export const UPCOMING_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m41-cskvkkr",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(92),
     status: "upcoming",
     venue: VENUES.chepauk,
@@ -577,8 +654,8 @@ export const UPCOMING_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m42-rcbvdc",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(116),
     status: "upcoming",
     venue: VENUES.chinnaswamy,
@@ -591,8 +668,8 @@ export const UPCOMING_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-m43-gtvsrh",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: hourFromNow(140),
     status: "upcoming",
     venue: VENUES.motera,
@@ -634,8 +711,8 @@ export const LIVE_MATCHES: Match[] = [
   FEATURED_MATCH,
   {
     id: "ipl2026-l2-rcbvcsk",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: new Date(Date.now() - 100 * 60 * 1000).toISOString(),
     status: "live",
     venue: VENUES.chinnaswamy,
@@ -660,8 +737,8 @@ export const LIVE_MATCHES: Match[] = [
   },
   {
     id: "ipl2026-l3-gtvrr",
-    competition: "IPL",
-    season: 2026,
+    competition: COMPETITIONS.ipl2026,
+    format: "T20",
     startTimeIso: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
     status: "live",
     venue: VENUES.motera,
@@ -906,3 +983,235 @@ export const MOCK_INSIGHTS: Insight[] = [
     tags: ["bowling-analysis"],
   },
 ];
+
+
+// ============================================================================
+// Global matches — international, bilateral, and league fixtures
+// Non-IPL matches for home page diversity
+// ============================================================================
+
+export const LIVE_INTERNATIONAL: Match[] = [
+  {
+    id: "ind-aus-t20i-2026-m2-live",
+    format: "T20I",
+    competition: COMPETITIONS.indAusT20i2026,
+    matchNumber: "2nd T20I",
+    startTimeIso: new Date(Date.now() - 2.5 * 3600000).toISOString(),
+    status: "live",
+    venue: { id: "scg", name: "Sydney Cricket Ground", city: "Sydney", country: "AUS", parScore: 168, battingFirstWinPct: 0.51 },
+    teamA: NATIONAL_TEAMS.AUS,
+    teamB: NATIONAL_TEAMS.IND,
+    toss: { winner: "AUS", elected: "bat" },
+    innings: [],
+    liveStatusOverride: "IND 142/3 (16.2) · need 34 off 22",
+    liveWinProbOverride: { teamCode: "IND", pct: 68 },
+    excitement: 8,
+    highlightBadge: "Series decider",
+    summary: "Kohli 61* hunting the series with India needing 34 off 22 balls.",
+  },
+  {
+    id: "eng-sa-test-2026-d3-live",
+    format: "Test",
+    competition: COMPETITIONS.indEngTest2026,
+    matchNumber: "2nd Test · Day 3",
+    startTimeIso: new Date(Date.now() - 5 * 3600000).toISOString(),
+    status: "live",
+    venue: { id: "lords", name: "Lord's Cricket Ground", city: "London", country: "ENG", parScore: 310, battingFirstWinPct: 0.55 },
+    teamA: NATIONAL_TEAMS.ENG,
+    teamB: NATIONAL_TEAMS.IND,
+    toss: { winner: "IND", elected: "bat" },
+    innings: [],
+    liveStatusOverride: "ENG 2nd inn: 88/4 · trail by 163",
+    liveWinProbOverride: { teamCode: "IND", pct: 74 },
+    excitement: 9,
+    highlightBadge: "Test · Day 3",
+    summary: "India lead by 163 with England 4 down — Bazball under scrutiny.",
+  },
+  {
+    id: "psl-2026-lah-kar-live",
+    format: "T20",
+    competition: COMPETITIONS.psl2026,
+    matchNumber: "Match 18",
+    startTimeIso: new Date(Date.now() - 1.5 * 3600000).toISOString(),
+    status: "live",
+    venue: { id: "gaddafi", name: "Gaddafi Stadium", city: "Lahore", country: "PAK", parScore: 162, battingFirstWinPct: 0.52 },
+    teamA: LEAGUE_TEAMS.LAH,
+    teamB: LEAGUE_TEAMS.KAR,
+    toss: { winner: "KAR", elected: "bowl" },
+    innings: [],
+    liveStatusOverride: "LAH 138/5 (17.0) · 28 needed off 18",
+    liveWinProbOverride: { teamCode: "LAH", pct: 55 },
+    excitement: 7,
+    summary: "Clash of rivals — Lahore and Karachi neck and neck in a low-scoring thriller.",
+  },
+];
+
+export const PAST_INTERNATIONAL: Match[] = [
+  {
+    id: "t20wc-2026-ind-pak",
+    format: "T20I",
+    competition: COMPETITIONS.t20wc2026,
+    matchNumber: "Super 8 · Match 3",
+    startTimeIso: new Date(Date.now() - 60 * 3600000).toISOString(),
+    status: "post-match",
+    venue: { id: "nassau", name: "Nassau County International Cricket Stadium", city: "New York", country: "USA", parScore: 148 },
+    teamA: NATIONAL_TEAMS.IND,
+    teamB: NATIONAL_TEAMS.PAK,
+    toss: { winner: "PAK", elected: "bowl" },
+    innings: [],
+    result: { winner: "IND", margin: "by 6 wickets", teamARuns: 152, teamBRuns: 149 },
+    excitement: 10,
+    highlightBadge: "India won",
+    summary: "Rohit's 52 off 29 set up the chase as India overcame a tense Pakistan total in the last over.",
+  },
+  {
+    id: "ct-2025-aus-nz-final",
+    format: "ODI",
+    competition: COMPETITIONS.ct2025,
+    matchNumber: "Final",
+    startTimeIso: new Date(Date.now() - 96 * 3600000).toISOString(),
+    status: "post-match",
+    venue: { id: "lahore-gaddafi", name: "Gaddafi Stadium", city: "Lahore", country: "PAK", parScore: 260 },
+    teamA: NATIONAL_TEAMS.AUS,
+    teamB: NATIONAL_TEAMS.NZ,
+    toss: { winner: "AUS", elected: "bat" },
+    innings: [],
+    result: { winner: "AUS", margin: "by 43 runs", teamARuns: 312, teamBRuns: 269 },
+    excitement: 8,
+    highlightBadge: "AUS Champions",
+    summary: "Smith's 118 laid the foundation as Australia clinched their third Champions Trophy title.",
+  },
+  {
+    id: "ashes-2526-3rd-test",
+    format: "Test",
+    competition: COMPETITIONS.ashes2526,
+    matchNumber: "3rd Test",
+    startTimeIso: new Date(Date.now() - 120 * 3600000).toISOString(),
+    status: "post-match",
+    venue: { id: "mcg", name: "Melbourne Cricket Ground", city: "Melbourne", country: "AUS", parScore: 330 },
+    teamA: NATIONAL_TEAMS.AUS,
+    teamB: NATIONAL_TEAMS.ENG,
+    toss: { winner: "ENG", elected: "bat" },
+    innings: [],
+    result: { winner: "AUS", margin: "by an innings and 27 runs", teamARuns: 512, teamBRuns: 210 },
+    excitement: 7,
+    summary: "Warner's farewell ton and a hostile McGrath-like spell from Hazlewood buried England in three days.",
+  },
+  {
+    id: "bbl-2526-scorchers-sixers",
+    format: "T20",
+    competition: COMPETITIONS.bbl2526,
+    matchNumber: "Final",
+    startTimeIso: new Date(Date.now() - 48 * 3600000).toISOString(),
+    status: "post-match",
+    venue: { id: "optus", name: "Optus Stadium", city: "Perth", country: "AUS", parScore: 166 },
+    teamA: LEAGUE_TEAMS.SCORCHERS,
+    teamB: LEAGUE_TEAMS.SIXERS,
+    toss: { winner: "SIXERS", elected: "bowl" },
+    innings: [],
+    result: { winner: "SCORCHERS", margin: "by 8 runs", teamARuns: 177, teamBRuns: 169 },
+    excitement: 8,
+    highlightBadge: "BBL Final",
+    summary: "Lawrence smashed 3 sixes in the final over to help Scorchers defend 177 in a BBL classic.",
+  },
+];
+
+export const UPCOMING_INTERNATIONAL: Match[] = [
+  {
+    id: "ind-aus-t20i-2026-m3",
+    format: "T20I",
+    competition: COMPETITIONS.indAusT20i2026,
+    matchNumber: "3rd T20I",
+    startTimeIso: new Date(Date.now() + 26 * 3600000).toISOString(),
+    status: "upcoming",
+    venue: { id: "mcg", name: "Melbourne Cricket Ground", city: "Melbourne", country: "AUS", parScore: 171 },
+    teamA: NATIONAL_TEAMS.AUS,
+    teamB: NATIONAL_TEAMS.IND,
+    innings: [],
+    excitement: 9,
+    summary: "Series decider with the T20 World Cup six weeks away — every player fighting for their spot.",
+  },
+  {
+    id: "eng-sa-odi-2026-m2",
+    format: "ODI",
+    competition: COMPETITIONS.engSaOdi2026,
+    matchNumber: "2nd ODI",
+    startTimeIso: new Date(Date.now() + 14 * 3600000).toISOString(),
+    status: "upcoming",
+    venue: { id: "headingley", name: "Headingley", city: "Leeds", country: "ENG", parScore: 268 },
+    teamA: NATIONAL_TEAMS.ENG,
+    teamB: NATIONAL_TEAMS.SA,
+    innings: [],
+    excitement: 6,
+    summary: "England look to level after SA's comprehensive win at The Oval.",
+  },
+  {
+    id: "psl-2026-mul-pes",
+    format: "T20",
+    competition: COMPETITIONS.psl2026,
+    matchNumber: "Match 19",
+    startTimeIso: new Date(Date.now() + 6 * 3600000).toISOString(),
+    status: "upcoming",
+    venue: { id: "national", name: "National Stadium", city: "Karachi", country: "PAK", parScore: 158 },
+    teamA: LEAGUE_TEAMS.MUL,
+    teamB: LEAGUE_TEAMS.PES,
+    innings: [],
+    excitement: 6,
+    summary: "Multan Sultans defending PSL title against a Peshawar Zalmi side that's hit form late.",
+  },
+  {
+    id: "hundred-2026-ovi-lsp",
+    format: "T20",
+    competition: COMPETITIONS.hundred2026,
+    matchNumber: "Match 11",
+    startTimeIso: new Date(Date.now() + 32 * 3600000).toISOString(),
+    status: "upcoming",
+    venue: { id: "oval", name: "The Kia Oval", city: "London", country: "ENG", parScore: 152 },
+    teamA: LEAGUE_TEAMS.OVI,
+    teamB: LEAGUE_TEAMS.LSP,
+    innings: [],
+    excitement: 7,
+    summary: "London derby with Stokes leading London Spirit in a must-win against the table-toppers.",
+  },
+  {
+    id: "mlc-2026-lakr-tsk",
+    format: "T20",
+    competition: COMPETITIONS.mlc2026,
+    matchNumber: "Match 8",
+    startTimeIso: new Date(Date.now() + 18 * 3600000).toISOString(),
+    status: "upcoming",
+    venue: { id: "gs", name: "Grand Prairie Stadium", city: "Dallas", country: "USA", parScore: 155 },
+    teamA: LEAGUE_TEAMS.LAKR,
+    teamB: LEAGUE_TEAMS.TSK,
+    innings: [],
+    excitement: 5,
+    summary: "KKR vs CSK brands meet in Texas — MLC's marquee rivalry drawing huge US viewership.",
+  },
+];
+
+// ============================================================================
+// Combined all-cricket exports for the home page
+// ============================================================================
+
+export const ALL_LIVE_MATCHES: Match[] = [
+  ...LIVE_MATCHES,
+  ...LIVE_INTERNATIONAL,
+];
+
+export const ALL_PAST_MATCHES: Match[] = [
+  ...PAST_MATCHES,
+  ...PAST_INTERNATIONAL,
+].sort((a, b) => b.startTimeIso.localeCompare(a.startTimeIso));
+
+export const ALL_UPCOMING_MATCHES: Match[] = [
+  ...UPCOMING_MATCHES,
+  ...UPCOMING_INTERNATIONAL,
+].sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso));
+
+// All competition short-names for filter dropdown
+export const ALL_COMPETITION_NAMES: string[] = [
+  ...new Set(
+    [...ALL_LIVE_MATCHES, ...ALL_PAST_MATCHES, ...ALL_UPCOMING_MATCHES]
+      .map(m => m.competition.shortName)
+  ),
+].sort();

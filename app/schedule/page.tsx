@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { LIVE_MATCHES, PAST_MATCHES, UPCOMING_MATCHES } from "@/lib/mockData";
+import { useState } from "react";
+import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES, ALL_COMPETITION_NAMES } from "@/lib/mockData";
 import type { Match } from "@/lib/types";
 
 function fmtDate(iso: string): string {
@@ -14,12 +15,21 @@ function fmtTime(iso: string): string {
 type GroupedMatch = { match: Match; bucket: "past" | "live" | "upcoming" };
 
 export default function SchedulePage() {
+  const [activeComp, setActiveComp] = useState<string | null>(null);
+  const [activeFormat, setActiveFormat] = useState<string | null>(null);
+
   // Combine all matches chronologically
   const all: GroupedMatch[] = [
-    ...PAST_MATCHES.map(m => ({ match: m, bucket: "past" as const })),
-    ...LIVE_MATCHES.map(m => ({ match: m, bucket: "live" as const })),
-    ...UPCOMING_MATCHES.map(m => ({ match: m, bucket: "upcoming" as const })),
-  ].sort((a, b) => new Date(a.match.startTimeIso).getTime() - new Date(b.match.startTimeIso).getTime());
+    ...ALL_PAST_MATCHES.map(m => ({ match: m, bucket: "past" as const })),
+    ...ALL_LIVE_MATCHES.map(m => ({ match: m, bucket: "live" as const })),
+    ...ALL_UPCOMING_MATCHES.map(m => ({ match: m, bucket: "upcoming" as const })),
+  ]
+    .filter(({ match }) => {
+      if (activeComp && match.competition.shortName !== activeComp) return false;
+      if (activeFormat && match.format !== activeFormat) return false;
+      return true;
+    })
+    .sort((a, b) => new Date(a.match.startTimeIso).getTime() - new Date(b.match.startTimeIso).getTime());
 
   // Group by date string
   const grouped = new Map<string, GroupedMatch[]>();
@@ -30,11 +40,39 @@ export default function SchedulePage() {
     grouped.set(key, arr);
   }
 
+  const formats = ["T20", "T20I", "ODI", "Test"];
+
   return (
     <main className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur border-b border-line px-3 py-3">
         <h1 className="text-base font-extrabold tracking-tight">Schedule</h1>
-        <p className="text-[10px] text-text-secondary">IPL 2026 · all matches</p>
+        <p className="text-[10px] text-text-secondary">All competitions · {all.length} matches</p>
+        {/* Format filter pills */}
+        <div className="flex gap-1.5 mt-2 overflow-x-auto pb-0.5 scrollbar-thin">
+          <button
+            onClick={() => setActiveFormat(null)}
+            className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors \${!activeFormat ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+          >All</button>
+          {formats.map(f => (
+            <button key={f}
+              onClick={() => setActiveFormat(f === activeFormat ? null : f)}
+              className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors shrink-0 \${activeFormat === f ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+            >{f}</button>
+          ))}
+        </div>
+        {/* Competition filter pills */}
+        <div className="flex gap-1.5 mt-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
+          <button
+            onClick={() => setActiveComp(null)}
+            className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors \${!activeComp ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+          >All tours</button>
+          {ALL_COMPETITION_NAMES.map(c => (
+            <button key={c}
+              onClick={() => setActiveComp(c === activeComp ? null : c)}
+              className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors shrink-0 \${activeComp === c ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+            >{c}</button>
+          ))}
+        </div>
       </header>
 
       <div className="px-3 mt-3 space-y-4">
@@ -67,7 +105,16 @@ function ScheduleRow({ match, bucket }: { match: Match; bucket: "past" | "live" 
           <span className="text-text-dim text-[10px]">vs</span>
           <TeamChip team={match.teamB.shortName} color={match.teamB.primaryColor} />
         </div>
-        <div className="text-[10px] text-text-dim truncate mt-0.5">{match.venue.name} · {match.venue.city}</div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none"
+            style={{ background: match.competition.logoColor ? `${match.competition.logoColor}22` : "rgba(255,255,255,0.06)", color: match.competition.logoColor ?? "#94A3B8", border: `1px solid ${match.competition.logoColor ?? "rgba(255,255,255,0.15)"}44` }}>
+            {match.competition.shortName}
+          </span>
+          {match.format !== "T20" && (
+            <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none border border-line text-text-dim">{match.format}</span>
+          )}
+          <span className="text-[10px] text-text-dim truncate">{match.venue.city}</span>
+        </div>
       </div>
       <div className="text-right shrink-0">
         {isLive ? (

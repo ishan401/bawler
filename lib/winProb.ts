@@ -13,10 +13,18 @@
 
 import type { Match, Ball, WinProbPoint } from "./types";
 
+function totalBallsForFormat(match: Match): number {
+  // Tests have variable innings — win prob model doesn't apply cleanly; use a large cap
+  if (match.format === "Test") return 450;
+  if (match.format === "ODI") return 300; // 50 overs
+  return 120; // T20 / T20I
+}
+
 export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
   const points: WinProbPoint[] = [];
+  const totalBalls = totalBallsForFormat(match);
   const target = match.innings[0]?.runs ? match.innings[0].runs + 1 : null;
-  const venuePar = match.venue.parScore ?? 170;
+  const venuePar = match.venue.parScore ?? (match.format === "ODI" ? 270 : match.format === "Test" ? 320 : 170);
   const battingFirstWinPct = match.venue.battingFirstWinPct ?? 0.5;
 
   let prevWP = 0.5;
@@ -32,13 +40,13 @@ export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
 
       const overFloat = ball.over - 1 + (ball.ballInOver + 1) / 6;
       const ballsBowled = (ball.over - 1) * 6 + (ball.ballInOver + 1);
-      const ballsRemaining = 120 - ballsBowled;
+      const ballsRemaining = totalBalls - ballsBowled;
 
       let wpTeamA: number;
 
       if (innings.number === 1) {
         // Team A is batting first
-        const projectedTotal = ballsBowled > 0 ? (cumulativeRuns / ballsBowled) * 120 : venuePar;
+        const projectedTotal = ballsBowled > 0 ? (cumulativeRuns / ballsBowled) * totalBalls : venuePar;
         const wicketsLeft = 10 - cumulativeWickets;
         const wicketsFactor = Math.max(0.4, Math.min(1.2, wicketsLeft / 8));
         const projectedAdj = projectedTotal * wicketsFactor;
@@ -113,7 +121,8 @@ function formatDelta(delta: number, teamACode: string): string {
 
 // Per-ball projected score and pressure gauge for the current state
 export function calculateProjectedScore(match: Match): { runs: number; perOver: number; confidence: number } | null {
-  const live = match.innings.find(i => i.balls.length > 0 && i.balls.length < 120);
+  const totalBalls2 = totalBallsForFormat(match);
+  const live = match.innings.find(i => i.balls.length > 0 && i.balls.length < totalBalls2);
   if (!live) return null;
   const ballsBowled = live.balls.length;
   const cumulativeRuns = live.balls.reduce((s, b) => s + b.runs + b.extras, 0);
@@ -122,11 +131,11 @@ export function calculateProjectedScore(match: Match): { runs: number; perOver: 
   const perOver = cumulativeRuns / (ballsBowled / 6);
   const wicketsLeft = 10 - cumulativeWickets;
   // Slight slow-down expected as wickets fall
-  const projectedTotal = cumulativeRuns + (120 - ballsBowled) * (perOver / 6) * Math.max(0.7, wicketsLeft / 9);
+  const projectedTotal = cumulativeRuns + (totalBalls2 - ballsBowled) * (perOver / 6) * Math.max(0.7, wicketsLeft / 9);
   return {
     runs: Math.round(projectedTotal),
     perOver: Math.round(perOver * 100) / 100,
-    confidence: 0.6 + (ballsBowled / 120) * 0.3,
+    confidence: 0.6 + (ballsBowled / totalBalls2) * 0.3,
   };
 }
 
@@ -137,7 +146,7 @@ export function calculatePressureGauge(match: Match): { level: number; trend: "r
   const cumulativeRuns = i2.balls.reduce((s, b) => s + b.runs + b.extras, 0);
   const cumulativeWickets = i2.balls.filter(b => b.isWicket).length;
   const ballsBowled = i2.balls.length;
-  const ballsRemaining = 120 - ballsBowled;
+  const ballsRemaining = totalBalls - ballsBowled;
   if (ballsRemaining <= 0) return null;
   const need = target - cumulativeRuns;
   const rrr = (need / ballsRemaining) * 6;
@@ -153,7 +162,7 @@ export function calculatePressureGauge(match: Match): { level: number; trend: "r
   const earlierRuns = i2.balls.slice(0, earlierBalls).reduce((s, b) => s + b.runs + b.extras, 0);
   const earlierWickets = i2.balls.slice(0, earlierBalls).filter(b => b.isWicket).length;
   const earlierNeed = target - earlierRuns;
-  const earlierBallsRemaining = 120 - earlierBalls;
+  const earlierBallsRemaining = totalBalls2 - earlierBalls;
   const earlierRRR = earlierBallsRemaining > 0 ? (earlierNeed / earlierBallsRemaining) * 6 : rrr;
   const earlierLevel = clamp(0, 10, Math.min(10, earlierRRR - 6) * 0.7 + Math.max(0, (10 - (10 - earlierWickets)) * 0.8) * 0.3);
 
