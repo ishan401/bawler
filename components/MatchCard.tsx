@@ -170,15 +170,12 @@ export function LiveMatchCard({ match }: { match: Match }) {
           </div>
         </div>
 
-        {/* Row 2 — teams with rank pills on OUTSIDE (consistent w/ past + future) */}
+        {/* Row 2 — teams; batting team gets status inline below its score */}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <LiveSide team={match.teamA} runs={i1?.runs} wickets={i1?.wickets} overs={i1?.overs} batting={!i2} />
-          <span className="text-lg font-extrabold text-white/30">vs</span>
-          <LiveSide team={match.teamB} runs={i2?.runs} wickets={i2?.wickets} overs={i2?.overs} batting={!!i2} alignRight />
+          <LiveSide team={match.teamA} runs={i1?.runs} wickets={i1?.wickets} overs={i1?.overs} batting={!i2} status={!i2 ? status : undefined} />
+          <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
+          <LiveSide team={match.teamB} runs={i2?.runs} wickets={i2?.wickets} overs={i2?.overs} batting={!!i2} alignRight status={!!i2 ? status : undefined} />
         </div>
-
-        {/* Row 3 — status one-liner */}
-        <p className="text-[10.5px] text-white/95 leading-tight mt-1 truncate">{status}</p>
 
         {/* Row 4 — prominent win-prob split bar (highlighted) */}
         {wp && <WinProbBar teamA={match.teamA} teamB={match.teamB} pctA={wp.pctA} />}
@@ -187,19 +184,24 @@ export function LiveMatchCard({ match }: { match: Match }) {
   );
 }
 
-function LiveSide({ team, runs, wickets, overs, batting, alignRight }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean }) {
+function LiveSide({ team, runs, wickets, overs, batting, alignRight, status }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; status?: string }) {
   return (
-    <div className={`flex items-center gap-1.5 min-w-0 ${alignRight ? "flex-row-reverse" : ""}`}>
-      <FlagOrRank team={team} />
-      <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
-        <span className="text-lg font-extrabold drop-shadow leading-none">{team.shortName}</span>
-        {runs !== undefined && (
-          <span className={`text-[11px] num font-bold ${batting ? "text-cyan" : "text-white/85"} leading-tight`}>
-            {runs}<span className="text-white/55">/{wickets}</span>
-            {overs !== undefined && <span className="text-white/55 text-[9px] font-medium"> ({overs})</span>}
-          </span>
-        )}
+    <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
+      <div className={`flex items-center gap-1.5 ${alignRight ? "flex-row-reverse" : ""}`}>
+        <FlagOrRank team={team} />
+        <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
+          <span className="text-lg font-extrabold drop-shadow leading-none">{team.shortName}</span>
+          {runs !== undefined && (
+            <span className={`text-[11px] num font-bold ${batting ? "text-cyan" : "text-white/85"} leading-tight`}>
+              {runs}<span className="text-white/55">/{wickets}</span>
+              {overs !== undefined && <span className="text-white/55 text-[9px] font-medium"> ({overs})</span>}
+            </span>
+          )}
+        </div>
       </div>
+      {batting && status && (
+        <p className="text-[9px] text-cyan font-bold mt-0.5 leading-tight">{status}</p>
+      )}
     </div>
   );
 }
