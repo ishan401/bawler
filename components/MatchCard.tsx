@@ -152,6 +152,10 @@ export function LiveMatchCard({ match }: { match: Match }) {
   const innB = innings.filter(i => i.battingTeam === teamB.code);
   const lastInnA = innA[innA.length - 1]; // most recent innings for teamA
   const lastInnB = innB[innB.length - 1]; // most recent innings for teamB
+  // For Tests: show prior innings score when team is in their 2nd+ innings
+  const isTest   = match.format === "Test";
+  const prevInnA = isTest && innA.length >= 2 ? innA[innA.length - 2] : undefined;
+  const prevInnB = isTest && innB.length >= 2 ? innB[innB.length - 2] : undefined;
 
   // Current batting team = last innings in array
   const currentBatter = innings[innings.length - 1]?.battingTeam;
@@ -184,9 +188,9 @@ export function LiveMatchCard({ match }: { match: Match }) {
 
         {/* Row 2 — teams; innings attributed by battingTeam, not position */}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} status={teamABatting ? status : undefined} />
+          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} status={teamABatting ? status : undefined} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
           <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
-          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting ? status : undefined} />
+          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting ? status : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
         </div>
 
         {/* Row 4 — prominent win-prob split bar (highlighted) */}
@@ -196,7 +200,7 @@ export function LiveMatchCard({ match }: { match: Match }) {
   );
 }
 
-function LiveSide({ team, runs, wickets, overs, batting, alignRight, status }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; status?: string }) {
+function LiveSide({ team, runs, wickets, overs, batting, alignRight, status, prevRuns, prevWickets }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; status?: string; prevRuns?: number; prevWickets?: number }) {
   return (
     <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
       <div className={`flex items-center gap-1.5 ${alignRight ? "flex-row-reverse" : ""}`}>
@@ -207,6 +211,9 @@ function LiveSide({ team, runs, wickets, overs, batting, alignRight, status }: {
             <span className={`text-[11px] num font-bold ${batting ? "text-cyan" : "text-white/85"} leading-tight`}>
               {runs}<span className="text-white/55">/{wickets}</span>
               {overs !== undefined && <span className="text-white/55 text-[9px] font-medium"> ({overs})</span>}
+              {prevRuns !== undefined && (
+                <span className="text-white/40 text-[9px] font-medium ml-1">& {prevRuns}/{prevWickets}</span>
+              )}
             </span>
           )}
         </div>
