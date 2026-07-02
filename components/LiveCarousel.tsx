@@ -66,7 +66,7 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
     <>
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[85vh] flex flex-col overflow-hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[85vh] flex flex-col"
         style={{ maxWidth: 430, margin: "0 auto", transform: `translateY(${translateY}px)`, transition: translateY === 0 ? "transform 0.25s ease" : "none" }}
       >
         {/* Handle + header — swipe-down zone only */}
@@ -99,7 +99,7 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
           </div>
         </div>
         {/* Scrollable content — touch events NOT intercepted */}
-        <div className="overflow-y-auto flex-1 overscroll-contain">
+        <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
           {children}
         </div>
       </div>
@@ -219,7 +219,13 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
     const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      const idx = Math.round(el.scrollLeft / el.clientWidth);
+      // Use first child width + gap to calculate which card is snapped
+      const firstCard = el.firstElementChild as HTMLElement | null;
+      if (!firstCard) return;
+      const cardW = firstCard.getBoundingClientRect().width;
+      const gap = 12; // gap-3 = 12px
+      const step = cardW + gap;
+      const idx = Math.round(el.scrollLeft / step);
       setActiveIdx(Math.max(0, Math.min(idx, matches.length - 1)));
     };
     el.addEventListener("scroll", onScroll, { passive: true });
