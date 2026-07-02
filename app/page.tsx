@@ -13,6 +13,26 @@ import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator
 import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
 import { PastMatchCard, FutureMatchCard } from "@/components/MatchCard";
+
+
+// ── Worldwide popularity sort (same formula as schedule page) ───────────────
+const COMP_POP: Record<string, number> = {
+  "icc-t20wc-2026": 100, "icc-ct-2025": 95, "ashes-2025-26": 90, "ipl-2026": 88,
+  "ind-eng-test-2026": 82, "ind-aus-t20i-2026": 80, "eng-sa-odi-2026": 68,
+  "bbl-2025-26": 66, "psl-2026": 64, "hundred-2026": 58, "sa20-2026": 52,
+  "cpl-2025": 46, "mlc-2026": 40,
+};
+const TEAM_POP: Record<string, number> = {
+  IND: 20, AUS: 14, ENG: 12, PAK: 11, SA: 8, NZ: 7, WI: 7, SL: 6, BAN: 5, AFG: 4,
+  MI: 10, CSK: 10, RCB: 9, KKR: 8, DC: 6, GT: 6, RR: 6, SRH: 5, LSG: 5, PBKS: 5,
+};
+function matchPop(m: Match): number {
+  return (COMP_POP[m.competition.id] ?? 30) +
+    (TEAM_POP[m.teamA.code] ?? 3) + (TEAM_POP[m.teamB.code] ?? 3);
+}
+function byPopularity(matches: Match[]): Match[] {
+  return [...matches].sort((a, b) => matchPop(b) - matchPop(a));
+}
 import FilterBar, { type FilterDef } from "@/components/FilterBar";
 
 const TEAM_DEFAULT = "KKR";
@@ -92,11 +112,11 @@ export default function Home() {
 
   // ---- Source lists (infinite scroll grows these) ----
   const [pastList, setPastList] = useState<Match[]>(ALL_PAST_MATCHES);
-  const [futureList, setFutureList] = useState<Match[]>(ALL_UPCOMING_MATCHES);
+  const [futureList, setFutureList] = useState<Match[]>(byPopularity(ALL_UPCOMING_MATCHES));
 
   // ---- What's actually on screen (can lag source during animation) ----
   const [displayedPast, setDisplayedPast] = useState<Match[]>(ALL_PAST_MATCHES);
-  const [displayedFuture, setDisplayedFuture] = useState<Match[]>(ALL_UPCOMING_MATCHES);
+  const [displayedFuture, setDisplayedFuture] = useState<Match[]>(byPopularity(ALL_UPCOMING_MATCHES));
 
   // ---- Animation state ----
   const [leavingIds, setLeavingIds] = useState<Set<string>>(new Set());
@@ -140,7 +160,7 @@ export default function Home() {
 
     if (filtersChanged) {
       const newPast = filterMatches(pastList);
-      const newFuture = filterMatches(futureList);
+      const newFuture = byPopularity(filterMatches(futureList));
       const oldPastIds = new Set(displayedPast.map(m => m.id));
       const oldFutIds = new Set(displayedFuture.map(m => m.id));
       const newPastIds = new Set(newPast.map(m => m.id));
@@ -180,7 +200,7 @@ export default function Home() {
     } else if (sourceGrew && animPhase === "idle") {
       // Source data grew (infinite scroll) and no animation in flight — instant sync
       setDisplayedPast(filterMatches(pastList));
-      setDisplayedFuture(filterMatches(futureList));
+      setDisplayedFuture(byPopularity(filterMatches(futureList)));
     }
   }, [filterValues, filterEnabled, pastList, futureList, animPhase, filterMatches, displayedPast, displayedFuture]);
 
