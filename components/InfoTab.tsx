@@ -141,57 +141,68 @@ export default function InfoTab({ match }: InfoTabProps) {
   return (
     <div className="space-y-4">
 
-      {/* ── Date & Time ───────────────────────────────────────────────── */}
-      <div className="card px-4 py-3">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-2">Match Date & Time</div>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-text-primary leading-snug">{dateStr}</div>
-            <div className="text-xs text-text-secondary mt-0.5">{timeStr} local · {match.venue.city} ({utcStr})</div>
-            <div className="text-[10px] text-text-dim mt-0.5">{match.competition.name} · {match.matchNumber}</div>
-          </div>
-          <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap"
-            style={{ background: isUpcoming ? "#00A0C622" : "#22c55e22",
-                     color: isUpcoming ? "#00A0C6" : "#22c55e" }}>
-            {countdown}
-          </span>
-        </div>
-      </div>
+      {/* ── Date & Time + Weather side by side ──────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
 
-      {/* ── Weather Forecast ──────────────────────────────────────────── */}
-      <div className="card px-4 py-3">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-2">
-          Weather Forecast · {match.venue.city}
-        </div>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-sm font-bold text-text-primary leading-snug flex items-center gap-1.5">
-              <span className="text-base leading-none">{weather.icon}</span>
-              <span>{weather.tempC}°C</span>
-            </div>
-            {/* All four stats in one row */}
-            <div className="text-xs text-text-secondary mt-0.5 flex items-center flex-wrap gap-x-1 gap-y-0">
-              <span>{weather.condition}</span>
-              <span className="text-text-dim">·</span>
-              <span>💧 {weather.humidity}%</span>
-              <span className="text-text-dim">·</span>
-              <span>💨 {weather.windKmh} km/h</span>
-              <span className="text-text-dim">·</span>
-              <span>🌧️ {weather.rainChance}%</span>
-            </div>
-            {weather.rainChance >= 30 && (
-              <div className="text-[10px] mt-0.5" style={{ color: rain.color }}>
-                {rain.label} rain risk · may affect play
+        {/* Date & Time */}
+        <div className="card p-3 flex flex-col">
+          <div className="text-[9px] font-bold uppercase tracking-widest text-text-dim mb-2">📅 Date & Time</div>
+          <div className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-xs font-bold text-text-primary leading-snug">{dateStr}</div>
+              <div className="text-[10px] text-text-secondary mt-1 leading-snug">
+                {timeStr} local<br/>
+                <span className="text-text-dim">({utcStr})</span>
               </div>
-            )}
+              <div className="text-[10px] text-text-dim mt-1 leading-snug">{match.venue.city}</div>
+            </div>
+            <div className="mt-2">
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: isUpcoming ? "#00A0C622" : "#22c55e22",
+                         color: isUpcoming ? "#00A0C6" : "#22c55e" }}>
+                {countdown}
+              </span>
+            </div>
+          </div>
+          <div className="text-[9px] text-text-dim mt-2 leading-snug border-t border-white/5 pt-2">
+            {match.competition.shortName ?? match.competition.name} · {match.matchNumber}
+          </div>
+        </div>
+
+        {/* Weather */}
+        <div className="card p-3 flex flex-col">
+          <div className="text-[9px] font-bold uppercase tracking-widest text-text-dim mb-2">⛅ Weather</div>
+          <div className="flex-1 flex flex-col justify-between">
+            <div>
+              <div className="text-xs font-bold text-text-primary leading-snug flex items-center gap-1">
+                <span>{weather.icon}</span>
+                <span>{weather.tempC}°C</span>
+                {weather.rainChance >= 30 && (
+                  <span className="text-[9px] font-bold px-1 py-0.5 rounded-full ml-1"
+                    style={{ background: `${rain.color}22`, color: rain.color }}>⚠️</span>
+                )}
+              </div>
+              <div className="text-[10px] text-text-secondary mt-1 leading-snug">{weather.condition}</div>
+            </div>
+            <div className="mt-2 space-y-0.5">
+              <div className="text-[10px] text-text-secondary flex items-center gap-1">
+                <span>💧</span><span>{weather.humidity}%</span>
+              </div>
+              <div className="text-[10px] text-text-secondary flex items-center gap-1">
+                <span>💨</span><span>{weather.windKmh} km/h</span>
+              </div>
+              <div className="text-[10px] text-text-secondary flex items-center gap-1">
+                <span>🌧️</span><span>{weather.rainChance}%</span>
+              </div>
+            </div>
           </div>
           {weather.rainChance >= 30 && (
-            <span className="shrink-0 text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap"
-              style={{ background: `${rain.color}22`, color: rain.color }}>
-              ⚠️ Rain
-            </span>
+            <div className="text-[9px] mt-2 border-t border-white/5 pt-2" style={{ color: rain.color }}>
+              {rain.label} rain risk
+            </div>
           )}
         </div>
+
       </div>
 
       {/* ── Match Context ─────────────────────────────────────────────── */}
