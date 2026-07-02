@@ -5,6 +5,40 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.11] 2026-07-02
+
+### Team Data — accurate jersey colors + full league rosters
+
+#### Fixed — National team jersey colors (mockData.ts)
+- **AUS**: `#006A4E` (wrong green) → `#FFB81C` (Aussie Gold) — the most critical fix
+- **ENG**: `#C8102E` (St George red) → `#1D244E` (England Navy) + `#00A0C6` cyan accent
+- **BAN**: `#006A4E` (duplicate of old AUS) → `#1A6B3A` (Bangladesh Green)
+- **ZIM**: `#006400` (dark green) → `#D4212D` (Zimbabwe Red, actual jersey)
+- **NZ**: secondary updated to `#A8A9AD` silver (Black Caps brand)
+- **WI**: maroon deepened to `#6E1436` + `#FFC726` gold (CWI official palette)
+- **USA**: swapped — navy `#002868` now primary, red secondary (jersey is navy)
+- All other national teams: minor shade accuracy improvements
+
+#### Added — 7 new national teams
+- UAE 🇦🇪 (red/white), Namibia 🇳🇦 (blue/gold), Papua New Guinea 🇵🇬 (black/red)
+- Oman 🇴🇲 (maroon/white), Canada 🇨🇦 (red/white), Kenya 🇰🇪 (green/red), Uganda 🇺🇬 (black/yellow)
+
+#### Added — Missing franchise teams (full rosters for every competition)
+- **BBL**: Melbourne Renegades (RENE, red), Adelaide Strikers (STR, navy/gold) — now 8/8
+- **The Hundred**: Northern Superchargers (NSC, yellow), Trent Rockets (TRR, red),
+  Welsh Fire (WEF, maroon/gold), Birmingham Phoenix (BPH, maroon/gold) — now 8/8
+- **SA20**: Pretoria Capitals (PREC, navy), Paarl Royals (PARR, pink), Durban's Super Giants (DURGD, teal) — now 6/6
+- **CPL**: Jamaica Tallawahs (JAT, gold), St Kitts Patriots (SKP, green), St Lucia Kings (SLK, blue) — now 6/6
+- **MLC**: Seattle Orcas (SEAO, teal), San Francisco Unicorns (SFU, orange), Washington Freedom (WASF, red) — now 6/6
+
+#### Fixed — TypeScript build errors (Vercel was failing)
+- `schedule/page.tsx`: escaped template literals `\`` → `` ` ``
+- `CommentaryFeed.tsx`: innings type `1|2` → `1|2|3|4`
+- `winProb.ts`: missing `totalBalls`/`totalBalls2` in `calculatePressureGauge`
+- `page.tsx`: `UPCOMING_MATCHES` → `ALL_UPCOMING_MATCHES`
+
+---
+
 ## [1.0.10] 2026-07-01
 
 ### Performance — faster animations, smarter re-renders

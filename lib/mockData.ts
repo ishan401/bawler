@@ -28,61 +28,85 @@ export const TEAMS: Record<string, Team> = {
   GT:   { code: "GT",   shortName: "GT",   fullName: "Gujarat Titans",            primaryColor: "#4285F4", secondaryColor: "#1B2133", currentRanking: 1 },
 };
 
-// ── National teams ──────────────────────────────────────────────────────────
+// ── National teams (jersey / kit colors) ────────────────────────────────────
+// ── National teams (jersey / kit colors, per actual uniforms) ───────────────
 export const NATIONAL_TEAMS: Record<string, Team> = {
-  IND: { code: "IND", shortName: "IND", fullName: "India",              primaryColor: "#1565C0", secondaryColor: "#F9A825", type: "national", flagEmoji: "🇮🇳", country: "IND", currentRanking: 1 },
-  ENG: { code: "ENG", shortName: "ENG", fullName: "England",            primaryColor: "#C8102E", secondaryColor: "#001689", type: "national", flagEmoji: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "ENG", currentRanking: 4 },
-  AUS: { code: "AUS", shortName: "AUS", fullName: "Australia",          primaryColor: "#006A4E", secondaryColor: "#FFD700", type: "national", flagEmoji: "🇦🇺", country: "AUS", currentRanking: 2 },
-  PAK: { code: "PAK", shortName: "PAK", fullName: "Pakistan",           primaryColor: "#006847", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇵🇰", country: "PAK", currentRanking: 6 },
-  NZ:  { code: "NZ",  shortName: "NZ",  fullName: "New Zealand",        primaryColor: "#000000", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇳🇿", country: "NZL", currentRanking: 5 },
-  SA:  { code: "SA",  shortName: "SA",  fullName: "South Africa",       primaryColor: "#007A4D", secondaryColor: "#FFB612", type: "national", flagEmoji: "🇿🇦", country: "RSA", currentRanking: 3 },
-  WI:  { code: "WI",  shortName: "WI",  fullName: "West Indies",        primaryColor: "#7B0041", secondaryColor: "#FFC61E", type: "national", flagEmoji: "🏴", country: "WI",  currentRanking: 9 },
-  SL:  { code: "SL",  shortName: "SL",  fullName: "Sri Lanka",          primaryColor: "#003478", secondaryColor: "#8D153A", type: "national", flagEmoji: "🇱🇰", country: "SL",  currentRanking: 8 },
-  BAN: { code: "BAN", shortName: "BAN", fullName: "Bangladesh",         primaryColor: "#006A4E", secondaryColor: "#F42A41", type: "national", flagEmoji: "🇧🇩", country: "BAN", currentRanking: 7 },
-  AFG: { code: "AFG", shortName: "AFG", fullName: "Afghanistan",        primaryColor: "#1F5DAA", secondaryColor: "#BE0027", type: "national", flagEmoji: "🇦🇫", country: "AFG", currentRanking: 10 },
-  IRE: { code: "IRE", shortName: "IRE", fullName: "Ireland",            primaryColor: "#169B62", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇮🇪", country: "IRE" },
-  ZIM: { code: "ZIM", shortName: "ZIM", fullName: "Zimbabwe",           primaryColor: "#006400", secondaryColor: "#D4AF37", type: "national", flagEmoji: "🇿🇼", country: "ZIM" },
-  SCO: { code: "SCO", shortName: "SCO", fullName: "Scotland",           primaryColor: "#003078", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", country: "SCO" },
-  NED: { code: "NED", shortName: "NED", fullName: "Netherlands",        primaryColor: "#FF6600", secondaryColor: "#003DA5", type: "national", flagEmoji: "🇳🇱", country: "NED" },
-  USA: { code: "USA", shortName: "USA", fullName: "United States",      primaryColor: "#B22234", secondaryColor: "#002868", type: "national", flagEmoji: "🇺🇸", country: "USA" },
+  // ICC Full Members — ranked
+  IND: { code: "IND", shortName: "IND", fullName: "India",                primaryColor: "#005BAC", secondaryColor: "#F9A825", type: "national", flagEmoji: "🇮🇳", country: "IND", currentRanking: 1 },
+  AUS: { code: "AUS", shortName: "AUS", fullName: "Australia",             primaryColor: "#FFB81C", secondaryColor: "#006B54", type: "national", flagEmoji: "🇦🇺", country: "AUS", currentRanking: 2 },
+  SA:  { code: "SA",  shortName: "SA",  fullName: "South Africa",          primaryColor: "#007A4D", secondaryColor: "#FFB612", type: "national", flagEmoji: "🇿🇦", country: "RSA", currentRanking: 3 },
+  ENG: { code: "ENG", shortName: "ENG", fullName: "England",               primaryColor: "#1D244E", secondaryColor: "#00A0C6", type: "national", flagEmoji: "🏴󠁧󠁢󠁥󠁮󠁧󠁿", country: "ENG", currentRanking: 4 },
+  NZ:  { code: "NZ",  shortName: "NZ",  fullName: "New Zealand",           primaryColor: "#000000", secondaryColor: "#A8A9AD", type: "national", flagEmoji: "🇳🇿", country: "NZL", currentRanking: 5 },
+  PAK: { code: "PAK", shortName: "PAK", fullName: "Pakistan",              primaryColor: "#005C3F", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇵🇰", country: "PAK", currentRanking: 6 },
+  BAN: { code: "BAN", shortName: "BAN", fullName: "Bangladesh",            primaryColor: "#1A6B3A", secondaryColor: "#CE1126", type: "national", flagEmoji: "🇧🇩", country: "BAN", currentRanking: 7 },
+  SL:  { code: "SL",  shortName: "SL",  fullName: "Sri Lanka",             primaryColor: "#003087", secondaryColor: "#C8A951", type: "national", flagEmoji: "🇱🇰", country: "SL",  currentRanking: 8 },
+  WI:  { code: "WI",  shortName: "WI",  fullName: "West Indies",           primaryColor: "#6E1436", secondaryColor: "#FFC726", type: "national", flagEmoji: "🌴", country: "WI",  currentRanking: 9 },
+  AFG: { code: "AFG", shortName: "AFG", fullName: "Afghanistan",           primaryColor: "#1D71B8", secondaryColor: "#CC0000", type: "national", flagEmoji: "🇦🇫", country: "AFG", currentRanking: 10 },
+  // Associates & emerging nations
+  IRE: { code: "IRE", shortName: "IRE", fullName: "Ireland",               primaryColor: "#169B62", secondaryColor: "#003A70", type: "national", flagEmoji: "🇮🇪", country: "IRE" },
+  ZIM: { code: "ZIM", shortName: "ZIM", fullName: "Zimbabwe",              primaryColor: "#D4212D", secondaryColor: "#009A44", type: "national", flagEmoji: "🇿🇼", country: "ZIM" },
+  SCO: { code: "SCO", shortName: "SCO", fullName: "Scotland",              primaryColor: "#003DA5", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🏴󠁧󠁢󠁳󠁣󠁴󠁿", country: "SCO" },
+  NED: { code: "NED", shortName: "NED", fullName: "Netherlands",           primaryColor: "#F77F00", secondaryColor: "#003DA5", type: "national", flagEmoji: "🇳🇱", country: "NED" },
+  USA: { code: "USA", shortName: "USA", fullName: "United States",         primaryColor: "#002868", secondaryColor: "#B22234", type: "national", flagEmoji: "🇺🇸", country: "USA" },
+  UAE: { code: "UAE", shortName: "UAE", fullName: "United Arab Emirates",  primaryColor: "#CC0000", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇦🇪", country: "UAE" },
+  NAM: { code: "NAM", shortName: "NAM", fullName: "Namibia",               primaryColor: "#003087", secondaryColor: "#FFD700", type: "national", flagEmoji: "🇳🇦", country: "NAM" },
+  PNG: { code: "PNG", shortName: "PNG", fullName: "Papua New Guinea",      primaryColor: "#000000", secondaryColor: "#CE1126", type: "national", flagEmoji: "🇵🇬", country: "PNG" },
+  OMA: { code: "OMA", shortName: "OMA", fullName: "Oman",                  primaryColor: "#8B0000", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇴🇲", country: "OMA" },
+  CAN: { code: "CAN", shortName: "CAN", fullName: "Canada",                primaryColor: "#CC0000", secondaryColor: "#FFFFFF", type: "national", flagEmoji: "🇨🇦", country: "CAN" },
+  KEN: { code: "KEN", shortName: "KEN", fullName: "Kenya",                 primaryColor: "#006600", secondaryColor: "#CC0000", type: "national", flagEmoji: "🇰🇪", country: "KEN" },
+  UGA: { code: "UGA", shortName: "UGA", fullName: "Uganda",                primaryColor: "#000000", secondaryColor: "#FCDC04", type: "national", flagEmoji: "🇺🇬", country: "UGA" },
 };
 
-// ── Franchise teams (other leagues) ─────────────────────────────────────────
+// ── Franchise / league teams ────────────────────────────────────────────────
 export const LEAGUE_TEAMS: Record<string, Team> = {
-  // BBL
-  SIXERS:   { code: "SIXERS",   shortName: "Sixers",   fullName: "Sydney Sixers",            primaryColor: "#FF1F8E", secondaryColor: "#FFFFFF", type: "franchise" },
-  STARS:    { code: "STARS",    shortName: "Stars",    fullName: "Melbourne Stars",           primaryColor: "#00A650", secondaryColor: "#FFFFFF", type: "franchise" },
-  HEAT:     { code: "HEAT",     shortName: "Heat",     fullName: "Brisbane Heat",             primaryColor: "#FF6600", secondaryColor: "#5B2D8E", type: "franchise" },
-  SCORCHERS:{ code: "SCORCHERS",shortName: "Scorchers",fullName: "Perth Scorchers",           primaryColor: "#F15A22", secondaryColor: "#003087", type: "franchise" },
-  HURRICANES:{code:"HURRICANES",shortName: "Canes",    fullName: "Hobart Hurricanes",         primaryColor: "#7F00FF", secondaryColor: "#00BFFF", type: "franchise" },
-  THUNDER:  { code: "THUNDER",  shortName: "Thunder",  fullName: "Sydney Thunder",            primaryColor: "#16A829", secondaryColor: "#FFDD00", type: "franchise" },
-  // PSL
-  LAH:      { code: "LAH",      shortName: "Lahore",   fullName: "Lahore Qalandars",          primaryColor: "#00A651", secondaryColor: "#C8102E", type: "franchise" },
-  KAR:      { code: "KAR",      shortName: "Karachi",  fullName: "Karachi Kings",             primaryColor: "#00AEEF", secondaryColor: "#FFD700", type: "franchise" },
-  PES:      { code: "PES",      shortName: "Peshawar", fullName: "Peshawar Zalmi",            primaryColor: "#F7A800", secondaryColor: "#C8102E", type: "franchise" },
-  QUE:      { code: "QUE",      shortName: "Quetta",   fullName: "Quetta Gladiators",         primaryColor: "#2D2D8F", secondaryColor: "#FFD700", type: "franchise" },
-  MUL:      { code: "MUL",      shortName: "Multan",   fullName: "Multan Sultans",            primaryColor: "#8B0000", secondaryColor: "#FFD700", type: "franchise" },
-  ISL:      { code: "ISL",      shortName: "Islamabad",fullName: "Islamabad United",          primaryColor: "#C8102E", secondaryColor: "#004B87", type: "franchise" },
-  // The Hundred
-  OVI:      { code: "OVI",      shortName: "Oval",     fullName: "Oval Invincibles",          primaryColor: "#FFD700", secondaryColor: "#6B2C91", type: "franchise" },
-  LSP:      { code: "LSP",      shortName: "London",   fullName: "London Spirit",             primaryColor: "#003DA5", secondaryColor: "#FFFFFF", type: "franchise" },
-  MOR:      { code: "MOR",      shortName: "Originals",fullName: "Manchester Originals",      primaryColor: "#FF6600", secondaryColor: "#000000", type: "franchise" },
-  SBR:      { code: "SBR",      shortName: "S Brave",  fullName: "Southern Brave",            primaryColor: "#1E3A5F", secondaryColor: "#FFFFFF", type: "franchise" },
-  // SA20
-  SEC:      { code: "SEC",      shortName: "Sunrisers",fullName: "Sunrisers Eastern Cape",    primaryColor: "#F7A800", secondaryColor: "#000000", type: "franchise" },
-  MICT:     { code: "MICT",     shortName: "MI Cape",  fullName: "MI Cape Town",              primaryColor: "#004BA0", secondaryColor: "#D1AB3E", type: "franchise" },
-  JSK:      { code: "JSK",      shortName: "Jo'burg",  fullName: "Joburg Super Kings",        primaryColor: "#FDB913", secondaryColor: "#005DB7", type: "franchise" },
-  // CPL
-  TKR:      { code: "TKR",      shortName: "TKR",      fullName: "Trinbago Knight Riders",    primaryColor: "#3A225D", secondaryColor: "#F2C72A", type: "franchise" },
-  BARB:     { code: "BARB",     shortName: "Royals",   fullName: "Barbados Royals",            primaryColor: "#EA1A85", secondaryColor: "#254AA5", type: "franchise" },
-  GAW:      { code: "GAW",      shortName: "Warriors", fullName: "Guyana Amazon Warriors",    primaryColor: "#008000", secondaryColor: "#FFD700", type: "franchise" },
-  // MLC
-  LAKR:     { code: "LAKR",     shortName: "LA KR",    fullName: "LA Knight Riders",          primaryColor: "#3A225D", secondaryColor: "#F2C72A", type: "franchise" },
-  TSK:      { code: "TSK",      shortName: "Texas SK", fullName: "Texas Super Kings",         primaryColor: "#FDB913", secondaryColor: "#005DB7", type: "franchise" },
-  MINE:     { code: "MINE",     shortName: "MI NY",    fullName: "MI New York",               primaryColor: "#004BA0", secondaryColor: "#D1AB3E", type: "franchise" },
+  // ── BBL (Big Bash League — Australia, 8 teams) ───────────────────────────
+  SIXERS:    { code: "SIXERS",    shortName: "Sixers",    fullName: "Sydney Sixers",             primaryColor: "#FF1F8E", secondaryColor: "#1A1A1A", type: "franchise" },
+  STARS:     { code: "STARS",     shortName: "Stars",     fullName: "Melbourne Stars",            primaryColor: "#00A650", secondaryColor: "#FFFFFF", type: "franchise" },
+  HEAT:      { code: "HEAT",      shortName: "Heat",      fullName: "Brisbane Heat",              primaryColor: "#FF6600", secondaryColor: "#5B2D8E", type: "franchise" },
+  SCORCHERS: { code: "SCORCHERS", shortName: "Scorchers", fullName: "Perth Scorchers",            primaryColor: "#F15A22", secondaryColor: "#003087", type: "franchise" },
+  HURRICANES:{ code: "HURRICANES",shortName: "Canes",     fullName: "Hobart Hurricanes",          primaryColor: "#5C1FAB", secondaryColor: "#00BFFF", type: "franchise" },
+  THUNDER:   { code: "THUNDER",   shortName: "Thunder",   fullName: "Sydney Thunder",             primaryColor: "#16A829", secondaryColor: "#FFDD00", type: "franchise" },
+  RENE:      { code: "RENE",      shortName: "Renegades", fullName: "Melbourne Renegades",        primaryColor: "#C8102E", secondaryColor: "#1A1A1A", type: "franchise" },
+  STR:       { code: "STR",       shortName: "Strikers",  fullName: "Adelaide Strikers",          primaryColor: "#003087", secondaryColor: "#FFB81C", type: "franchise" },
+  // ── PSL (Pakistan Super League — 6 teams) ────────────────────────────────
+  LAH:       { code: "LAH",       shortName: "Lahore",    fullName: "Lahore Qalandars",           primaryColor: "#00A651", secondaryColor: "#C8102E", type: "franchise" },
+  KAR:       { code: "KAR",       shortName: "Karachi",   fullName: "Karachi Kings",              primaryColor: "#00AEEF", secondaryColor: "#FFD700", type: "franchise" },
+  PES:       { code: "PES",       shortName: "Peshawar",  fullName: "Peshawar Zalmi",             primaryColor: "#F7A800", secondaryColor: "#C8102E", type: "franchise" },
+  QUE:       { code: "QUE",       shortName: "Quetta",    fullName: "Quetta Gladiators",          primaryColor: "#2D2D8F", secondaryColor: "#FFD700", type: "franchise" },
+  MUL:       { code: "MUL",       shortName: "Multan",    fullName: "Multan Sultans",             primaryColor: "#8B0000", secondaryColor: "#FFD700", type: "franchise" },
+  ISL:       { code: "ISL",       shortName: "Islamabad", fullName: "Islamabad United",           primaryColor: "#C8102E", secondaryColor: "#004B87", type: "franchise" },
+  // ── The Hundred (England, 8 teams) ───────────────────────────────────────
+  OVI:       { code: "OVI",       shortName: "Oval",      fullName: "Oval Invincibles",           primaryColor: "#1A1A1A", secondaryColor: "#C9A84C", type: "franchise" },
+  LSP:       { code: "LSP",       shortName: "London",    fullName: "London Spirit",              primaryColor: "#000000", secondaryColor: "#00B5A4", type: "franchise" },
+  MOR:       { code: "MOR",       shortName: "Originals", fullName: "Manchester Originals",       primaryColor: "#CC0000", secondaryColor: "#FF4500", type: "franchise" },
+  SBR:       { code: "SBR",       shortName: "S Brave",   fullName: "Southern Brave",             primaryColor: "#2E1760", secondaryColor: "#00BFFF", type: "franchise" },
+  NSC:       { code: "NSC",       shortName: "N Super",   fullName: "Northern Superchargers",     primaryColor: "#FFD700", secondaryColor: "#1A1A1A", type: "franchise" },
+  TRR:       { code: "TRR",       shortName: "Rockets",   fullName: "Trent Rockets",              primaryColor: "#CC0033", secondaryColor: "#FFFFFF", type: "franchise" },
+  WEF:       { code: "WEF",       shortName: "W Fire",    fullName: "Welsh Fire",                 primaryColor: "#8B0000", secondaryColor: "#FFD700", type: "franchise" },
+  BPH:       { code: "BPH",       shortName: "Phoenix",   fullName: "Birmingham Phoenix",         primaryColor: "#A0173A", secondaryColor: "#FFD700", type: "franchise" },
+  // ── SA20 (South Africa, 6 teams) ─────────────────────────────────────────
+  SEC:       { code: "SEC",       shortName: "Sunrisers", fullName: "Sunrisers Eastern Cape",     primaryColor: "#F7A800", secondaryColor: "#000000", type: "franchise" },
+  MICT:      { code: "MICT",      shortName: "MI Cape",   fullName: "MI Cape Town",               primaryColor: "#004BA0", secondaryColor: "#D1AB3E", type: "franchise" },
+  JSK:       { code: "JSK",       shortName: "Jo'burg",   fullName: "Joburg Super Kings",         primaryColor: "#FDB913", secondaryColor: "#005DB7", type: "franchise" },
+  PREC:      { code: "PREC",      shortName: "Capitals",  fullName: "Pretoria Capitals",          primaryColor: "#002868", secondaryColor: "#00B5E2", type: "franchise" },
+  PARR:      { code: "PARR",      shortName: "P Royals",  fullName: "Paarl Royals",               primaryColor: "#EA5B7C", secondaryColor: "#003087", type: "franchise" },
+  DURGD:     { code: "DURGD",     shortName: "Durban",    fullName: "Durban's Super Giants",      primaryColor: "#00A0C6", secondaryColor: "#FF6600", type: "franchise" },
+  // ── CPL (Caribbean Premier League, 6 teams) ──────────────────────────────
+  TKR:       { code: "TKR",       shortName: "TKR",       fullName: "Trinbago Knight Riders",     primaryColor: "#3A225D", secondaryColor: "#F2C72A", type: "franchise" },
+  BARB:      { code: "BARB",      shortName: "Royals",    fullName: "Barbados Royals",             primaryColor: "#EA1A85", secondaryColor: "#254AA5", type: "franchise" },
+  GAW:       { code: "GAW",       shortName: "Warriors",  fullName: "Guyana Amazon Warriors",     primaryColor: "#1A7A1A", secondaryColor: "#FFD700", type: "franchise" },
+  JAT:       { code: "JAT",       shortName: "Tallawahs", fullName: "Jamaica Tallawahs",          primaryColor: "#FFD700", secondaryColor: "#1A1A1A", type: "franchise" },
+  SKP:       { code: "SKP",       shortName: "Patriots",  fullName: "St Kitts & Nevis Patriots",  primaryColor: "#006400", secondaryColor: "#FFD700", type: "franchise" },
+  SLK:       { code: "SLK",       shortName: "St Lucia",  fullName: "St Lucia Kings",             primaryColor: "#003DA5", secondaryColor: "#FFD700", type: "franchise" },
+  // ── MLC (Major League Cricket — USA, 6 teams) ────────────────────────────
+  LAKR:      { code: "LAKR",      shortName: "LA KR",     fullName: "LA Knight Riders",           primaryColor: "#3A225D", secondaryColor: "#F2C72A", type: "franchise" },
+  TSK:       { code: "TSK",       shortName: "Texas SK",  fullName: "Texas Super Kings",          primaryColor: "#FDB913", secondaryColor: "#005DB7", type: "franchise" },
+  MINE:      { code: "MINE",      shortName: "MI NY",     fullName: "MI New York",                primaryColor: "#004BA0", secondaryColor: "#D1AB3E", type: "franchise" },
+  SEAO:      { code: "SEAO",      shortName: "Orcas",     fullName: "Seattle Orcas",              primaryColor: "#008080", secondaryColor: "#002868", type: "franchise" },
+  SFU:       { code: "SFU",       shortName: "Unicorns",  fullName: "San Francisco Unicorns",     primaryColor: "#FF6600", secondaryColor: "#6B2C91", type: "franchise" },
+  WASF:      { code: "WASF",      shortName: "Freedom",   fullName: "Washington Freedom",         primaryColor: "#B22234", secondaryColor: "#002868", type: "franchise" },
 };
 
-// ── All teams combined ───────────────────────────────────────────────────────
 export const ALL_TEAMS: Record<string, Team> = {
   ...TEAMS, ...NATIONAL_TEAMS, ...LEAGUE_TEAMS,
 };
