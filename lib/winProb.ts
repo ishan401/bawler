@@ -140,6 +140,8 @@ export function calculateProjectedScore(match: Match): { runs: number; perOver: 
 }
 
 export function calculatePressureGauge(match: Match): { level: number; trend: "rising" | "falling" | "steady" } | null {
+  const totalBalls = totalBallsForFormat(match);
+  const totalBalls2 = totalBalls;
   const i2 = match.innings.find(i => i.number === 2 && i.balls.length > 0);
   if (!i2) return null;
   const target = match.innings[0].runs + 1;

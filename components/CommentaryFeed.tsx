@@ -70,8 +70,8 @@ function CommentaryFeed({ match, insights }: CommentaryFeedProps) {
 
 type FeedItem =
   | { kind: "ball"; ball: Ball; extraNarrative?: string; timestamp: number }
-  | { kind: "over-summary"; overNumber: number; inningsNumber: 1 | 2; balls: Ball[]; bowlerName: string; timestamp: number }
-  | { kind: "innings-break"; afterInnings: 1 | 2; timestamp: number }
+  | { kind: "over-summary"; overNumber: number; inningsNumber: 1 | 2 | 3 | 4; balls: Ball[]; bowlerName: string; timestamp: number }
+  | { kind: "innings-break"; afterInnings: 1 | 2 | 3 | 4; timestamp: number }
   | { kind: "insight"; insight: InsightV2; timestamp: number };
 
 function buildFeed(match: Match, insights: InsightV2[]): FeedItem[] {
@@ -81,11 +81,11 @@ function buildFeed(match: Match, insights: InsightV2[]): FeedItem[] {
   //  - the ball card
   //  - over-summary when an over ends
   //  - innings-break when innings changes
-  let prevInningsNumber: 1 | 2 | null = null;
+  let prevInningsNumber: 1 | 2 | 3 | 4 | null = null;
   let currentOverBalls: Ball[] = [];
   let currentOverNumber: number | null = null;
   let currentBowler: string | null = null;
-  let currentInningsNumber: 1 | 2 = 1;
+  let currentInningsNumber: 1 | 2 | 3 | 4 = 1;
   let ballTime = 0;
 
   const flushOver = () => {

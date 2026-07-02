@@ -51,12 +51,12 @@ export default function SchedulePage() {
         <div className="flex gap-1.5 mt-2 overflow-x-auto pb-0.5 scrollbar-thin">
           <button
             onClick={() => setActiveFormat(null)}
-            className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors \${!activeFormat ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+            className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors ${!activeFormat ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}`}
           >All</button>
           {formats.map(f => (
             <button key={f}
               onClick={() => setActiveFormat(f === activeFormat ? null : f)}
-              className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors shrink-0 \${activeFormat === f ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+              className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors shrink-0 ${activeFormat === f ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}`}
             >{f}</button>
           ))}
         </div>
@@ -64,12 +64,12 @@ export default function SchedulePage() {
         <div className="flex gap-1.5 mt-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
           <button
             onClick={() => setActiveComp(null)}
-            className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors \${!activeComp ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+            className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors ${!activeComp ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}`}
           >All tours</button>
           {ALL_COMPETITION_NAMES.map(c => (
             <button key={c}
               onClick={() => setActiveComp(c === activeComp ? null : c)}
-              className={\`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors shrink-0 \${activeComp === c ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}\`}
+              className={`text-[9px] font-bold uppercase tracking-wide px-2 py-1 rounded-full border transition-colors shrink-0 ${activeComp === c ? "bg-cyan text-bg border-cyan" : "border-line text-text-dim"}`}
             >{c}</button>
           ))}
         </div>
