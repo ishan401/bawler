@@ -12,19 +12,6 @@ interface WinProbChartProps {
 
 type ZoomLevel = "full" | "innings" | "recent";
 
-/**
- * Full-screen win-probability chart.
- *
- * Per Sarthak v0.4:
- *   - Only accessible by tapping the Win% metric tile.
- *   - Uses full vertical screen height.
- *   - 6-8 events visible per zoom; events labeled DIRECTLY on the chart
- *     (no side legend / index list).
- *   - Events are wickets, sixes, big-overs (12+), and milestones —
- *     NOT momentum-swing markers.
- *   - Two coloured lines (one per team) with vertical event markers.
- *   - Pinch zoom on touch devices.
- */
 export default function WinProbChart({ match, points, events, onClose }: WinProbChartProps) {
   const [zoom, setZoom] = useState<ZoomLevel>("full");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,18 +19,11 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
   const teamB = match.teamB;
   const last = points[points.length - 1];
 
-  // Filter events — exclude momentum-swing, key-bowling-change per spec
-  const filteredEvents = useMemo(() => {
-    return events.filter(e =>
-      e.kind === "wicket" ||
-      e.kind === "six" ||
-      e.kind === "milestone" ||
-      e.kind === "big-over" ||
-      e.kind === "phase-shift"
-    );
-  }, [events]);
+  const filteredEvents = useMemo(() => events.filter(e =>
+    e.kind === "wicket" || e.kind === "six" || e.kind === "milestone" ||
+    e.kind === "big-over" || e.kind === "phase-shift"
+  ), [events]);
 
-  // Filter to "now or earlier" + zoom
   const visibleEvents = useMemo(() => {
     if (!last) return [];
     return filteredEvents
@@ -52,13 +32,12 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
         if (zoom === "full") return true;
         if (zoom === "innings") {
           const i = last.overFloat > 20 ? 2 : 1;
-          if (i === 2) return e.overFloat > 20;
-          return e.overFloat <= 20;
+          return i === 2 ? e.overFloat > 20 : e.overFloat <= 20;
         }
         return e.overFloat >= last.overFloat - 6;
       })
       .sort((a, b) => b.importance - a.importance)
-      .slice(0, 8)
+      .slice(0, 7)
       .sort((a, b) => a.overFloat - b.overFloat);
   }, [filteredEvents, zoom, last]);
 
@@ -72,20 +51,52 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
     return { xMin: Math.max(0, last.overFloat - 6), xMax: Math.min(40, last.overFloat + 0.5) };
   }, [zoom, last]);
 
-  const chartPoints = useMemo(() => points.filter(p => p.overFloat >= xMin && p.overFloat <= xMax), [points, xMin, xMax]);
+  const chartPoints = useMemo(
+    () => points.filter(p => p.overFloat >= xMin && p.overFloat <= xMax),
+    [points, xMin, xMax]
+  );
 
-  // ViewBox sized for full-screen vertical use
+  // Downsample: 1 point per over-segment avoids ball-by-ball noise
+  const sampledPoints = useMemo(() => {
+    if (chartPoints.length <= 40) return chartPoints;
+    const step = Math.max(1, Math.floor(chartPoints.length / 60));
+    const out: WinProbPoint[] = [];
+    for (let i = 0; i < chartPoints.length; i += step) out.push(chartPoints[i]);
+    if (out[out.length - 1] !== chartPoints[chartPoints.length - 1])
+      out.push(chartPoints[chartPoints.length - 1]);
+    return out;
+  }, [chartPoints]);
+
   const W = 380;
-  const H = 580;
-  const PAD = { top: 50, right: 16, bottom: 36, left: 36 };
+  const H = 520;
+  const PAD = { top: 44, right: 18, bottom: 36, left: 38 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
   const xToPx = (x: number) => PAD.left + ((x - xMin) / Math.max(0.001, xMax - xMin)) * innerW;
   const yToPx = (pct: number) => PAD.top + (1 - pct) * innerH;
 
-  const lineA = buildPath(chartPoints, p => p.winProbTeamA, xToPx, yToPx);
-  const lineB = buildPath(chartPoints, p => 1 - p.winProbTeamA, xToPx, yToPx);
+  const pts = useMemo(
+    () => sampledPoints.map(p => ({ x: xToPx(p.overFloat), y: yToPx(p.winProbTeamA), p })),
+    [sampledPoints, xMin, xMax]
+  );
+
+  // Smooth catmull-rom curve path
+  const linePath = useMemo(() => catmullRomPath(pts.map(pt => ({ x: pt.x, y: pt.y }))), [pts]);
+
+  // Area below line (team A's zone)
+  const areaA = useMemo(() => {
+    if (pts.length === 0) return "";
+    const bottom = yToPx(0);
+    return `${linePath} L ${pts[pts.length - 1].x.toFixed(1)} ${bottom.toFixed(1)} L ${pts[0].x.toFixed(1)} ${bottom.toFixed(1)} Z`;
+  }, [linePath, pts]);
+
+  // Area above line (team B's zone)
+  const areaB = useMemo(() => {
+    if (pts.length === 0) return "";
+    const top = yToPx(1);
+    return `${linePath} L ${pts[pts.length - 1].x.toFixed(1)} ${top.toFixed(1)} L ${pts[0].x.toFixed(1)} ${top.toFixed(1)} Z`;
+  }, [linePath, pts]);
 
   // Pinch zoom
   useEffect(() => {
@@ -94,14 +105,11 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
     let initialDist: number | null = null;
     let initialZoom: ZoomLevel = zoom;
     const onStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        initialDist = pinchDistance(e.touches);
-        initialZoom = zoom;
-      }
+      if (e.touches.length === 2) { initialDist = pinchDist(e.touches); initialZoom = zoom; }
     };
     const onMove = (e: TouchEvent) => {
       if (e.touches.length === 2 && initialDist) {
-        const d = pinchDistance(e.touches);
+        const d = pinchDist(e.touches);
         const ratio = d / initialDist;
         if (ratio > 1.3) {
           if (initialZoom === "full") setZoom("innings");
@@ -127,115 +135,187 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
 
   if (!last) return <div className="card p-4 text-text-secondary text-sm">No data yet.</div>;
 
+  const pctA = Math.round(last.winProbTeamA * 100);
+  const pctB = 100 - pctA;
+  const leadingTeam = pctA >= pctB ? teamA : teamB;
+
   return (
     <div className="flex flex-col h-full bg-bg">
-      {/* Drag-handle / collapse affordance — big tap target — Sarthak v0.9 #4 */}
+      {/* Drag handle */}
       {onClose && (
-        <button
-          onClick={onClose}
-          className="w-full py-2 flex items-center justify-center hover:bg-bg-elevated transition-colors group"
-          aria-label="Collapse chart"
-        >
-          <span className="w-12 h-1 rounded-full bg-text-dim group-hover:bg-cyan transition-colors" />
+        <button onClick={onClose} className="w-full py-2.5 flex items-center justify-center group" aria-label="Collapse">
+          <span className="w-10 h-1 rounded-full bg-line group-hover:bg-cyan transition-colors" />
         </button>
       )}
 
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-line shrink-0">
-        <div>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-text-dim">Win probability</h3>
-          <div className="flex items-center gap-3 mt-1 text-sm">
-            <TeamProb code={teamA.shortName} color={teamA.primaryColor} pct={last.winProbTeamA * 100} />
-            <TeamProb code={teamB.shortName} color={teamB.primaryColor} pct={(1 - last.winProbTeamA) * 100} />
+      <div className="px-4 pb-3 shrink-0">
+        <div className="text-[10px] uppercase tracking-widest text-text-dim mb-2">Win Probability</div>
+        {/* Big probability display */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: teamA.primaryColor }} />
+              <span className="text-sm font-bold text-text-primary">{teamA.shortName}</span>
+            </div>
+            <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${pctA}%`, background: teamA.primaryColor }} />
+            </div>
+          </div>
+          <div className="text-center px-2 shrink-0">
+            <div className="text-xl font-extrabold num" style={{ color: leadingTeam.primaryColor }}>{Math.max(pctA, pctB)}%</div>
+            <div className="text-[9px] text-text-dim uppercase tracking-widest">{leadingTeam.shortName} lead</div>
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center justify-end gap-2 mb-1">
+              <span className="text-sm font-bold text-text-primary">{teamB.shortName}</span>
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: teamB.primaryColor }} />
+            </div>
+            <div className="h-2 rounded-full bg-bg-surface overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-700 ml-auto"
+                style={{ width: `${pctB}%`, background: teamB.primaryColor }} />
+            </div>
           </div>
         </div>
-        {onClose && (
-          <button onClick={onClose} className="text-[10px] text-text-dim hover:text-cyan font-bold uppercase tracking-widest" aria-label="Collapse">
-            Collapse
-          </button>
-        )}
+        <div className="flex justify-between mt-1 px-0.5">
+          <span className="text-[10px] text-text-secondary num font-bold">{pctA}%</span>
+          <span className="text-[10px] text-text-secondary num font-bold">{pctB}%</span>
+        </div>
       </div>
 
       {/* Zoom controls */}
-      <div className="px-4 py-2 border-b border-line flex items-center justify-between shrink-0">
+      <div className="px-4 pb-2 flex items-center justify-between shrink-0">
         <ZoomButtons zoom={zoom} onChange={setZoom} />
         <span className="text-[9px] text-text-dim uppercase tracking-widest">Pinch to zoom</span>
       </div>
 
-      {/* Chart — fills available vertical space */}
-      <div ref={containerRef} className="flex-1 px-2 py-4 touch-none flex items-center">
+      {/* Chart */}
+      <div ref={containerRef} className="flex-1 px-1 touch-none">
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full block" preserveAspectRatio="xMidYMid meet">
-          {/* 50% reference + grid */}
+          <defs>
+            <linearGradient id="gradA" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={teamA.primaryColor} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={teamA.primaryColor} stopOpacity="0.03" />
+            </linearGradient>
+            <linearGradient id="gradB" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stopColor={teamB.primaryColor} stopOpacity="0.35" />
+              <stop offset="100%" stopColor={teamB.primaryColor} stopOpacity="0.03" />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines */}
           {[0, 0.25, 0.5, 0.75, 1].map(y => (
             <g key={y}>
-              <line x1={PAD.left} y1={yToPx(y)} x2={W - PAD.right} y2={yToPx(y)} stroke="#1E293B" strokeWidth={y === 0.5 ? "1" : "0.7"} strokeDasharray={y === 0.5 ? "3 4" : "2 4"} />
-              <text x={PAD.left - 6} y={yToPx(y) + 3} fill="#64748B" fontSize="9" fontWeight="600" textAnchor="end">{Math.round(y * 100)}%</text>
+              <line
+                x1={PAD.left} y1={yToPx(y)} x2={W - PAD.right} y2={yToPx(y)}
+                stroke={y === 0.5 ? "#334155" : "#1E293B"}
+                strokeWidth={y === 0.5 ? "1.5" : "0.8"}
+                strokeDasharray={y === 0.5 ? "4 3" : "2 5"}
+              />
+              <text x={PAD.left - 6} y={yToPx(y) + 4} fill={y === 0.5 ? "#64748B" : "#475569"}
+                fontSize="9" fontWeight={y === 0.5 ? "700" : "500"} textAnchor="end">
+                {Math.round(y * 100)}
+              </text>
             </g>
           ))}
 
           {/* X-axis ticks */}
           {xAxisTicks(xMin, xMax).map(x => (
             <g key={x}>
-              <line x1={xToPx(x)} y1={PAD.top + innerH} x2={xToPx(x)} y2={PAD.top + innerH + 3} stroke="#1E293B" />
-              <text x={xToPx(x)} y={PAD.top + innerH + 14} fill="#64748B" fontSize="9" textAnchor="middle">
+              <text x={xToPx(x)} y={PAD.top + innerH + 14} fill="#475569" fontSize="9" textAnchor="middle">
                 {x > 20 ? `${x - 20}` : `${x}`}
               </text>
             </g>
           ))}
 
+          {/* X axis label */}
+          <text x={PAD.left + innerW / 2} y={H - 2} fill="#334155" fontSize="8" textAnchor="middle" fontWeight="600" letterSpacing="2">OVERS</text>
+
           {/* Innings divider */}
           {xMin <= 20 && xMax >= 20 && (
             <g>
-              <line x1={xToPx(20)} y1={PAD.top} x2={xToPx(20)} y2={PAD.top + innerH} stroke="#475569" strokeWidth="1" strokeDasharray="4 4" />
-              <text x={xToPx(20)} y={PAD.top - 4} fill="#94A3B8" fontSize="8" fontWeight="700" textAnchor="middle" className="uppercase tracking-widest">2nd inn</text>
+              <line x1={xToPx(20)} y1={PAD.top} x2={xToPx(20)} y2={PAD.top + innerH}
+                stroke="#334155" strokeWidth="1.5" strokeDasharray="5 4" />
+              <rect x={xToPx(20) - 20} y={PAD.top - 18} width="40" height="14" rx="3" fill="#1E293B" />
+              <text x={xToPx(20)} y={PAD.top - 7} fill="#64748B" fontSize="8" fontWeight="700"
+                textAnchor="middle" letterSpacing="1">2ND INN</text>
             </g>
           )}
 
-          {/* Team lines — drawn FIRST so dots sit on top */}
-          <path d={lineA} stroke={teamA.primaryColor} strokeWidth="2.4" fill="none" strokeLinejoin="round" strokeLinecap="round" />
-          <path d={lineB} stroke={teamB.primaryColor} strokeWidth="2.4" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Area fills — team B on top (rendered first, behind line) */}
+          {areaB && <path d={areaB} fill="url(#gradB)" />}
+          {areaA && <path d={areaA} fill="url(#gradA)" />}
 
-          {/* Event dots — placed ON the line at the event's overFloat, on team A's line.
-              Sarthak v0.9 #4: no more vertical clutter — events are dots, with labels
-              rendered in a separate row below the chart. */}
+          {/* Main smooth line */}
+          {linePath && (
+            <path d={linePath} stroke={teamA.primaryColor} strokeWidth="2.5"
+              fill="none" strokeLinejoin="round" strokeLinecap="round" />
+          )}
+
+          {/* Event dots */}
           {visibleEvents.map(e => {
-            const pointAtEvent = points.find(p => p.overFloat >= e.overFloat) ?? last;
-            const x = xToPx(e.overFloat);
-            const y = yToPx(pointAtEvent.winProbTeamA);
+            const closestPt = pts.reduce((best, pt) =>
+              Math.abs(pt.p.overFloat - e.overFloat) < Math.abs(best.p.overFloat - e.overFloat) ? pt : best
+            , pts[0]);
+            if (!closestPt) return null;
             const color = eventColor(e.kind);
             return (
               <g key={e.id}>
-                <circle cx={x} cy={y} r="5.5" fill={color} stroke="#0A0E1A" strokeWidth="1.5" />
-                <circle cx={x} cy={y} r="2" fill="#FFFFFF" />
+                <circle cx={closestPt.x} cy={closestPt.y} r="7" fill={color} opacity="0.15" />
+                <circle cx={closestPt.x} cy={closestPt.y} r="4.5" fill={color} stroke="#0A0E1A" strokeWidth="1.5" />
+                <circle cx={closestPt.x} cy={closestPt.y} r="1.5" fill="#FFFFFF" />
               </g>
             );
           })}
 
           {/* Now marker */}
-          {last.overFloat >= xMin && last.overFloat <= xMax && (
-            <g>
-              <line x1={xToPx(last.overFloat)} y1={PAD.top} x2={xToPx(last.overFloat)} y2={PAD.top + innerH} stroke="#F8FAFC" strokeWidth="1.4" strokeDasharray="2 2" />
-              <circle cx={xToPx(last.overFloat)} cy={yToPx(last.winProbTeamA)} r="5" fill={teamA.primaryColor} stroke="#F8FAFC" strokeWidth="1.5" />
-              <circle cx={xToPx(last.overFloat)} cy={yToPx(1 - last.winProbTeamA)} r="5" fill={teamB.primaryColor} stroke="#F8FAFC" strokeWidth="1.5" />
-              <text x={xToPx(last.overFloat) + 7} y={PAD.top + 12} fill="#F8FAFC" fontSize="9" fontWeight="700" className="uppercase tracking-widest">NOW</text>
-            </g>
-          )}
+          {last.overFloat >= xMin && last.overFloat <= xMax && (() => {
+            const nx = xToPx(last.overFloat);
+            const ny = yToPx(last.winProbTeamA);
+            return (
+              <g>
+                <line x1={nx} y1={PAD.top} x2={nx} y2={PAD.top + innerH}
+                  stroke="#94A3B8" strokeWidth="1" strokeDasharray="2 3" opacity="0.6" />
+                {/* Glow ring */}
+                <circle cx={nx} cy={ny} r="9" fill={teamA.primaryColor} opacity="0.2" />
+                <circle cx={nx} cy={ny} r="5.5" fill={teamA.primaryColor} stroke="#0A0E1A" strokeWidth="1.5" />
+                <circle cx={nx} cy={ny} r="2" fill="#FFFFFF" />
+                {/* NOW label */}
+                <rect x={nx + 7} y={PAD.top + 4} width="26" height="13" rx="3" fill="#0F172A" />
+                <text x={nx + 20} y={PAD.top + 14} fill="#94A3B8" fontSize="8" fontWeight="700"
+                  textAnchor="middle" letterSpacing="1">NOW</text>
+              </g>
+            );
+          })()}
+
+          {/* Team labels at right edge */}
+          {pts.length > 0 && (() => {
+            const lastPt = pts[pts.length - 1];
+            const yA = lastPt.y;
+            const yB = yToPx(1 - last.winProbTeamA);
+            return (
+              <g>
+                <text x={W - PAD.right + 4} y={yA + 4} fill={teamA.primaryColor}
+                  fontSize="8" fontWeight="800" textAnchor="start">{teamA.shortName}</text>
+                <text x={W - PAD.right + 4} y={yB + 4} fill={teamB.primaryColor}
+                  fontSize="8" fontWeight="800" textAnchor="start">{teamB.shortName}</text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
 
-      {/* Event legend strip below the chart — replaces in-chart vertical lines */}
+      {/* Event legend */}
       {visibleEvents.length > 0 && (
-        <div className="px-4 py-3 border-t border-line bg-bg-surface">
-          <div className="text-[10px] uppercase tracking-widest text-text-dim mb-2">Events in view</div>
-          <div className="space-y-1.5 max-h-[140px] overflow-y-auto scrollbar-thin">
+        <div className="px-4 py-3 border-t border-line shrink-0">
+          <div className="text-[9px] uppercase tracking-widest text-text-dim mb-2">Key moments</div>
+          <div className="space-y-1.5 max-h-[120px] overflow-y-auto scrollbar-thin">
             {visibleEvents.map(e => (
-              <div key={e.id} className="flex items-start gap-2 text-[11px]">
-                <span className="shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: eventColor(e.kind) }} />
-                <span className="num font-bold text-text-secondary shrink-0">{e.overFloat.toFixed(1)}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-text-primary truncate">{e.label}</div>
-                  <div className="text-[10px] text-text-dim truncate">{e.context}</div>
-                </div>
+              <div key={e.id} className="flex items-center gap-2 text-[11px]">
+                <span className="shrink-0 w-2 h-2 rounded-full" style={{ background: eventColor(e.kind) }} />
+                <span className="num font-bold text-text-dim shrink-0 w-8">{e.overFloat.toFixed(1)}</span>
+                <span className="text-text-secondary truncate">{e.label}</span>
               </div>
             ))}
           </div>
@@ -245,14 +325,25 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
   );
 }
 
-function buildPath(
-  points: WinProbPoint[],
-  yAccess: (p: WinProbPoint) => number,
-  xToPx: (x: number) => number,
-  yToPx: (y: number) => number
-): string {
-  if (points.length === 0) return "";
-  return points.map((p, i) => `${i === 0 ? "M" : "L"} ${xToPx(p.overFloat).toFixed(1)} ${yToPx(yAccess(p)).toFixed(1)}`).join(" ");
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Catmull-Rom → cubic bezier: produces visually smooth curves */
+function catmullRomPath(pts: { x: number; y: number }[], alpha = 3): string {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / (alpha * 2);
+    const cp1y = p1.y + (p2.y - p0.y) / (alpha * 2);
+    const cp2x = p2.x - (p3.x - p1.x) / (alpha * 2);
+    const cp2y = p2.y - (p3.y - p1.y) / (alpha * 2);
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
 }
 
 function xAxisTicks(min: number, max: number): number[] {
@@ -265,32 +356,22 @@ function xAxisTicks(min: number, max: number): number[] {
 
 function eventColor(kind: MatchEvent["kind"]): string {
   switch (kind) {
-    case "wicket": return "#EF4444";
-    case "six": return "#A855F7";
-    case "four": return "#00E5FF";
-    case "milestone": return "#10B981";
-    case "big-over": return "#10B981";
+    case "wicket":     return "#EF4444";
+    case "six":        return "#A855F7";
+    case "four":       return "#00E5FF";
+    case "milestone":  return "#10B981";
+    case "big-over":   return "#10B981";
     case "quiet-over": return "#64748B";
-    case "phase-shift": return "#FF6B35";
-    case "momentum-swing": return "#FF6B35";
+    case "phase-shift":      return "#FF6B35";
+    case "momentum-swing":   return "#FF6B35";
     case "key-bowling-change": return "#94A3B8";
   }
 }
 
-function pinchDistance(touches: TouchList): number {
+function pinchDist(touches: TouchList): number {
   const dx = touches[0].clientX - touches[1].clientX;
   const dy = touches[0].clientY - touches[1].clientY;
   return Math.sqrt(dx * dx + dy * dy);
-}
-
-function TeamProb({ code, color, pct }: { code: string; color: string; pct: number }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-2.5 h-2.5 rounded-full" style={{ background: color }} />
-      <span className="text-text-secondary font-medium">{code}</span>
-      <span className="num font-bold text-text-primary">{pct.toFixed(1)}%</span>
-    </div>
-  );
 }
 
 function ZoomButtons({ zoom, onChange }: { zoom: ZoomLevel; onChange: (z: ZoomLevel) => void }) {
@@ -302,13 +383,10 @@ function ZoomButtons({ zoom, onChange }: { zoom: ZoomLevel; onChange: (z: ZoomLe
   return (
     <div className="inline-flex rounded-md bg-bg-surface border border-line p-0.5">
       {opts.map(o => (
-        <button
-          key={o.key}
-          onClick={() => onChange(o.key)}
-          className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest transition ${
+        <button key={o.key} onClick={() => onChange(o.key)}
+          className={`px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-widest transition ${
             zoom === o.key ? "bg-cyan text-bg" : "text-text-dim hover:text-text-primary"
-          }`}
-        >
+          }`}>
           {o.label}
         </button>
       ))}
