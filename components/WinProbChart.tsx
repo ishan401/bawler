@@ -141,12 +141,26 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
 
   return (
     <div className="flex flex-col h-full bg-bg">
-      {/* Drag handle */}
-      {onClose && (
-        <button onClick={onClose} className="w-full py-2.5 flex items-center justify-center group" aria-label="Collapse">
-          <span className="w-10 h-1 rounded-full bg-line group-hover:bg-cyan transition-colors" />
-        </button>
-      )}
+      {/* Top bar: back button + drag handle */}
+      <div className="flex items-center px-3 pt-3 pb-1 shrink-0">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-text-secondary hover:text-cyan active:scale-95 transition-all"
+            aria-label="Back"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            <span className="text-[11px] font-bold">Back</span>
+          </button>
+        )}
+        <div className="flex-1 flex justify-center">
+          <span className="w-10 h-1 rounded-full bg-line" />
+        </div>
+        {/* spacer to balance back button */}
+        {onClose && <div className="w-14" />}
+      </div>
 
       {/* Header */}
       <div className="px-4 pb-3 shrink-0">
