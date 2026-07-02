@@ -49,9 +49,9 @@ function FlagOrRank({ team }: { team: Team }) {
     if (iso) {
       return (
         <img
-          src={`https://flagcdn.com/20x15/${iso}.png`}
-          width={20}
-          height={15}
+          src={`https://flagcdn.com/w40/${iso}.png`}
+          width={24}
+          height={18}
           alt={team.shortName}
           className="rounded-[2px] shrink-0 shadow-sm"
           style={{ objectFit: "cover" }}
