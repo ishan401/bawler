@@ -18,6 +18,7 @@ import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
 import { MOCK_INSIGHTS_V2 } from "@/lib/mockData";
 import LineupsCard from "@/components/LineupsCard";
+import StandingsTab from "@/components/StandingsTab";
 
 interface MatchViewProps {
   match: Match;
@@ -58,6 +59,7 @@ export default function MatchView({ match }: MatchViewProps) {
   }, [selectedBallId, liveBallIdx, allBalls]);
 
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
+  const showTable = match.competition.type === "league" || match.competition.type === "international";
   const defaultTab: TabKey = isUpcoming ? "info" : "live";
   const [tab, setTab] = useState<TabKey>(defaultTab);
   const [renderedTab, setRenderedTab] = useState<TabKey>(defaultTab);
@@ -80,7 +82,7 @@ export default function MatchView({ match }: MatchViewProps) {
   }, [tab]);
 
   // ── Swipe between tabs ──────────────────────────────────────────
-  const TABS_ORDER: TabKey[] = ["live", "scorecard", "info"];
+  const TABS_ORDER: TabKey[] = showTable ? ["live", "scorecard", "info", "table"] : ["live", "scorecard", "info"];
   const swipeTouchX = useRef(0);
   const swipeTouchY = useRef(0);
   const onSwipeStart = (e: React.TouchEvent) => {
@@ -181,7 +183,7 @@ export default function MatchView({ match }: MatchViewProps) {
       <div className="sticky top-0 z-30">
         <ScoreBar match={truncatedMatch} />
         <MiniInsightsBar match={truncatedMatch} insights={visibleInsights} />
-        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} />
+        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} />
       </div>
 
       <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
@@ -257,6 +259,7 @@ export default function MatchView({ match }: MatchViewProps) {
 
         {renderedTab === "scorecard" && <Scorecard match={truncatedMatch} />}
         {renderedTab === "info" && <InfoTab match={truncatedMatch} />}
+        {renderedTab === "table" && <StandingsTab competition={match.competition} />}
 
         <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
           Bawler v0.9 · all data mocked
