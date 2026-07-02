@@ -66,6 +66,7 @@ export default function MatchView({ match }: MatchViewProps) {
   const [animClass, setAnimClass] = useState("");
   const transitioningRef = useRef(false);
   const [showProbModal, setShowProbModal] = useState(false);
+  const [isClosingProb, setIsClosingProb] = useState(false);
 
   // Back-swipe / browser back gesture for win-prob modal
   useEffect(() => {
@@ -79,9 +80,12 @@ export default function MatchView({ match }: MatchViewProps) {
 
   const openProbModal  = () => setShowProbModal(true);
   const closeProbModal = () => {
-    // If we pushed a history entry, pop it so the URL stays clean
-    if (history.state?.winProb) history.back();
-    else setShowProbModal(false);
+    setIsClosingProb(true);
+    setTimeout(() => {
+      setIsClosingProb(false);
+      setShowProbModal(false);
+      if (history.state?.winProb) history.back();
+    }, 240);
   };
 
   // ── Book-page-turn tab switcher ───────────────────────────────
@@ -340,7 +344,7 @@ export default function MatchView({ match }: MatchViewProps) {
           onClick={closeProbModal}
         >
           <div
-            className="modal-slide-up w-full max-w-[430px] flex flex-col"
+            className={`${isClosingProb ? "book-exit-backward" : "book-enter-forward"} w-full max-w-[430px] flex flex-col`}
             onClick={(e) => e.stopPropagation()}
           >
             <WinProbChart
