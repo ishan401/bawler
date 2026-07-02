@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
+import PageTransition from "@/components/PageTransition";
 
 export const metadata: Metadata = {
   title: "Bawler — Every Ball, Visualized",
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <div className="phone-frame">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </div>
         <BottomNav />
       </body>

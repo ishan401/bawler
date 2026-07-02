@@ -25,6 +25,7 @@
   .phone-frame {
     @apply mx-auto bg-bg min-h-screen;
     max-width: 430px;
+    overflow: clip;
   }
   @media (min-width: 640px) {
     .phone-frame {
