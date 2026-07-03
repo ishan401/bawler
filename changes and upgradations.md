@@ -580,3 +580,33 @@ Initial v0.9 prototype. Full UI with mocked data.
 - TABLE tab inside match view also uses `match.championship` when present
 - `tableComp = championship.hasStandings ? championship : competition`
 - Test match TABLE tab shows full WTC table, not "Standings coming soon"
+
+---
+
+## [1.0.19] 2026-07-03
+
+### Auto-championship resolution in API transformers
+
+#### Added — `CRICBUZZ_CHAMPIONSHIP_MAP` (`lib/transformers.ts`)
+- `Record<number, string>` — maps Cricbuzz series IDs → internal championship IDs
+- Pre-documented structure for WTC 2025-27: add the real Cricbuzz series IDs for each of the ~27 ICC-designated bilateral Test series when API access lands
+- Fills once per WTC cycle (every 2 years), not per match
+
+#### Added — `ESPN_CHAMPIONSHIP_MAP` (`lib/transformers.ts`)
+- Same concept for ESPN Cricinfo / sportsdata.io series IDs → championship IDs
+
+#### Added — `SPORTRADAR_CHAMPIONSHIP_MAP` (`lib/transformers.ts`)
+- Same concept for SportRadar tournament IDs → championship IDs
+
+#### Updated — `transformCricbuzzMatch()` (`lib/transformers.ts`)
+- Now accepts `allCompetitions: Record<string, Competition>` as a parameter
+- Auto-resolves `championship` from `CRICBUZZ_CHAMPIONSHIP_MAP[raw.matchInfo.seriesId]`
+- If the series ID is in the map, championship is automatically attached to the Match — no per-match manual tagging needed
+- If the series ID is not in the map, `championship` stays `undefined` (bilateral series without a championship cycle)
+
+#### How to onboard a new WTC cycle
+1. ICC announces the series list at the start of each cycle
+2. Make one API call to Cricbuzz to get the `seriesId` for each designated series
+3. Add those ~27 entries to `CRICBUZZ_CHAMPIONSHIP_MAP`
+4. Add a new `wtc-YYYY-YY` entry to `COMPETITIONS` and `COMPETITION_STANDINGS`
+5. Every match in those series will automatically carry the championship — zero per-match work

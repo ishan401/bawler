@@ -221,3 +221,13 @@
 | WTC4 | **PCT% column instead of NRR for WTC** | Test cricket has no run rate concept for multi-series standings. PCT (points won / max available × 100) is the ICC's official WTC ranking metric. |
 | WTC5 | **`showDrawn: true` for WTC, `showNrr: false`** | Drawn matches are frequent and meaningful in Test cricket (3 draws = 12 pts, same as 1 win). NRR is irrelevant. Column config is per-competition so T20 leagues are unaffected. |
 | WTC6 | **`qualifyingSpots: 2` for WTC** | Only top 2 nations qualify for the WTC Final (held every 2 years). Qualification bar renders automatically at position 2. |
+
+## Auto-championship resolution
+
+| # | Decision | Reason |
+|---|---|---|
+| AC1 | **Championship resolved from a lookup map, not from the match payload** | Cricket APIs return a `series_id` per match, not a championship ID. The mapping (series → championship) is maintained by us based on ICC's official announcements. This keeps the transformer stateless and the lookup auditable in one file. |
+| AC2 | **One `CHAMPIONSHIP_MAP` per API vendor** (`CRICBUZZ_CHAMPIONSHIP_MAP`, `ESPN_CHAMPIONSHIP_MAP`, `SPORTRADAR_CHAMPIONSHIP_MAP`) | Each vendor uses its own series ID namespace. A single shared map would create ID collisions. Separate maps also make it obvious which vendor's IDs need updating when a new cycle starts. |
+| AC3 | **Map is filled once per WTC cycle (~27 entries), not per match** | The ICC publishes the full list of WTC-contributing series at the start of each cycle. Onboarding a cycle = one batch lookup, not ongoing maintenance per match. |
+| AC4 | **`championship` stays `undefined` if series ID is not in the map** | Non-WTC Test matches (e.g. Afghanistan vs Zimbabwe), Associate member Tests, and all white-ball matches naturally produce no championship. No special-casing or negative lists needed. |
+| AC5 | **`allCompetitions` passed into `transformCricbuzzMatch()` rather than imported** | Avoids a circular import between `transformers.ts` and `mockData.ts`. The caller (API layer) owns the competition registry and injects it. |

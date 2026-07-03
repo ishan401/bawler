@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.18 (deployed)
+**Current version:** v1.0.19 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -162,13 +162,7 @@
 | v1.0.4 | UX: swipe tabs, skeleton, pull-to-refresh, tap feedback, back button, empty state, score badge |
 | v1.0.3 | Bottom nav fixed — BottomNav moved outside phone-frame, never clipped |
 | v1.0.2 | Scorecard highlights (teal top scorer, red wicket-taker, blue SR, gold MOM, purple MOS); win-prob reverted |
-| v1.0.1 | Build hotfix: 6 truncated files, 8 missing React imports, null bytes, TS null error |
-| v1.0.10 | Performance: SVG filter removal, React.memo x7, useCallback |
-| v1.0.9 | BallGIF: perspective-correct impact Y + post-pitch bounce arc |
-| v1.0.8 | MiniWinProb redesign: both teams visible, gradient fills |
-| v1.0.0 | UX overhaul: bottom nav, AI tile labels, Moments redesign, BallGIF hierarchy, countdown cards, team colour filter |
-| v0.9.8 | brightColor() hue-accurate team colours in win-prob |
-| v0.9.x | Win-prob iterations, gradient opacities, chart cleanup |
+| **v1.0.19** | Auto-championship resolution in transformers — series-ID maps, zero per-match tagging |
 | **v1.0.18** | WTC standings: championship field, PCT column, TABLE button for live Test matches |
 | **v1.0.17** | Real-data readiness: CompetitionStandings layer, hasStandings flag, transformers.ts, dynamic columns |
 | **v1.0.16** | Bug fixes: win prob override inversion, scorecard empty, MiniStandings in Live tab |
@@ -176,4 +170,13 @@
 | **v1.0.14** | BottomSheet standings + scroll fix: height 85vh, body scroll lock, touch-action pan-y |
 | **v1.0.13** | TABLE button + standings sheet on home carousel; MiniStandings onTeamClick prop |
 | **v1.0.12** | Test match dual-innings score display; liveStatusOf + liveWinProb battingTeam fix |
+| **v1.0.11** | Multi-competition: national teams, diverse formats, competition badge UI |
+| **v1.0.10** | Performance: SVG filter removal, React.memo x7, useCallback |
+| v1.0.9 | BallGIF: perspective-correct impact Y + post-pitch bounce arc |
+| v1.0.8 | MiniWinProb redesign: both teams visible, gradient fills |
+| v1.0.7 | Nav cleanup: removed back btn from Schedule/Table; GT dot fix; sticky scorecard headers |
+| v1.0.4 | UX: swipe tabs, skeleton, pull-to-refresh, tap feedback, back button, score badge |
+| v1.0.1 | Build hotfix: 6 truncated files, 8 missing React imports, null bytes, TS null error |
+| v1.0.0 | UX overhaul: bottom nav, AI tile labels, Moments redesign, BallGIF hierarchy, countdown cards |
+| v0.9.8 | brightColor() hue-accurate team colours in win-prob |
 | v0.9.0 | Initial prototype with full mocked data |
