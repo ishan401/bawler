@@ -7,17 +7,41 @@ interface ScoreBarProps {
   match: Match;
 }
 
+/** Total legal deliveries for a format — used for RRR and balls-left displays. */
+function totalBallsFor(match: Match): number {
+  if (match.format === "Test" || match.format === "ODI") return 300; // 50 overs per side
+  return 120; // T20 / T20I
+}
+
 function ScoreBar({ match }: ScoreBarProps) {
-  const i1 = match.innings[0];
-  const i2 = match.innings[1];
+  const { innings, teamA, teamB } = match;
   const isLive = match.status === "live";
   const isPost = match.status === "post-match";
+  const isTest = match.format === "Test";
 
-  const target = i1 ? i1.runs + 1 : null;
-  const current = i2 ?? i1;
-  const need = target && current ? target - current.runs : null;
-  const ballsBowled = current ? Math.round(current.overs * 6) : 0;
-  const ballsLeft = current ? 120 - ballsBowled : null;
+  // ── Innings attribution by battingTeam (never by position) ───────────────
+  // Real data: visiting team bats first whenever they win the toss and elect to bat.
+  const innA = innings.filter(i => i.battingTeam === teamA.code);
+  const innB = innings.filter(i => i.battingTeam === teamB.code);
+  const lastInnA = innA[innA.length - 1];
+  const lastInnB = innB[innB.length - 1];
+
+  // Current batting team = last innings in array
+  const lastInn = innings[innings.length - 1];
+  const teamACurrentlyBatting = lastInn?.battingTeam === teamA.code;
+
+  // For ScoreBar: show current innings scores at top
+  // In limited-overs matches, simple 1st/2nd innings
+  const i1 = innings[0];
+  const i2 = innings.length >= 2 ? innings[innings.length - 1] : null;
+
+  // Chase context — only meaningful in limited-overs 2nd innings, not Test
+  const totalBalls = totalBallsFor(match);
+  const target = (!isTest && i1) ? i1.runs + 1 : null;
+  const chasingInn = (!isTest && i2) ? i2 : null;
+  const need = target && chasingInn ? target - chasingInn.runs : null;
+  const ballsBowled = chasingInn ? Math.round(chasingInn.overs * 6) : 0;
+  const ballsLeft = chasingInn ? Math.max(0, totalBalls - ballsBowled) : null;
   const rrr = need && ballsLeft && ballsLeft > 0 ? (need / ballsLeft) * 6 : null;
 
   return (
@@ -31,7 +55,7 @@ function ScoreBar({ match }: ScoreBarProps) {
         </Link>
 
         <div className="flex-1 flex items-center justify-center gap-3 text-sm">
-          <Team code={match.teamA.shortName} color={match.teamA.primaryColor} batting={i2 ? false : true} />
+          <Team code={match.teamA.shortName} color={match.teamA.primaryColor} batting={teamACurrentlyBatting} />
           {i1 && (
             <span className="num font-bold text-text-primary">
               {i1.runs}<span className="text-text-dim font-normal">/{i1.wickets}</span>
@@ -43,7 +67,7 @@ function ScoreBar({ match }: ScoreBarProps) {
               {i2.runs}<span className="text-text-dim font-normal">/{i2.wickets}</span>
             </span>
           )}
-          <Team code={match.teamB.shortName} color={match.teamB.primaryColor} batting={!!i2} />
+          <Team code={match.teamB.shortName} color={match.teamB.primaryColor} batting={!teamACurrentlyBatting && innings.length > 0} />
         </div>
 
         <div className="flex flex-col items-end gap-0.5">
@@ -68,7 +92,7 @@ function ScoreBar({ match }: ScoreBarProps) {
       {i2 && need !== null && rrr !== null && (
         <div className="px-4 pb-2 flex items-center justify-between text-xs">
           <span className="text-text-secondary num">
-            {match.teamB.shortName} need <span className="text-text-primary font-bold">{need}</span> off <span className="text-text-primary font-bold">{ballsLeft}</span> balls
+            {chasingInn?.battingTeam === teamB.code ? teamB.shortName : teamA.shortName} need <span className="text-text-primary font-bold">{need}</span> off <span className="text-text-primary font-bold">{ballsLeft}</span> balls
           </span>
           <span className="text-text-secondary num">
             RRR <span className={`font-bold ${rrr > 10 ? "text-orange" : rrr > 8 ? "text-text-primary" : "text-boundary"}`}>{rrr.toFixed(2)}</span>

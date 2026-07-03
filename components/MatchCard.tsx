@@ -251,35 +251,52 @@ function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: nu
   );
 }
 
+/** Total legal deliveries per side for a format. */
+function totalBallsForFormat(match: Match): number {
+  if (match.format === "ODI") return 300;
+  if (match.format === "Test") return 450; // approx — Tests are declaration-based
+  return 120; // T20 / T20I
+}
+
 function liveStatusOf(match: Match): string {
   if (match.liveStatusOverride) return match.liveStatusOverride;
 
-  const { innings, teamA, teamB } = match;
+  const { innings, teamA, teamB, format } = match;
   // Find innings by battingTeam — never assume position equals team order
-  const currentInn  = innings[innings.length - 1];
-  const prevInn     = innings.length >= 2 ? innings[innings.length - 2] : null;
+  const currentInn = innings[innings.length - 1];
+  const prevInn    = innings.length >= 2 ? innings[innings.length - 2] : null;
   if (!currentInn) return "Toss imminent";
 
-  const battingTeam   = currentInn.battingTeam === teamA.code ? teamA : teamB;
-  const fieldingTeam  = currentInn.battingTeam === teamA.code ? teamB : teamA;
+  const battingTeam  = currentInn.battingTeam === teamA.code ? teamA : teamB;
+  const fieldingTeam = currentInn.battingTeam === teamA.code ? teamB : teamA;
+  const totalBalls   = totalBallsForFormat(match);
+
+  // Test matches: just show current score, no target/projection logic
+  if (format === "Test") {
+    if (currentInn.runs !== undefined) {
+      return `${battingTeam.shortName} ${currentInn.runs}/${currentInn.wickets} (${currentInn.overs} ov)`;
+    }
+    return "Match in progress";
+  }
 
   if (prevInn) {
-    // 2nd innings — chasing
-    const target      = prevInn.runs + 1;
-    const runs        = currentInn.balls.reduce((s, b) => s + b.runs + b.extras, 0);
-    const ballsBowled = currentInn.balls.length;
-    const ballsLeft   = 120 - ballsBowled;
+    // Limited-overs 2nd innings — chasing
+    const target = prevInn.runs + 1;
+    // Use innings.runs as primary source (always populated from scorecard API).
+    // balls[] may be empty if we don't have ball-by-ball data yet.
+    const runs     = currentInn.runs;
+    const ballsBowled = Math.round(currentInn.overs * 6);
+    const ballsLeft   = Math.max(0, totalBalls - ballsBowled);
     const need        = target - runs;
-    if (need <= 0)    return `${battingTeam.shortName} won the chase`;
+    if (need <= 0)      return `${battingTeam.shortName} won`;
     if (ballsLeft <= 0) return `${fieldingTeam.shortName} defended ${target - 1}`;
     return `${battingTeam.shortName} need ${need} off ${ballsLeft} balls`;
   }
 
-  // 1st innings
-  if (currentInn.balls.length > 0) {
-    const runs        = currentInn.balls.reduce((s, b) => s + b.runs + b.extras, 0);
-    const ballsBowled = currentInn.balls.length;
-    const projected   = Math.round((runs / ballsBowled) * 120);
+  // 1st innings projection — use overs bowled from innings.overs (reliable)
+  const ballsBowled = Math.round(currentInn.overs * 6);
+  if (ballsBowled > 0) {
+    const projected = Math.round((currentInn.runs / ballsBowled) * totalBalls);
     return `${battingTeam.shortName} on pace for ${projected}`;
   }
   return "Toss imminent";

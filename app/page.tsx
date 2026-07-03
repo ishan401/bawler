@@ -48,7 +48,9 @@ const FILTERS: FilterDef[] = [
   {
     key: "competition",
     label: "Tour",
-    defaultValue: "IPL",
+    defaultValue: "ipl-2026",
+    // Options are competition IDs (stable, API-independent).
+    // ALL_COMPETITION_NAMES is used only for display; filter logic uses competition.id.
     options: ALL_COMPETITION_NAMES,
     alwaysOn: false,
   },
@@ -136,7 +138,13 @@ export default function Home() {
         if (m.format !== values.format) return false;
       }
       if (enabled.competition && values.competition) {
-        if (m.competition.shortName !== values.competition) return false;
+        // Match on id first (stable across API providers), then shortName fallback
+        const compVal = values.competition;
+        const matchesComp =
+          m.competition.id === compVal ||
+          m.competition.shortName === compVal ||
+          m.competition.shortName.toLowerCase() === compVal.toLowerCase();
+        if (!matchesComp) return false;
       }
       if (enabled.team && values.team) {
         if (m.teamA.shortName !== values.team && m.teamB.shortName !== values.team) return false;

@@ -139,8 +139,10 @@ function buildFeed(match: Match, insights: InsightV2[]): FeedItem[] {
         t = ballTime + 0.5;
       }
     } else {
-      // Orphan insights — sprinkle them across the recent timeline (last 25 balls)
-      t = ballTime - Math.floor(Math.random() * 25);
+      // Orphan insights — deterministic offset based on insight ID hash
+      // (never Math.random() — that causes server/client hydration mismatch)
+      const hashOffset = ins.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % 25;
+      t = ballTime - hashOffset;
     }
     items.push({ kind: "insight", insight: ins, timestamp: t });
   }
@@ -163,7 +165,8 @@ function extraNarrativeFor(ball: Ball): string | undefined {
     return `Cleared the rope ${shotDirection(ball)} — ${ball.batterName} is finding the timing.`;
   }
   // Boundaries in tight situations
-  if (ball.isBoundary4 && Math.random() > 0.6) {
+  // Deterministic: use ball ID character sum — avoids hydration mismatch from Math.random()
+  if (ball.isBoundary4 && (ball.id.charCodeAt(ball.id.length - 1) % 10) > 3) {
     return `Punched ${shotDirection(ball)} — eases the required-rate pressure.`;
   }
   return undefined;
