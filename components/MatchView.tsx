@@ -63,8 +63,17 @@ export default function MatchView({ match }: MatchViewProps) {
   const tableComp = match.championship?.hasStandings ? match.championship : match.competition;
   const showTable = tableComp.hasStandings;
   const defaultTab: TabKey = isUpcoming ? "info" : "live";
-  const [tab, setTab] = useState<TabKey>(defaultTab);
-  const [renderedTab, setRenderedTab] = useState<TabKey>(defaultTab);
+
+  // Restore the last-viewed tab when navigating back from a player profile.
+  const SESSION_KEY = `matchTab:${match.id}`;
+  const restoredTab = ((): TabKey => {
+    if (typeof window === "undefined") return defaultTab;
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    return (saved as TabKey) ?? defaultTab;
+  })();
+
+  const [tab, setTab] = useState<TabKey>(restoredTab);
+  const [renderedTab, setRenderedTab] = useState<TabKey>(restoredTab);
   const [animClass, setAnimClass] = useState("");
   const transitioningRef = useRef(false);
   const [showProbModal, setShowProbModal] = useState(false);
@@ -96,13 +105,14 @@ export default function MatchView({ match }: MatchViewProps) {
     const dir = TABS_ORDER.indexOf(newTab) > TABS_ORDER.indexOf(tab) ? "forward" : "backward";
     transitioningRef.current = true;
     setTab(newTab); // header highlights new tab immediately
+    sessionStorage.setItem(SESSION_KEY, newTab); // persist for back-navigation
     setAnimClass(`book-exit-${dir}`);
     setTimeout(() => {
       setRenderedTab(newTab);
       setAnimClass(`book-enter-${dir}`);
       setTimeout(() => { setAnimClass(""); transitioningRef.current = false; }, 320);
     }, 220);
-  }, [tab]);
+  }, [tab, SESSION_KEY]);
 
   // ── Swipe between tabs ──────────────────────────────────────────
   const TABS_ORDER: TabKey[] = showTable ? ["live", "scorecard", "info", "table"] : ["live", "scorecard", "info"];
