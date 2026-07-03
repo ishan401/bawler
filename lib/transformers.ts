@@ -58,6 +58,7 @@ export interface CricbuzzRawScorecard {
     batTeamDetails: {
       batTeamName: string;
       batsmenData: Record<string, {
+        batId: number;    // Cricbuzz's canonical numeric player ID — use as playerId
         batName: string; runs: number; balls: number;
         fours: number; sixes: number; strikeRate: number;
         outDesc: string; wicketCode: string;
@@ -66,6 +67,7 @@ export interface CricbuzzRawScorecard {
     bowlTeamDetails: {
       bowlTeamName: string;
       bowlersData: Record<string, {
+        bowlId: number;   // Cricbuzz's canonical numeric player ID — use as playerId
         bowlName: string; overs: number; maidens: number;
         runs: number; wickets: number; economy: number;
       }>;
@@ -150,7 +152,9 @@ export function transformCricbuzzScorecard(
     const bowlingTeam = battingTeam === match.teamA.code ? match.teamB.code : match.teamA.code;
 
     const battingCard: BattingEntry[] = Object.values(card.batTeamDetails.batsmenData).map(b => ({
-      playerId: b.batName,
+      // Use Cricbuzz's own numeric ID as playerId — this is what the /player/[id] route
+      // will receive, ensuring batting-card links always resolve to the right profile.
+      playerId: b.batId.toString(),
       playerName: b.batName,
       runs: b.runs,
       ballsFaced: b.balls,
@@ -162,7 +166,7 @@ export function transformCricbuzzScorecard(
     }));
 
     const bowlingCard: BowlingEntry[] = Object.values(card.bowlTeamDetails.bowlersData).map(b => ({
-      playerId: b.bowlName,
+      playerId: b.bowlId.toString(),
       playerName: b.bowlName,
       oversBowled: b.overs,
       maidens: b.maidens,
@@ -223,6 +227,139 @@ export function transformCricbuzzStandings(
     showNrr: true,
     showDrawn: rows.some(r => (r.drawn ?? 0) > 0),
     qualifyingSpots,
+  };
+}
+
+
+// ============================================================================
+// Player profile transformers
+// ============================================================================
+
+/**
+ * Raw shape from GET /stats/v1/player/{playerId} (Cricbuzz player profile).
+ * Only the fields we actually map are typed here.
+ */
+export interface CricbuzzRawPlayer {
+  id: number;
+  name: string;
+  nickName?: string;
+  dateOfBirth?: string;         // "Nov 05, 1988"
+  role?: string;                // "Batsman", "Bowler", "All Rounder", "WK-Batsman"
+  battingStyle?: string;        // "Right Handed Bat"
+  bowlingStyle?: string;        // "Right-arm fast"
+  intlTeam?: string;            // "India"
+  bio?: string;
+  rankings?: {
+    bat?: { testRank?: string; odiRank?: string; t20Rank?: string; };
+    bowl?: { testRank?: string; odiRank?: string; t20Rank?: string; };
+  };
+}
+
+/**
+ * Raw shape from GET /stats/v1/player/{playerId}/batting or /bowling.
+ * Career stats keyed by matchType.
+ */
+export interface CricbuzzRawPlayerStats {
+  values: Array<{
+    matchType: string;          // "test", "odi", "t20i", "ipl"
+    matches: string;
+    inns?: string;
+    runs?: string;
+    hs?: string;
+    avg?: string;
+    sr?: string;
+    hundreds?: string;
+    fifties?: string;
+    wickets?: string;
+    bb?: string;
+    bowlAvg?: string;
+    eco?: string;
+    fiveWickets?: string;
+  }>;
+}
+
+import type { PlayerProfile, FormatStats } from "./types";
+
+function parseCricbuzzRole(role?: string): PlayerProfile["role"] {
+  if (!role) return "batsman";
+  const r = role.toLowerCase();
+  if (r.includes("all")) return "all-rounder";
+  if (r.includes("bowl")) return "bowler";
+  if (r.includes("wk") || r.includes("wicket")) return "wicket-keeper";
+  return "batsman";
+}
+
+function parseCricbuzzBattingStyle(s?: string): "RHB" | "LHB" | undefined {
+  if (!s) return undefined;
+  return s.toLowerCase().includes("left") ? "LHB" : "RHB";
+}
+
+function parseCricbuzzFormatStats(
+  battingValues: CricbuzzRawPlayerStats["values"],
+  bowlingValues: CricbuzzRawPlayerStats["values"],
+  matchType: string,
+): FormatStats | undefined {
+  const bat = battingValues.find(v => v.matchType.toLowerCase() === matchType);
+  const bowl = bowlingValues.find(v => v.matchType.toLowerCase() === matchType);
+  if (!bat && !bowl) return undefined;
+
+  const matches = parseInt(bat?.matches ?? bowl?.matches ?? "0");
+  if (matches === 0) return undefined;
+
+  return {
+    matches,
+    innings:            bat?.inns      ? parseInt(bat.inns)     : undefined,
+    runs:               bat?.runs      ? parseInt(bat.runs)      : undefined,
+    highScore:          bat?.hs        ?? undefined,
+    battingAvg:         bat?.avg       ? parseFloat(bat.avg)     : undefined,
+    battingStrikeRate:  bat?.sr        ? parseFloat(bat.sr)      : undefined,
+    hundreds:           bat?.hundreds  ? parseInt(bat.hundreds)  : undefined,
+    fifties:            bat?.fifties   ? parseInt(bat.fifties)   : undefined,
+    wickets:            bowl?.wickets  ? parseInt(bowl.wickets)  : undefined,
+    bestBowling:        bowl?.bb       ?? undefined,
+    bowlingAvg:         bowl?.bowlAvg  ? parseFloat(bowl.bowlAvg): undefined,
+    economy:            bowl?.eco      ? parseFloat(bowl.eco)    : undefined,
+    fiveWickets:        bowl?.fiveWickets ? parseInt(bowl.fiveWickets) : undefined,
+  };
+}
+
+/**
+ * Transform a Cricbuzz player profile + career stats → internal PlayerProfile.
+ *
+ * Usage (in /player/[id]/page.tsx, Tier 2):
+ *   const rawProfile = await fetchCricbuzzPlayer(params.id);
+ *   const rawBatting = await fetchCricbuzzPlayerStats(params.id, "batting");
+ *   const rawBowling = await fetchCricbuzzPlayerStats(params.id, "bowling");
+ *   const player = transformCricbuzzPlayer(rawProfile, rawBatting, rawBowling);
+ */
+export function transformCricbuzzPlayer(
+  raw: CricbuzzRawPlayer,
+  batting: CricbuzzRawPlayerStats,
+  bowling: CricbuzzRawPlayerStats,
+): PlayerProfile {
+  const id = raw.id.toString();
+  return {
+    id,
+    name:          raw.name,
+    shortName:     raw.nickName ?? raw.name,
+    dateOfBirth:   raw.dateOfBirth,      // TODO: normalise to YYYY-MM-DD
+    nationality:   raw.intlTeam ?? "Unknown",
+    role:          parseCricbuzzRole(raw.role),
+    battingStyle:  parseCricbuzzBattingStyle(raw.battingStyle),
+    bowlingStyle:  raw.bowlingStyle,
+    bio:           raw.bio,
+    iccRankings: {
+      testBatting:  raw.rankings?.bat?.testRank ? parseInt(raw.rankings.bat.testRank) : undefined,
+      odiBatting:   raw.rankings?.bat?.odiRank  ? parseInt(raw.rankings.bat.odiRank)  : undefined,
+      t20iBatting:  raw.rankings?.bat?.t20Rank  ? parseInt(raw.rankings.bat.t20Rank)  : undefined,
+      testBowling:  raw.rankings?.bowl?.testRank ? parseInt(raw.rankings.bowl.testRank) : undefined,
+      odiBowling:   raw.rankings?.bowl?.odiRank  ? parseInt(raw.rankings.bowl.odiRank)  : undefined,
+      t20iBowling:  raw.rankings?.bowl?.t20Rank  ? parseInt(raw.rankings.bowl.t20Rank)  : undefined,
+    },
+    testStats:  parseCricbuzzFormatStats(batting.values, bowling.values, "test"),
+    odiStats:   parseCricbuzzFormatStats(batting.values, bowling.values, "odi"),
+    t20iStats:  parseCricbuzzFormatStats(batting.values, bowling.values, "t20i"),
+    iplStats:   parseCricbuzzFormatStats(batting.values, bowling.values, "ipl"),
   };
 }
 
