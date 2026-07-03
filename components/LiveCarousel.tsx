@@ -84,12 +84,28 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
     <>
       <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-bg-surface border-t border-line max-h-[85vh] flex flex-col"
-        style={{ maxWidth: 430, margin: "0 auto", transform: `translateY(${translateY}px)`, transition: translateY === 0 ? "transform 0.25s ease" : "none" }}
+        style={{
+          maxWidth: 430,
+          margin: "0 auto",
+          transform: `translateY(${translateY}px)`,
+          transition: translateY === 0 ? "transform 0.25s ease" : "none",
+          // h-[85vh] not max-h: flex-1 needs a real defined height to scroll
+          height: "85vh",
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 50,
+          borderRadius: "16px 16px 0 0",
+          background: "var(--bg-surface)",
+          borderTop: "1px solid var(--line)",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
         {/* Handle + header — swipe-down zone only */}
         <div
-          className="shrink-0"
+          style={{ flexShrink: 0 }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -116,8 +132,8 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
             </button>
           </div>
         </div>
-        {/* Scrollable content — touch events NOT intercepted */}
-        <div className="overflow-y-auto flex-1 min-h-0 overscroll-contain" style={{ WebkitOverflowScrolling: "touch" }}>
+        {/* Scrollable content — explicit flex:1 + overflow so mobile sees it */}
+        <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", touchAction: "pan-y", minHeight: 0 }}>
           {children}
         </div>
       </div>
