@@ -541,3 +541,42 @@ Initial v0.9 prototype. Full UI with mocked data.
 
 #### Updated — `app/table/page.tsx`
 - Fixed TS error: `row.netRunRate` guarded with `?? 0` after making field optional
+
+---
+
+## [1.0.18] 2026-07-03
+
+### WTC standings — Test Championship cycle integrated
+
+#### Added — `championship?: Competition` field on `Match` (`lib/types.ts`)
+- Optional field pointing to the overarching championship a match contributes to
+- Example: Ashes 3rd Test and IND vs ENG 2nd Test both have `championship: COMPETITIONS.wtc2527`
+- Bilateral series competition stays unchanged; championship is additive, not a replacement
+
+#### Added — `showPct?: boolean` on `CompetitionStandings` (`lib/types.ts`)
+- Enables a PCT% column in standings tables
+- WTC uses win percentage (points won / max available × 100) as the primary ranking metric — no NRR
+
+#### Added — WTC 2025-27 competition (`lib/mockData.ts`)
+- `id: "wtc-2025-27"`, `hasStandings: true`, format: Test, type: international
+- All 9 Test-playing nations with realistic mock standings: PCT%, Drawn column, no NRR
+- Top 2 qualify for WTC Final (`qualifyingSpots: 2`)
+
+#### Added — WTC standings in `COMPETITION_STANDINGS` (`lib/mockData.ts`)
+- `showDrawn: true`, `showPct: true`, `showNrr: false`
+- Rows: AUS 76.67%, IND 66.67%, SA 66.67%, NZ 54.17%, ENG 43.33%, SL, PAK, BAN, WI
+
+#### Updated — `StandingsTab.tsx` + `MiniStandings.tsx`
+- Added PCT% column — renders when `standings.showPct = true`
+- Grid layout adjusts automatically (showDrawn + showPct = wider grid)
+
+#### Updated — `LiveCarousel.tsx`
+- TABLE button now prefers `match.championship` over `match.competition` for standings
+- Logic: `championship.hasStandings ? championship : competition.hasStandings ? competition : null`
+- `TeamScheduleSheet` filter now matches by `competition.id OR championship.id`
+- Result: clicking TABLE on a live ENG vs IND Test shows WTC standings, not the bilateral series
+
+#### Updated — `MatchView.tsx`
+- TABLE tab inside match view also uses `match.championship` when present
+- `tableComp = championship.hasStandings ? championship : competition`
+- Test match TABLE tab shows full WTC table, not "Standings coming soon"

@@ -210,3 +210,14 @@
 | RD5 | **`transformers.ts` — typed skeletons for Cricbuzz, ESPN, SportRadar** | When real API access lands, the mapping contract is already defined. The developer fills in TODOs; the internal type system stays stable. Raw types are intentionally partial — only the fields we actually read. |
 | RD6 | **`netRunRate` made optional on `StandingsRow`** | Test series standings don't have NRR — they use points only. Making it optional + using `?? 0` guard everywhere means the same `StandingsRow` type works across all formats without a union type. |
 | RD7 | **ID lookup tables (`CRICBUZZ_SERIES_ID_MAP`, `SPORTRADAR_TEAM_ID_MAP`) in transformers.ts** | External APIs use numeric/UUID identifiers; internal types use short string codes ("MI", "ipl-2026"). The lookup table is the seam between external and internal. Maintained alongside the transformer, not scattered across components. |
+
+## Test Championship (WTC)
+
+| # | Decision | Reason |
+|---|---|---|
+| WTC1 | **`championship?: Competition` on Match — additive, not replacing `competition`** | A bilateral series (Ashes) is still its own competition with its own schedule. WTC is a layer on top. Separating them lets us show bilateral schedule + WTC standings independently. |
+| WTC2 | **TABLE button uses `championship` first, falls back to `competition`** | Bilateral series have `hasStandings: false`, so the TABLE button was invisible for all Test matches. `championship` provides the standings context without touching the bilateral competition. |
+| WTC3 | **`TeamScheduleSheet` filters by `competition.id OR championship.id`** | A team's WTC schedule spans multiple bilateral series. Filtering by championship ID collects all their Test matches regardless of which series they're in. |
+| WTC4 | **PCT% column instead of NRR for WTC** | Test cricket has no run rate concept for multi-series standings. PCT (points won / max available × 100) is the ICC's official WTC ranking metric. |
+| WTC5 | **`showDrawn: true` for WTC, `showNrr: false`** | Drawn matches are frequent and meaningful in Test cricket (3 draws = 12 pts, same as 1 win). NRR is irrelevant. Column config is per-competition so T20 leagues are unaffected. |
+| WTC6 | **`qualifyingSpots: 2` for WTC** | Only top 2 nations qualify for the WTC Final (held every 2 years). Qualification bar renders automatically at position 2. |
