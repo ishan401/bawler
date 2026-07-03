@@ -96,12 +96,20 @@ export interface CricbuzzRawStandings {
  */
 export function transformCricbuzzMatch(
   raw: CricbuzzRawMatch,
-  competition: Competition,   // resolved externally via series-id lookup
-  teamA: Team,                // resolved externally via team-id lookup
+  competition: Competition,          // resolved externally via CRICBUZZ_SERIES_ID_MAP
+  teamA: Team,                       // resolved externally via CRICBUZZ_TEAM_ID_MAP
   teamB: Team,
+  allCompetitions: Record<string, Competition>, // pass your full COMPETITIONS object
 ): Match {
   const format = normalizeCricbuzzFormat(raw.matchInfo.matchFormat);
   const status = normalizeCricbuzzStatus(raw.matchInfo.state);
+
+  // Auto-resolve championship: look up the series ID in CRICBUZZ_CHAMPIONSHIP_MAP.
+  // If found, attach the championship — no manual tagging needed per match.
+  const championshipId = CRICBUZZ_CHAMPIONSHIP_MAP[raw.matchInfo.seriesId];
+  const championship = championshipId
+    ? Object.values(allCompetitions).find(c => c.id === championshipId)
+    : undefined;
 
   const innings: Innings[] = [];
   // TODO: map raw.matchScore into innings[] using battingTeam + bowlingTeam lookup
@@ -111,6 +119,7 @@ export function transformCricbuzzMatch(
     id: `cricbuzz-${raw.matchInfo.matchId}`,
     format,
     competition,
+    championship,                    // auto-set from CRICBUZZ_CHAMPIONSHIP_MAP
     startTimeIso: new Date(Number(raw.matchInfo.startDate)).toISOString(),
     status,
     venue: {
@@ -474,6 +483,46 @@ function normalizeCricbuzzStatus(state: string): Match["status"] {
  */
 export const CRICBUZZ_SERIES_ID_MAP: Record<number, string> = {
   // 9237: "ipl-2026",   // example — replace with real series IDs
+};
+
+/**
+ * Map Cricbuzz series IDs → overarching championship IDs.
+ *
+ * HOW THIS WORKS:
+ * Each bilateral Test series has its own Cricbuzz series ID. The ICC announces
+ * which series contribute to the WTC cycle at the start of each cycle.
+ * Fill this table once per cycle — it auto-applies to every match in those series.
+ *
+ * WTC 2025-27 contributing series (add real IDs when you get API access):
+ *   Ashes 2025-26           → "wtc-2025-27"
+ *   India in England 2026   → "wtc-2025-27"
+ *   SA in NZ 2026           → "wtc-2025-27"
+ *   ... (all 27 ICC-designated WTC series)
+ *
+ * Refresh this map at the start of each new WTC cycle (every 2 years).
+ */
+export const CRICBUZZ_CHAMPIONSHIP_MAP: Record<number, string> = {
+  // Example (replace with real Cricbuzz series IDs):
+  // 7607: "wtc-2025-27",  // Ashes 2025-26
+  // 7891: "wtc-2025-27",  // India tour of England 2026
+  // 7654: "wtc-2025-27",  // SA tour of New Zealand 2025-26
+};
+
+/**
+ * Map ESPN/sportsdata.io series IDs → overarching championship IDs.
+ * Same concept as CRICBUZZ_CHAMPIONSHIP_MAP — fill once per cycle.
+ */
+export const ESPN_CHAMPIONSHIP_MAP: Record<number, string> = {
+  // Example:
+  // 4321: "wtc-2025-27",  // Ashes 2025-26
+};
+
+/**
+ * Map SportRadar tournament IDs → overarching championship IDs.
+ */
+export const SPORTRADAR_CHAMPIONSHIP_MAP: Record<string, string> = {
+  // Example:
+  // "sr:tournament:56789": "wtc-2025-27",
 };
 
 /**
