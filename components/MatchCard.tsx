@@ -290,7 +290,7 @@ function liveWinProb(match: Match): { pctA: number } | null {
     const pct = match.liveWinProbOverride.pct;
     const isTeamA = match.liveWinProbOverride.teamCode === match.teamA.code;
     // pct is stored 0-100; WinProbBar expects 0-1
-    return { pctA: isTeamA ? pct / 100 : (100 - pct) / 100 };
+    return { pctA: isTeamA ? pct : 1 - pct };
   }
   if (match.innings.length === 0 || match.innings[0].balls.length === 0) return null;
   const wp = calculateWinProbForMatch(match);
