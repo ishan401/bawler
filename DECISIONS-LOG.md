@@ -231,3 +231,23 @@
 | AC3 | **Map is filled once per WTC cycle (~27 entries), not per match** | The ICC publishes the full list of WTC-contributing series at the start of each cycle. Onboarding a cycle = one batch lookup, not ongoing maintenance per match. |
 | AC4 | **`championship` stays `undefined` if series ID is not in the map** | Non-WTC Test matches (e.g. Afghanistan vs Zimbabwe), Associate member Tests, and all white-ball matches naturally produce no championship. No special-casing or negative lists needed. |
 | AC5 | **`allCompetitions` passed into `transformCricbuzzMatch()` rather than imported** | Avoids a circular import between `transformers.ts` and `mockData.ts`. The caller (API layer) owns the competition registry and injects it. |
+
+## PP (Player Profiles) — v1.0.20
+
+**PP1 — Route strategy: `/player/[id]` SSG page**
+Decision: Use Next.js static route `app/player/[id]/page.tsx` with `generateStaticParams()` over `PLAYERS`. Player IDs are URL-safe slugs (e.g. `v-kohli`, `j-bumrah`). `notFound()` on miss. Chosen over a drawer/sheet pattern so the native browser back gesture (iOS left-edge swipe, Android hardware back) works without any custom code.
+
+**PP2 — Back button always calls `router.back()`**
+No custom history stack. `router.back()` in Next.js App Router restores the previous scroll position and handles all entry points (Scorecard link, CommentaryFeed, Match card, etc.) uniformly.
+
+**PP3 — `slugifyPlayer()` + `resolvePlayerSlug()` separation**
+`slugifyPlayer(id)` normalises any raw string → URL-safe slug (lowercased, spaces→hyphens, strip non-alphanumeric). `resolvePlayerSlug(id)` additionally checks `PLAYER_ALIASES` for legacy/alternate IDs (e.g. "rsharma" → "r-sharma"). Scorecard calls `resolvePlayerSlug(row.playerId)` so aliased IDs from live data still resolve to the correct profile.
+
+**PP4 — Commentary player names NOT linked (yet)**
+`Ball.batterName` / `Ball.bowlerName` are display strings only — no `playerId` attached. Linking them would require a `Ball` type change (`batterId?`, `bowlerId?`) and re-hydration from the live API. Deferred to the real-data integration phase.
+
+**PP5 — Stats grid layout: 4-column divide-x**
+Each format shows two 4-column grids: (Mat, Runs/Wkts, Avg, SR/Economy) + (HS/Best, Inn, 100s/5W, 50s/-). `BattingStats` and `BowlingStats` are separate sub-components that return `null` when no data of that type exists — all-rounders get both, pure bowlers get only bowling.
+
+**PP6 — 18 player profiles seeded in mockData**
+Profiles cover: Kohli, R Sharma, Bumrah, S Gill, H Pandya, SKY, Jadeja, Ashwin, Chahal (India); Stokes, Root, Duckett, Crawley (England); P Cummins, Hazlewood (Australia); A Russell (WI); Babar Azam (Pakistan); Buttler, Boult, D Miller, Arshad Iqbal. Each has bio, role, batting/bowling style, ICC rankings, and per-format stats.
