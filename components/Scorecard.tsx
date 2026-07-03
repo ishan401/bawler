@@ -2,7 +2,8 @@
 
 import React from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
-import { TEAMS } from "@/lib/mockData";
+import Link from "next/link";
+import { TEAMS, resolvePlayerSlug } from "@/lib/mockData";
 
 interface ScorecardProps {
   match: Match;
@@ -197,7 +198,12 @@ function BatterRow({
     <tr className="border-t border-line/50 last:border-b-0">
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
-          <span className={`font-medium ${nameColor}`}>{row.playerName}</span>
+          <Link
+            href={`/player/${resolvePlayerSlug(row.playerId)}`}
+            className={`font-medium tap-scale ${nameColor} hover:underline underline-offset-2`}
+          >
+            {row.playerName}
+          </Link>
           {row.onStrike && !row.out && (
             <span className="text-[9px] font-bold text-cyan tracking-widest">*</span>
           )}
@@ -252,7 +258,12 @@ function BowlerRow({
     <tr className="border-t border-line/50 last:border-b-0">
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
-          <span className={`font-medium ${nameColor}`}>{row.playerName}</span>
+          <Link
+            href={`/player/${resolvePlayerSlug(row.playerId)}`}
+            className={`font-medium tap-scale ${nameColor} hover:underline underline-offset-2`}
+          >
+            {row.playerName}
+          </Link>
           {isMotm && (
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
           )}

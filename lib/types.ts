@@ -345,3 +345,54 @@ export interface PitchReport {
   dewFactor?: "low" | "moderate" | "high";
   bullets: string[];
 }
+
+// ============================================================================
+// Player profiles
+// ============================================================================
+
+export interface FormatStats {
+  matches: number;
+  // Batting
+  innings?: number;
+  runs?: number;
+  highScore?: string;            // "183*" (not-out marker included)
+  battingAvg?: number;
+  battingStrikeRate?: number;
+  hundreds?: number;
+  fifties?: number;
+  // Bowling
+  wickets?: number;
+  bestBowling?: string;          // "7/56"
+  bowlingAvg?: number;
+  economy?: number;
+  fiveWickets?: number;
+}
+
+export interface PlayerProfile {
+  id: string;                    // canonical URL slug, e.g. "v-kohli"
+  name: string;                  // "Virat Kohli"
+  shortName: string;             // "V Kohli"
+  dateOfBirth?: string;          // "1988-11-05"
+  nationality: string;           // "India"
+  teamCode?: string;             // national team code: "IND"
+  franchiseCode?: string;        // league franchise: "RCB"
+  role: "batsman" | "bowler" | "all-rounder" | "wicket-keeper";
+  battingStyle?: "RHB" | "LHB";
+  bowlingStyle?: string;         // "Right-arm fast-medium", "Leg break", etc.
+  bio?: string;
+  iccRankings?: {
+    testBatting?: number;
+    odiBatting?: number;
+    t20iBatting?: number;
+    testBowling?: number;
+    odiBowling?: number;
+    t20iBowling?: number;
+    testAllrounder?: number;
+    odiAllrounder?: number;
+    t20iAllrounder?: number;
+  };
+  testStats?: FormatStats;
+  odiStats?: FormatStats;
+  t20iStats?: FormatStats;
+  iplStats?: FormatStats;
+}

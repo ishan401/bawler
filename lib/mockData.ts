@@ -10,6 +10,7 @@ import type {
   BowlingEntry,
   StandingsRow,
   CompetitionStandings,
+  PlayerProfile,
 } from "./types";
 
 // ============================================================================
@@ -14244,3 +14245,320 @@ export const ALL_COMPETITION_NAMES: string[] = [
       .map(m => m.competition.shortName)
   ),
 ].sort();
+
+// ============================================================================
+// Player profiles
+// ============================================================================
+
+/**
+ * Normalize any playerId string to a URL-safe slug.
+ * "V Kohli" → "v-kohli" | "rsharma" → "rsharma" | "F du Plessis" → "f-du-plessis"
+ */
+export function slugifyPlayer(playerId: string): string {
+  return playerId
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
+/**
+ * Maps alternate / legacy playerIds found in batting/bowling cards → canonical slug.
+ * Add entries whenever a new ID variant appears from the API.
+ */
+export const PLAYER_ALIASES: Record<string, string> = {
+  "rsharma":   "r-sharma",    // Rohit Sharma
+  "sgilchr":   "s-gill",      // Shubman Gill
+  "pcumm2":    "p-cummins",   // Pat Cummins
+  "jroot2":    "j-root",      // Joe Root
+  "bstok2":    "b-stokes",    // Ben Stokes
+  "jbairst2":  "j-bairstow",  // Jonny Bairstow
+  "jhazel2":   "j-hazlewood", // Josh Hazlewood
+  "mstarc3":   "m-starc",     // Mitchell Starc
+  "nlyon":     "n-lyon",      // Nathan Lyon
+  "bduck2":    "b-duckett",   // Ben Duckett
+  "bduck3":    "b-duckett",
+  "bduckett":  "b-duckett",
+  "zcraw2":    "z-crawley",   // Zak Crawley
+  "babarzam":  "b-azam",      // Babar Azam
+  "arshad":    "a-iqbal",     // Arshad Iqbal
+  "anortje":   "a-nortje",    // Anrich Nortje
+  "ansje":     "a-nortje",
+  "aagarwal2": "a-agarwal",   // Abhimanyu Agarwal
+};
+
+/** Resolve a playerId (from BattingEntry / BowlingEntry) to a canonical slug. */
+export function resolvePlayerSlug(playerId: string): string {
+  const raw = slugifyPlayer(playerId);
+  return PLAYER_ALIASES[raw] ?? raw;
+}
+
+export const PLAYERS: Record<string, PlayerProfile> = {
+
+  // ── India ──────────────────────────────────────────────────────────────────
+
+  "v-kohli": {
+    id: "v-kohli", name: "Virat Kohli", shortName: "V Kohli",
+    dateOfBirth: "1988-11-05", nationality: "India",
+    teamCode: "IND", franchiseCode: "RCB",
+    role: "batsman", battingStyle: "RHB",
+    bio: "Widely regarded as the greatest run-scorer of his generation, Kohli is India's benchmark across all three formats. Known for his insatiable hunger for runs and unmatched fitness standards, he has reshaped batting technique and work ethic across world cricket.",
+    iccRankings: { testBatting: 3, odiBatting: 1, t20iBatting: 7 },
+    testStats:  { matches: 120, innings: 210, runs: 9230, highScore: "254*", battingAvg: 48.7, battingStrikeRate: 57.2, hundreds: 30, fifties: 31 },
+    odiStats:   { matches: 295, innings: 285, runs: 14181, highScore: "183", battingAvg: 57.6, battingStrikeRate: 93.4, hundreds: 51, fifties: 72 },
+    t20iStats:  { matches: 125, innings: 119, runs: 4306, highScore: "122*", battingAvg: 52.5, battingStrikeRate: 137.9, hundreds: 1, fifties: 38 },
+    iplStats:   { matches: 243, innings: 238, runs: 8004, highScore: "113", battingAvg: 37.2, battingStrikeRate: 130.0, hundreds: 8, fifties: 55 },
+  },
+
+  "r-sharma": {
+    id: "r-sharma", name: "Rohit Sharma", shortName: "R Sharma",
+    dateOfBirth: "1987-04-30", nationality: "India",
+    teamCode: "IND", franchiseCode: "MI",
+    role: "batsman", battingStyle: "RHB",
+    bio: "India's captain across formats and the only player to hit three ODI double centuries. Rohit's ability to demolish attacks in the powerplay while also occupying the crease for marathon innings makes him uniquely dangerous. His T20 World Cup-winning captaincy cemented his legacy.",
+    iccRankings: { testBatting: 8, odiBatting: 5, t20iBatting: 12 },
+    testStats:  { matches: 67, innings: 118, runs: 4301, highScore: "212", battingAvg: 40.6, battingStrikeRate: 59.8, hundreds: 12, fifties: 18 },
+    odiStats:   { matches: 264, innings: 256, runs: 10709, highScore: "264", battingAvg: 49.0, battingStrikeRate: 89.4, hundreds: 31, fifties: 59 },
+    t20iStats:  { matches: 159, innings: 151, runs: 4231, highScore: "121*", battingAvg: 32.1, battingStrikeRate: 140.9, hundreds: 5, fifties: 26 },
+    iplStats:   { matches: 257, innings: 252, runs: 6628, highScore: "109*", battingAvg: 29.6, battingStrikeRate: 130.6, hundreds: 2, fifties: 42 },
+  },
+
+  "j-bumrah": {
+    id: "j-bumrah", name: "Jasprit Bumrah", shortName: "J Bumrah",
+    dateOfBirth: "1993-12-06", nationality: "India",
+    teamCode: "IND", franchiseCode: "MI",
+    role: "bowler", battingStyle: "RHB", bowlingStyle: "Right-arm fast",
+    bio: "The most complete fast bowler of his era. Bumrah's unorthodox action makes him near-impossible to read, his yorkers at death are legendary, and his ability to swing the new ball makes him a threat in all conditions. The only bowler who has topped ICC rankings in all three formats simultaneously.",
+    iccRankings: { testBowling: 1, odiBowling: 2, t20iBowling: 3 },
+    testStats:  { matches: 42, wickets: 195, bestBowling: "6/27", bowlingAvg: 19.4, economy: 2.80, fiveWickets: 8 },
+    odiStats:   { matches: 90, wickets: 149, bestBowling: "6/19", bowlingAvg: 24.2, economy: 4.63, fiveWickets: 2 },
+    t20iStats:  { matches: 75, wickets: 89, bestBowling: "4/14", bowlingAvg: 18.4, economy: 6.22 },
+    iplStats:   { matches: 135, wickets: 172, bestBowling: "5/27", bowlingAvg: 21.1, economy: 6.97, fiveWickets: 1 },
+  },
+
+  "s-gill": {
+    id: "s-gill", name: "Shubman Gill", shortName: "S Gill",
+    dateOfBirth: "1999-09-08", nationality: "India",
+    teamCode: "IND", franchiseCode: "GT",
+    role: "batsman", battingStyle: "RHB",
+    bio: "India's next great opener. Gill's technique is textbook — compact defence, elegant drives, ferocious pull shots. Already has a double century in Tests and ODIs. At 26, he is the heir apparent to Kohli and Rohit in the Indian batting order.",
+    iccRankings: { testBatting: 4, odiBatting: 2, t20iBatting: 5 },
+    testStats:  { matches: 38, innings: 68, runs: 2814, highScore: "224*", battingAvg: 44.0, battingStrikeRate: 58.4, hundreds: 7, fifties: 12 },
+    odiStats:   { matches: 55, innings: 54, runs: 2599, highScore: "208", battingAvg: 51.0, battingStrikeRate: 100.3, hundreds: 7, fifties: 13 },
+    t20iStats:  { matches: 38, innings: 37, runs: 1038, highScore: "126*", battingAvg: 30.5, battingStrikeRate: 154.5, hundreds: 2, fifties: 5 },
+    iplStats:   { matches: 96, innings: 93, runs: 3400, highScore: "129", battingAvg: 39.5, battingStrikeRate: 147.2, hundreds: 3, fifties: 22 },
+  },
+
+  "h-pandya": {
+    id: "h-pandya", name: "Hardik Pandya", shortName: "H Pandya",
+    dateOfBirth: "1993-10-11", nationality: "India",
+    teamCode: "IND", franchiseCode: "MI",
+    role: "all-rounder", battingStyle: "RHB", bowlingStyle: "Right-arm fast-medium",
+    bio: "India's premier all-rounder and the X-factor across formats. Pandya's ability to hit sixes at will in the death overs and generate pace with the ball makes him invaluable. His match-winning performance in the 2022 T20 World Cup final — 4/33 and 40* — is one of the great all-round displays.",
+    iccRankings: { odiBowling: 8, t20iBowling: 5 },
+    testStats:  { matches: 11, innings: 15, runs: 532, highScore: "108", battingAvg: 37.9, battingStrikeRate: 67.6, hundreds: 1, fifties: 2, wickets: 17, bowlingAvg: 31.2, economy: 3.20 },
+    odiStats:   { matches: 90, innings: 71, runs: 1763, highScore: "92", battingAvg: 32.6, battingStrikeRate: 118.6, fifties: 9, wickets: 100, bestBowling: "5/55", bowlingAvg: 36.8, economy: 5.80, fiveWickets: 1 },
+    t20iStats:  { matches: 95, innings: 68, runs: 1276, highScore: "71", battingAvg: 27.1, battingStrikeRate: 148.7, fifties: 4, wickets: 81, bestBowling: "4/16", bowlingAvg: 24.1, economy: 8.12 },
+    iplStats:   { matches: 131, innings: 111, runs: 2642, highScore: "91*", battingAvg: 30.1, battingStrikeRate: 145.3, fifties: 10, wickets: 71, bowlingAvg: 34.7, economy: 8.92 },
+  },
+
+  "s-yadav": {
+    id: "s-yadav", name: "Suryakumar Yadav", shortName: "SKY",
+    dateOfBirth: "1990-09-22", nationality: "India",
+    teamCode: "IND", franchiseCode: "MI",
+    role: "batsman", battingStyle: "RHB",
+    bio: "The 360-degree batsman who broke T20 cricket's playbook. SKY's ability to hit every ball in the arc — through cover, over fine leg, the ramp, the scoop — with equal authority is unprecedented. He reached the top of ICC T20I rankings faster than anyone in history and holds the record for the highest-ever T20I strike rate for batters with 1000+ runs.",
+    iccRankings: { t20iBatting: 1 },
+    odiStats:   { matches: 44, innings: 41, runs: 1237, highScore: "102", battingAvg: 33.4, battingStrikeRate: 110.0, hundreds: 1, fifties: 9 },
+    t20iStats:  { matches: 78, innings: 74, runs: 2722, highScore: "117", battingAvg: 46.9, battingStrikeRate: 166.4, hundreds: 4, fifties: 17 },
+    iplStats:   { matches: 148, innings: 142, runs: 3792, highScore: "103*", battingAvg: 30.9, battingStrikeRate: 145.9, hundreds: 1, fifties: 28 },
+  },
+
+  "r-jadeja": {
+    id: "r-jadeja", name: "Ravindra Jadeja", shortName: "R Jadeja",
+    dateOfBirth: "1988-12-06", nationality: "India",
+    teamCode: "IND", franchiseCode: "CSK",
+    role: "all-rounder", battingStyle: "LHB", bowlingStyle: "Slow left-arm orthodox",
+    bio: "The most complete fielder in cricket history and an all-rounder who has saved India countless times with both bat and ball. Jadeja's left-arm spin extracts sharp turn on any surface, his lower-order hitting has won matches that looked lost, and his throwing arm has run out batters from the boundary with robotic precision.",
+    iccRankings: { testBowling: 4, testAllrounder: 1, odiAllrounder: 2 } as PlayerProfile["iccRankings"],
+    testStats:  { matches: 76, innings: 109, runs: 3046, highScore: "175*", battingAvg: 36.2, battingStrikeRate: 60.4, hundreds: 3, fifties: 17, wickets: 311, bestBowling: "7/42", bowlingAvg: 24.1, economy: 2.39, fiveWickets: 12 },
+    odiStats:   { matches: 200, innings: 114, runs: 2756, highScore: "87", battingAvg: 35.6, battingStrikeRate: 87.2, fifties: 17, wickets: 220, bestBowling: "5/36", bowlingAvg: 36.5, economy: 4.97, fiveWickets: 2 },
+    t20iStats:  { matches: 74, innings: 39, runs: 515, highScore: "46*", battingAvg: 22.4, battingStrikeRate: 117.7, wickets: 54, bestBowling: "3/15", bowlingAvg: 28.2, economy: 7.32 },
+    iplStats:   { matches: 236, innings: 139, runs: 2776, highScore: "62", battingAvg: 26.9, battingStrikeRate: 132.4, wickets: 145, bowlingAvg: 30.1, economy: 7.64 },
+  },
+
+  "r-ashwin": {
+    id: "r-ashwin", name: "Ravichandran Ashwin", shortName: "R Ashwin",
+    dateOfBirth: "1986-09-17", nationality: "India",
+    teamCode: "IND", franchiseCode: "CSK",
+    role: "all-rounder", battingStyle: "RHB", bowlingStyle: "Right-arm off-break",
+    bio: "India's greatest spinner in Test cricket and the joint-fastest bowler to 500 Test wickets. Ashwin's intellectual approach to bowling — constantly inventing new deliveries, studying each batsman's weaknesses — has made him unplayable on turning tracks and dangerous even on flat ones. A genuine No.6 with three Test centuries.",
+    iccRankings: { testBowling: 2 },
+    testStats:  { matches: 106, innings: 151, runs: 3503, highScore: "124", battingAvg: 27.6, battingStrikeRate: 54.4, hundreds: 6, fifties: 14, wickets: 537, bestBowling: "7/59", bowlingAvg: 23.8, economy: 2.71, fiveWickets: 37 },
+    odiStats:   { matches: 116, innings: 53, runs: 707, highScore: "65", battingAvg: 18.1, battingStrikeRate: 82.5, fifties: 4, wickets: 156, bestBowling: "4/25", bowlingAvg: 33.2, economy: 5.03 },
+    t20iStats:  { matches: 65, wickets: 72, bestBowling: "4/8", bowlingAvg: 20.3, economy: 6.97 },
+  },
+
+  "y-chahal": {
+    id: "y-chahal", name: "Yuzvendra Chahal", shortName: "Y Chahal",
+    dateOfBirth: "1990-07-23", nationality: "India",
+    teamCode: "IND", franchiseCode: "RR",
+    role: "bowler", battingStyle: "RHB", bowlingStyle: "Right-arm leg-break",
+    bio: "India's most dangerous leg-spinner in limited-overs cricket. Chahal's googly, flipper, and sharp leg-break have bamboozled top-order batsmen across the world. The IPL's all-time leading wicket-taker, he has a rare ability to take wickets in clusters mid-innings.",
+    iccRankings: { odiBowling: 6, t20iBowling: 9 },
+    odiStats:   { matches: 88, wickets: 121, bestBowling: "6/42", bowlingAvg: 27.1, economy: 5.19, fiveWickets: 1 },
+    t20iStats:  { matches: 82, wickets: 96, bestBowling: "6/25", bowlingAvg: 22.2, economy: 7.93, fiveWickets: 1 },
+    iplStats:   { matches: 172, wickets: 210, bestBowling: "5/40", bowlingAvg: 21.8, economy: 7.65, fiveWickets: 1 },
+  },
+
+  // ── England ─────────────────────────────────────────────────────────────────
+
+  "b-stokes": {
+    id: "b-stokes", name: "Ben Stokes", shortName: "B Stokes",
+    dateOfBirth: "1991-06-04", nationality: "England",
+    teamCode: "ENG", franchiseCode: "MOR",
+    role: "all-rounder", battingStyle: "LHB", bowlingStyle: "Right-arm fast-medium",
+    bio: "England's captain and the most compelling cricketer of his generation. Stokes has rewritten the script on multiple occasions — 135* at Headingley in 2019, 2022 T20 World Cup final six off Narine, the Ashes-defining innings at Old Trafford. As captain he reinvented English Test cricket with 'Bazball' — relentless, fearless, attacking cricket.",
+    iccRankings: { testBatting: 5, testAllrounder: 2, odiAllrounder: 1 } as PlayerProfile["iccRankings"],
+    testStats:  { matches: 106, innings: 187, runs: 6593, highScore: "258", battingAvg: 36.9, battingStrikeRate: 57.5, hundreds: 14, fifties: 36, wickets: 196, bestBowling: "6/22", bowlingAvg: 31.4, economy: 3.21, fiveWickets: 4 },
+    odiStats:   { matches: 105, innings: 93, runs: 2682, highScore: "102*", battingAvg: 39.4, battingStrikeRate: 95.2, hundreds: 3, fifties: 21, wickets: 74, bestBowling: "5/61", bowlingAvg: 41.9, economy: 5.64, fiveWickets: 1 },
+    t20iStats:  { matches: 38, innings: 31, runs: 476, highScore: "47*", battingAvg: 23.8, battingStrikeRate: 129.0, wickets: 18, bowlingAvg: 31.4, economy: 8.82 },
+  },
+
+  "j-root": {
+    id: "j-root", name: "Joe Root", shortName: "J Root",
+    dateOfBirth: "1990-12-30", nationality: "England",
+    teamCode: "ENG",
+    role: "batsman", battingStyle: "RHB", bowlingStyle: "Right-arm off-break",
+    bio: "England's all-time leading Test run-scorer and arguably the finest Test batsman of his generation outside of Kohli. Root's ability to occupy the crease for extended periods while scoring at a healthy rate, combined with his underrated off-spin, makes him England's engine in red-ball cricket.",
+    iccRankings: { testBatting: 2 },
+    testStats:  { matches: 148, innings: 264, runs: 12471, highScore: "254*", battingAvg: 49.3, battingStrikeRate: 55.8, hundreds: 35, fifties: 65, wickets: 61, bestBowling: "5/8", bowlingAvg: 35.7, economy: 2.40, fiveWickets: 1 },
+    odiStats:   { matches: 162, innings: 153, runs: 6207, highScore: "133*", battingAvg: 49.3, battingStrikeRate: 86.8, hundreds: 16, fifties: 40 },
+    t20iStats:  { matches: 32, innings: 32, runs: 893, highScore: "90*", battingAvg: 36.7, battingStrikeRate: 126.3, fifties: 7 },
+  },
+
+  // ── Australia ───────────────────────────────────────────────────────────────
+
+  "p-cummins": {
+    id: "p-cummins", name: "Pat Cummins", shortName: "P Cummins",
+    dateOfBirth: "1993-05-08", nationality: "Australia",
+    teamCode: "AUS", franchiseCode: "SRH",
+    role: "bowler", battingStyle: "RHB", bowlingStyle: "Right-arm fast",
+    bio: "Australia's Test captain and the world's most complete fast bowler. Cummins generates steep bounce, swings the new ball both ways, delivers pinpoint yorkers at death, and has improved his red-ball batting to genuine No.7 standard. Led Australia to back-to-back Ashes wins and the 2023 WTC Final victory.",
+    iccRankings: { testBowling: 3, odiBowling: 4 },
+    testStats:  { matches: 72, wickets: 297, bestBowling: "7/23", bowlingAvg: 21.9, economy: 2.78, fiveWickets: 14, innings: 99, runs: 1513, highScore: "66", battingAvg: 18.7, battingStrikeRate: 49.9 },
+    odiStats:   { matches: 100, wickets: 167, bestBowling: "5/70", bowlingAvg: 29.4, economy: 5.20, fiveWickets: 1 },
+    t20iStats:  { matches: 54, wickets: 56, bestBowling: "4/22", bowlingAvg: 26.6, economy: 7.92 },
+    iplStats:   { matches: 65, wickets: 77, bestBowling: "4/21", bowlingAvg: 26.4, economy: 8.45 },
+  },
+
+  "j-hazlewood": {
+    id: "j-hazlewood", name: "Josh Hazlewood", shortName: "J Hazlewood",
+    dateOfBirth: "1990-01-08", nationality: "Australia",
+    teamCode: "AUS", franchiseCode: "RCB",
+    role: "bowler", battingStyle: "RHB", bowlingStyle: "Right-arm fast-medium",
+    bio: "The most metronomic seam bowler in world cricket. Hazlewood's ability to hit the top of off stump consistently, with late seam movement and excellent control over length, makes him the ideal new-ball partner for Cummins and Starc. Exceptional in any condition but particularly lethal at the MCG and SCG.",
+    iccRankings: { testBowling: 5, odiBowling: 7 },
+    testStats:  { matches: 68, wickets: 236, bestBowling: "6/67", bowlingAvg: 25.4, economy: 2.70, fiveWickets: 7 },
+    odiStats:   { matches: 68, wickets: 97, bestBowling: "6/52", bowlingAvg: 24.7, economy: 4.82, fiveWickets: 1 },
+    t20iStats:  { matches: 37, wickets: 48, bestBowling: "3/12", bowlingAvg: 19.6, economy: 6.67 },
+  },
+
+  // ── West Indies ──────────────────────────────────────────────────────────────
+
+  "a-russell": {
+    id: "a-russell", name: "Andre Russell", shortName: "A Russell",
+    dateOfBirth: "1988-04-29", nationality: "West Indies",
+    teamCode: "WI", franchiseCode: "KKR",
+    role: "all-rounder", battingStyle: "RHB", bowlingStyle: "Right-arm fast",
+    bio: "The most destructive T20 hitter of his era. Russell's power hitting at No.7 can change a match in a single over — he regularly scores at 180+ strike rates. With the ball he generates genuine pace and movement. A three-time IPL champion with KKR and one of the most feared cricketers alive.",
+    t20iStats:  { matches: 68, innings: 52, runs: 948, highScore: "51*", battingAvg: 24.3, battingStrikeRate: 161.4, wickets: 69, bestBowling: "4/9", bowlingAvg: 23.0, economy: 9.12 },
+    iplStats:   { matches: 135, innings: 121, runs: 2917, highScore: "88*", battingAvg: 29.7, battingStrikeRate: 178.1, fifties: 8, wickets: 113, bestBowling: "5/15", bowlingAvg: 24.1, economy: 9.65, fiveWickets: 1 },
+  },
+
+  // ── Pakistan ─────────────────────────────────────────────────────────────────
+
+  "b-azam": {
+    id: "b-azam", name: "Babar Azam", shortName: "Babar Azam",
+    dateOfBirth: "1994-10-15", nationality: "Pakistan",
+    teamCode: "PAK",
+    role: "batsman", battingStyle: "RHB",
+    bio: "Pakistan's most technically gifted batsman and a former No.1 in all three formats simultaneously. Babar's classical technique, elegant cover drive, and ability to build marathon innings make him the benchmark for Asian batting. Led Pakistan through a transformative period before stepping back from captaincy.",
+    iccRankings: { testBatting: 7, odiBatting: 3 },
+    testStats:  { matches: 62, innings: 109, runs: 4631, highScore: "196", battingAvg: 44.5, battingStrikeRate: 54.2, hundreds: 11, fifties: 27 },
+    odiStats:   { matches: 122, innings: 120, runs: 5791, highScore: "158", battingAvg: 57.4, battingStrikeRate: 88.3, hundreds: 20, fifties: 36 },
+    t20iStats:  { matches: 115, innings: 113, runs: 4022, highScore: "122", battingAvg: 40.0, battingStrikeRate: 130.2, hundreds: 4, fifties: 37 },
+  },
+
+  // ── Rajasthan Royals / others ─────────────────────────────────────────────
+
+  "j-buttler": {
+    id: "j-buttler", name: "Jos Buttler", shortName: "J Buttler",
+    dateOfBirth: "1990-09-08", nationality: "England",
+    teamCode: "ENG", franchiseCode: "RR",
+    role: "wicket-keeper", battingStyle: "RHB",
+    bio: "England's wicket-keeper-batsman and one of the most destructive opening batters in T20 cricket. Buttler's 2022 IPL season — 4 centuries in a single edition — is the greatest batting performance in IPL history. His 360-degree game and ability to target any delivery type with authority make him near-unplayable at his best.",
+    iccRankings: { t20iBatting: 8 },
+    testStats:  { matches: 58, innings: 97, runs: 2782, highScore: "152", battingAvg: 36.0, battingStrikeRate: 60.1, hundreds: 5, fifties: 18 },
+    odiStats:   { matches: 161, innings: 155, runs: 4548, highScore: "162*", battingAvg: 41.4, battingStrikeRate: 114.1, hundreds: 12, fifties: 23 },
+    t20iStats:  { matches: 115, innings: 110, runs: 2836, highScore: "101", battingAvg: 31.5, battingStrikeRate: 143.3, hundreds: 2, fifties: 20 },
+    iplStats:   { matches: 107, innings: 105, runs: 3921, highScore: "124", battingAvg: 38.8, battingStrikeRate: 149.1, hundreds: 7, fifties: 25 },
+  },
+
+  "t-boult": {
+    id: "t-boult", name: "Trent Boult", shortName: "T Boult",
+    dateOfBirth: "1989-07-22", nationality: "New Zealand",
+    teamCode: "NZ", franchiseCode: "RR",
+    role: "bowler", battingStyle: "RHB", bowlingStyle: "Left-arm fast-medium",
+    bio: "The most dangerous left-arm swing bowler in world cricket. Boult's ability to move the ball both ways at pace — in conditions or on flat tracks — has made him a nightmare for top-order batters across formats. Remarkably, he gave up his NZ central contract to pursue franchise cricket globally.",
+    iccRankings: { testBowling: 8, odiBowling: 5 },
+    testStats:  { matches: 86, wickets: 317, bestBowling: "6/30", bowlingAvg: 27.0, economy: 2.99, fiveWickets: 13 },
+    odiStats:   { matches: 107, wickets: 169, bestBowling: "7/34", bowlingAvg: 25.2, economy: 4.99, fiveWickets: 5 },
+    t20iStats:  { matches: 53, wickets: 62, bestBowling: "3/17", bowlingAvg: 25.4, economy: 7.97 },
+    iplStats:   { matches: 87, wickets: 103, bestBowling: "4/25", bowlingAvg: 26.7, economy: 8.46 },
+  },
+
+  "d-miller": {
+    id: "d-miller", name: "David Miller", shortName: "D Miller",
+    dateOfBirth: "1989-06-10", nationality: "South Africa",
+    teamCode: "SA", franchiseCode: "GT",
+    role: "batsman", battingStyle: "LHB",
+    bio: "'Killer Miller' — the most reliable finisher in world cricket. Miller's role as a death-overs batsman is to turn a good score into a great one, and he does it better than anyone. His 2022 T20 World Cup semi-final — 59* off 35 to take SA to the final — is the definitive finishing innings.",
+    iccRankings: { t20iBatting: 14 },
+    odiStats:   { matches: 186, innings: 157, runs: 4558, highScore: "116*", battingAvg: 43.4, battingStrikeRate: 96.5, hundreds: 6, fifties: 30 },
+    t20iStats:  { matches: 138, innings: 108, runs: 2463, highScore: "87*", battingAvg: 36.2, battingStrikeRate: 148.0, fifties: 14 },
+    iplStats:   { matches: 140, innings: 123, runs: 3514, highScore: "101*", battingAvg: 39.5, battingStrikeRate: 143.7, hundreds: 1, fifties: 21 },
+  },
+
+  // ── Lahore Qalandars ──────────────────────────────────────────────────────
+
+  "a-iqbal": {
+    id: "a-iqbal", name: "Arshad Iqbal", shortName: "Arshad",
+    dateOfBirth: "1996-07-30", nationality: "Pakistan",
+    teamCode: "PAK", franchiseCode: "LAH",
+    role: "bowler", battingStyle: "RHB", bowlingStyle: "Right-arm fast",
+    bio: "One of Pakistan's most exciting pace prospects. Arshad Iqbal combines raw pace with a well-disguised slower ball and an ability to hit the yorker consistently. A key member of the Lahore Qalandars machine and increasingly central to Pakistan's white-ball plans.",
+    t20iStats:  { matches: 35, wickets: 43, bestBowling: "4/22", bowlingAvg: 22.1, economy: 8.32 },
+  },
+
+  "b-duckett": {
+    id: "b-duckett", name: "Ben Duckett", shortName: "B Duckett",
+    dateOfBirth: "1994-10-17", nationality: "England",
+    teamCode: "ENG",
+    role: "batsman", battingStyle: "LHB",
+    bio: "England's left-handed opener and the cornerstone of their Bazball revolution. Duckett's aggressive intent from ball one — attacking spinners over the top, driving through the covers, sweeping relentlessly — sets the tone for England's Test innings. A consistent performer in the middle order across formats.",
+    iccRankings: { testBatting: 11 },
+    testStats:  { matches: 28, innings: 52, runs: 2181, highScore: "184", battingAvg: 42.0, battingStrikeRate: 66.8, hundreds: 5, fifties: 10 },
+    odiStats:   { matches: 38, innings: 37, runs: 1042, highScore: "107", battingAvg: 29.8, battingStrikeRate: 95.7, hundreds: 1, fifties: 7 },
+  },
+
+  "z-crawley": {
+    id: "z-crawley", name: "Zak Crawley", shortName: "Z Crawley",
+    dateOfBirth: "1998-02-03", nationality: "England",
+    teamCode: "ENG",
+    role: "batsman", battingStyle: "RHB",
+    bio: "England's swashbuckling opener who set the template for Bazball with his 267 against Pakistan in 2020. Crawley bats with an infectious freedom — he takes on short balls, drives on the up, plays outrageous ramps and reverse sweeps. His intent in the first hour of an innings transforms the game's tempo.",
+    iccRankings: { testBatting: 13 },
+    testStats:  { matches: 48, innings: 88, runs: 2893, highScore: "267", battingAvg: 34.0, battingStrikeRate: 61.2, hundreds: 6, fifties: 14 },
+  },
+
+};
