@@ -16,8 +16,10 @@ export default function LineupsCard({ match }: { match: Match }) {
 /** Derive complete playing XI — up to 11 names, never empty slots shown as "TBC" */
 function getXI(match: Match, side: "A" | "B"): string[] {
   const team      = side === "A" ? match.teamA : match.teamB;
-  const ownInn    = side === "A" ? match.innings[0] : match.innings[1];
-  const oppInn    = side === "A" ? match.innings[1] : match.innings[0];
+  // Find innings by battingTeam — NEVER assume innings[0] = teamA.
+  // Visiting teams bat first whenever they win the toss and elect to bat.
+  const ownInn = match.innings.find(i => i.battingTeam === team.code);
+  const oppInn = match.innings.find(i => i.battingTeam !== team.code);
   const squad     = team.squad ?? [];
 
   // Collect players seen in innings data (batting or bowling)

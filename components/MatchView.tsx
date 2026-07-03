@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import type { Match, MatchEvent } from "@/lib/types";
+import type { Match, MatchEvent, InsightV2 } from "@/lib/types";
 import { calculateWinProbForMatch } from "@/lib/winProb";
 import { computeAIMetrics } from "@/lib/metrics";
 import { extractMatchEvents } from "@/lib/events";
@@ -22,6 +22,7 @@ import StandingsTab from "@/components/StandingsTab";
 
 interface MatchViewProps {
   match: Match;
+  insights?: InsightV2[];
 }
 
 const GIF_LOOP_MS = 6000;     // 3 sec per clip × 2 clips
@@ -36,7 +37,7 @@ const BALL_DWELL_MS = GIF_LOOP_MS * GIF_REPS_PER_BALL; // 24 sec
  *   AI Metrics (4 condensed tiles)
  *   Commentary (variable-height ball cards)
  */
-export default function MatchView({ match }: MatchViewProps) {
+export default function MatchView({ match, insights: insightsProp }: MatchViewProps) {
   const allBalls = useMemo(() => match.innings.flatMap(i => i.balls), [match]);
 
   const [selectedBallId, setSelectedBallId] = useState<string | null>(null);
@@ -176,12 +177,15 @@ export default function MatchView({ match }: MatchViewProps) {
       const wickets = truncBalls.filter(b => b.isWicket).length;
       const lastBall = truncBalls[truncBalls.length - 1];
       const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / 6 : 0;
+      // When no balls available yet, fall back to the real scorecard values
+      // so ScoreBar always shows the correct chase score even without ball-by-ball.
+      const hasBalls = truncBalls.length > 0;
       innings.push({
         ...match.innings[1],
         balls: truncBalls,
-        runs,
-        wickets,
-        overs: Math.round(overs * 10) / 10,
+        runs:    hasBalls ? runs    : match.innings[1].runs,
+        wickets: hasBalls ? wickets : match.innings[1].wickets,
+        overs:   hasBalls ? Math.round(overs * 10) / 10 : match.innings[1].overs,
       });
     }
     return { ...match, innings };
@@ -193,7 +197,8 @@ export default function MatchView({ match }: MatchViewProps) {
 
   const visibleInsights = useMemo(() => {
     const seenBallIds = new Set(allBalls.slice(0, activeBallIdx + 1).map(b => b.id));
-    return MOCK_INSIGHTS_V2.filter(i => !i.relatedBallId || seenBallIds.has(i.relatedBallId));
+    const insights = insightsProp ?? MOCK_INSIGHTS_V2;
+  return insights.filter(i => !i.relatedBallId || seenBallIds.has(i.relatedBallId));
   }, [activeBallIdx, allBalls]);
 
   const currentInnings = truncatedMatch.innings.find(i =>

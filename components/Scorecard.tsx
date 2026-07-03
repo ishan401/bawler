@@ -3,7 +3,7 @@
 import React from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
 import Link from "next/link";
-import { TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
+import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 
 interface ScorecardProps {
   match: Match;
@@ -69,7 +69,7 @@ export default function Scorecard({ match }: ScorecardProps) {
 }
 
 function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
-  const team = TEAMS[innings.battingTeam];
+  const team = ALL_TEAMS[innings.battingTeam];
 
   // Compute highlights
   const topScorer = innings.battingCard.reduce(
