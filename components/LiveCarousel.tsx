@@ -49,11 +49,22 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
   const startY = useRef(0);
   const [translateY, setTranslateY] = useState(0);
 
-  // Lock body scroll while sheet is open so background page doesn't scroll
+  // Lock body scroll — position:fixed is the only reliable method on mobile.
+  // overflow:hidden alone doesn't stop iOS/Android from scrolling the page.
   useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    const scrollY = window.scrollY;
+    const body = document.body;
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+    body.style.overflowY = "scroll";
+    return () => {
+      body.style.position = "";
+      body.style.top = "";
+      body.style.width = "";
+      body.style.overflowY = "";
+      window.scrollTo(0, scrollY);
+    };
   }, []);
 
   const onTouchStart = (e: React.TouchEvent) => { startY.current = e.touches[0].clientY; dragY.current = 0; };
