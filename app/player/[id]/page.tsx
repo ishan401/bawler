@@ -1,4 +1,3 @@
-"use server";
 import { notFound } from "next/navigation";
 import PlayerProfileView from "@/components/PlayerProfileView";
 import { PLAYERS, resolvePlayerSlug } from "@/lib/mockData";

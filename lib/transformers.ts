@@ -17,6 +17,8 @@ import type {
   BattingEntry,
   BowlingEntry,
   MatchFormat,
+  PlayerProfile,
+  FormatStats,
 } from "./types";
 
 // ============================================================================
@@ -278,7 +280,6 @@ export interface CricbuzzRawPlayerStats {
   }>;
 }
 
-import type { PlayerProfile, FormatStats } from "./types";
 
 function parseCricbuzzRole(role?: string): PlayerProfile["role"] {
   if (!role) return "batsman";
