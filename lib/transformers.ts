@@ -408,6 +408,52 @@ export interface ESPNRawBall {
   IsBoundary6: boolean;
 }
 
+
+/** Partial shape from GET /players/json/PlayersByTeam/{teamId} or /players/json/Player/{playerId} */
+export interface ESPNRawPlayer {
+  PlayerId: number;
+  FirstName: string;
+  LastName: string;
+  CommonName?: string;
+  DateOfBirth?: string;          // "1988-11-05"
+  Nationality?: string;
+  Position?: string;             // "Batsman" | "Bowler" | "All Rounder" | "Wicket Keeper"
+  BattingHand?: string;          // "Right" | "Left"
+  BowlingStyle?: string;
+  Biography?: string;
+  BattingAverage?: number;
+  BattingStrikeRate?: number;
+  TotalRuns?: number;
+  TotalWickets?: number;
+  BowlingAverage?: number;
+  BowlingEconomy?: number;
+  IccBattingRankTest?: number;
+  IccBattingRankOdi?: number;
+  IccBattingRankT20?: number;
+  IccBowlingRankTest?: number;
+  IccBowlingRankOdi?: number;
+  IccBowlingRankT20?: number;
+  // Stats are broken out by format in a separate endpoint
+  Stats?: ESPNRawPlayerStats[];
+}
+
+export interface ESPNRawPlayerStats {
+  Type: string;                  // "Test" | "ODI" | "T20I" | "T20" (IPL)
+  Matches: number;
+  Innings?: number;
+  Runs?: number;
+  HighScore?: string;
+  Average?: number;
+  StrikeRate?: number;
+  Hundreds?: number;
+  Fifties?: number;
+  Wickets?: number;
+  BestBowling?: string;
+  BowlingAverage?: number;
+  Economy?: number;
+  FiveWickets?: number;
+}
+
 /**
  * Transform ESPN raw match → internal Match.
  * TODO: resolve HomeTeamId/AwayTeamId → Team via a maintained ID→code lookup.
@@ -449,6 +495,62 @@ export function transformESPNMatch(
   };
 }
 
+
+/** Partial shape from GET /stats/json/PlayerStatsByGame/{gameId} */
+export interface ESPNRawScorecard {
+  BattingStats: Array<{
+    PlayerId: number;
+    PlayerName: string;
+    Runs: number;
+    BallsFaced: number;
+    Fours: number;
+    Sixes: number;
+    StrikeRate: number;
+    HowOut?: string;
+  }>;
+  BowlingStats: Array<{
+    PlayerId: number;
+    PlayerName: string;
+    Overs: number;
+    Maidens: number;
+    Runs: number;
+    Wickets: number;
+    Economy: number;
+  }>;
+}
+
+/**
+ * Transform ESPN scorecard → BattingEntry[] + BowlingEntry[].
+ * Call per innings and inject into Innings.battingCard / bowlingCard.
+ */
+export function transformESPNScorecard(raw: ESPNRawScorecard): {
+  battingCard: BattingEntry[];
+  bowlingCard: BowlingEntry[];
+} {
+  return {
+    battingCard: raw.BattingStats.map(b => ({
+      playerId: b.PlayerId.toString(),   // ESPN numeric ID → /player/[id]
+      playerName: b.PlayerName,
+      runs: b.Runs,
+      ballsFaced: b.BallsFaced,
+      fours: b.Fours,
+      sixes: b.Sixes,
+      strikeRate: b.StrikeRate,
+      out: !!b.HowOut && b.HowOut !== "not out" && b.HowOut !== "",
+      dismissal: b.HowOut || undefined,
+    })),
+    bowlingCard: raw.BowlingStats.map(b => ({
+      playerId: b.PlayerId.toString(),
+      playerName: b.PlayerName,
+      oversBowled: b.Overs,
+      maidens: b.Maidens,
+      runsConceded: b.Runs,
+      wickets: b.Wickets,
+      economy: b.Economy,
+    })),
+  };
+}
+
 function transformESPNBall(raw: ESPNRawBall): Ball {
   return {
     id: raw.BallId,
@@ -465,6 +567,70 @@ function transformESPNBall(raw: ESPNRawBall): Ball {
     isWicket: raw.IsWicket,
     isBoundary4: raw.IsBoundary4,
     isBoundary6: raw.IsBoundary6,
+  };
+}
+
+
+/**
+ * Transform ESPN raw player → internal PlayerProfile.
+ *
+ * Usage (in /player/[id]/page.tsx, Tier 2):
+ *   const raw = await fetchESPNPlayer(params.id);
+ *   const player = transformESPNPlayer(raw);
+ */
+export function transformESPNPlayer(raw: ESPNRawPlayer): PlayerProfile {
+  function parseESPNRole(pos?: string): PlayerProfile["role"] {
+    if (!pos) return "batsman";
+    const p = pos.toLowerCase();
+    if (p.includes("all")) return "all-rounder";
+    if (p.includes("bowl")) return "bowler";
+    if (p.includes("wicket") || p.includes("keeper")) return "wicket-keeper";
+    return "batsman";
+  }
+
+  function parseESPNFormatStats(stats: ESPNRawPlayerStats[], type: string): FormatStats | undefined {
+    const s = stats.find(s => s.Type.toLowerCase() === type.toLowerCase());
+    if (!s || s.Matches === 0) return undefined;
+    return {
+      matches:            s.Matches,
+      innings:            s.Innings,
+      runs:               s.Runs,
+      highScore:          s.HighScore,
+      battingAvg:         s.Average,
+      battingStrikeRate:  s.StrikeRate,
+      hundreds:           s.Hundreds,
+      fifties:            s.Fifties,
+      wickets:            s.Wickets,
+      bestBowling:        s.BestBowling,
+      bowlingAvg:         s.BowlingAverage,
+      economy:            s.Economy,
+      fiveWickets:        s.FiveWickets,
+    };
+  }
+
+  const stats = raw.Stats ?? [];
+  return {
+    id: raw.PlayerId.toString(),
+    name: raw.CommonName ?? `${raw.FirstName} ${raw.LastName}`,
+    shortName: raw.LastName,
+    dateOfBirth: raw.DateOfBirth,
+    nationality: raw.Nationality ?? "Unknown",
+    role: parseESPNRole(raw.Position),
+    battingStyle: raw.BattingHand?.toLowerCase().includes("left") ? "LHB" : "RHB",
+    bowlingStyle: raw.BowlingStyle,
+    bio: raw.Biography,
+    iccRankings: {
+      testBatting:  raw.IccBattingRankTest,
+      odiBatting:   raw.IccBattingRankOdi,
+      t20iBatting:  raw.IccBattingRankT20,
+      testBowling:  raw.IccBowlingRankTest,
+      odiBowling:   raw.IccBowlingRankOdi,
+      t20iBowling:  raw.IccBowlingRankT20,
+    },
+    testStats:  parseESPNFormatStats(stats, "Test"),
+    odiStats:   parseESPNFormatStats(stats, "ODI"),
+    t20iStats:  parseESPNFormatStats(stats, "T20I"),
+    iplStats:   parseESPNFormatStats(stats, "T20"),
   };
 }
 
@@ -583,6 +749,164 @@ export function transformSportRadarTimeline(
       elected: raw.sport_event_status.toss_decision ?? "bat",
     } : undefined,
     innings,
+  };
+}
+
+
+
+// ============================================================================
+// SportRadar player profile
+// ============================================================================
+
+/** Partial shape from GET /players/{playerId}/profile.json */
+export interface SportRadarRawPlayer {
+  player: {
+    id: string;                  // "sr:player:858454" — use as playerId
+    name: string;                // "Kohli, Virat"
+    date_of_birth?: string;      // "1988-11-05"
+    nationality?: string;
+    type?: string;               // "batsman" | "bowler" | "all-rounder" | "wicket_keeper_batsman"
+    hand?: string;               // "right" | "left"
+    bowling_hand?: string;
+    bowling_style?: string;
+    statistics?: {
+      batting?: SportRadarFormatStats[];
+      bowling?: SportRadarFormatStats[];
+    };
+  };
+}
+
+export interface SportRadarFormatStats {
+  format: string;               // "test" | "odi" | "t20i" | "t20"
+  matches_played: number;
+  innings?: number;
+  runs_scored?: number;
+  highest_score?: string;
+  batting_average?: number;
+  strike_rate?: number;
+  hundreds?: number;
+  fifties?: number;
+  wickets?: number;
+  best_bowling_match?: string;
+  bowling_average?: number;
+  economy_rate?: number;
+  five_wickets_haul?: number;
+}
+
+/** Partial shape from SportRadar scorecard endpoint — player IDs in scoring */
+export interface SportRadarScorecardPlayer {
+  id: string;                   // "sr:player:858454"
+  name: string;
+  runs?: number;
+  balls_faced?: number;
+  fours?: number;
+  sixes?: number;
+  strike_rate?: number;
+  how_out?: string;
+  overs_bowled?: number;
+  maidens?: number;
+  runs_conceded?: number;
+  wickets?: number;
+  economy?: number;
+}
+
+/**
+ * Transform SportRadar scorecard players → BattingEntry[] / BowlingEntry[].
+ */
+export function transformSportRadarScorecard(
+  batters: SportRadarScorecardPlayer[],
+  bowlers: SportRadarScorecardPlayer[],
+): { battingCard: BattingEntry[]; bowlingCard: BowlingEntry[] } {
+  return {
+    battingCard: batters.map(b => ({
+      playerId: b.id,           // full "sr:player:858454" ID — used as /player/[id]
+      playerName: b.name,
+      runs: b.runs ?? 0,
+      ballsFaced: b.balls_faced ?? 0,
+      fours: b.fours ?? 0,
+      sixes: b.sixes ?? 0,
+      strikeRate: b.strike_rate ?? 0,
+      out: !!b.how_out && b.how_out !== "not_out",
+      dismissal: b.how_out?.replace(/_/g, " ") || undefined,
+    })),
+    bowlingCard: bowlers.map(b => ({
+      playerId: b.id,
+      playerName: b.name,
+      oversBowled: b.overs_bowled ?? 0,
+      maidens: b.maidens ?? 0,
+      runsConceded: b.runs_conceded ?? 0,
+      wickets: b.wickets ?? 0,
+      economy: b.economy ?? 0,
+    })),
+  };
+}
+
+/**
+ * Transform SportRadar player profile → internal PlayerProfile.
+ *
+ * Usage (in /player/[id]/page.tsx, Tier 2):
+ *   const raw = await fetchSportRadarPlayer(params.id);
+ *   const player = transformSportRadarPlayer(raw);
+ */
+export function transformSportRadarPlayer(raw: SportRadarRawPlayer): PlayerProfile {
+  const p = raw.player;
+
+  function parseSRRole(type?: string): PlayerProfile["role"] {
+    if (!type) return "batsman";
+    const t = type.toLowerCase();
+    if (t.includes("all")) return "all-rounder";
+    if (t.includes("bowl")) return "bowler";
+    if (t.includes("wicket") || t.includes("keeper")) return "wicket-keeper";
+    return "batsman";
+  }
+
+  function parseSRFormatStats(
+    batting: SportRadarFormatStats[],
+    bowling: SportRadarFormatStats[],
+    format: string,
+  ): FormatStats | undefined {
+    const bat  = batting.find(s => s.format === format);
+    const bowl = bowling.find(s => s.format === format);
+    if (!bat && !bowl) return undefined;
+    const matches = bat?.matches_played ?? bowl?.matches_played ?? 0;
+    if (matches === 0) return undefined;
+    return {
+      matches,
+      innings:           bat?.innings,
+      runs:              bat?.runs_scored,
+      highScore:         bat?.highest_score,
+      battingAvg:        bat?.batting_average,
+      battingStrikeRate: bat?.strike_rate,
+      hundreds:          bat?.hundreds,
+      fifties:           bat?.fifties,
+      wickets:           bowl?.wickets,
+      bestBowling:       bowl?.best_bowling_match,
+      bowlingAvg:        bowl?.bowling_average,
+      economy:           bowl?.economy_rate,
+      fiveWickets:       bowl?.five_wickets_haul,
+    };
+  }
+
+  const batting = p.statistics?.batting ?? [];
+  const bowling = p.statistics?.bowling ?? [];
+
+  // Normalise "Kohli, Virat" → "Virat Kohli"
+  const nameParts = p.name.split(",").map(s => s.trim()).reverse();
+  const fullName = nameParts.join(" ");
+
+  return {
+    id: p.id,                               // "sr:player:858454"
+    name: fullName,
+    shortName: nameParts[nameParts.length - 1] ?? fullName,
+    dateOfBirth: p.date_of_birth,
+    nationality: p.nationality ?? "Unknown",
+    role: parseSRRole(p.type),
+    battingStyle: p.hand === "left" ? "LHB" : "RHB",
+    bowlingStyle: p.bowling_style,
+    testStats:  parseSRFormatStats(batting, bowling, "test"),
+    odiStats:   parseSRFormatStats(batting, bowling, "odi"),
+    t20iStats:  parseSRFormatStats(batting, bowling, "t20i"),
+    iplStats:   parseSRFormatStats(batting, bowling, "t20"),
   };
 }
 
