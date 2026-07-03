@@ -23,11 +23,13 @@ function StandingsTab({ competition }: Props) {
     );
   }
 
-  const { rows, showNrr, showDrawn, qualifyingSpots, phaseLabel } = standings;
+  const { rows, showNrr, showDrawn, showPct, qualifyingSpots, phaseLabel } = standings;
 
   // Build column grid based on visible columns
-  // Base: # | Team | P | W | L | [NRR] | [D] | Pts
-  const cols = showDrawn
+  // Base: # | Team | P | W | L | [D] | [NRR] | [PCT] | Pts
+  const cols = showDrawn && showPct
+    ? "grid-cols-[28px_1fr_28px_28px_28px_28px_44px_36px]"
+    : showDrawn
     ? "grid-cols-[28px_1fr_28px_28px_28px_28px_44px_36px]"
     : showNrr
     ? "grid-cols-[28px_1fr_28px_28px_28px_44px_36px]"
@@ -51,6 +53,7 @@ function StandingsTab({ competition }: Props) {
           <span className="text-right num">L</span>
           {showDrawn && <span className="text-right num">D</span>}
           {showNrr  && <span className="text-right num">NRR</span>}
+          {showPct  && <span className="text-right num">PCT%</span>}
           <span className="text-right num">Pts</span>
         </div>
 
@@ -88,6 +91,11 @@ function StandingsTab({ competition }: Props) {
                   {(row.netRunRate ?? 0) > 0 ? "+" : ""}{(row.netRunRate ?? 0).toFixed(2)}
                 </span>
               )}
+              {showPct && (
+                <span className="text-right text-xs num text-text-secondary">
+                  {(row.pct ?? 0).toFixed(2)}
+                </span>
+              )}
               <span className="text-right text-sm num font-extrabold">{row.points}</span>
             </div>
           );
@@ -103,6 +111,7 @@ function StandingsTab({ competition }: Props) {
           P=played · W=won · L=lost
           {showDrawn ? " · D=drawn" : ""}
           {showNrr   ? " · NRR=net run rate" : ""}
+          {showPct   ? " · PCT%=win percentage" : ""}
           {" · Pts=points"}
         </span>
       </div>

@@ -156,7 +156,7 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
     ...ALL_UPCOMING_MATCHES,
   ]
     .filter(m =>
-      m.competition.id === competition.id &&
+      (m.competition.id === competition.id || m.championship?.id === competition.id) &&
       (m.teamA.code === teamCode || m.teamB.code === teamCode)
     )
     .sort((a, b) => new Date(a.startTimeIso).getTime() - new Date(b.startTimeIso).getTime());
@@ -267,9 +267,14 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
   }, [matches.length]);
 
   const activeMatch = matches[activeIdx];
-  const isLeague = activeMatch &&
-    activeMatch.competition.hasStandings;
-  const activeComp = isLeague ? activeMatch.competition : null;
+  // For TABLE button: use championship (e.g. WTC for Test matches) when it has standings,
+  // otherwise fall back to the match's own competition (e.g. IPL, PSL).
+  const tableComp = activeMatch
+    ? (activeMatch.championship?.hasStandings ? activeMatch.championship
+       : activeMatch.competition.hasStandings  ? activeMatch.competition
+       : null)
+    : null;
+  const activeComp = tableComp;
 
   const closeAll = () => { setView("none"); setOpenTeamCode(null); };
 

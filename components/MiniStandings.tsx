@@ -12,7 +12,7 @@ export default function MiniStandings({
   const standings = COMPETITION_STANDINGS[competition.id];
   if (!standings) return null;
 
-  const { rows, showNrr, qualifyingSpots } = standings;
+  const { rows, showNrr, showPct, qualifyingSpots } = standings;
 
   return (
     <div className="card overflow-hidden">
@@ -22,11 +22,12 @@ export default function MiniStandings({
       </div>
 
       {/* Header */}
-      <div className={`grid ${showNrr ? "grid-cols-[1fr_24px_24px_40px_28px]" : "grid-cols-[1fr_24px_24px_28px]"} gap-1 px-3 py-1.5 text-[8px] font-bold uppercase tracking-widest text-text-dim border-b border-line`}>
+      <div className={`grid ${showNrr ? "grid-cols-[1fr_24px_24px_40px_28px]" : showPct ? "grid-cols-[1fr_24px_24px_36px_28px]" : "grid-cols-[1fr_24px_24px_28px]"} gap-1 px-3 py-1.5 text-[8px] font-bold uppercase tracking-widest text-text-dim border-b border-line`}>
         <span>Team</span>
         <span className="text-right num">W</span>
         <span className="text-right num">L</span>
         {showNrr && <span className="text-right num">NRR</span>}
+        {showPct && <span className="text-right num">PCT%</span>}
         <span className="text-right num">Pts</span>
       </div>
 
@@ -37,7 +38,7 @@ export default function MiniStandings({
         const isEliminated = row.qualified === "eliminated";
 
         const rowContent = (
-          <div className={`grid ${showNrr ? "grid-cols-[1fr_24px_24px_40px_28px]" : "grid-cols-[1fr_24px_24px_28px]"} gap-1 px-3 py-2 border-b border-line/40 last:border-b-0 items-center w-full text-left`}>
+          <div className={`grid ${showNrr ? "grid-cols-[1fr_24px_24px_40px_28px]" : showPct ? "grid-cols-[1fr_24px_24px_36px_28px]" : "grid-cols-[1fr_24px_24px_28px]"} gap-1 px-3 py-2 border-b border-line/40 last:border-b-0 items-center w-full text-left`}>
             <div className="flex items-center gap-1.5 min-w-0">
               {isQualifier && <span className="w-1 h-4 rounded-full bg-boundary shrink-0" />}
               <span className="text-[10px] font-bold num text-text-dim w-4 shrink-0">{idx + 1}</span>
@@ -49,6 +50,11 @@ export default function MiniStandings({
             {showNrr && (
               <span className={`text-right text-[10px] num ${(row.netRunRate ?? 0) >= 0 ? "text-boundary" : "text-wicket"}`}>
                 {(row.netRunRate ?? 0) > 0 ? "+" : ""}{(row.netRunRate ?? 0).toFixed(2)}
+              </span>
+            )}
+            {showPct && (
+              <span className="text-right text-[10px] num text-text-secondary">
+                {(row.pct ?? 0).toFixed(1)}
               </span>
             )}
             <span className="text-right text-xs num font-extrabold">{row.points}</span>

@@ -92,6 +92,7 @@ export interface Match {
   liveStatusOverride?: string;
   liveWinProbOverride?: { teamCode: string; pct: number }; // pct MUST be 0-1 (e.g. 0.72 = 72%). Never 0-100.
   phase?: string;          // "group" | "super-8" | "qualifier" | "semifinal" | "final"
+  championship?: Competition; // overarching championship this match contributes to (e.g. WTC for Test matches)
 }
 
 export interface Innings {
@@ -325,7 +326,8 @@ export interface CompetitionStandings {
   updatedAt: string;       // ISO — set from API; use new Date().toISOString() for mock data
   rows: StandingsRow[];
   showNrr: boolean;        // Show NRR column (T20/ODI leagues)
-  showDrawn: boolean;      // Show Drawn column (Test series standings)
+  showDrawn: boolean;      // Show Drawn column (Test/bilateral series standings)
+  showPct?: boolean;       // Show PCT% column — WTC and some ODI leagues rank by win percentage
   qualifyingSpots: number; // Top N rows get the playoff/qualification marker
 }
 

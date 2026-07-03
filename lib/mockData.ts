@@ -189,6 +189,7 @@ export const COMPETITIONS: Record<string, Competition> = {
   sa202026:      { id: "sa20-2026",        name: "SA20 2026",                     shortName: "SA20",      type: "league",        format: "T20",  season: "2026",    logoColor: "#007A4D",  hasStandings: true },
   cpl2025:       { id: "cpl-2025",         name: "CPL 2025",                      shortName: "CPL",       type: "league",        format: "T20",  season: "2025",    logoColor: "#7B0041",  hasStandings: true },
   mlc2026:       { id: "mlc-2026",         name: "Major League Cricket 2026",     shortName: "MLC",       type: "league",        format: "T20",  season: "2026",    logoColor: "#B22234",  hasStandings: true },
+  wtc2527:       { id: "wtc-2025-27",      name: "ICC World Test Championship 2025-27", shortName: "WTC",    type: "international", format: "Test", season: "2025-27", logoColor: "#1A237E",  hasStandings: true },
 };
 
 // ============================================================================
@@ -920,6 +921,31 @@ export const COMPETITION_STANDINGS: Record<string, CompetitionStandings> = {
     ],
     showNrr: true,
     showDrawn: false,
+    qualifyingSpots: 2,
+  },
+
+  // ── ICC World Test Championship 2025-27 ───────────────────────────────────
+  // Ranked by PCT% (points won / max available × 100). Win=12, Draw=4, Loss=0.
+  // Top 2 qualify for WTC Final. No NRR — Test cricket doesn't use it.
+  // Real data: fetch from ICC website or ESPN Cricinfo /series/{id}/standings
+  "wtc-2025-27": {
+    competitionId: "wtc-2025-27",
+    phaseLabel: "WTC 2025-27 Standings",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "AUS", played: 10, won: 7, lost: 2, drawn: 1, noResult: 0, points: 92, pct: 76.67, qualified: "playoff" },
+      { teamCode: "IND", played: 10, won: 6, lost: 2, drawn: 2, noResult: 0, points: 80, pct: 66.67, qualified: "playoff" },
+      { teamCode: "SA",  played:  8, won: 5, lost: 2, drawn: 1, noResult: 0, points: 64, pct: 66.67 },
+      { teamCode: "NZ",  played:  8, won: 4, lost: 3, drawn: 1, noResult: 0, points: 52, pct: 54.17 },
+      { teamCode: "ENG", played: 10, won: 4, lost: 5, drawn: 1, noResult: 0, points: 52, pct: 43.33 },
+      { teamCode: "SL",  played:  8, won: 3, lost: 4, drawn: 1, noResult: 0, points: 40, pct: 41.67 },
+      { teamCode: "PAK", played:  8, won: 2, lost: 5, drawn: 1, noResult: 0, points: 28, pct: 29.17 },
+      { teamCode: "BAN", played:  6, won: 1, lost: 4, drawn: 1, noResult: 0, points: 16, pct: 22.22, qualified: "eliminated" },
+      { teamCode: "WI",  played:  6, won: 1, lost: 5, drawn: 0, noResult: 0, points: 12, pct: 16.67, qualified: "eliminated" },
+    ],
+    showNrr: false,
+    showDrawn: true,
+    showPct: true,
     qualifyingSpots: 2,
   },
 };
@@ -7479,6 +7505,7 @@ export const LIVE_INTERNATIONAL: Match[] = [
     id: "eng-sa-test-2026-d3-live",
     format: "Test",
     competition: COMPETITIONS.indEngTest2026,
+    championship: COMPETITIONS.wtc2527,
     matchNumber: "2nd Test · Day 3",
     startTimeIso: new Date(Date.now() - 5 * 3600000).toISOString(),
     status: "live",
@@ -13983,6 +14010,7 @@ export const PAST_INTERNATIONAL: Match[] = [
     id: "ashes-2526-3rd-test",
     format: "Test",
     competition: COMPETITIONS.ashes2526,
+    championship: COMPETITIONS.wtc2527,
     matchNumber: "3rd Test",
     startTimeIso: new Date(Date.now() - 120 * 3600000).toISOString(),
     status: "post-match",

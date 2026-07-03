@@ -59,7 +59,9 @@ export default function MatchView({ match }: MatchViewProps) {
   }, [selectedBallId, liveBallIdx, allBalls]);
 
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
-  const showTable = match.competition.hasStandings;
+  // Show TABLE tab if the match's own competition OR its championship (e.g. WTC) has standings
+  const tableComp = match.championship?.hasStandings ? match.championship : match.competition;
+  const showTable = tableComp.hasStandings;
   const defaultTab: TabKey = isUpcoming ? "info" : "live";
   const [tab, setTab] = useState<TabKey>(defaultTab);
   const [renderedTab, setRenderedTab] = useState<TabKey>(defaultTab);
@@ -329,7 +331,7 @@ export default function MatchView({ match }: MatchViewProps) {
 
         {renderedTab === "scorecard" && <Scorecard match={truncatedMatch} />}
         {renderedTab === "info" && <InfoTab match={truncatedMatch} />}
-        {renderedTab === "table" && <StandingsTab competition={match.competition} />}
+        {renderedTab === "table" && <StandingsTab competition={tableComp} />}
 
         <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
           Bawler v0.9 · all data mocked
