@@ -93,6 +93,7 @@ export interface Match {
   liveWinProbOverride?: { teamCode: string; pct: number }; // pct MUST be 0-1 (e.g. 0.72 = 72%). Never 0-100.
   phase?: string;          // "group" | "super-8" | "qualifier" | "semifinal" | "final"
   championship?: Competition; // overarching championship this match contributes to (e.g. WTC for Test matches)
+  seriesStatus?: string;     // one-line bilateral series summary e.g. "IND lead 2-1 · 5-match T20I series"
 }
 
 export interface Innings {

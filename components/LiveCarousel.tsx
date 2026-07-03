@@ -331,20 +331,36 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
           ))}
         </div>
 
-        {activeComp && (
-          <div className="mt-2">
-            <button
-              onClick={() => setView("standings")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale"
-            >
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                <rect x="0.5" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-                <rect x="7" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-                <rect x="0.5" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-                <rect x="7" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
-              </svg>
-              {activeComp.shortName} Table
-            </button>
+        {(activeComp || activeMatch?.seriesStatus) && (
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
+            {/* League / WTC table button — only when standings exist */}
+            {activeComp && (
+              <button
+                onClick={() => setView("standings")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale"
+              >
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <rect x="0.5" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="7" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="0.5" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <rect x="7" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                </svg>
+                {activeComp.shortName} Table
+              </button>
+            )}
+            {/* Series status chip — bilateral international series */}
+            {activeMatch?.seriesStatus && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary leading-none">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                  <line x1="4" y1="13" x2="4" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <line x1="8" y1="13" x2="8" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <line x1="12" y1="13" x2="12" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  <path d="M5.5 8 C5.5 5 10.5 5 10.5 8" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
+                </svg>
+                {activeMatch.seriesStatus}
+              </span>
+            )}
           </div>
         )}
       </div>
