@@ -6,7 +6,7 @@ import PageTransition from "@/components/PageTransition";
 
 export const metadata: Metadata = {
   title: "Bawler — Every Ball, Visualized",
-  description: "IPL match companion with predictions, surfaced stats, and visual ball replays. The smart second-screen for IPL 2026.",
+  description: "All cricket, every ball, visualized — live scores, ball-by-ball replays, win probability and player stats across every format.",
   manifest: undefined,
 };
 

@@ -395,5 +395,6 @@ export interface PlayerProfile {
   testStats?: FormatStats;
   odiStats?: FormatStats;
   t20iStats?: FormatStats;
-  iplStats?: FormatStats;
+  franchiseStats?: FormatStats;
+  franchiseLeague?: string;  // "IPL" | "BBL" | "PSL" | "SA20" | "The Hundred" | "CPL" | "MLC" etc.
 }

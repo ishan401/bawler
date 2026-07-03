@@ -360,7 +360,7 @@ export function transformCricbuzzPlayer(
     testStats:  parseCricbuzzFormatStats(batting.values, bowling.values, "test"),
     odiStats:   parseCricbuzzFormatStats(batting.values, bowling.values, "odi"),
     t20iStats:  parseCricbuzzFormatStats(batting.values, bowling.values, "t20i"),
-    iplStats:   parseCricbuzzFormatStats(batting.values, bowling.values, "ipl"),
+    franchiseStats:   parseCricbuzzFormatStats(batting.values, bowling.values, "ipl"),
   };
 }
 
@@ -631,7 +631,7 @@ export function transformESPNPlayer(raw: ESPNRawPlayer): PlayerProfile {
     testStats:  parseESPNFormatStats(stats, "Test"),
     odiStats:   parseESPNFormatStats(stats, "ODI"),
     t20iStats:  parseESPNFormatStats(stats, "T20I"),
-    iplStats:   parseESPNFormatStats(stats, "T20"),
+    franchiseStats:   parseESPNFormatStats(stats, "T20"),
   };
 }
 
@@ -907,7 +907,7 @@ export function transformSportRadarPlayer(raw: SportRadarRawPlayer): PlayerProfi
     testStats:  parseSRFormatStats(batting, bowling, "test"),
     odiStats:   parseSRFormatStats(batting, bowling, "odi"),
     t20iStats:  parseSRFormatStats(batting, bowling, "t20i"),
-    iplStats:   parseSRFormatStats(batting, bowling, "t20"),
+    franchiseStats:   parseSRFormatStats(batting, bowling, "t20"),
   };
 }
 

@@ -8,13 +8,13 @@ interface Props {
   player: PlayerProfile;
 }
 
-type FormatKey = "test" | "odi" | "t20i" | "ipl";
+type FormatKey = "test" | "odi" | "t20i" | "franchise";
 
 const FORMAT_LABELS: Record<FormatKey, string> = {
   test: "TEST",
   odi: "ODI",
   t20i: "T20I",
-  ipl: "IPL",
+  franchise: "Franchise",  // label overridden per-player via franchiseLeague
 };
 
 const ROLE_LABELS: Record<PlayerProfile["role"], string> = {
@@ -117,11 +117,11 @@ export default function PlayerProfileView({ player }: Props) {
   const roleColor = ROLE_COLORS[player.role];
 
   // Determine which format tabs exist
-  const tabs: FormatKey[] = (["test", "odi", "t20i", "ipl"] as FormatKey[]).filter(f => {
+  const tabs: FormatKey[] = (["test", "odi", "t20i", "franchise"] as FormatKey[]).filter(f => {
     if (f === "test") return !!player.testStats;
     if (f === "odi") return !!player.odiStats;
     if (f === "t20i") return !!player.t20iStats;
-    if (f === "ipl") return !!player.iplStats;
+    if (f === "franchise") return !!player.franchiseStats;
     return false;
   });
 
@@ -131,7 +131,7 @@ export default function PlayerProfileView({ player }: Props) {
     activeTab === "test" ? player.testStats :
     activeTab === "odi" ? player.odiStats :
     activeTab === "t20i" ? player.t20iStats :
-    player.iplStats;
+    player.franchiseStats;
 
   const rankings = player.iccRankings;
 
@@ -213,7 +213,7 @@ export default function PlayerProfileView({ player }: Props) {
                       : "bg-surface text-text-dim border border-line"
                   }`}
                 >
-                  {FORMAT_LABELS[tab]}
+                  {tab === "franchise" ? (player.franchiseLeague ?? "Franchise") : FORMAT_LABELS[tab]}
                 </button>
               ))}
             </div>

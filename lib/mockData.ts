@@ -14351,7 +14351,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 120, innings: 210, runs: 9230, highScore: "254*", battingAvg: 48.7, battingStrikeRate: 57.2, hundreds: 30, fifties: 31 },
     odiStats:   { matches: 295, innings: 285, runs: 14181, highScore: "183", battingAvg: 57.6, battingStrikeRate: 93.4, hundreds: 51, fifties: 72 },
     t20iStats:  { matches: 125, innings: 119, runs: 4306, highScore: "122*", battingAvg: 52.5, battingStrikeRate: 137.9, hundreds: 1, fifties: 38 },
-    iplStats:   { matches: 243, innings: 238, runs: 8004, highScore: "113", battingAvg: 37.2, battingStrikeRate: 130.0, hundreds: 8, fifties: 55 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 243, innings: 238, runs: 8004, highScore: "113", battingAvg: 37.2, battingStrikeRate: 130.0, hundreds: 8, fifties: 55 },
   },
 
   "r-sharma": {
@@ -14364,7 +14365,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 67, innings: 118, runs: 4301, highScore: "212", battingAvg: 40.6, battingStrikeRate: 59.8, hundreds: 12, fifties: 18 },
     odiStats:   { matches: 264, innings: 256, runs: 10709, highScore: "264", battingAvg: 49.0, battingStrikeRate: 89.4, hundreds: 31, fifties: 59 },
     t20iStats:  { matches: 159, innings: 151, runs: 4231, highScore: "121*", battingAvg: 32.1, battingStrikeRate: 140.9, hundreds: 5, fifties: 26 },
-    iplStats:   { matches: 257, innings: 252, runs: 6628, highScore: "109*", battingAvg: 29.6, battingStrikeRate: 130.6, hundreds: 2, fifties: 42 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 257, innings: 252, runs: 6628, highScore: "109*", battingAvg: 29.6, battingStrikeRate: 130.6, hundreds: 2, fifties: 42 },
   },
 
   "j-bumrah": {
@@ -14377,7 +14379,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 42, wickets: 195, bestBowling: "6/27", bowlingAvg: 19.4, economy: 2.80, fiveWickets: 8 },
     odiStats:   { matches: 90, wickets: 149, bestBowling: "6/19", bowlingAvg: 24.2, economy: 4.63, fiveWickets: 2 },
     t20iStats:  { matches: 75, wickets: 89, bestBowling: "4/14", bowlingAvg: 18.4, economy: 6.22 },
-    iplStats:   { matches: 135, wickets: 172, bestBowling: "5/27", bowlingAvg: 21.1, economy: 6.97, fiveWickets: 1 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 135, wickets: 172, bestBowling: "5/27", bowlingAvg: 21.1, economy: 6.97, fiveWickets: 1 },
   },
 
   "s-gill": {
@@ -14390,7 +14393,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 38, innings: 68, runs: 2814, highScore: "224*", battingAvg: 44.0, battingStrikeRate: 58.4, hundreds: 7, fifties: 12 },
     odiStats:   { matches: 55, innings: 54, runs: 2599, highScore: "208", battingAvg: 51.0, battingStrikeRate: 100.3, hundreds: 7, fifties: 13 },
     t20iStats:  { matches: 38, innings: 37, runs: 1038, highScore: "126*", battingAvg: 30.5, battingStrikeRate: 154.5, hundreds: 2, fifties: 5 },
-    iplStats:   { matches: 96, innings: 93, runs: 3400, highScore: "129", battingAvg: 39.5, battingStrikeRate: 147.2, hundreds: 3, fifties: 22 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 96, innings: 93, runs: 3400, highScore: "129", battingAvg: 39.5, battingStrikeRate: 147.2, hundreds: 3, fifties: 22 },
   },
 
   "h-pandya": {
@@ -14403,7 +14407,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 11, innings: 15, runs: 532, highScore: "108", battingAvg: 37.9, battingStrikeRate: 67.6, hundreds: 1, fifties: 2, wickets: 17, bowlingAvg: 31.2, economy: 3.20 },
     odiStats:   { matches: 90, innings: 71, runs: 1763, highScore: "92", battingAvg: 32.6, battingStrikeRate: 118.6, fifties: 9, wickets: 100, bestBowling: "5/55", bowlingAvg: 36.8, economy: 5.80, fiveWickets: 1 },
     t20iStats:  { matches: 95, innings: 68, runs: 1276, highScore: "71", battingAvg: 27.1, battingStrikeRate: 148.7, fifties: 4, wickets: 81, bestBowling: "4/16", bowlingAvg: 24.1, economy: 8.12 },
-    iplStats:   { matches: 131, innings: 111, runs: 2642, highScore: "91*", battingAvg: 30.1, battingStrikeRate: 145.3, fifties: 10, wickets: 71, bowlingAvg: 34.7, economy: 8.92 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 131, innings: 111, runs: 2642, highScore: "91*", battingAvg: 30.1, battingStrikeRate: 145.3, fifties: 10, wickets: 71, bowlingAvg: 34.7, economy: 8.92 },
   },
 
   "s-yadav": {
@@ -14415,7 +14420,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     iccRankings: { t20iBatting: 1 },
     odiStats:   { matches: 44, innings: 41, runs: 1237, highScore: "102", battingAvg: 33.4, battingStrikeRate: 110.0, hundreds: 1, fifties: 9 },
     t20iStats:  { matches: 78, innings: 74, runs: 2722, highScore: "117", battingAvg: 46.9, battingStrikeRate: 166.4, hundreds: 4, fifties: 17 },
-    iplStats:   { matches: 148, innings: 142, runs: 3792, highScore: "103*", battingAvg: 30.9, battingStrikeRate: 145.9, hundreds: 1, fifties: 28 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 148, innings: 142, runs: 3792, highScore: "103*", battingAvg: 30.9, battingStrikeRate: 145.9, hundreds: 1, fifties: 28 },
   },
 
   "r-jadeja": {
@@ -14428,7 +14434,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 76, innings: 109, runs: 3046, highScore: "175*", battingAvg: 36.2, battingStrikeRate: 60.4, hundreds: 3, fifties: 17, wickets: 311, bestBowling: "7/42", bowlingAvg: 24.1, economy: 2.39, fiveWickets: 12 },
     odiStats:   { matches: 200, innings: 114, runs: 2756, highScore: "87", battingAvg: 35.6, battingStrikeRate: 87.2, fifties: 17, wickets: 220, bestBowling: "5/36", bowlingAvg: 36.5, economy: 4.97, fiveWickets: 2 },
     t20iStats:  { matches: 74, innings: 39, runs: 515, highScore: "46*", battingAvg: 22.4, battingStrikeRate: 117.7, wickets: 54, bestBowling: "3/15", bowlingAvg: 28.2, economy: 7.32 },
-    iplStats:   { matches: 236, innings: 139, runs: 2776, highScore: "62", battingAvg: 26.9, battingStrikeRate: 132.4, wickets: 145, bowlingAvg: 30.1, economy: 7.64 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 236, innings: 139, runs: 2776, highScore: "62", battingAvg: 26.9, battingStrikeRate: 132.4, wickets: 145, bowlingAvg: 30.1, economy: 7.64 },
   },
 
   "r-ashwin": {
@@ -14452,7 +14459,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     iccRankings: { odiBowling: 6, t20iBowling: 9 },
     odiStats:   { matches: 88, wickets: 121, bestBowling: "6/42", bowlingAvg: 27.1, economy: 5.19, fiveWickets: 1 },
     t20iStats:  { matches: 82, wickets: 96, bestBowling: "6/25", bowlingAvg: 22.2, economy: 7.93, fiveWickets: 1 },
-    iplStats:   { matches: 172, wickets: 210, bestBowling: "5/40", bowlingAvg: 21.8, economy: 7.65, fiveWickets: 1 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 172, wickets: 210, bestBowling: "5/40", bowlingAvg: 21.8, economy: 7.65, fiveWickets: 1 },
   },
 
   // ── England ─────────────────────────────────────────────────────────────────
@@ -14493,7 +14501,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 72, wickets: 297, bestBowling: "7/23", bowlingAvg: 21.9, economy: 2.78, fiveWickets: 14, innings: 99, runs: 1513, highScore: "66", battingAvg: 18.7, battingStrikeRate: 49.9 },
     odiStats:   { matches: 100, wickets: 167, bestBowling: "5/70", bowlingAvg: 29.4, economy: 5.20, fiveWickets: 1 },
     t20iStats:  { matches: 54, wickets: 56, bestBowling: "4/22", bowlingAvg: 26.6, economy: 7.92 },
-    iplStats:   { matches: 65, wickets: 77, bestBowling: "4/21", bowlingAvg: 26.4, economy: 8.45 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 65, wickets: 77, bestBowling: "4/21", bowlingAvg: 26.4, economy: 8.45 },
   },
 
   "j-hazlewood": {
@@ -14517,7 +14526,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     role: "all-rounder", battingStyle: "RHB", bowlingStyle: "Right-arm fast",
     bio: "The most destructive T20 hitter of his era. Russell's power hitting at No.7 can change a match in a single over — he regularly scores at 180+ strike rates. With the ball he generates genuine pace and movement. A three-time IPL champion with KKR and one of the most feared cricketers alive.",
     t20iStats:  { matches: 68, innings: 52, runs: 948, highScore: "51*", battingAvg: 24.3, battingStrikeRate: 161.4, wickets: 69, bestBowling: "4/9", bowlingAvg: 23.0, economy: 9.12 },
-    iplStats:   { matches: 135, innings: 121, runs: 2917, highScore: "88*", battingAvg: 29.7, battingStrikeRate: 178.1, fifties: 8, wickets: 113, bestBowling: "5/15", bowlingAvg: 24.1, economy: 9.65, fiveWickets: 1 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 135, innings: 121, runs: 2917, highScore: "88*", battingAvg: 29.7, battingStrikeRate: 178.1, fifties: 8, wickets: 113, bestBowling: "5/15", bowlingAvg: 24.1, economy: 9.65, fiveWickets: 1 },
   },
 
   // ── Pakistan ─────────────────────────────────────────────────────────────────
@@ -14546,7 +14556,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 58, innings: 97, runs: 2782, highScore: "152", battingAvg: 36.0, battingStrikeRate: 60.1, hundreds: 5, fifties: 18 },
     odiStats:   { matches: 161, innings: 155, runs: 4548, highScore: "162*", battingAvg: 41.4, battingStrikeRate: 114.1, hundreds: 12, fifties: 23 },
     t20iStats:  { matches: 115, innings: 110, runs: 2836, highScore: "101", battingAvg: 31.5, battingStrikeRate: 143.3, hundreds: 2, fifties: 20 },
-    iplStats:   { matches: 107, innings: 105, runs: 3921, highScore: "124", battingAvg: 38.8, battingStrikeRate: 149.1, hundreds: 7, fifties: 25 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 107, innings: 105, runs: 3921, highScore: "124", battingAvg: 38.8, battingStrikeRate: 149.1, hundreds: 7, fifties: 25 },
   },
 
   "t-boult": {
@@ -14559,7 +14570,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     testStats:  { matches: 86, wickets: 317, bestBowling: "6/30", bowlingAvg: 27.0, economy: 2.99, fiveWickets: 13 },
     odiStats:   { matches: 107, wickets: 169, bestBowling: "7/34", bowlingAvg: 25.2, economy: 4.99, fiveWickets: 5 },
     t20iStats:  { matches: 53, wickets: 62, bestBowling: "3/17", bowlingAvg: 25.4, economy: 7.97 },
-    iplStats:   { matches: 87, wickets: 103, bestBowling: "4/25", bowlingAvg: 26.7, economy: 8.46 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 87, wickets: 103, bestBowling: "4/25", bowlingAvg: 26.7, economy: 8.46 },
   },
 
   "d-miller": {
@@ -14571,7 +14583,8 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     iccRankings: { t20iBatting: 14 },
     odiStats:   { matches: 186, innings: 157, runs: 4558, highScore: "116*", battingAvg: 43.4, battingStrikeRate: 96.5, hundreds: 6, fifties: 30 },
     t20iStats:  { matches: 138, innings: 108, runs: 2463, highScore: "87*", battingAvg: 36.2, battingStrikeRate: 148.0, fifties: 14 },
-    iplStats:   { matches: 140, innings: 123, runs: 3514, highScore: "101*", battingAvg: 39.5, battingStrikeRate: 143.7, hundreds: 1, fifties: 21 },
+    franchiseLeague: "IPL",
+    franchiseStats: { matches: 140, innings: 123, runs: 3514, highScore: "101*", battingAvg: 39.5, battingStrikeRate: 143.7, hundreds: 1, fifties: 21 },
   },
 
   // ── Lahore Qalandars ──────────────────────────────────────────────────────
