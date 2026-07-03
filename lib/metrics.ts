@@ -1,5 +1,5 @@
 import type { Match, AIMetric } from "./types";
-import { calculateWinProbForMatch, calculateProjectedScore } from "./winProb";
+import { calculateWinProbForMatch, calculateProjectedScore, totalBallsForFormat } from "./winProb";
 
 /**
  * Compute the 5 front-page AI metrics shown above the GIF.
@@ -89,7 +89,7 @@ export function computeAIMetrics(match: Match): AIMetric[] {
   if (i2 && target) {
     const cumulativeRuns = i2.balls.reduce((s, b) => s + b.runs + b.extras, 0);
     const ballsBowled = i2.balls.length;
-    const ballsLeft = 120 - ballsBowled;
+    const ballsLeft = totalBallsForFormat(match) - ballsBowled;
     const need = target - cumulativeRuns;
     if (ballsLeft > 0 && need > 0) {
       const rrr = (need / ballsLeft) * 6;

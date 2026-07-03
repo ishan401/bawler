@@ -410,7 +410,8 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
 // ============================================================================
 
 function SpeedChip({ ball }: { ball: Ball }) {
-  const speed = ball.ballSpeedKmh ?? 0;
+  const speed = ball.ballSpeedKmh;
+  if (!speed) return null;
   const color = speed >= 140 ? "text-cyan" : speed >= 130 ? "text-text-primary" : speed >= 110 ? "text-orange" : "text-six";
   return (
     <div className="flex items-baseline gap-0.5 leading-none">

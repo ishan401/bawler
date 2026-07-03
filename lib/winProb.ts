@@ -13,7 +13,7 @@
 
 import type { Match, Ball, WinProbPoint } from "./types";
 
-function totalBallsForFormat(match: Match): number {
+export function totalBallsForFormat(match: Match): number {
   // Tests have variable innings — win prob model doesn't apply cleanly; use a large cap
   if (match.format === "Test") return 450;
   if (match.format === "ODI") return 300; // 50 overs
