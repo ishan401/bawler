@@ -90,7 +90,7 @@ export interface Match {
   excitement?: number;
   highlightBadge?: string;
   liveStatusOverride?: string;
-  liveWinProbOverride?: { teamCode: string; pct: number };
+  liveWinProbOverride?: { teamCode: string; pct: number }; // pct MUST be 0-1 (e.g. 0.72 = 72%). Never 0-100.
   phase?: string;          // "group" | "super-8" | "qualifier" | "semifinal" | "final"
 }
 

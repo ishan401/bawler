@@ -287,16 +287,19 @@ function liveStatusOf(match: Match): string {
 
 function liveWinProb(match: Match): { pctA: number } | null {
   if (match.liveWinProbOverride) {
-    const pct = match.liveWinProbOverride.pct;
+    let pct = match.liveWinProbOverride.pct;
+    // pct MUST be 0-1. Auto-normalize if someone accidentally passes 0-100.
+    if (pct > 1) pct = pct / 100;
+    pct = Math.max(0, Math.min(1, pct)); // hard clamp — can never escape valid range
     const isTeamA = match.liveWinProbOverride.teamCode === match.teamA.code;
-    // pct is stored 0-100; WinProbBar expects 0-1
     return { pctA: isTeamA ? pct : 1 - pct };
   }
   if (match.innings.length === 0 || match.innings[0].balls.length === 0) return null;
   const wp = calculateWinProbForMatch(match);
   const last = wp[wp.length - 1];
   if (!last) return null;
-  return { pctA: last.winProbTeamA };
+  // calculateWinProbForMatch already clamps to [0,1] via clamp01()
+  return { pctA: Math.max(0, Math.min(1, last.winProbTeamA)) };
 }
 
 // ============================================================================
