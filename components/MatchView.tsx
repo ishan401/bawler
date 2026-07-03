@@ -9,7 +9,6 @@ import ScoreBar from "@/components/ScoreBar";
 import MiniInsightsBar from "@/components/MiniInsightsBar";
 import BallGIF from "@/components/BallGIF";
 import WinProbChart from "@/components/WinProbChart";
-import MiniStandings from "@/components/MiniStandings";
 import MiniWinProb from "@/components/MiniWinProb";
 import AIMetrics from "@/components/AIMetrics";
 import MomentsStrip from "@/components/MomentsStrip";
@@ -288,11 +287,6 @@ export default function MatchView({ match }: MatchViewProps) {
                   );
                 })()}
 
-                {/* Mini standings for league matches */}
-                {match.competition.type === "league" && (
-                  <MiniStandings competition={match.competition} />
-                )}
-
                 {/* Summary */}
                 {match.summary && (
                   <div className="card px-4 py-3">
@@ -320,9 +314,6 @@ export default function MatchView({ match }: MatchViewProps) {
                   points={winProbPoints}
                   onExpand={() => setShowProbModal(true)}
                 />
-                {match.competition.type === "league" && (
-                  <MiniStandings competition={match.competition} />
-                )}
                 <AIMetrics metrics={metrics} />
                 <div className="pt-1">
                   <div className="flex items-center justify-between mb-2">
