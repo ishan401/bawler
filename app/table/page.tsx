@@ -54,8 +54,8 @@ export default function TablePage() {
                 <span className="text-right text-sm num text-text-secondary">{row.played}</span>
                 <span className="text-right text-sm num font-semibold text-text-primary">{row.won}</span>
                 <span className="text-right text-sm num text-text-secondary">{row.lost}</span>
-                <span className={`text-right text-xs num ${row.netRunRate >= 0 ? "text-boundary" : "text-wicket"}`}>
-                  {row.netRunRate > 0 ? "+" : ""}{row.netRunRate.toFixed(2)}
+                <span className={`text-right text-xs num ${(row.netRunRate ?? 0) >= 0 ? "text-boundary" : "text-wicket"}`}>
+                  {(row.netRunRate ?? 0) > 0 ? "+" : ""}{(row.netRunRate ?? 0).toFixed(2)}
                 </span>
                 <span className="text-right text-sm num font-extrabold text-text-primary">{row.points}</span>
               </div>

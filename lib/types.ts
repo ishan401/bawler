@@ -25,6 +25,7 @@ export interface Competition {
   format: MatchFormat;
   season?: string;      // "2026", "2025-26"
   logoColor?: string;   // hex for competition badge accent
+  hasStandings: boolean; // true = league/tournament with group table; false = bilateral series
 }
 
 export interface Team {
@@ -90,6 +91,7 @@ export interface Match {
   highlightBadge?: string;
   liveStatusOverride?: string;
   liveWinProbOverride?: { teamCode: string; pct: number };
+  phase?: string;          // "group" | "super-8" | "qualifier" | "semifinal" | "final"
 }
 
 export interface Innings {
@@ -303,10 +305,28 @@ export interface StandingsRow {
   played: number;
   won: number;
   lost: number;
+  drawn?: number;          // Test/bilateral series standings
+  tied?: number;
   noResult: number;
-  netRunRate: number;
+  netRunRate?: number;     // T20/ODI leagues — absent in Test series standings
   points: number;
+  pct?: number;            // Win % — used by some formats instead of points
   qualified?: "playoff" | "eliminated" | null;
+}
+
+// ============================================================================
+// Competition standings — data-layer driven (replaces hardcoded STANDINGS_MAP)
+// ============================================================================
+
+export interface CompetitionStandings {
+  competitionId: string;
+  phase?: string;          // "group-a" | "super-8" | "playoff" — undefined = single phase
+  phaseLabel?: string;     // Display label: "Group Stage", "Super 8", "Points Table"
+  updatedAt: string;       // ISO — set from API; use new Date().toISOString() for mock data
+  rows: StandingsRow[];
+  showNrr: boolean;        // Show NRR column (T20/ODI leagues)
+  showDrawn: boolean;      // Show Drawn column (Test series standings)
+  qualifyingSpots: number; // Top N rows get the playoff/qualification marker
 }
 
 // ============================================================================

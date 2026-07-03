@@ -59,7 +59,7 @@ export default function MatchView({ match }: MatchViewProps) {
   }, [selectedBallId, liveBallIdx, allBalls]);
 
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
-  const showTable = match.competition.type === "league" || match.competition.type === "international";
+  const showTable = match.competition.hasStandings;
   const defaultTab: TabKey = isUpcoming ? "info" : "live";
   const [tab, setTab] = useState<TabKey>(defaultTab);
   const [renderedTab, setRenderedTab] = useState<TabKey>(defaultTab);

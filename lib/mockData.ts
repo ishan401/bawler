@@ -9,6 +9,7 @@ import type {
   BattingEntry,
   BowlingEntry,
   StandingsRow,
+  CompetitionStandings,
 } from "./types";
 
 // ============================================================================
@@ -175,19 +176,19 @@ export const ALL_TEAMS: Record<string, Team> = {
 
 // ── Competitions registry ────────────────────────────────────────────────────
 export const COMPETITIONS: Record<string, Competition> = {
-  ipl2026:       { id: "ipl-2026",         name: "IPL 2026",                      shortName: "IPL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#F7A800" },
-  t20wc2026:     { id: "icc-t20wc-2026",   name: "ICC T20 World Cup 2026",        shortName: "T20 WC",    type: "international", format: "T20I", season: "2026",    logoColor: "#00A2D6" },
-  ct2025:        { id: "icc-ct-2025",      name: "ICC Champions Trophy 2025",     shortName: "Champ. Tr.",type: "international", format: "ODI",  season: "2025",    logoColor: "#00A2D6" },
-  ashes2526:     { id: "ashes-2025-26",    name: "The Ashes 2025-26",             shortName: "Ashes",     type: "bilateral",     format: "Test", season: "2025-26", logoColor: "#8B6914" },
-  indEngTest2026:{ id: "ind-eng-test-2026",name: "India tour of England 2026",    shortName: "IND v ENG", type: "bilateral",     format: "Test", season: "2026",    logoColor: "#1565C0" },
-  indAusT20i2026:{ id: "ind-aus-t20i-2026",name: "India tour of Australia 2026",  shortName: "IND v AUS", type: "bilateral",     format: "T20I", season: "2026",    logoColor: "#1565C0" },
-  engSaOdi2026:  { id: "eng-sa-odi-2026",  name: "South Africa tour of England 2026", shortName: "ENG v SA", type: "bilateral", format: "ODI",  season: "2026",    logoColor: "#C8102E" },
-  bbl2526:       { id: "bbl-2025-26",      name: "Big Bash League 2025-26",       shortName: "BBL",       type: "league",        format: "T20",  season: "2025-26", logoColor: "#00BFFF" },
-  psl2026:       { id: "psl-2026",         name: "HBL PSL 2026",                  shortName: "PSL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#00A651" },
-  hundred2026:   { id: "hundred-2026",     name: "The Hundred 2026",              shortName: "Hundred",   type: "league",        format: "T20",  season: "2026",    logoColor: "#6B2C91" },
-  sa202026:      { id: "sa20-2026",        name: "SA20 2026",                     shortName: "SA20",      type: "league",        format: "T20",  season: "2026",    logoColor: "#007A4D" },
-  cpl2025:       { id: "cpl-2025",         name: "CPL 2025",                      shortName: "CPL",       type: "league",        format: "T20",  season: "2025",    logoColor: "#7B0041" },
-  mlc2026:       { id: "mlc-2026",         name: "Major League Cricket 2026",     shortName: "MLC",       type: "league",        format: "T20",  season: "2026",    logoColor: "#B22234" },
+  ipl2026:       { id: "ipl-2026",         name: "IPL 2026",                      shortName: "IPL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#F7A800",  hasStandings: true },
+  t20wc2026:     { id: "icc-t20wc-2026",   name: "ICC T20 World Cup 2026",        shortName: "T20 WC",    type: "international", format: "T20I", season: "2026",    logoColor: "#00A2D6",  hasStandings: true },
+  ct2025:        { id: "icc-ct-2025",      name: "ICC Champions Trophy 2025",     shortName: "Champ. Tr.",type: "international", format: "ODI",  season: "2025",    logoColor: "#00A2D6",  hasStandings: true },
+  ashes2526:     { id: "ashes-2025-26",    name: "The Ashes 2025-26",             shortName: "Ashes",     type: "bilateral",     format: "Test", season: "2025-26", logoColor: "#8B6914",  hasStandings: false },
+  indEngTest2026:{ id: "ind-eng-test-2026",name: "India tour of England 2026",    shortName: "IND v ENG", type: "bilateral",     format: "Test", season: "2026",    logoColor: "#1565C0",  hasStandings: false },
+  indAusT20i2026:{ id: "ind-aus-t20i-2026",name: "India tour of Australia 2026",  shortName: "IND v AUS", type: "bilateral",     format: "T20I", season: "2026",    logoColor: "#1565C0",  hasStandings: false },
+  engSaOdi2026:  { id: "eng-sa-odi-2026",  name: "South Africa tour of England 2026", shortName: "ENG v SA", type: "bilateral", format: "ODI",  season: "2026",    logoColor: "#C8102E",  hasStandings: false },
+  bbl2526:       { id: "bbl-2025-26",      name: "Big Bash League 2025-26",       shortName: "BBL",       type: "league",        format: "T20",  season: "2025-26", logoColor: "#00BFFF",  hasStandings: true },
+  psl2026:       { id: "psl-2026",         name: "HBL PSL 2026",                  shortName: "PSL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#00A651",  hasStandings: true },
+  hundred2026:   { id: "hundred-2026",     name: "The Hundred 2026",              shortName: "Hundred",   type: "league",        format: "T20",  season: "2026",    logoColor: "#6B2C91",  hasStandings: true },
+  sa202026:      { id: "sa20-2026",        name: "SA20 2026",                     shortName: "SA20",      type: "league",        format: "T20",  season: "2026",    logoColor: "#007A4D",  hasStandings: true },
+  cpl2025:       { id: "cpl-2025",         name: "CPL 2025",                      shortName: "CPL",       type: "league",        format: "T20",  season: "2025",    logoColor: "#7B0041",  hasStandings: true },
+  mlc2026:       { id: "mlc-2026",         name: "Major League Cricket 2026",     shortName: "MLC",       type: "league",        format: "T20",  season: "2026",    logoColor: "#B22234",  hasStandings: true },
 };
 
 // ============================================================================
@@ -792,6 +793,136 @@ export const STANDINGS: StandingsRow[] = [
   { teamCode: "PBKS", played: 12, won: 3, lost: 9, noResult: 0, netRunRate: -0.91, points:  6, qualified: "eliminated" },
   { teamCode: "LSG",  played: 12, won: 2, lost:10, noResult: 0, netRunRate: -1.12, points:  4, qualified: "eliminated" },
 ];
+
+// ============================================================================
+// Competition standings — data-driven, keyed by competition.id
+// Replace hardcoded STANDINGS_MAP in components; plug real API data here.
+// ============================================================================
+
+export const COMPETITION_STANDINGS: Record<string, CompetitionStandings> = {
+  // ── IPL 2026 ───────────────────────────────────────────────────────────────
+  "ipl-2026": {
+    competitionId: "ipl-2026",
+    phaseLabel: "Points Table",
+    updatedAt: new Date().toISOString(),
+    rows: STANDINGS,
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 4,
+  },
+
+  // ── PSL 2026 ───────────────────────────────────────────────────────────────
+  "psl-2026": {
+    competitionId: "psl-2026",
+    phaseLabel: "Points Table",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "LAH",  played: 8, won: 6, lost: 2, noResult: 0, netRunRate: +0.82, points: 12, qualified: "playoff" },
+      { teamCode: "KAR",  played: 8, won: 5, lost: 3, noResult: 0, netRunRate: +0.41, points: 10, qualified: "playoff" },
+      { teamCode: "ISL",  played: 8, won: 4, lost: 4, noResult: 0, netRunRate: -0.12, points:  8, qualified: "playoff" },
+      { teamCode: "PES",  played: 8, won: 3, lost: 5, noResult: 0, netRunRate: -0.38, points:  6, qualified: "playoff" },
+      { teamCode: "MUL",  played: 8, won: 2, lost: 6, noResult: 0, netRunRate: -0.64, points:  4, qualified: "eliminated" },
+      { teamCode: "QUE",  played: 8, won: 2, lost: 6, noResult: 0, netRunRate: -0.91, points:  4, qualified: "eliminated" },
+    ],
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 4,
+  },
+
+  // ── BBL 2025-26 ────────────────────────────────────────────────────────────
+  "bbl-2025-26": {
+    competitionId: "bbl-2025-26",
+    phaseLabel: "Ladder",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "SCORCHERS",  played: 10, won: 7, lost: 3, noResult: 0, netRunRate: +0.74, points: 14, qualified: "playoff" },
+      { teamCode: "SIXERS",     played: 10, won: 6, lost: 4, noResult: 0, netRunRate: +0.51, points: 12, qualified: "playoff" },
+      { teamCode: "HEAT",       played: 10, won: 6, lost: 4, noResult: 0, netRunRate: +0.29, points: 12, qualified: "playoff" },
+      { teamCode: "HURRICANES", played: 10, won: 5, lost: 5, noResult: 0, netRunRate: +0.08, points: 10, qualified: "playoff" },
+      { teamCode: "STARS",      played: 10, won: 4, lost: 6, noResult: 0, netRunRate: -0.18, points:  8, qualified: "eliminated" },
+      { teamCode: "STR",        played: 10, won: 4, lost: 6, noResult: 0, netRunRate: -0.22, points:  8, qualified: "eliminated" },
+      { teamCode: "THUNDER",    played: 10, won: 3, lost: 7, noResult: 0, netRunRate: -0.56, points:  6, qualified: "eliminated" },
+      { teamCode: "RENE",       played: 10, won: 3, lost: 7, noResult: 0, netRunRate: -0.71, points:  6, qualified: "eliminated" },
+    ],
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 4,
+  },
+
+  // ── The Hundred 2026 ───────────────────────────────────────────────────────
+  "hundred-2026": {
+    competitionId: "hundred-2026",
+    phaseLabel: "Table",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "SBR",  played: 8, won: 6, lost: 2, noResult: 0, netRunRate: +0.92, points: 12, qualified: "playoff" },
+      { teamCode: "OVI",  played: 8, won: 5, lost: 3, noResult: 0, netRunRate: +0.44, points: 10, qualified: "playoff" },
+      { teamCode: "NSC",  played: 8, won: 5, lost: 3, noResult: 0, netRunRate: +0.31, points: 10, qualified: "playoff" },
+      { teamCode: "MOR",  played: 8, won: 4, lost: 4, noResult: 0, netRunRate: -0.09, points:  8, qualified: "playoff" },
+      { teamCode: "BPH",  played: 8, won: 3, lost: 5, noResult: 0, netRunRate: -0.17, points:  6, qualified: "eliminated" },
+      { teamCode: "TRR",  played: 8, won: 3, lost: 5, noResult: 0, netRunRate: -0.34, points:  6, qualified: "eliminated" },
+      { teamCode: "LSP",  played: 8, won: 2, lost: 6, noResult: 0, netRunRate: -0.55, points:  4, qualified: "eliminated" },
+      { teamCode: "WEF",  played: 8, won: 2, lost: 6, noResult: 0, netRunRate: -0.62, points:  4, qualified: "eliminated" },
+    ],
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 4,
+  },
+
+  // ── SA20 2026 ──────────────────────────────────────────────────────────────
+  "sa20-2026": {
+    competitionId: "sa20-2026",
+    phaseLabel: "Points Table",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "MICT",  played: 8, won: 6, lost: 2, noResult: 0, netRunRate: +0.88, points: 12, qualified: "playoff" },
+      { teamCode: "SEC",   played: 8, won: 5, lost: 3, noResult: 0, netRunRate: +0.52, points: 10, qualified: "playoff" },
+      { teamCode: "JSK",   played: 8, won: 4, lost: 4, noResult: 0, netRunRate: +0.18, points:  8, qualified: "playoff" },
+      { teamCode: "PREC",  played: 8, won: 4, lost: 4, noResult: 0, netRunRate: +0.04, points:  8, qualified: "playoff" },
+      { teamCode: "PARR",  played: 8, won: 3, lost: 5, noResult: 0, netRunRate: -0.31, points:  6, qualified: "eliminated" },
+      { teamCode: "DURGD", played: 8, won: 2, lost: 6, noResult: 0, netRunRate: -1.02, points:  4, qualified: "eliminated" },
+    ],
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 4,
+  },
+
+  // ── ICC T20 World Cup 2026 — Group Stage ───────────────────────────────────
+  // Two groups; add both phases when data is available.
+  // Real data: fetch from ICC or ESPN Cricinfo /series/{id}/standings
+  "icc-t20wc-2026": {
+    competitionId: "icc-t20wc-2026",
+    phase: "group-a",
+    phaseLabel: "Group A",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "IND", played: 3, won: 3, lost: 0, noResult: 0, netRunRate: +2.14, points: 6, qualified: "playoff" },
+      { teamCode: "AUS", played: 3, won: 2, lost: 1, noResult: 0, netRunRate: +0.87, points: 4, qualified: "playoff" },
+      { teamCode: "PAK", played: 3, won: 1, lost: 2, noResult: 0, netRunRate: -0.44, points: 2 },
+      { teamCode: "IRE", played: 3, won: 0, lost: 3, noResult: 0, netRunRate: -2.58, points: 0, qualified: "eliminated" },
+    ],
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 2,
+  },
+
+  // ── ICC Champions Trophy 2025 — Group Stage ────────────────────────────────
+  "icc-ct-2025": {
+    competitionId: "icc-ct-2025",
+    phase: "group-a",
+    phaseLabel: "Group A",
+    updatedAt: new Date().toISOString(),
+    rows: [
+      { teamCode: "IND", played: 3, won: 2, lost: 0, noResult: 1, netRunRate: +1.02, points: 5, qualified: "playoff" },
+      { teamCode: "NZ",  played: 3, won: 2, lost: 1, noResult: 0, netRunRate: +0.33, points: 4, qualified: "playoff" },
+      { teamCode: "PAK", played: 3, won: 1, lost: 2, noResult: 0, netRunRate: -0.71, points: 2 },
+      { teamCode: "BAN", played: 3, won: 0, lost: 2, noResult: 1, netRunRate: -0.88, points: 1, qualified: "eliminated" },
+    ],
+    showNrr: true,
+    showDrawn: false,
+    qualifyingSpots: 2,
+  },
+};
 
 export const LIVE_MATCHES: Match[] = [
   FEATURED_MATCH,

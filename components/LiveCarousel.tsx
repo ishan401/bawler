@@ -268,7 +268,7 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
 
   const activeMatch = matches[activeIdx];
   const isLeague = activeMatch &&
-    (activeMatch.competition.type === "league" || activeMatch.competition.type === "international");
+    activeMatch.competition.hasStandings;
   const activeComp = isLeague ? activeMatch.competition : null;
 
   const closeAll = () => { setView("none"); setOpenTeamCode(null); };
