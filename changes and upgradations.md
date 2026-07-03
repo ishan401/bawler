@@ -610,3 +610,140 @@ Initial v0.9 prototype. Full UI with mocked data.
 3. Add those ~27 entries to `CRICBUZZ_CHAMPIONSHIP_MAP`
 4. Add a new `wtc-YYYY-YY` entry to `COMPETITIONS` and `COMPETITION_STANDINGS`
 5. Every match in those series will automatically carry the championship — zero per-match work
+
+---
+
+## [1.0.21] 2026-07-03
+
+### Real-data fragility audit — 8 bug fixes
+
+#### Fixed — SpeedChip rendering "0 kmh" (`components/BallGIF.tsx`)
+- `const speed = ball.ballSpeedKmh ?? 0` → guard: `if (!speed) return null`
+- SpeedChip now simply doesn't render when speed data is absent, rather than showing "0 kmh"
+
+#### Fixed — Chase calculation hardcoded to T20 (`lib/metrics.ts`)
+- `const ballsLeft = 120 - ballsBowled` → `const ballsLeft = totalBallsForFormat(match) - ballsBowled`
+- Imported `totalBallsForFormat` from `./winProb` (function also given `export` keyword in `winProb.ts`)
+- Now format-aware: T20=120, ODI=300, Test=450
+
+#### Fixed — Scorecard using `TEAMS` instead of `ALL_TEAMS` (`components/Scorecard.tsx`)
+- `import { TEAMS }` → `import { ALL_TEAMS }`
+- `TEAMS[innings.battingTeam]` → `ALL_TEAMS[innings.battingTeam]`
+- `TEAMS` only contains franchise teams. International teams were returning `undefined`, breaking scorecard colours and names for any national match
+
+#### Fixed — `truncatedMatch` innings[1] showing 0/0 when no balls (`components/MatchView.tsx`)
+- When scrubbing to a point before 2nd innings starts, `truncBalls.length === 0`, but the second innings object was being built with computed `runs=0 / wickets=0 / overs=0`
+- Fix: fall back to real `match.innings[1]` values when no balls exist for the truncated slice
+- ScoreBar now shows the correct chasing team score even before any 2nd innings balls are loaded
+
+#### Fixed — LineupsCard positional innings broken for visiting-team-bats-first matches (`components/LineupsCard.tsx`)
+- `match.innings[0]` / `match.innings[1]` replaced with `.find(i => i.battingTeam === team.code)` / `.find(i => i.battingTeam !== team.code)`
+- Positional access breaks when the visiting team wins the toss and bats first; `battingTeam` lookup is always correct
+
+#### Fixed — Insights leaking across matches (`components/MatchView.tsx`)
+- `MOCK_INSIGHTS_V2` was imported directly and always shown regardless of any `insights` prop
+- `MatchViewProps` now has `insights?: InsightV2[]`; component uses `insightsProp ?? MOCK_INSIGHTS_V2`
+- Real data pages can pass `insights={[]}` or real insights; mock remains the default fallback
+- Added `InsightV2` to type imports
+
+---
+
+## [1.0.22] 2026-07-03
+
+### International match cards — national flag backgrounds
+
+#### Updated — `components/SplitTeamBg.tsx`
+- Added `FLAG_ISO` map: national team code → ISO 3166-1 alpha-2 code (16 nations: IND→in, AUS→au, ENG→en, PAK→pk, SA→za, NZ→nz, WI→jm, SL→lk, BAN→bd, AFG→af, ZIM→zw, IRE→ie, SCO→gb-sct, NAM→na, UAE→ae, NED→nl)
+- When both teams are `type === "national"`: renders two `<img src="https://flagcdn.com/w320/{iso}.png">` as split backgrounds with `desaturate(60%)` CSS filter
+- Franchise matches: unchanged — dual-colour gradient as before
+- Readability scrim: `rgba(0,0,0,0.52)` for flag backgrounds; `rgba(0,0,0,0.45)` for franchise
+- Watermark text colour: `rgba(255,255,255,0.18)` for flags; team `secondaryColor` for franchise
+
+---
+
+## [1.0.23] 2026-07-03
+
+### Removed format / tour / team filter chips from homepage
+
+#### Updated — `app/page.tsx` (complete rewrite of filter logic)
+- Removed: `FilterBar` component import + render
+- Removed: `FILTERS`, `ALL_TEAMS`, `ALL_COMPETITION_NAMES` state + imports
+- Removed: `filterMatches()` function, animation orchestration for filter transitions
+- Removed: `displayedPast` / `displayedFuture` animated state
+- Result: homepage header is now just logo + "Bawler" title — no filter UI
+- Match lists render all matches directly (`pastList`, `futureList`) without any filter layer
+
+**Reason:** Filter chips (FORMAT / TOUR / TEAM) added UI complexity with no product value at current scale. When real data lands and match volume grows, a search/filter pattern will be re-introduced appropriately.
+
+---
+
+## [1.0.24] 2026-07-03
+
+### Bilateral series status chip on LiveCarousel
+
+#### Updated — `lib/types.ts`
+- Added `seriesStatus?: string` to `Match` interface — one-line bilateral series summary (e.g. `"AUS lead 1-0 · 5-match T20I series"`)
+
+#### Updated — `lib/mockData.ts`
+- Added `seriesStatus` to two live bilateral matches:
+  - `ind-aus-t20i-2026-m2-live`: `"AUS lead 1-0 · 5-match T20I series"`
+  - `eng-sa-test-2026-d3-live`: `"Series level 1-1 · 3-match Test series"`
+
+#### Updated — `components/LiveCarousel.tsx`
+- Condition changed: `{activeComp && (...)}` → `{(activeComp || activeMatch?.seriesStatus) && (...)}`
+- When `seriesStatus` exists: renders a pill chip with cricket-stumps SVG icon + status text, in same row as TABLE button (when applicable)
+- Bilateral international matches now show one-line series context below the live card without needing standings data
+
+---
+
+## [1.0.25] 2026-07-03
+
+### Multi-competition standings table
+
+#### Rewritten — `app/table/page.tsx`
+- Was: IPL 2026 standings only, hardcoded header "IPL 2026"
+- Now: 8 competitions in a horizontal tab selector
+- Competitions: IPL · PSL · BBL · The Hundred · SA20 · ICC T20 World Cup · ICC Champions Trophy · WTC
+- `DISPLAY_ORDER` array controls tab ordering
+- `COMP_LABELS` maps competition ID → display name + qualifier text (e.g. "Top 4 qualify", "Top 2 qualify")
+- `StandingsTable` component handles all column variants: NRR (franchise), PCT (WTC), Drawn (WTC)
+- Header: "Table" + "All competitions" subtitle
+
+---
+
+## [1.0.26] 2026-07-03
+
+### Platform-wide franchise league rename (IPL → franchise-agnostic)
+
+#### Updated — `lib/types.ts`
+- `iplStats?: FormatStats` → `franchiseStats?: FormatStats`
+- Added `franchiseLeague?: string` — stores which league (e.g. `"IPL"`, `"PSL"`, `"BBL"`) per player
+
+#### Updated — `lib/mockData.ts`
+- All 13 player objects: `iplStats:` → `franchiseStats:` + `franchiseLeague: "IPL"`
+
+#### Updated — `components/PlayerProfileView.tsx`
+- `FormatKey`: added `"franchise"` in place of `"ipl"`
+- Tab array: `["test", "odi", "t20i", "franchise"]`
+- Tab label: renders `player.franchiseLeague ?? "Franchise"` for the franchise tab (e.g. "IPL" for Kohli, "BBL" for a future Australian player)
+- Stats read: `player.iplStats` → `player.franchiseStats`
+
+#### Updated — `app/layout.tsx`
+- Meta description: `"IPL match companion with predictions..."` → `"All cricket, every ball, visualized — live scores, ball-by-ball replays, win probability and player stats across every format."`
+
+#### Updated — `lib/transformers.ts`
+- All three transformer functions (`transformCricbuzzMatch`, `transformESPNMatch`, `transformSRMatch`): `iplStats:` → `franchiseStats:`
+
+---
+
+## [1.0.27] 2026-07-03
+
+### Fix franchiseStats corruption in mockData.ts + transformers cleanup
+
+#### Fixed — `lib/mockData.ts` (data corruption repair)
+- Previous Python `re.sub` used `\1` in a plain string, which resolved to ASCII SOH (0x01) rather than a backreference — causing `franchiseStats:` property key to be silently swallowed
+- Result was 13 lines of form: `franchiseLeague: "IPL",\x01   { matches: ... }` — invalid TypeScript
+- Fix: replaced the 13 SOH chars directly (`str.replace(SOH_PATTERN, correct_string)`)
+- All 13 player `franchiseStats` objects now correctly structured with both `franchiseLeague` and `franchiseStats` keys
+
+#### Verified — `npx tsc --noEmit` passes, `npx next build` passes

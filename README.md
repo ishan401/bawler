@@ -1,9 +1,9 @@
-# Bawler — Cricket Live Companion (v0.9)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.27)
 
-Every ball, visualized. Win probability, key moments, and an animated SVG replay for every delivery.
+Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v0.9 mock) — real data integration next.
+**Status:** UI complete (v1.0.27 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -24,48 +24,77 @@ Open http://localhost:3000. No env vars needed — all data is mocked.
 git push https://ishan401:<TOKEN>@github.com/ishan401/bawler.git main
 ```
 
-Vercel auto-deploys on push via GitHub webhook. Build time ~40s.
+Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 ---
 
-## What's built (v0.9)
-
-### Pages
+## Pages
 
 | Route | Description |
 |---|---|
-| `/` | Home — live carousel + past/future match columns, filter bar, infinite scroll |
+| `/` | Home — live carousel + past/future match columns, pull-to-refresh, infinite scroll |
 | `/match/[id]` | Match page — full live experience |
-| `/schedule` | Full schedule list |
-| `/table` | Points table / standings |
+| `/player/[id]` | Player profile — bio, ICC rankings, per-format stats |
+| `/schedule/[competitionId]` | Schedule for a specific competition |
+| `/schedule/[competitionId]/[teamCode]` | Schedule filtered by team |
+| `/table` | Multi-competition standings (IPL, PSL, BBL, Hundred, SA20, T20WC, CT, WTC) |
 
-### Match page layout (top → bottom on mobile)
+---
 
-1. **ScoreBar** *(sticky)* — score, chase context (need X off Y, RRR), innings info
-2. **MiniInsightsBar** — scrolling ticker of live insights just below the score
-3. **MatchTabs** — Live / Scorecard / Info tab switcher
-4. **BallGIF** *(hero)* — animated SVG ball replay, two alternating clips per delivery:
-   - **Clip A (Bowler view):** 3/4-perspective delivery animation showing speed, swing, line, length as motion. Speed + ball type shown as text.
-   - **Clip B (Overhead field):** fielder dots + ball trajectory. Aerial vs ground distinction.
-   - Auto-advances every 24s in live-follow mode. Tapping a Moment holds that ball.
-5. **MomentsStrip** — horizontal timeline of key events (wickets, sixes, big overs). Tapping scrubs the entire page to that ball — GIF replays it, chart rewinds, metrics update.
-6. **MiniWinProb** — compact single-area sparkline. Shows both teams' current % side-by-side. Tap → full chart modal.
-7. **AIMetrics** — 4 condensed tiles: Projected score, Momentum (12-ball shift), Acceleration (RRR vs CRR), Next wicket impact.
-8. **CommentaryFeed** — ball-by-ball cards with insight overlays (stats vs opinions, tiered attribution).
-
-**Scorecard tab:** Full batting + bowling cards via **Scorecard** component.
-**Info tab:** Pitch report + lineups via **InfoTab**, **PitchReportCard**, **LineupsCard**.
-
-**Full win prob modal:** Tap MiniWinProb → **WinProbChart** slides up — single area chart, gradient fill, split probability bar header, key moments chips, zoom (Match / Innings / Recent), pinch-to-zoom.
-
-### Home page
+## Home page
 
 - **LiveCarousel** — snap-scroll carousel of live matches with win-prob split bar
-- **MatchCard** (Past + Future variants) — split team background, excitement-glow treatment, result banner
-- **FilterBar** — team / tournament / venue filter with animated enter/leave transitions
-- **SplitTeamBg** — dual-color gradient background using team primary colors
-- Infinite scroll (loads 4 more past + 4 more future on scroll bottom)
-- Column expand — tap to go full-width on Past or Coming Up
+- **Series status chip** — one-line bilateral series summary below bilateral international cards; TABLE button for competition matches
+- **SplitTeamBg** — national matches: flag images (flagcdn.com); franchise matches: dual-colour gradient
+- Infinite scroll, pull-to-refresh, shimmer loading skeleton, tap feedback on all cards
+
+---
+
+## Match page (top to bottom on mobile)
+
+1. **ScoreBar** (sticky) — score, chase context, innings info
+2. **MiniInsightsBar** — scrolling insight ticker
+3. **MatchTabs** — Live / Scorecard / Info (swipe or tap, book-page-turn animation)
+4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
+5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
+6. **MiniWinProb** — both teams' % visible; tap opens full WinProbChart modal
+7. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
+8. **CommentaryFeed** — ball-by-ball cards with insight overlays
+
+**Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Sticky innings headers.
+**Info tab:** LineupsCard uses `battingTeam`-based innings lookup (not positional array index).
+
+---
+
+## Player profiles (`/player/[id]`)
+
+- Bio, country flag, role, batting/bowling style, ICC rankings
+- Format tabs: Test / ODI / T20I / {franchiseLeague} (label is dynamic per player e.g. "IPL", "BBL")
+- Batting + bowling stats grids; sub-components return null when no data
+- Clickable from Scorecard rows and CommentaryFeed wicket cards
+- `PLAYER_ALIASES` map resolves alternate IDs from live data
+
+---
+
+## Table page (`/table`)
+
+Horizontal tab selector across 8 competitions:
+
+| Competition | Columns |
+|---|---|
+| IPL, PSL, BBL, Hundred, SA20 | P / W / L / NRR / Pts |
+| T20 World Cup, Champions Trophy | P / W / L / NRR / Pts + qualifier badge |
+| WTC | P / W / D / L / PCT% |
+
+---
+
+## Key data rules
+
+- **Always use `ALL_TEAMS`**, not `TEAMS` — `TEAMS` is franchise-only; `ALL_TEAMS` includes national teams
+- **Insights are prop-driven in MatchView** — pass `insights={[]}` for real pages; mock array is the default fallback
+- **`totalBallsForFormat(match)`** — use this everywhere instead of hardcoded 120 for balls/chase math
+- **`franchiseStats` / `franchiseLeague`** — not `iplStats`; every player stores which league their franchise stats came from
+- **`seriesStatus?: string`** on Match — set by data layer for bilateral series; used by LiveCarousel chip
 
 ---
 
@@ -73,53 +102,23 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40s.
 
 ```
 components/
-├── Match page core
-│   ├── MatchView.tsx          # main match page client component, orchestrates all below
-│   ├── ScoreBar.tsx           # sticky header with score + chase context
-│   ├── MiniInsightsBar.tsx    # scrolling insight ticker
-│   ├── MatchTabs.tsx          # Live / Scorecard / Info tabs
-│   └── DemoControls.tsx       # dev-mode ball stepper (not shown in prod)
-│
-├── Ball GIF (Pillar 3)
-│   ├── BallGIF.tsx            # ⭐ hero — two-clip animated SVG delivery replay
-│   ├── MiniBallGIF.tsx        # compact version used in moments
-│   └── DeliveryCard.tsx       # single delivery summary card
-│
-├── Win probability (Pillar 1)
-│   ├── WinProbChart.tsx       # full-screen modal — single area chart, gradient fill
-│   └── MiniWinProb.tsx        # inline sparkline — both teams' % visible
-│
-├── Moments & events
-│   ├── MomentsStrip.tsx       # horizontal moments timeline (scrubs GIF + chart)
-│   └── MomentsCollapsible.tsx # expandable moments section
-│
-├── AI metrics
-│   ├── AIMetrics.tsx          # 4-tile condensed metrics row
-│   ├── ProjectedScore.tsx     # projected total tile
-│   ├── PressureGauge.tsx      # pressure 0-10 gauge
-│   └── MiniWinProb.tsx        # (also serves as win% tile)
-│
-├── Insights (Pillar 2)
-│   ├── CommentaryFeed.tsx     # ball-by-ball cards with insight overlays
-│   ├── InsightFeed.tsx        # standalone insight list
-│   ├── InsightsPanel.tsx      # panel with filter + feed
-│   ├── InlineNote.tsx         # small inline insight chip
-│   └── MiniInsightsBar.tsx    # scrolling ticker
-│
-├── Scorecard tab
-│   └── Scorecard.tsx          # batting + bowling cards
-│
-├── Info tab
-│   ├── InfoTab.tsx            # tab container
-│   ├── PitchReportCard.tsx    # surface type, pace/spin friendliness
-│   └── LineupsCard.tsx        # playing XI for both teams
-│
-├── Over summary
-│   └── OverSummary.tsx        # per-over dot/run/wicket summary
-│
+├── Match page
+│   ├── MatchView.tsx          # orchestrates all below; insights prop-driven
+│   ├── ScoreBar.tsx           # sticky score header
+│   ├── BallGIF.tsx            # hero two-clip SVG delivery replay
+│   ├── MomentsStrip.tsx       # horizontal key events timeline
+│   ├── MiniWinProb.tsx        # inline sparkline
+│   ├── WinProbChart.tsx       # full-screen modal chart
+│   ├── AIMetrics.tsx          # 4-tile metrics row
+│   ├── CommentaryFeed.tsx     # ball-by-ball cards + insight overlays
+│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS)
+│   ├── LineupsCard.tsx        # playing XI (battingTeam-based lookup)
+│   └── PitchReportCard.tsx    # pitch surface + sliders
 ├── Home page
-│   ├── LiveCarousel.tsx       # snap-scroll live match carousel
-│   ├── MatchCard.tsx          # Past + Future + Live card variants
-│   ├── FilterBar.tsx          # team/tournament/venue filter
-│   ├── SplitTeamBg.tsx        # dual-color team background
-│   └�
+│   ├── LiveCarousel.tsx       # live match carousel + series status chip
+│   ├── MatchCard.tsx          # Past / Future / Live card variants
+│   ├── SplitTeamBg.tsx        # flag images (national) or gradient (franchise)
+│   └── BottomNav.tsx          # persistent Home / Schedule / Table nav
+└── Player profile
+    └── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs
+```

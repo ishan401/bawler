@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.19 (deployed)
+**Current version:** v1.0.27 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -15,7 +15,7 @@
 
 ### Home page (`/`)
 
-- ✅ Compact header — logo + Bawler text + 3 filter pills, single row
+- ✅ Compact header — logo + Bawler title only (filter chips removed)
 - ✅ **Bottom navigation bar** — persistent Home / Schedule / Table at bottom of every page; active tab cyan + underline; shows on match page too (all tabs dimmed)
 - ✅ **Team filter colour dot** — glowing dot in team's primary colour when TEAM filter active
 - ✅ Live carousel — snap-scroll, 3 mock live matches, full-width cards with split win-prob bar
@@ -30,6 +30,9 @@
 - ✅ Column expand toggle (full-width past or full-width future)
 - ✅ Infinite scroll via window scroll listener
 
+- ✅ **Series status chip** — one-line bilateral series summary (e.g. "AUS lead 1-0 · 5-match T20I series") below live bilateral international cards; uses `match.seriesStatus` field
+- ✅ **International flag backgrounds** — national match cards show country flag images (flagcdn.com) with desaturation filter; franchise matches keep dual-colour gradient
+
 ### Schedule page (`/schedule`)
 
 - ✅ All matches grouped by date, chronological
@@ -39,12 +42,22 @@
 
 ### Table page (`/table`)
 
-- ✅ League standings sorted by points → NRR
-- ✅ Top 4: green left bar + "Q" qualifier badge
+- ✅ **Multi-competition horizontal tab selector** — 8 competitions: IPL, PSL, BBL, The Hundred, SA20, ICC T20WC, ICC CT, WTC
+- ✅ Column variants: NRR (franchise leagues), PCT% (WTC), Drawn (WTC)
+- ✅ Top-N qualifier bar + "Q" badge auto-rendered from `qualifyingSpots` per competition
 - ✅ Eliminated teams: dimmed + "Out" badge
-- ✅ P / W / L / NRR / Pts columns
-- ✅ Clean header — title only, no back button (primary nav destination)
-- ✅ All 10 team colour dots now visible (GT fixed: cobalt `#4285F4`)
+- ✅ Clean header: "Table" + "All competitions" subtitle, no back button
+
+### Player profiles (`/player/[id]`)
+
+- ✅ **SSG route** — `generateStaticParams()` over `PLAYERS`; `notFound()` on miss
+- ✅ Bio card: name, country flag, role, batting/bowling style
+- ✅ ICC rankings badges
+- ✅ Format tabs: Test / ODI / T20I / {franchiseLeague} — tab label dynamic per player
+- ✅ Batting + bowling stats grids (4-column); null when no data for that type
+- ✅ Clickable from Scorecard rows and CommentaryFeed wicket cards
+- ✅ `PLAYER_ALIASES` map resolves alternate IDs; `resolvePlayerSlug()` in Scorecard
+- ✅ 21 player profiles seeded in mock data
 
 ### Match page — Live tab
 
@@ -65,6 +78,11 @@
 - ✅ **MiniWinProb** — both teams' win% large + bold; gradient area fills; split colour bar; brighten() for dark team colours; namespaced SVG IDs (mwp-fa/mwp-fb)
 - ✅ AI metrics tiles — primary value + trend arrow + delta line + plain-English context label
 - ✅ Win-prob chart modal — full-screen, two team lines, hue-accurate via `brightColor()`
+
+- ✅ **SpeedChip** — hidden when `ball.ballSpeedKmh` is null (was showing "0 kmh")
+- ✅ **Format-aware chase metrics** — `totalBallsForFormat(match)` replaces hardcoded 120; correct for T20/ODI/Test
+- ✅ **Insights prop-driven** — `MatchViewProps.insights?: InsightV2[]`; real pages pass `insights={[]}`, mock is default fallback
+- ✅ **truncatedMatch innings fallback** — when no balls exist for innings[1], falls back to real `match.innings[1]` values (ScoreBar no longer shows 0/0)
 - ✅ **Commentary feed** — colour-coded ball outcomes:
   - Wicket: red `#EF4444`
   - Six: turquoise green `#2DD4BF`
@@ -77,6 +95,7 @@
 
 ### Match page — Scorecard tab
 
+- ✅ Uses `ALL_TEAMS` (not `TEAMS`) — correctly resolves national team names/colours
 - ✅ Per-innings batting card (R / B / 4s / 6s / SR / dismissal)
 - ✅ Per-innings bowling card (O / M / R / W / Econ)
 - ✅ **Sticky innings header** — team name + innings score sticks below match header while scrolling
@@ -91,7 +110,16 @@
 
 - ✅ Match context (toss, teams, season)
 - ✅ Pitch report card — surface type, 3 sliders, expected score range, dew factor, behaviour bullets
-- ✅ Lineups — both team squads side-by-side
+- ✅ Lineups — both team squads side-by-side (innings lookup by `battingTeam`, not positional array index)
+
+
+### Platform-wide franchise agnosticism
+
+- ✅ `franchiseStats?: FormatStats` + `franchiseLeague?: string` on `PlayerProfile` (was `iplStats`)
+- ✅ Player profile tab label shows actual league name per player (e.g. "IPL", "BBL")
+- ✅ All 3 transformer skeletons in `transformers.ts` updated to `franchiseStats`
+- ✅ App meta description: format-agnostic ("All cricket, every ball, visualized...")
+- ✅ `seriesStatus?: string` on `Match` for bilateral series one-liners
 
 ### Brand + visuals
 
@@ -162,6 +190,14 @@
 | v1.0.4 | UX: swipe tabs, skeleton, pull-to-refresh, tap feedback, back button, empty state, score badge |
 | v1.0.3 | Bottom nav fixed — BottomNav moved outside phone-frame, never clipped |
 | v1.0.2 | Scorecard highlights (teal top scorer, red wicket-taker, blue SR, gold MOM, purple MOS); win-prob reverted |
+| **v1.0.27** | Fix franchiseStats corruption (SOH chars); rename iplStats→franchiseStats in transformers.ts |
+| **v1.0.26** | Platform-wide franchise rename: franchiseStats/franchiseLeague, app meta, transformers |
+| **v1.0.25** | Multi-competition Table page — 8 competitions, horizontal tab, NRR/PCT/Drawn column variants |
+| **v1.0.24** | Bilateral series status chip on LiveCarousel; seriesStatus field on Match |
+| **v1.0.23** | Removed format/tour/team filter chips from homepage header |
+| **v1.0.22** | International match cards: national flag backgrounds (flagcdn.com) |
+| **v1.0.21** | Real-data audit fixes: SpeedChip, format-aware metrics, ALL_TEAMS, truncatedMatch fallback, LineupsCard, insights prop |
+| **v1.0.20** | Player profiles: /player/[id] SSG route, 21 profiles, Scorecard/CommentaryFeed links |
 | **v1.0.19** | Auto-championship resolution in transformers — series-ID maps, zero per-match tagging |
 | **v1.0.18** | WTC standings: championship field, PCT column, TABLE button for live Test matches |
 | **v1.0.17** | Real-data readiness: CompetitionStandings layer, hasStandings flag, transformers.ts, dynamic columns |

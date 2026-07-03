@@ -251,3 +251,48 @@ Each format shows two 4-column grids: (Mat, Runs/Wkts, Avg, SR/Economy) + (HS/Be
 
 **PP6 — 18 player profiles seeded in mockData**
 Profiles cover: Kohli, R Sharma, Bumrah, S Gill, H Pandya, SKY, Jadeja, Ashwin, Chahal (India); Stokes, Root, Duckett, Crawley (England); P Cummins, Hazlewood (Australia); A Russell (WI); Babar Azam (Pakistan); Buttler, Boult, D Miller, Arshad Iqbal. Each has bio, role, batting/bowling style, ICC rankings, and per-format stats.
+
+---
+
+## Real-data audit fixes — v1.0.21
+
+**RDA1 — `ALL_TEAMS` is the correct lookup for any team code, not `TEAMS`**
+`TEAMS` is a subset containing franchise teams only. `ALL_TEAMS` merges `TEAMS` + `NATIONAL_TEAMS`. Any component that does `TEAMS[innings.battingTeam]` will return `undefined` for international matches — silently breaking team names, colours, and flags. Rule: always import and use `ALL_TEAMS`.
+
+**RDA2 — SpeedChip should be absent rather than wrong**
+Showing "0 kmh" when `ball.ballSpeedKmh` is null is misleading — it implies the ball was measured at 0 rather than not measured. Returning `null` from the component is the correct UX: the space simply doesn't render.
+
+**RDA3 — Chase metric total balls must be format-aware**
+Hardcoding `120` for balls-left calculation means ODI and Test chase math is wrong by a factor of 2.5× and 3.75× respectively. `totalBallsForFormat(match)` centralizes the format constant in one place and auto-adapts when real match data flows in.
+
+**RDA4 — `truncatedMatch` must fall back to real innings values when truncBalls is empty**
+The ball-scrubber rebuilds innings objects from the truncated ball array. When no balls exist for an innings (user scrubbed before it started), computed `runs=0/wickets=0/overs=0` replaces real data. The fallback to `match.innings[1].runs/wickets/overs` preserves correct display for the pre-innings state.
+
+**RDA5 — Insights must be prop-driven, not module-level hardcoded**
+`MOCK_INSIGHTS_V2` imported at module level means every match page sees the same mock insights regardless of any prop. Making `insights` a prop with `MOCK_INSIGHTS_V2` as the default gives real data pages a clean override path.
+
+---
+
+## Home & UX decisions — v1.0.22 to v1.0.24
+
+**UX1 — Flag images for international match backgrounds, not jersey colours**
+National teams don't have jersey colour codes in the same way franchise teams do. Their "identity" is the nation's flag. Using `flagcdn.com` PNG images (free, no auth, 200+ countries) provides a recognisable visual signal that's impossible to confuse with franchise matches. Desaturation keeps the card readable.
+
+**UX2 — Filter chips removed from homepage header**
+At current match volume (mock data, ~15 matches), filter chips added UI complexity with no practical benefit — users could see all matches without filtering. The filter layer will be reintroduced as a search/sort pattern once real data produces match counts where filtering is genuinely useful (50+ matches).
+
+**UX3 — Series status as a one-line chip, not full standings**
+Bilateral international series don't have league tables — they're just X–Y in a N-match series. A one-line chip (`"AUS lead 1-0 · 5-match T20I series"`) gives the fan the context they need in 5 words without the overhead of a standings bottom sheet. Populated from `match.seriesStatus` — a string field set by the data layer.
+
+---
+
+## Complete cricket app — v1.0.25 to v1.0.26
+
+**CA1 — `franchiseStats` / `franchiseLeague` instead of `iplStats`**
+The platform supports IPL, PSL, BBL, The Hundred, SA20, and any future franchise league. Hard-coding `iplStats` as a field name signals IPL-only intent to any developer reading the types. `franchiseStats` + `franchiseLeague: string` makes the pattern extensible: each player profile stores which league their franchise stats came from, so the UI can label the tab "IPL" or "BBL" per player without special-casing.
+
+**CA2 — Multi-competition Table page replaces IPL-only table**
+The old `/table` page had "IPL 2026" hardcoded in the header and only rendered IPL standings. Now it's a tabbed view across all 8 competitions in `COMPETITION_STANDINGS`. Adding a new competition = one entry in `DISPLAY_ORDER` and one entry in `COMP_LABELS`. The `StandingsTable` sub-component already handles NRR / PCT / Drawn column variants dynamically.
+
+**CA3 — App meta description reflects all-cricket scope**
+The previous description called Bawler an "IPL match companion". This anchors user expectations and SEO to IPL only. The new description (`"All cricket, every ball, visualized — live scores, ball-by-ball replays, win probability and player stats across every format."`) is accurate and format-agnostic.
