@@ -1,21 +1,17 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   ALL_LIVE_MATCHES,
   ALL_PAST_MATCHES,
   ALL_UPCOMING_MATCHES,
-  ALL_TEAMS,
-  ALL_COMPETITION_NAMES,
-  VENUES,
 } from "@/lib/mockData";
 import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator";
 import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
 import { PastMatchCard, FutureMatchCard } from "@/components/MatchCard";
 
-
-// ── Worldwide popularity sort (same formula as schedule page) ───────────────
+// ── Popularity sort ──────────────────────────────────────────────────────────
 const COMP_POP: Record<string, number> = {
   "icc-t20wc-2026": 100, "icc-ct-2025": 95, "ashes-2025-26": 90, "ipl-2026": 88,
   "ind-eng-test-2026": 82, "ind-aus-t20i-2026": 80, "eng-sa-odi-2026": 68,
@@ -33,56 +29,11 @@ function matchPop(m: Match): number {
 function byPopularity(matches: Match[]): Match[] {
   return [...matches].sort((a, b) => matchPop(b) - matchPop(a));
 }
-import FilterBar, { type FilterDef } from "@/components/FilterBar";
-
-const TEAM_DEFAULT = "KKR";
-
-const FILTERS: FilterDef[] = [
-  {
-    key: "format",
-    label: "Format",
-    defaultValue: "T20",
-    options: ["T20", "T20I", "ODI", "Test"],
-    alwaysOn: false,
-  },
-  {
-    key: "competition",
-    label: "Tour",
-    defaultValue: "ipl-2026",
-    // Options are competition IDs (stable, API-independent).
-    // ALL_COMPETITION_NAMES is used only for display; filter logic uses competition.id.
-    options: ALL_COMPETITION_NAMES,
-    alwaysOn: false,
-  },
-  {
-    key: "team",
-    label: "Team",
-    defaultValue: TEAM_DEFAULT,
-    options: Object.values(ALL_TEAMS).map(t => t.shortName).sort(),
-    colorFn: (val) => Object.values(ALL_TEAMS).find(t => t.shortName === val)?.primaryColor,
-  },
-];
 
 type ExpandedCol = null | "past" | "future";
-type AnimPhase = "idle" | "leaving" | "entering";
-
-const LEAVE_MS = 700;
-const ENTER_MS = 900;
 
 export default function Home() {
-  // ---- Filter state ----
-  const [filterValues, setFilterValues] = useState<Record<string, string>>({
-    format: "T20",
-    competition: "IPL",
-    team: TEAM_DEFAULT,
-  });
-  const [filterEnabled, setFilterEnabled] = useState<Record<string, boolean>>({
-    format: false,
-    competition: false,
-    team: false,
-  });
-
-  // ---- Boot skeleton (shows shimmer for 350ms on first load) ----
+  // ---- Boot skeleton ----
   const [isBooting, setIsBooting] = useState(true);
   useEffect(() => {
     const t = setTimeout(() => setIsBooting(false), 350);
@@ -115,110 +66,6 @@ export default function Home() {
   // ---- Source lists (infinite scroll grows these) ----
   const [pastList, setPastList] = useState<Match[]>(ALL_PAST_MATCHES);
   const [futureList, setFutureList] = useState<Match[]>(byPopularity(ALL_UPCOMING_MATCHES));
-
-  // ---- What's actually on screen (can lag source during animation) ----
-  const [displayedPast, setDisplayedPast] = useState<Match[]>(ALL_PAST_MATCHES);
-  const [displayedFuture, setDisplayedFuture] = useState<Match[]>(byPopularity(ALL_UPCOMING_MATCHES));
-
-  // ---- Animation state ----
-  const [leavingIds, setLeavingIds] = useState<Set<string>>(new Set());
-  const [enteringIds, setEnteringIds] = useState<Set<string>>(new Set());
-  const [animPhase, setAnimPhase] = useState<AnimPhase>("idle");
-
-  const animTimersRef = useRef<{ t1?: ReturnType<typeof setTimeout>; t2?: ReturnType<typeof setTimeout> }>({});
-
-  // ---- Refs to detect what triggered the orchestration effect ----
-  const prevFilterRef = useRef({ values: filterValues, enabled: filterEnabled });
-  const prevSourceLenRef = useRef({ past: pastList.length, future: futureList.length });
-
-  // Filter function — pure
-  const filterMatches = useCallback((matches: Match[], values = filterValues, enabled = filterEnabled): Match[] => {
-    return matches.filter(m => {
-      if (enabled.format && values.format) {
-        if (m.format !== values.format) return false;
-      }
-      if (enabled.competition && values.competition) {
-        // Match on id first (stable across API providers), then shortName fallback
-        const compVal = values.competition;
-        const matchesComp =
-          m.competition.id === compVal ||
-          m.competition.shortName === compVal ||
-          m.competition.shortName.toLowerCase() === compVal.toLowerCase();
-        if (!matchesComp) return false;
-      }
-      if (enabled.team && values.team) {
-        if (m.teamA.shortName !== values.team && m.teamB.shortName !== values.team) return false;
-      }
-      return true;
-    });
-  }, [filterValues, filterEnabled]);
-
-  // ---- SINGLE orchestration effect ----
-  // Detects whether filters changed (→ run diff-aware animation) or source grew (→ instant sync).
-  useEffect(() => {
-    const filtersChanged =
-      JSON.stringify(prevFilterRef.current.values) !== JSON.stringify(filterValues) ||
-      JSON.stringify(prevFilterRef.current.enabled) !== JSON.stringify(filterEnabled);
-    const sourceGrew =
-      pastList.length > prevSourceLenRef.current.past ||
-      futureList.length > prevSourceLenRef.current.future;
-
-    prevFilterRef.current = { values: filterValues, enabled: filterEnabled };
-    prevSourceLenRef.current = { past: pastList.length, future: futureList.length };
-
-    if (filtersChanged) {
-      const newPast = filterMatches(pastList);
-      const newFuture = byPopularity(filterMatches(futureList));
-      const oldPastIds = new Set(displayedPast.map(m => m.id));
-      const oldFutIds = new Set(displayedFuture.map(m => m.id));
-      const newPastIds = new Set(newPast.map(m => m.id));
-      const newFutIds = new Set(newFuture.map(m => m.id));
-
-      const pastLeavers = [...oldPastIds].filter(id => !newPastIds.has(id));
-      const futLeavers = [...oldFutIds].filter(id => !newFutIds.has(id));
-      const pastNewcomers = [...newPastIds].filter(id => !oldPastIds.has(id));
-      const futNewcomers = [...newFutIds].filter(id => !oldFutIds.has(id));
-
-      if (pastLeavers.length + futLeavers.length + pastNewcomers.length + futNewcomers.length === 0) {
-        return;
-      }
-
-      // Cancel any in-flight animation
-      if (animTimersRef.current.t1) clearTimeout(animTimersRef.current.t1);
-      if (animTimersRef.current.t2) clearTimeout(animTimersRef.current.t2);
-
-      // Phase 1: leave
-      setLeavingIds(new Set([...pastLeavers, ...futLeavers]));
-      setEnteringIds(new Set());
-      setAnimPhase("leaving");
-
-      animTimersRef.current.t1 = setTimeout(() => {
-        // Phase 2: enter
-        setDisplayedPast(newPast);
-        setDisplayedFuture(newFuture);
-        setLeavingIds(new Set());
-        setEnteringIds(new Set([...pastNewcomers, ...futNewcomers]));
-        setAnimPhase("entering");
-
-        animTimersRef.current.t2 = setTimeout(() => {
-          setAnimPhase("idle");
-          setEnteringIds(new Set());
-        }, ENTER_MS);
-      }, LEAVE_MS);
-    } else if (sourceGrew && animPhase === "idle") {
-      // Source data grew (infinite scroll) and no animation in flight — instant sync
-      setDisplayedPast(filterMatches(pastList));
-      setDisplayedFuture(byPopularity(filterMatches(futureList)));
-    }
-  }, [filterValues, filterEnabled, pastList, futureList, animPhase, filterMatches, displayedPast, displayedFuture]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (animTimersRef.current.t1) clearTimeout(animTimersRef.current.t1);
-      if (animTimersRef.current.t2) clearTimeout(animTimersRef.current.t2);
-    };
-  }, []);
 
   // ---- Scroll-listener infinite scroll ----
   const loadingRef = useRef(false);
@@ -276,24 +123,14 @@ export default function Home() {
           />
         </div>
       )}
-      {/* Compact header — logo + nav + filter on a single line */}
+
+      {/* Header — logo + title only */}
       <header className="px-3 pt-3 pb-2">
-        <div className="flex items-center gap-1.5 flex-nowrap">
+        <div className="flex items-center gap-1.5">
           <Logo />
-          <h1 className="text-base font-extrabold tracking-tight shrink-0">Bawler</h1>
-          <div className="flex-1 min-w-0 flex justify-end">
-            <FilterBar
-              filters={FILTERS}
-              values={filterValues}
-              enabled={filterEnabled}
-              onValueChange={(k, v) => setFilterValues(prev => ({ ...prev, [k]: v }))}
-              onEnabledChange={(k, e) => setFilterEnabled(prev => ({ ...prev, [k]: e }))}
-            />
-          </div>
+          <h1 className="text-base font-extrabold tracking-tight">Bawler</h1>
         </div>
       </header>
-
-
 
       <section className="mt-1">
         <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
@@ -302,42 +139,32 @@ export default function Home() {
       {isBooting ? (
         <SkeletonColumns />
       ) : (
-      <section className="mt-4 px-3">
-        <div className="flex gap-2 items-start">
-          <div className={`${pastBasis} min-w-0`}>
-            <ColumnHeader
-              title="Past"
-              count={displayedPast.length}
-              expanded={expanded === "past"}
-              onToggleExpand={() => setExpanded(e => (e === "past" ? null : "past"))}
-            />
-            <CardColumn
-              items={displayedPast}
-              leavingIds={leavingIds}
-              enteringIds={enteringIds}
-              animPhase={animPhase}
-              side="left"
-              renderItem={(m) => <PastMatchCard match={m} />}
-            />
+        <section className="mt-4 px-3">
+          <div className="flex gap-2 items-start">
+            <div className={`${pastBasis} min-w-0`}>
+              <ColumnHeader
+                title="Past"
+                count={pastList.length}
+                expanded={expanded === "past"}
+                onToggleExpand={() => setExpanded(e => (e === "past" ? null : "past"))}
+              />
+              <div className="space-y-2">
+                {pastList.map(m => <PastMatchCard key={m.id} match={m} />)}
+              </div>
+            </div>
+            <div className={`${futureBasis} min-w-0`}>
+              <ColumnHeader
+                title="Coming up"
+                count={futureList.length}
+                expanded={expanded === "future"}
+                onToggleExpand={() => setExpanded(e => (e === "future" ? null : "future"))}
+              />
+              <div className="space-y-2">
+                {futureList.map(m => <FutureMatchCard key={m.id} match={m} />)}
+              </div>
+            </div>
           </div>
-          <div className={`${futureBasis} min-w-0`}>
-            <ColumnHeader
-              title="Coming up"
-              count={displayedFuture.length}
-              expanded={expanded === "future"}
-              onToggleExpand={() => setExpanded(e => (e === "future" ? null : "future"))}
-            />
-            <CardColumn
-              items={displayedFuture}
-              leavingIds={leavingIds}
-              enteringIds={enteringIds}
-              animPhase={animPhase}
-              side="right"
-              renderItem={(m) => <FutureMatchCard match={m} />}
-            />
-          </div>
-        </div>
-      </section>
+        </section>
       )}
     </main>
   );
@@ -347,8 +174,9 @@ export default function Home() {
 // Sub-components
 // ============================================================================
 
-
-function ColumnHeader({ title, count, expanded, onToggleExpand }: { title: string; count: number; expanded: boolean; onToggleExpand: () => void }) {
+function ColumnHeader({ title, count, expanded, onToggleExpand }: {
+  title: string; count: number; expanded: boolean; onToggleExpand: () => void;
+}) {
   return (
     <div className="flex items-center justify-between mb-1.5">
       <h2 className="text-[10px] font-bold uppercase tracking-widest text-text-dim">
@@ -372,45 +200,6 @@ function ColumnHeader({ title, count, expanded, onToggleExpand }: { title: strin
     </div>
   );
 }
-
-function CardColumn<T extends { id: string }>({
-  items,
-  leavingIds,
-  enteringIds,
-  animPhase,
-  side,
-  renderItem,
-}: {
-  items: T[];
-  leavingIds: Set<string>;
-  enteringIds: Set<string>;
-  animPhase: AnimPhase;
-  side: "left" | "right";
-  renderItem: (item: T) => React.ReactNode;
-}) {
-  if (items.length === 0) {
-    return <div className="card p-4 text-center text-text-dim text-xs">No matches.</div>;
-  }
-  return (
-    <div className="space-y-2">
-      {items.map((item, i) => {
-        const isLeaving = animPhase === "leaving" && leavingIds.has(item.id);
-        const isEntering = animPhase === "entering" && enteringIds.has(item.id);
-        const className =
-          isLeaving ? (side === "left" ? "anim-leave-left" : "anim-leave-right") :
-          isEntering ? "anim-pull-up" : "";
-        const style: React.CSSProperties | undefined =
-          isEntering ? { animationDelay: `${Math.min(i, 10) * 55}ms` } : undefined;
-        return (
-          <div key={item.id} className={className} style={style}>
-            {renderItem(item)}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 
 function SkeletonColumns() {
   return (
