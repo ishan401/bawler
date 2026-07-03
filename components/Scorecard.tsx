@@ -3,7 +3,7 @@
 import React from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
 import Link from "next/link";
-import { TEAMS, resolvePlayerSlug } from "@/lib/mockData";
+import { TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 
 interface ScorecardProps {
   match: Match;
@@ -170,6 +170,34 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   );
 }
 
+
+/**
+ * Renders a player name as a tappable Link if a profile exists in PLAYERS,
+ * otherwise as a plain span. This prevents broken links for unregistered players.
+ */
+function PlayerNameLink({
+  playerId,
+  playerName,
+  nameColor,
+}: {
+  playerId: string;
+  playerName: string;
+  nameColor: string;
+}) {
+  const slug = resolvePlayerSlug(playerId);
+  if (PLAYERS[slug]) {
+    return (
+      <Link
+        href={`/player/${slug}`}
+        className={`font-medium ${nameColor} underline decoration-dotted underline-offset-2 decoration-white/30`}
+      >
+        {playerName}
+      </Link>
+    );
+  }
+  return <span className={`font-medium ${nameColor}`}>{playerName}</span>;
+}
+
 function BatterRow({
   row,
   isTopScorer,
@@ -198,12 +226,7 @@ function BatterRow({
     <tr className="border-t border-line/50 last:border-b-0">
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
-          <Link
-            href={`/player/${resolvePlayerSlug(row.playerId)}`}
-            className={`font-medium tap-scale ${nameColor} hover:underline underline-offset-2`}
-          >
-            {row.playerName}
-          </Link>
+          <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
           {row.onStrike && !row.out && (
             <span className="text-[9px] font-bold text-cyan tracking-widest">*</span>
           )}
@@ -258,12 +281,7 @@ function BowlerRow({
     <tr className="border-t border-line/50 last:border-b-0">
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
-          <Link
-            href={`/player/${resolvePlayerSlug(row.playerId)}`}
-            className={`font-medium tap-scale ${nameColor} hover:underline underline-offset-2`}
-          >
-            {row.playerName}
-          </Link>
+          <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
           {isMotm && (
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
           )}

@@ -14266,24 +14266,67 @@ export function slugifyPlayer(playerId: string): string {
  * Add entries whenever a new ID variant appears from the API.
  */
 export const PLAYER_ALIASES: Record<string, string> = {
-  "rsharma":   "r-sharma",    // Rohit Sharma
-  "sgilchr":   "s-gill",      // Shubman Gill
-  "pcumm2":    "p-cummins",   // Pat Cummins
-  "jroot2":    "j-root",      // Joe Root
-  "bstok2":    "b-stokes",    // Ben Stokes
-  "jbairst2":  "j-bairstow",  // Jonny Bairstow
-  "jhazel2":   "j-hazlewood", // Josh Hazlewood
-  "mstarc3":   "m-starc",     // Mitchell Starc
-  "nlyon":     "n-lyon",      // Nathan Lyon
-  "bduck2":    "b-duckett",   // Ben Duckett
+  // Virat Kohli
+  "vkohli":    "v-kohli",
+  "vkohli2":   "v-kohli",
+  // Rohit Sharma
+  "rsharma":   "r-sharma",
+  "rsharma2":  "r-sharma",
+  // Jasprit Bumrah
+  "jbumrah":   "j-bumrah",
+  "jbumrah2":  "j-bumrah",
+  // Shubman Gill
+  "sgilchr":   "s-gill",
+  "sgill2":    "s-gill",
+  // Hardik Pandya
+  "hpandya":   "h-pandya",
+  "hpand2":    "h-pandya",
+  "hardik":    "h-pandya",
+  "hardik2":   "h-pandya",
+  // Suryakumar Yadav — "S Yadav" already slugifies to "s-yadav"
+  // Ravindra Jadeja
+  "rrjadeja":  "r-jadeja",
+  "jadeja2":   "r-jadeja",
+  // R Ashwin — "R Ashwin" slugifies to "r-ashwin"
+  // Yuzvendra Chahal
+  "ychahal":   "y-chahal",
+  "ychahal2":  "y-chahal",
+  // Jos Buttler — "J Buttler" slugifies to "j-buttler"
+  // Trent Boult
+  "tboult":    "t-boult",
+  "tboult2":   "t-boult",
+  // David Miller — "D Miller" slugifies to "d-miller"
+  // Andre Russell — "A Russell" slugifies to "a-russell"
+  // Pat Cummins
+  "pcum":      "p-cummins",
+  "pcumm2":    "p-cummins",
+  "pcumm3":    "p-cummins",
+  // Joe Root
+  "jroot":     "j-root",
+  "jroot2":    "j-root",
+  "jroot3":    "j-root",
+  // Ben Stokes
+  "bstokes":   "b-stokes",
+  "bstok2":    "b-stokes",
+  "bstok3":    "b-stokes",
+  "bstok4":    "b-stokes",
+  // Josh Hazlewood
+  "jhazlew":   "j-hazlewood",
+  "jhazl2":    "j-hazlewood",
+  "jhazel2":   "j-hazlewood",
+  "jhazel3":   "j-hazlewood",
+  // Zak Crawley
+  "zcrwly":    "z-crawley",
+  "zcraw2":    "z-crawley",
+  "zcraw3":    "z-crawley",
+  // Ben Duckett
+  "bduck2":    "b-duckett",
   "bduck3":    "b-duckett",
   "bduckett":  "b-duckett",
-  "zcraw2":    "z-crawley",   // Zak Crawley
-  "babarzam":  "b-azam",      // Babar Azam
-  "arshad":    "a-iqbal",     // Arshad Iqbal
-  "anortje":   "a-nortje",    // Anrich Nortje
-  "ansje":     "a-nortje",
-  "aagarwal2": "a-agarwal",   // Abhimanyu Agarwal
+  // Babar Azam
+  "babarzam":  "b-azam",
+  // Arshad Iqbal
+  "arshad":    "a-iqbal",
 };
 
 /** Resolve a playerId (from BattingEntry / BowlingEntry) to a canonical slug. */
