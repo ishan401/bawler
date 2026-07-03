@@ -8,6 +8,7 @@ const PAGE_ORDER = [
   (p: string) => p.startsWith("/schedule"),
   (p: string) => p.startsWith("/table"),
   (p: string) => p.startsWith("/match"),
+  (p: string) => p.startsWith("/player"),
 ];
 
 function getPageIndex(path: string) {

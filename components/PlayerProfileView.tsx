@@ -133,7 +133,7 @@ export default function PlayerProfileView({ player }: Props) {
   const rankings = player.iccRankings;
 
   return (
-    <div className="slide-in-right min-h-screen bg-bg-base flex flex-col">
+    <div className="min-h-screen bg-bg-base flex flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-bg-base/95 backdrop-blur border-b border-line">
         <div className="flex items-center gap-3 px-4 h-14">
