@@ -455,3 +455,89 @@ Initial v0.9 prototype. Full UI with mocked data.
 - Scorecard tab, Info tab, Schedule page, Table page
 - Win probability formula-based; WinProbChart with zoom + pinch
 - Stack: Next.js 14, React 18, TypeScript, Tailwind — deployed on Vercel
+
+---
+
+## [1.0.16] 2026-07-03
+
+### Bug fixes
+
+#### Fixed — Win probability override showing inverted values
+- `liveWinProbOverride.pct` is stored as 0–1 (e.g. `0.72`) but `liveWinProb()` was dividing by 100 again
+- GT showing 0.7% (effectively 1%) instead of 72%; RCB override similarly broken
+- Fix: `pctA = isTeamA ? pct : 1 - pct` (removed `/ 100`)
+- File: `components/MatchCard.tsx`
+
+#### Fixed — Scorecard tab empty for live matches (GT vs RR, RCB vs CSK)
+- `battingCard: []` and `bowlingCard: []` — no player data in mock innings
+- Populated both matches with realistic batting and bowling card data
+- File: `lib/mockData.ts`
+
+#### Fixed — MiniStandings removed from Live tab in match view
+- Standings table was incorrectly rendering inside the LIVE tab of match view
+- Removed both MiniStandings blocks + import from `MatchView.tsx`
+- Bug introduced during removal: broken JSX comment `{/* Summary */` missing closing `}` — fixed
+- Standings now only appear in dedicated TABLE tab
+- File: `components/MatchView.tsx`
+
+---
+
+## [1.0.17] 2026-07-03
+
+### Real-data readiness — data layer + API adapter foundation
+
+#### Added — `CompetitionStandings` interface (`lib/types.ts`)
+- New interface: `competitionId`, `phase?`, `phaseLabel?`, `updatedAt`, `rows`, `showNrr`, `showDrawn`, `qualifyingSpots`
+- Standings are now fully data-driven; column config (NRR, Drawn) is per-competition
+- Supports multi-phase tournaments (group stage → Super 8 → playoff) via `phase` field
+
+#### Added — `hasStandings: boolean` to `Competition` (`lib/types.ts`)
+- Replaces brittle `type === "league" || type === "international"` checks across codebase
+- Bilateral series (Ashes, IND vs ENG etc.) → `hasStandings: false` → no TABLE tab, no TABLE button
+- Leagues + ICC tournaments → `hasStandings: true` → TABLE tab and button appear automatically
+- Adding a new competition requires setting one field; nothing else changes
+
+#### Added — `StandingsRow` extended fields (`lib/types.ts`)
+- `drawn?: number` — for Test/bilateral series standings
+- `tied?: number` — rare but valid
+- `netRunRate?: number` — now optional (Test series don't use NRR)
+- `pct?: number` — win percentage for formats that use it instead of points
+
+#### Added — `phase?: string` to `Match` (`lib/types.ts`)
+- Carries match phase: `"group"` | `"super-8"` | `"qualifier"` | `"semifinal"` | `"final"`
+- Enables phase-specific standings lookup for ICC tournaments
+
+#### Added — `COMPETITION_STANDINGS` export (`lib/mockData.ts`)
+- `Record<string, CompetitionStandings>` keyed by `competition.id`
+- Covers: IPL 2026 (full), PSL 2026, BBL 2025-26, The Hundred 2026, SA20 2026 (all stubbed with realistic data)
+- ICC tournaments: T20 WC 2026 Group A, Champions Trophy 2025 Group A
+- Bilateral series (Ashes, IND-ENG, IND-AUS, ENG-SA): no entry — `hasStandings: false` on Competition
+
+#### Added — `lib/transformers.ts` (new file)
+- Typed adapter skeletons for 3 major cricket data APIs:
+  - **Cricbuzz** (unofficial): `transformCricbuzzMatch`, `transformCricbuzzScorecard`, `transformCricbuzzStandings`
+  - **ESPN Cricinfo / sportsdata.io**: `transformESPNMatch` with full `Ball` mapping
+  - **SportRadar**: `transformSportRadarTimeline` — full ball-by-ball, innings grouping by `battingTeam`
+- Raw types partially typed (only fields we need)
+- ID lookup tables: `CRICBUZZ_SERIES_ID_MAP`, `CRICBUZZ_TEAM_ID_MAP`, `SPORTRADAR_TEAM_ID_MAP`
+- All functions have clear TODO comments marking where real API logic slots in
+
+#### Updated — `StandingsTab.tsx`
+- Replaced hardcoded `STANDINGS_MAP` with `COMPETITION_STANDINGS[competition.id]` lookup
+- Columns now render dynamically: NRR column shown only when `standings.showNrr = true`; Drawn column only when `standings.showDrawn = true`
+- Phase label (`"Group Stage"`, `"Points Table"` etc.) renders above table when present
+- Qualification line legend text uses `qualifyingSpots` count from data
+
+#### Updated — `MiniStandings.tsx`
+- Same data-layer migration as StandingsTab
+- NRR column conditionally rendered based on `standings.showNrr`
+- Gracefully returns `null` if competition has no standings entry
+
+#### Updated — `MatchView.tsx`
+- `showTable` now reads `match.competition.hasStandings` instead of type check
+
+#### Updated — `LiveCarousel.tsx`
+- TABLE button visibility reads `activeMatch.competition.hasStandings` instead of type check
+
+#### Updated — `app/table/page.tsx`
+- Fixed TS error: `row.netRunRate` guarded with `?? 0` after making field optional

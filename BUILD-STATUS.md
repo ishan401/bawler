@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.10 (deployed)
+**Current version:** v1.0.17 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -169,4 +169,10 @@
 | v1.0.0 | UX overhaul: bottom nav, AI tile labels, Moments redesign, BallGIF hierarchy, countdown cards, team colour filter |
 | v0.9.8 | brightColor() hue-accurate team colours in win-prob |
 | v0.9.x | Win-prob iterations, gradient opacities, chart cleanup |
+| **v1.0.17** | Real-data readiness: CompetitionStandings layer, hasStandings flag, transformers.ts, dynamic columns |
+| **v1.0.16** | Bug fixes: win prob override inversion, scorecard empty, MiniStandings in Live tab |
+| **v1.0.15** | TABLE button context-aware (tracks snapped carousel card); team schedule popup |
+| **v1.0.14** | BottomSheet standings + scroll fix: height 85vh, body scroll lock, touch-action pan-y |
+| **v1.0.13** | TABLE button + standings sheet on home carousel; MiniStandings onTeamClick prop |
+| **v1.0.12** | Test match dual-innings score display; liveStatusOf + liveWinProb battingTeam fix |
 | v0.9.0 | Initial prototype with full mocked data |

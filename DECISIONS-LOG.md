@@ -198,3 +198,15 @@
 | SN2 | **Country flags via `flagcdn.com/w40/{iso}.png`, not emoji** | Flag emoji are invisible on Windows (regional indicator sequences not rendered). PNG images work on all platforms. `w40` endpoint (40px) is sharp on HiDPI. |
 | SN3 | **Playing XI = flat list, no batting/bowling sub-sections** | Sub-sections added visual complexity without adding information. A single list of 11 names is what fans actually want during a live match. |
 
+
+## Real-data architecture
+
+| # | Decision | Reason |
+|---|---|---|
+| RD1 | **`competition.hasStandings` boolean instead of `type` check** | `type === "international"` is ambiguous — World Cups have group tables, bilateral series don't. A single explicit boolean makes every new competition unambiguous and keeps the UI logic simple. |
+| RD2 | **`COMPETITION_STANDINGS` keyed by `competition.id` in mockData** | Standings are now a data concern, not a component concern. Swapping mock for real API data = one variable. Components are pure consumers. |
+| RD3 | **`CompetitionStandings` carries column config (`showNrr`, `showDrawn`, `qualifyingSpots`)** | IPL uses NRR; Test standings use Drawn; some formats use win %; number of qualifying spots varies (2 for ICC groups, 4 for IPL). Config lives with the data, not hardcoded in the component. |
+| RD4 | **`phase?` field on Match + `CompetitionStandings`** | ICC tournaments have multiple phases (Group → Super 8 → Knockout). Same competition ID, different phase = different standings. The field lets us render "Group A standings" vs "Super 8 standings" for the same tournament. |
+| RD5 | **`transformers.ts` — typed skeletons for Cricbuzz, ESPN, SportRadar** | When real API access lands, the mapping contract is already defined. The developer fills in TODOs; the internal type system stays stable. Raw types are intentionally partial — only the fields we actually read. |
+| RD6 | **`netRunRate` made optional on `StandingsRow`** | Test series standings don't have NRR — they use points only. Making it optional + using `?? 0` guard everywhere means the same `StandingsRow` type works across all formats without a union type. |
+| RD7 | **ID lookup tables (`CRICBUZZ_SERIES_ID_MAP`, `SPORTRADAR_TEAM_ID_MAP`) in transformers.ts** | External APIs use numeric/UUID identifiers; internal types use short string codes ("MI", "ipl-2026"). The lookup table is the seam between external and internal. Maintained alongside the transformer, not scattered across components. |
