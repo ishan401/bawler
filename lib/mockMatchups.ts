@@ -25,7 +25,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 43, runsScored: 38, timesOut: 2,
     dotBalls: 17, fours: 3, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Short ball, outside off stump",
+    dangerDelivery: "Short ball outside off, tempting the cut",
     lastDismissal: "Caught Head · Mar 2024",
   },
   {
@@ -35,7 +35,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 28, runsScored: 31, timesOut: 1,
     dotBalls: 9, fours: 4, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Full, swinging in late",
+    dangerDelivery: "Full delivery swinging in late",
     lastDismissal: "Caught Inglis · Jan 2024",
   },
   {
@@ -45,7 +45,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 19, runsScored: 22, timesOut: 0,
     dotBalls: 7, fours: 3, sixes: 0,
     dismissalTypes: [],
-    dangerDelivery: "Back of length, angling away",
+    dangerDelivery: "Back of length moving away off the pitch",
   },
   {
     batterName: "V Kohli",
@@ -54,7 +54,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 94, runsScored: 62, timesOut: 3,
     dotBalls: 38, fours: 5, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Full, seaming in, yorker length",
+    dangerDelivery: "Full and straight, swinging into the stumps",
     lastDismissal: "Caught Warner · Jan 2024",
   },
   {
@@ -64,7 +64,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 76, runsScored: 71, timesOut: 2,
     dotBalls: 27, fours: 8, sixes: 2,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Full, swinging late, seaming away",
+    dangerDelivery: "Full ball swinging away at the last moment",
     lastDismissal: "Caught Smith · Nov 2023",
   },
   {
@@ -74,7 +74,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 58, runsScored: 48, timesOut: 1,
     dotBalls: 23, fours: 6, sixes: 0,
     dismissalTypes: [{ type: "LBW", count: 1 }],
-    dangerDelivery: "Back of length, angling in sharply",
+    dangerDelivery: "Back of length that cuts back in sharply",
     lastDismissal: "LBW · Dec 2023",
   },
   {
@@ -84,7 +84,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 31, runsScored: 22, timesOut: 2,
     dotBalls: 13, fours: 2, sixes: 0,
     dismissalTypes: [{ type: "Caught", count: 1 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Full, straight, hitting top of off",
+    dangerDelivery: "Full and straight, hitting the top of off stump",
     lastDismissal: "Bowled · Jan 2024",
   },
   {
@@ -94,7 +94,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 24, runsScored: 28, timesOut: 1,
     dotBalls: 8, fours: 3, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Yorker, into the blockhole",
+    dangerDelivery: "Yorker aimed right at the feet",
     lastDismissal: "Caught Cummins · Mar 2024",
   },
   {
@@ -104,7 +104,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 22, runsScored: 19, timesOut: 2,
     dotBalls: 9, fours: 1, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Short of length, moving away",
+    dangerDelivery: "Short ball moving away off the pitch",
     lastDismissal: "Caught Maxwell · Mar 2024",
   },
   {
@@ -114,7 +114,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 24, runsScored: 18, timesOut: 2,
     dotBalls: 10, fours: 1, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Short ball, targeting the body",
+    dangerDelivery: "Short ball aimed at the body",
     lastDismissal: "Caught Inglis · Jan 2024",
   },
   {
@@ -124,7 +124,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 29, runsScored: 42, timesOut: 1,
     dotBalls: 8, fours: 4, sixes: 3,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Yorker, into the boots",
+    dangerDelivery: "Yorker aimed at the toes",
     lastDismissal: "Caught Maxwell · Nov 2023",
   },
   {
@@ -134,7 +134,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 18, runsScored: 21, timesOut: 1,
     dotBalls: 6, fours: 2, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Good length, seaming away late",
+    dangerDelivery: "Good length ball that seams away late",
     lastDismissal: "Caught Head · Dec 2023",
   },
   {
@@ -144,7 +144,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 67, runsScored: 82, timesOut: 4,
     dotBalls: 21, fours: 7, sixes: 4,
     dismissalTypes: [{ type: "Caught", count: 3 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Short ball, outside off stump",
+    dangerDelivery: "Short ball outside off, tempting the hook",
     lastDismissal: "Caught Hazlewood · Jan 2024",
   },
   {
@@ -154,7 +154,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 44, runsScored: 56, timesOut: 2,
     dotBalls: 13, fours: 5, sixes: 3,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Full, swinging in, straight",
+    dangerDelivery: "Full delivery swinging straight into the stumps",
     lastDismissal: "Caught Smith · Nov 2023",
   },
   {
@@ -164,7 +164,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 38, runsScored: 44, timesOut: 2,
     dotBalls: 12, fours: 4, sixes: 2,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Wobble seam, good length",
+    dangerDelivery: "Back of length moving away off the pitch",
     lastDismissal: "Caught Maxwell · Dec 2023",
   },
   {
@@ -174,7 +174,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 18, runsScored: 24, timesOut: 0,
     dotBalls: 7, fours: 2, sixes: 1,
     dismissalTypes: [],
-    dangerDelivery: "Full, late seam, straight",
+    dangerDelivery: "Full and straight, targeting the stumps",
   },
   {
     batterName: "R Jadeja",
@@ -183,7 +183,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 12, runsScored: 9, timesOut: 1,
     dotBalls: 5, fours: 1, sixes: 0,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Back of length, shaping away",
+    dangerDelivery: "Back of length shaping away from the bat",
     lastDismissal: "Caught Maxwell · Jan 2024",
   },
   {
@@ -193,7 +193,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 8, runsScored: 6, timesOut: 1,
     dotBalls: 4, fours: 0, sixes: 1,
     dismissalTypes: [{ type: "Bowled", count: 1 }],
-    dangerDelivery: "Full, straight, toe-crushing",
+    dangerDelivery: "Full and straight aimed at the toes",
     lastDismissal: "Bowled · Nov 2023",
   },
 
@@ -205,7 +205,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 31, runsScored: 18, timesOut: 3,
     dotBalls: 15, fours: 1, sixes: 0,
     dismissalTypes: [{ type: "Bowled", count: 2 }, { type: "LBW", count: 1 }],
-    dangerDelivery: "Yorker, angling into the stumps",
+    dangerDelivery: "Yorker angled straight into the stumps",
     lastDismissal: "Bowled · Mar 2024",
   },
   {
@@ -215,7 +215,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 22, runsScored: 34, timesOut: 1,
     dotBalls: 6, fours: 4, sixes: 2,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Outswinger, full length",
+    dangerDelivery: "Full ball that swings away from the bat",
     lastDismissal: "Caught Kohli · Jan 2024",
   },
   {
@@ -225,7 +225,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 26, runsScored: 21, timesOut: 1,
     dotBalls: 11, fours: 2, sixes: 0,
     dismissalTypes: [{ type: "LBW", count: 1 }],
-    dangerDelivery: "Full, seaming back in sharply",
+    dangerDelivery: "Full ball that cuts back in sharply",
     lastDismissal: "LBW · Jan 2024",
   },
   {
@@ -235,7 +235,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 33, runsScored: 24, timesOut: 2,
     dotBalls: 16, fours: 2, sixes: 0,
     dismissalTypes: [{ type: "Caught", count: 1 }, { type: "Stumped", count: 1 }],
-    dangerDelivery: "Legbreak, short-pitched, turning",
+    dangerDelivery: "Short-pitched legbreak that turns sharply",
     lastDismissal: "Stumped Pant · Mar 2024",
   },
   {
@@ -245,7 +245,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 29, runsScored: 17, timesOut: 2,
     dotBalls: 14, fours: 1, sixes: 0,
     dismissalTypes: [{ type: "Caught", count: 1 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Legbreak, gripping and turning",
+    dangerDelivery: "Legbreak gripping and turning away from the bat",
     lastDismissal: "Caught Gill · Jan 2024",
   },
   {
@@ -255,7 +255,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 21, runsScored: 14, timesOut: 2,
     dotBalls: 11, fours: 1, sixes: 0,
     dismissalTypes: [{ type: "Stumped", count: 1 }, { type: "Caught", count: 1 }],
-    dangerDelivery: "Googly, through the gate",
+    dangerDelivery: "Googly that sneaks through the gap between bat and pad",
     lastDismissal: "Stumped Pant · Nov 2023",
   },
   {
@@ -265,7 +265,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 52, runsScored: 31, timesOut: 4,
     dotBalls: 25, fours: 2, sixes: 1,
     dismissalTypes: [{ type: "Stumped", count: 2 }, { type: "Caught", count: 2 }],
-    dangerDelivery: "Flighted, turning away, tossed up",
+    dangerDelivery: "Tossed up and turning away from the bat",
     lastDismissal: "Stumped Pant · Mar 2024",
   },
   {
@@ -275,7 +275,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 34, runsScored: 48, timesOut: 1,
     dotBalls: 9, fours: 4, sixes: 3,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Googly, straight through the gate",
+    dangerDelivery: "Googly that goes straight through the gap",
     lastDismissal: "Caught Pandya · Nov 2023",
   },
   {
@@ -285,7 +285,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 19, runsScored: 14, timesOut: 2,
     dotBalls: 9, fours: 1, sixes: 0,
     dismissalTypes: [{ type: "Bowled", count: 1 }, { type: "Caught", count: 1 }],
-    dangerDelivery: "Full, straight, late inswing",
+    dangerDelivery: "Full and straight, swinging in at the last moment",
     lastDismissal: "Bowled · Mar 2024",
   },
   {
@@ -295,7 +295,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 14, runsScored: 22, timesOut: 1,
     dotBalls: 4, fours: 2, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 1 }],
-    dangerDelivery: "Slower bouncer, outside off",
+    dangerDelivery: "Slow short ball outside off catching him off guard",
     lastDismissal: "Caught Gill · Jan 2024",
   },
   {
@@ -305,7 +305,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 11, runsScored: 8, timesOut: 1,
     dotBalls: 5, fours: 1, sixes: 0,
     dismissalTypes: [{ type: "Bowled", count: 1 }],
-    dangerDelivery: "Yorker, angling in",
+    dangerDelivery: "Yorker angled into the stumps",
     lastDismissal: "Bowled · Jan 2024",
   },
 
@@ -317,7 +317,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 218, runsScored: 196, timesOut: 5,
     dotBalls: 71, fours: 17, sixes: 3,
     dismissalTypes: [{ type: "Caught", count: 3 }, { type: "Bowled", count: 1 }, { type: "LBW", count: 1 }],
-    dangerDelivery: "Full, late outswing, off-stump channel",
+    dangerDelivery: "Full ball swinging away outside off stump",
     lastDismissal: "LBW · Sep 2023",
   },
   {
@@ -327,7 +327,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 164, runsScored: 182, timesOut: 3,
     dotBalls: 48, fours: 19, sixes: 4,
     dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Full, swinging in, left-arm angle",
+    dangerDelivery: "Full ball swinging in from the left-arm angle",
     lastDismissal: "Bowled · Nov 2023",
   },
   {
@@ -337,7 +337,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 142, runsScored: 168, timesOut: 4,
     dotBalls: 38, fours: 22, sixes: 8,
     dismissalTypes: [{ type: "Caught", count: 4 }],
-    dangerDelivery: "Short ball, pulling zone outside off",
+    dangerDelivery: "Short ball outside off, targeting the pull shot",
     lastDismissal: "Caught Head · Oct 2023",
   },
   {
@@ -347,7 +347,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 118, runsScored: 142, timesOut: 3,
     dotBalls: 29, fours: 18, sixes: 6,
     dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Angling in, full, left-arm over",
+    dangerDelivery: "Full ball angling in from over the wicket",
     lastDismissal: "Caught Maxwell · Nov 2023",
   },
   {
@@ -357,7 +357,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 87, runsScored: 79, timesOut: 2,
     dotBalls: 28, fours: 8, sixes: 2,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Short ball, outside off, movement away",
+    dangerDelivery: "Short ball outside off that moves away",
     lastDismissal: "Caught Inglis · Sep 2023",
   },
   {
@@ -367,7 +367,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 74, runsScored: 52, timesOut: 5,
     dotBalls: 34, fours: 5, sixes: 1,
     dismissalTypes: [{ type: "LBW", count: 2 }, { type: "Bowled", count: 2 }, { type: "Caught", count: 1 }],
-    dangerDelivery: "Full, angling in, hitting middle stump",
+    dangerDelivery: "Full ball angling straight into the stumps",
     lastDismissal: "Bowled · Oct 2023",
   },
   {
@@ -377,7 +377,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 96, runsScored: 88, timesOut: 2,
     dotBalls: 31, fours: 9, sixes: 0,
     dismissalTypes: [{ type: "Caught", count: 1 }, { type: "LBW", count: 1 }],
-    dangerDelivery: "Outswinger, full, off-stump line",
+    dangerDelivery: "Full outswinger on the off-stump line",
     lastDismissal: "Caught Kohli · Sep 2023",
   },
 
@@ -389,7 +389,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 412, runsScored: 298, timesOut: 9,
     dotBalls: 198, fours: 28, sixes: 2,
     dismissalTypes: [{ type: "Caught", count: 5 }, { type: "LBW", count: 3 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Full, seaming, 4th-stump channel — draws the drive",
+    dangerDelivery: "Full ball outside off that draws the drive",
     lastDismissal: "Caught Smith · Jan 2025",
     venueStat: "Best: 89 at MCG · 2020",
   },
@@ -400,7 +400,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 276, runsScored: 224, timesOut: 6,
     dotBalls: 118, fours: 26, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 4 }, { type: "Bowled", count: 2 }],
-    dangerDelivery: "Full, swinging late, angling into stumps",
+    dangerDelivery: "Full ball swinging in late to the stumps",
     lastDismissal: "Caught Maxwell · Nov 2024",
   },
   {
@@ -410,7 +410,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 338, runsScored: 201, timesOut: 11,
     dotBalls: 172, fours: 18, sixes: 0,
     dismissalTypes: [{ type: "Caught", count: 7 }, { type: "LBW", count: 3 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Back of length, 5th-stump channel — probing the outside edge",
+    dangerDelivery: "Back of length probing the outside edge",
     lastDismissal: "Caught Head · Jan 2025",
     venueStat: "Record: 141 at MCG · 2014",
   },
@@ -421,7 +421,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 187, runsScored: 134, timesOut: 6,
     dotBalls: 92, fours: 14, sixes: 3,
     dismissalTypes: [{ type: "Caught", count: 4 }, { type: "LBW", count: 1 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Short ball, rising into the ribs — top edge to fine leg",
+    dangerDelivery: "Short ball rising into the ribs",
     lastDismissal: "Caught Inglis · Nov 2024",
   },
   {
@@ -431,7 +431,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 112, runsScored: 68, timesOut: 7,
     dotBalls: 58, fours: 6, sixes: 1,
     dismissalTypes: [{ type: "Bowled", count: 3 }, { type: "LBW", count: 2 }, { type: "Caught", count: 2 }],
-    dangerDelivery: "Unplayable: full, angling in, seaming away late",
+    dangerDelivery: "Full ball that angles in then seams away late",
     lastDismissal: "Bowled · Jan 2025",
   },
   {
@@ -441,7 +441,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 198, runsScored: 112, timesOut: 4,
     dotBalls: 104, fours: 9, sixes: 0,
     dismissalTypes: [{ type: "LBW", count: 2 }, { type: "Caught", count: 1 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Full, straight, angling in — beats the gate",
+    dangerDelivery: "Full and straight, sliding between bat and pad",
     lastDismissal: "LBW · Dec 2024",
   },
 
@@ -453,7 +453,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 48, runsScored: 44, timesOut: 2,
     dotBalls: 18, fours: 4, sixes: 2,
     dismissalTypes: [{ type: "Caught", count: 2 }],
-    dangerDelivery: "Yorker, angling in, toe-crushing",
+    dangerDelivery: "Yorker angled into the toes",
     lastDismissal: "Caught Hardik · May 2024",
   },
   {
@@ -463,7 +463,7 @@ const MATCHUP_DATA: MatchupStats[] = [
     ballsFaced: 36, runsScored: 28, timesOut: 3,
     dotBalls: 14, fours: 2, sixes: 1,
     dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
-    dangerDelivery: "Legbreak, flighted, outside off",
+    dangerDelivery: "Flighted legbreak pitching outside off",
     lastDismissal: "Caught deep · Apr 2024",
   },
 ];

@@ -99,7 +99,7 @@ function MatchupCard({
           </div>
 
           {/* ── Row 3: secondary stats + danger inline ── */}
-          <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 pb-2 text-[10px] text-text-dim leading-none">
+          <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 pb-2.5 text-[10px] text-text-dim leading-none">
             <span>Avg <span className="text-text-secondary font-bold num">{avg}</span></span>
             <span className="text-line">·</span>
             <span>SR <span className="text-text-secondary font-bold num">{sr}</span></span>
@@ -114,8 +114,8 @@ function MatchupCard({
             {stats.dangerDelivery && (
               <>
                 <span className="text-line">·</span>
-                <span className="text-orange">⚡</span>
-                <span className="text-text-dim truncate" style={{ maxWidth: 140 }}>{stats.dangerDelivery}</span>
+                <span className="text-orange font-semibold shrink-0">Watch for:</span>
+                <span className="text-text-secondary truncate">{stats.dangerDelivery}</span>
               </>
             )}
           </div>
