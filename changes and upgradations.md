@@ -747,3 +747,103 @@ Initial v0.9 prototype. Full UI with mocked data.
 - All 13 player `franchiseStats` objects now correctly structured with both `franchiseLeague` and `franchiseStats` keys
 
 #### Verified — `npx tsc --noEmit` passes, `npx next build` passes
+
+---
+
+## [1.0.28] 2026-07-06
+
+### Matchup Card — matches, live 4s/6s, label-value format, always-on dynamic stats
+
+#### Updated — `lib/types.ts`
+- `MatchupStats` now includes `matches: number` — career H2H encounter count
+
+#### Updated — `lib/mockMatchups.ts`
+- All 44 H2H records updated with realistic `matches` counts (range 2–14 per format)
+- All `dangerDelivery` strings rewritten in plain English (removed cricket jargon)
+
+#### Updated — `components/MatchupCard.tsx`
+- **New props**: `liveBalls`, `liveRuns`, `liveOuts`, `liveDots`, `liveMatchFours`, `liveMatchSixes`
+- All stats (BALLS / RUNS / OUTS / Avg / SR / Dots / 4s / 6s) now show career H2H + current match totals merged — fully live
+- Row 3 label-value format: `matches-N 4s-N 6s-N Avg-N SR-N Dots-N%`
+- Row 4: `Watch for: [delivery]` on its own line
+- First-time meeting with no career data still shows stats from ball 1 onward ("making history right now")
+
+#### Updated — `components/MatchView.tsx`
+- `liveMatchupCounters` useMemo tracks balls/runs/outs/dots/4s/6s between current batter+bowler in this match
+- Legal delivery logic: only wides excluded from balls faced; no-balls count correctly
+- Counters fed into `MatchupCard` as props — updates on every delivery
+
+---
+
+## [1.0.29] 2026-07-06
+
+### Partnership Tracker — replaces win-prob footer below ball visualizer
+
+#### Updated — `components/BallGIF.tsx`
+- **Removed**: Win probability bar from ImpactFooter
+- **Added**: `PartnershipFooter` — single-row display:
+  - `Pship N(B) · BatterA N(B) [X×4] [X×6] · BatterB N(B) [X×4] [X×6]` — total + individual batters
+  - Partnership 4s pinned to right: `N 4s  N 6s`
+  - Batter runs shown in batting team primary color
+- **New props**: `partnership?: PartnershipInfo` (replaces `winProbBefore/After`)
+
+#### Updated — `components/MatchView.tsx`
+- `partnershipInfo` useMemo: scans current innings balls back to last wicket, accumulates per-batter runs/balls/4s/6s
+- **Fix 1 — Non-striker run-outs**: if ball after a run-out wicket has same `batterName`, partnership NOT reset (striker survived)
+- **Fix 2 — No-ball ball count**: `isFaced = extraType !== "wd"` — wides excluded, no-balls correctly counted
+- Total partnership 4s/6s computed and passed through
+- `winProbBefore/After` props removed from BallGIF call
+
+#### Updated — `lib/mockData.ts`
+- IND 2nd innings balls (overs 14–17): `batterName` patched to alternate R Pant / V Kohli with realistic strike rotation, enabling live partnership demo
+
+---
+
+## [1.0.30] 2026-07-06
+
+### Win probability chase formula — major accuracy fix
+
+#### Fixed — `lib/winProb.ts`
+
+**Root cause**: two compounding bugs in the 2nd-innings chase formula inflated the bowling team's win probability:
+
+1. `achievableRPO = 8.5 + (wicketsLeft - 5) * 0.4` — linear, so 4 wickets in hand only gave 8.1 RPO (barely above a 5.73 RRR, making the chase look close when it wasn't)
+2. `wpTeamA = 1 - wpTeamB * wicketPenalty` — applied a SECOND separate `wicketPenalty = max(0.3, wicketsLeft/10)` on top, halving the chasing team's probability again
+
+**Effect**: IND needing 21 off 22 balls with 4 wickets showed AUS 69% / IND 31% — completely wrong.
+
+**Fix**: single power-curve achievable RPO, no separate multiplier:
+```typescript
+const baseRPO = /* 9.5 T20/T20I, 8.0 ODI, 3.5 Test */;
+const achievableRPO = baseRPO * Math.pow(wicketsLeft / 10, 0.25);
+const ratio = achievableRPO / rrr;
+const wpTeamB = 1 / (1 + Math.exp(-(ratio - 1) * 5));
+wpTeamA = 1 - wpTeamB; // no second penalty
+```
+
+**Calibrated results**:
+| Scenario | Before | After |
+|---|---|---|
+| Need 21 off 22, 4 wkts | AUS 69% / IND 31% | AUS 17% / IND 83% ✓ |
+| Need 50 off 22, 4 wkts | AUS ~50% / IND ~50% | AUS 90% / IND 10% ✓ |
+| Need 10 off 22, 4 wkts | AUS ~30% / IND ~70% | AUS ~0% / IND ~100% ✓ |
+| Need 21 off 22, 2 wkts | AUS ~80% / IND ~20% | AUS 37% / IND 63% ✓ |
+| Need 21 off 22, 8 wkts | AUS ~50% / IND ~50% | AUS 6% / IND 94% ✓ |
+
+**Scope**: fix applies platform-wide — `calculateWinProbForMatch()` is the single source of truth consumed by MiniWinProb, WinProbChart, and all win-prob display everywhere.
+
+---
+
+## [1.0.31] 2026-07-06
+
+### API robustness — name normalisation at data boundary
+
+#### Updated — `lib/transformers.ts`
+- **New**: `normaliseName(raw: string): string` — exported utility normalising any API name format to `"I Surname"`:
+  - `"Virat Kohli"` → `"V Kohli"`
+  - `"kohli, virat"` → `"V Kohli"` (comma-last format)
+  - `"V. Kohli"` → `"V Kohli"`
+  - Single names passed through unchanged
+- Applied at every API boundary: ESPN `transformESPNBall`, Sportradar `transformSRBall`
+- Ensures partnership tracker, matchup card lookup, and player links all use consistent names regardless of which API feeds the data
+- `batsman_name?` / `bowler_name?` fields added to `SportRadarRawBall` interface

@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.27 (deployed)
+**Current version:** v1.0.31 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -66,6 +66,7 @@
 - ✅ **Book page-turn animation** — 3D rotateY + translateX on tab switch (swipe or tap); direction-aware
 - ✅ **Swipe between tabs** — left = forward, right = backward; ignores vertical swipes
 - ✅ **Score event badge** — red pulsing dot (wicket) or teal dot (six) on Scorecard tab; clears after 4s
+- ✅ **Partnership tracker** — single-row footer below ball visualizer: `Pship N(B) · BatterA N(B) [×4][×6] · BatterB N(B)` + total 4s/6s pinned right; resets on wicket; handles non-striker run-outs and no-balls correctly
 - ✅ **BallGIF** — two clips (bowler perspective + overhead) 3s each, 4 reps/ball (24s dwell)
 - ✅ **Perspective-correct impact Y** — uses trapezoid width ratio (220/80=2.75) for accurate pitch length display
 - ✅ **Post-pitch bounce arc** — bezier control above impact point; bounce height scales with pitchY (10–55px)
@@ -75,6 +76,7 @@
   - ✅ Background tint by outcome (unified palette) — no whitish wash (perspective fix)
   - ✅ Cross-fade between clips (280ms); smooth bg transition between balls (600ms)
 - ✅ **Moments strip** — two-zone chips (badge + over top; label + 2-line context bottom); Live chip with pulsing dot
+- ✅ **Matchup card** — always-on batter vs bowler H2H below ball visualizer; format-aware (T20I/ODI/Test); all stats merge career H2H + current match live counters (balls/runs/outs/dots/4s/6s); label-value row format (`matches-N 4s-N 6s-N Avg-N SR-N Dots-N%`); `Watch for:` danger delivery on own row; shareable PNG; updates on every delivery including strike rotation
 - ✅ **MiniWinProb** — both teams' win% large + bold; gradient area fills; split colour bar; brighten() for dark team colours; namespaced SVG IDs (mwp-fa/mwp-fb)
 - ✅ AI metrics tiles — primary value + trend arrow + delta line + plain-English context label
 - ✅ Win-prob chart modal — full-screen, two team lines, hue-accurate via `brightColor()`
@@ -146,7 +148,7 @@
 | Carousel live matches 2 & 3 | `liveStatusOverride` + `liveWinProbOverride` fields | Real fetches |
 | Past + future matches | Hard-coded + `matchGenerator.ts` procedural | Real fetches |
 | Coordinates (pitch / shot) | `Math.random()`-based but plausible | Roanuz Ball Tracker + Cricbuzz fallback |
-| Win probability | Internal sigmoid formula | Scraped bookmaker odds (Betfair / Betway / 1xBet) averaged |
+| Win probability | Internal power-curve formula (calibrated, no double wicket penalty) | Scraped bookmaker odds (Betfair / Betway / 1xBet) averaged |
 | Insights | 8 hard-coded `MOCK_INSIGHTS_V2` | Scraped from 19 analyst Twitter accounts via Nitter |
 | Per-ball commentary | Pre-written in mock balls | Scraped from Cricbuzz / ESPN |
 | Standings | Hard-coded `STANDINGS` | Real fetch |
@@ -184,6 +186,10 @@
 
 | Version | Highlight |
 |---|---|
+| **v1.0.31** | API robustness: `normaliseName()` in transformers.ts — consistent player names across ESPN/Sportradar |
+| **v1.0.30** | Win prob fix: power-curve achievable RPO, remove double wicket penalty — IND 21 off 22 now shows 83% not 31% |
+| **v1.0.29** | Partnership tracker replaces win-prob bar below BallGIF — single row, live per-batter runs/balls/4s/6s |
+| **v1.0.28** | Matchup card fully live: career+match stats merged; label-value row; matches count; live 4s/6s |
 | **v1.0.7** | Nav cleanup: removed back btn from Schedule/Table; GT dot → cobalt #4285F4; sticky scorecard innings header |
 | v1.0.6 | Bug: fixed whitish SVG wash in Safari (perspective CSS); commentary: doubles → slate, threes → pink |
 | v1.0.5 | Commentary colours (six turquoise, single = dot); bottom nav on match page; book page-turn animation |

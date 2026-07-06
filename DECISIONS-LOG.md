@@ -296,3 +296,25 @@ The old `/table` page had "IPL 2026" hardcoded in the header and only rendered I
 
 **CA3 — App meta description reflects all-cricket scope**
 The previous description called Bawler an "IPL match companion". This anchors user expectations and SEO to IPL only. The new description (`"All cricket, every ball, visualized — live scores, ball-by-ball replays, win probability and player stats across every format."`) is accurate and format-agnostic.
+
+---
+
+## Live features — v1.0.28 to v1.0.31
+
+**LF1 — Matchup card always-on, not on wickets only**
+Initial design only showed the matchup card after wickets. Rejected because a batter taking a single rotates strike — the matchup changes immediately. Making it always-on (driven by `currentBall.batterName` and `currentBall.bowlerName`) is simpler, more accurate, and requires zero special-case state. The card updates automatically on every delivery.
+
+**LF2 — Career H2H stats merged with live match counters**
+The matchup card stats (balls/runs/outs/dots/4s/6s) combine career H2H (from `mockMatchups.ts`, later real API) with current-match counters computed from `allBalls`. This is computationally free (pure `useMemo` over existing state), zero extra API calls, and gives users live accuracy on top of historical context. The display formula is `total = career + liveCounter` for each field.
+
+**LF3 — Partnership tracker replaces win-prob footer in BallGIF**
+Win probability was shown in the BallGIF footer but was showing wrong values (see WP1 below). Replacing it with a partnership tracker is strictly more informative: it tells the fan who is batting, how they are doing together right now, and resets correctly on wickets. Win prob is still available in the dedicated WinProbChart tab — no information is lost.
+
+**LF4 — Non-striker run-out detection via look-ahead**
+When `isWicket: true` and `dismissalType === "run-out"`, the partnership should only reset if the STRIKER was dismissed. Detection: if the ball immediately after the wicket has the same `batterName`, the striker survived → non-striker run-out → no reset. This is a one-line look-ahead in the `partnershipInfo` useMemo and handles ~3-4 such events per tournament with zero false positives.
+
+**LF5 — `normaliseName()` at API boundary, not at display time**
+Player names from different APIs (`"Virat Kohli"`, `"V Kohli"`, `"kohli, virat"`) would break matchup lookups and partnership grouping if not normalised. Normalising at the transformer layer (ESPN/Sportradar) means all downstream code — matchup card, partnership tracker, player links — receives consistent `"I Surname"` format without any conditional logic inside components.
+
+**WP1 — Win prob chase formula: power curve, single wicket term**
+The old formula had two independent wicket penalties stacked: (1) a linear `achievableRPO` that underestimated chasing team headroom, and (2) a separate `wicketPenalty` multiplier on the final probability. Together they made easy chases look much harder than they are (IND needing 21 off 22 showed 31% when it should be ~83%). Fix: one power-curve term `baseRPO × (wicketsLeft/10)^0.25` encodes wickets once. The steeper sigmoid (5 vs 3) gives crisper probability swings on boundaries and wickets. All components read from the single `calculateWinProbForMatch()` function so the fix applied platform-wide automatically.
