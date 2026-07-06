@@ -424,6 +424,34 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     );
   }, [allBalls, activeBallIdx, matchupInfo?.batterName, matchupInfo?.bowlerName, matchupInfo]);
 
+  // Partnership tracker — runs & balls for each batter in the current stand
+  const partnershipInfo = useMemo(() => {
+    if (!currentBall) return null;
+    const inn = currentBall.inningsNumber;
+    // All balls in current innings up to and including activeBallIdx
+    const inningsBalls = allBalls.slice(0, activeBallIdx + 1).filter(b => b.inningsNumber === inn);
+    // Find the last wicket ball index within this innings slice
+    let partnershipStart = 0;
+    for (let i = inningsBalls.length - 1; i >= 0; i--) {
+      if (inningsBalls[i].isWicket) { partnershipStart = i + 1; break; }
+    }
+    const partnerBalls = inningsBalls.slice(partnershipStart);
+    // Accumulate per batter
+    const batsmenMap = new Map<string, { runs: number; balls: number }>();
+    for (const b of partnerBalls) {
+      const isLegal = !b.extraType || b.extraType === "b" || b.extraType === "lb";
+      const entry = batsmenMap.get(b.batterName) ?? { runs: 0, balls: 0 };
+      entry.runs += b.runs;
+      if (isLegal) entry.balls++;
+      batsmenMap.set(b.batterName, entry);
+    }
+    // Convert to array — up to 2 batters
+    const batters = Array.from(batsmenMap.entries()).map(([name, s]) => ({ name, ...s }));
+    const totalRuns = batters.reduce((s, b) => s + b.runs, 0);
+    const totalBalls = partnerBalls.filter(b => !b.extraType || b.extraType === "b" || b.extraType === "lb").length;
+    return { batters, totalRuns, totalBalls };
+  }, [allBalls, activeBallIdx, currentBall]);
+
   // Share handler for MatchupCard
   const triggerMatchupShare = useCallback(() => {
     if (!matchupInfo || isCapturingRef.current) return;
@@ -583,8 +611,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     loopMs={GIF_LOOP_MS}
                     scoreText={clipScoreText}
                     situationText={clipSituationText}
-                    winProbBefore={wpBefore}
-                    winProbAfter={wpAfter}
+                    partnership={partnershipInfo ?? undefined}
                     onShare={triggerShare}
                   />
                 )}

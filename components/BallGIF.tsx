@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 
+interface PartnershipBatter { name: string; runs: number; balls: number; }
+interface PartnershipInfo { batters: PartnershipBatter[]; totalRuns: number; totalBalls: number; }
+
 interface BallGIFProps {
   ball: Ball;
   match: Match;
@@ -11,15 +14,14 @@ interface BallGIFProps {
   loopMs?: number;
   situationText?: string;
   scoreText?: string;
-  winProbBefore?: number;
-  winProbAfter?: number;
+  partnership?: PartnershipInfo;
   onShare?: (ball: Ball) => void; // centralised in MatchView
 }
 
 export default function BallGIF({
   ball, match, fielders, loopMs = 6000,
   situationText, scoreText,
-  winProbBefore = 50, winProbAfter = 50,
+  partnership,
   onShare,
 }: BallGIFProps) {
   const [activeClip, setActiveClip] = useState<"bowler" | "overhead">("bowler");
@@ -110,12 +112,7 @@ export default function BallGIF({
       </div>
 
       {/* ── IMPACT FOOTER ── */}
-      <ImpactFooter
-        ball={ball}
-        match={match}
-        winProbBefore={winProbBefore}
-        winProbAfter={winProbAfter}
-      />
+      <PartnershipFooter ball={ball} partnership={partnership} match={match} />
 
     </div>
   );
@@ -172,18 +169,13 @@ function ContextHeader({ match, ball, scoreText, situationText }: {
 // IMPACT FOOTER — win-prob bar + swing + stat line
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ImpactFooter({ ball, match, winProbBefore, winProbAfter }: {
-  ball: Ball; match: Match; winProbBefore: number; winProbAfter: number;
+function PartnershipFooter({ ball, partnership, match }: {
+  ball: Ball;
+  partnership?: PartnershipInfo;
+  match: Match;
 }) {
-  const delta = Math.round(winProbAfter - winProbBefore);
-  const absDelta = Math.abs(delta);
-  const teamAWins = winProbAfter;
-  const teamBWins = 100 - teamAWins;
-  const aColor = match.teamA.primaryColor;
-  const bColor = match.teamB.primaryColor;
-
-  /* impact one-liner */
-  const impactLine = (() => {
+  /* outcome one-liner */
+  const outcomeLine = (() => {
     if (ball.isWicket) return `${ball.batterName} out · ${ball.dismissalType ?? "dismissed"}`;
     if (ball.isBoundary6) {
       const dist = ball.shotPower ? `${Math.round(ball.shotPower * 120 + 60)}m ` : "";
@@ -193,31 +185,39 @@ function ImpactFooter({ ball, match, winProbBefore, winProbAfter }: {
     return `${ball.runs} run${ball.runs !== 1 ? "s" : ""}`;
   })();
 
+  /* batting team colour for partnership highlight */
+  const currentInningsNum = ball.inningsNumber;
+  const battingTeam = currentInningsNum % 2 === 1 ? match.teamA : match.teamB;
+  const partnerColor = battingTeam.primaryColor;
+
   return (
     <div className="bg-[#0A0E1A] px-3 pt-1.5 pb-2 flex flex-col gap-1">
-      {/* Win prob bar — team name | pct% [bar] pct% | team name — single compact row */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-[8px] font-bold text-white/40 uppercase tracking-wide shrink-0" style={{ color: aColor }}>{match.teamA.shortName}</span>
-        <span className="text-[9px] font-bold text-white/55 num w-5 text-right shrink-0">{teamAWins}%</span>
-        <div className="flex-1 h-1 rounded-full overflow-hidden flex">
-          <div className="h-full rounded-l-full transition-all duration-700" style={{ width: `${teamAWins}%`, background: aColor }} />
-          <div className="h-full rounded-r-full transition-all duration-700" style={{ width: `${teamBWins}%`, background: bColor }} />
-        </div>
-        <span className="text-[9px] font-bold text-white/55 num w-5 shrink-0">{teamBWins}%</span>
-        <span className="text-[8px] font-bold text-white/40 uppercase tracking-wide shrink-0" style={{ color: bColor }}>{match.teamB.shortName}</span>
-      </div>
-
-      {/* Impact line + delta badge — single row */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold text-white/55 truncate">{impactLine}</span>
-        {absDelta >= 2 && (
-          <span
-            className="text-[9px] font-bold num px-1.5 py-0.5 rounded shrink-0"
-            style={{ color: delta > 0 ? aColor : bColor, background: delta > 0 ? `${aColor}18` : `${bColor}18` }}
-          >
-            {delta > 0 ? `+${delta}%` : `${delta}%`}
+      {/* Partnership row */}
+      {partnership && partnership.batters.length > 0 && (
+        <div className="flex items-center gap-2">
+          {/* PSHIP label */}
+          <span className="text-[8px] font-bold uppercase tracking-widest text-white/30 shrink-0">Pship</span>
+          {/* Total */}
+          <span className="text-[10px] font-extrabold num shrink-0" style={{ color: partnerColor }}>
+            {partnership.totalRuns}
+            <span className="text-[9px] font-semibold text-white/40"> ({partnership.totalBalls})</span>
           </span>
-        )}
+          {/* Separator */}
+          <span className="text-white/20 text-[9px]">·</span>
+          {/* Individual batters */}
+          {partnership.batters.map((b, i) => (
+            <span key={b.name} className="flex items-baseline gap-0.5">
+              {i > 0 && <span className="text-white/20 text-[9px] mr-1">·</span>}
+              <span className="text-[9px] font-semibold text-white/60 truncate max-w-[72px]">{b.name.split(" ").pop()}</span>
+              <span className="text-[10px] font-extrabold num text-white/80">{b.runs}</span>
+              <span className="text-[9px] text-white/35">({b.balls})</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {/* Outcome line */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-semibold text-white/55 truncate">{outcomeLine}</span>
       </div>
     </div>
   );
