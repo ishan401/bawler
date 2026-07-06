@@ -15,7 +15,7 @@
 // Team code — no longer a closed union; any string (e.g. "MI", "IND", "SYD")
 export type TeamCode = string;
 
-export type MatchFormat = "T20" | "T20I" | "ODI" | "Test";
+export type MatchFormat = "T20" | "T20I" | "ODI" | "Test" | "Hundred";
 
 export interface Competition {
   id: string;           // "ipl-2026", "icc-t20wc-2026", "ashes-2025-26"

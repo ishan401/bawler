@@ -2,6 +2,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import type { Match } from "@/lib/types";
+import { ballsPerSet } from "@/lib/formatUtils";
 
 interface ScoreBarProps {
   match: Match;
@@ -9,7 +10,8 @@ interface ScoreBarProps {
 
 /** Total legal deliveries for a format — used for RRR and balls-left displays. */
 function totalBallsFor(match: Match): number {
-  if (match.format === "Test" || match.format === "ODI") return 300; // 50 overs per side
+  if (match.format === "Test" || match.format === "ODI") return 300;
+  if (match.format === "Hundred") return 100;
   return 120; // T20 / T20I
 }
 
@@ -40,9 +42,9 @@ function ScoreBar({ match }: ScoreBarProps) {
   const target = (!isTest && i1) ? i1.runs + 1 : null;
   const chasingInn = (!isTest && i2) ? i2 : null;
   const need = target && chasingInn ? target - chasingInn.runs : null;
-  const ballsBowled = chasingInn ? Math.round(chasingInn.overs * 6) : 0;
+  const ballsBowled = chasingInn ? Math.round(chasingInn.overs * ballsPerSet(match.format)) : 0;
   const ballsLeft = chasingInn ? Math.max(0, totalBalls - ballsBowled) : null;
-  const rrr = need && ballsLeft && ballsLeft > 0 ? (need / ballsLeft) * 6 : null;
+  const rrr = need && ballsLeft && ballsLeft > 0 ? (need / ballsLeft) * ballsPerSet(match.format) : null;
 
   return (
     <div className="bg-bg/90 backdrop-blur border-b border-line">
@@ -76,7 +78,7 @@ function ScoreBar({ match }: ScoreBarProps) {
             {isLive ? "LIVE" : isPost ? "FINAL" : "PRE"}
           </div>
           <div className="flex items-center gap-1">
-            {match.format !== "T20" && match.format !== "T20I" && (
+            {match.format !== "T20" && match.format !== "T20I" && match.format !== "Hundred" && (
               <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none text-text-dim border border-line">
                 {match.format}
               </span>

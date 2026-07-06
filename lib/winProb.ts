@@ -12,12 +12,14 @@
 // ============================================================================
 
 import type { Match, Ball, WinProbPoint } from "./types";
+import { ballsPerSet, absoluteBallNumber } from "./formatUtils";
 
 export function totalBallsForFormat(match: Match): number {
   // Tests have variable innings — win prob model doesn't apply cleanly; use a large cap
   if (match.format === "Test") return 450;
-  if (match.format === "ODI") return 300; // 50 overs
-  return 120; // T20 / T20I
+  if (match.format === "ODI") return 300;       // 50 overs
+  if (match.format === "Hundred") return 100;   // 100-ball format
+  return 120;                                   // T20 / T20I
 }
 
 export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
@@ -38,8 +40,9 @@ export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
       cumulativeRuns += ball.runs + ball.extras;
       if (ball.isWicket) cumulativeWickets++;
 
-      const overFloat = ball.over - 1 + (ball.ballInOver + 1) / 6;
-      const ballsBowled = (ball.over - 1) * 6 + (ball.ballInOver + 1);
+      const bps = ballsPerSet(match.format);
+      const overFloat = ball.over - 1 + (ball.ballInOver + 1) / bps;
+      const ballsBowled = absoluteBallNumber(ball, match.format);
       const ballsRemaining = totalBalls - ballsBowled;
 
       let wpTeamA: number;
@@ -64,7 +67,7 @@ export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
         } else if (wicketsLeft <= 0 || ballsRemaining <= 0) {
           wpTeamA = 1; // team A wins, chase failed
         } else {
-          const rrr = (need / ballsRemaining) * 6;
+          const rrr = (need / ballsRemaining) * ballsPerSet(match.format);
           const achievableRPO = 8.5 + (wicketsLeft - 5) * 0.4; // crude
           const ratio = achievableRPO / rrr;
           const wpTeamB = 1 / (1 + Math.exp(-(ratio - 1) * 3));
@@ -128,10 +131,10 @@ export function calculateProjectedScore(match: Match): { runs: number; perOver: 
   const cumulativeRuns = live.balls.reduce((s, b) => s + b.runs + b.extras, 0);
   const cumulativeWickets = live.balls.filter(b => b.isWicket).length;
   if (ballsBowled === 0) return null;
-  const perOver = cumulativeRuns / (ballsBowled / 6);
+  const perOver = cumulativeRuns / (ballsBowled / ballsPerSet(match.format));
   const wicketsLeft = 10 - cumulativeWickets;
   // Slight slow-down expected as wickets fall
-  const projectedTotal = cumulativeRuns + (totalBalls2 - ballsBowled) * (perOver / 6) * Math.max(0.7, wicketsLeft / 9);
+  const projectedTotal = cumulativeRuns + (totalBalls2 - ballsBowled) * (perOver / ballsPerSet(match.format)) * Math.max(0.7, wicketsLeft / 9);
   return {
     runs: Math.round(projectedTotal),
     perOver: Math.round(perOver * 100) / 100,
@@ -151,7 +154,7 @@ export function calculatePressureGauge(match: Match): { level: number; trend: "r
   const ballsRemaining = totalBalls - ballsBowled;
   if (ballsRemaining <= 0) return null;
   const need = target - cumulativeRuns;
-  const rrr = (need / ballsRemaining) * 6;
+  const rrr = (need / ballsRemaining) * ballsPerSet(match.format);
   const wicketsLeft = 10 - cumulativeWickets;
 
   // Pressure index 0..10
@@ -160,7 +163,7 @@ export function calculatePressureGauge(match: Match): { level: number; trend: "r
   const level = clamp(0, 10, rrrPressure * 0.7 + wicketPressure * 0.3);
 
   // Compare to a few balls ago for trend
-  const earlierBalls = Math.max(0, ballsBowled - 6);
+  const earlierBalls = Math.max(0, ballsBowled - ballsPerSet(match.format));
   const earlierRuns = i2.balls.slice(0, earlierBalls).reduce((s, b) => s + b.runs + b.extras, 0);
   const earlierWickets = i2.balls.slice(0, earlierBalls).filter(b => b.isWicket).length;
   const earlierNeed = target - earlierRuns;

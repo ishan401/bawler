@@ -2,6 +2,7 @@
 import { memo } from "react";
 
 import type { Match, Ball, InsightV2 } from "@/lib/types";
+import { setLabel } from "@/lib/formatUtils";
 import DeliveryCard from "./DeliveryCard";
 import OverSummary from "./OverSummary";
 import InlineNote from "./InlineNote";
@@ -37,6 +38,7 @@ function CommentaryFeed({ match, insights, onShare }: CommentaryFeedProps) {
               ball={item.ball}
               extraNarrative={item.extraNarrative}
               onShare={onShare}
+              format={match.format}
             />
           );
         }
@@ -47,6 +49,7 @@ function CommentaryFeed({ match, insights, onShare }: CommentaryFeedProps) {
               over={item.overNumber}
               balls={item.balls}
               bowlerName={item.bowlerName}
+              format={match.format}
             />
           );
         }

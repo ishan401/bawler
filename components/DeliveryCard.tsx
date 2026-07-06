@@ -2,7 +2,8 @@
 
 import React from "react";
 
-import type { Ball } from "@/lib/types";
+import type { Ball, MatchFormat } from "@/lib/types";
+import { ballLabel } from "@/lib/formatUtils";
 import MiniBallGIF from "./MiniBallGIF";
 import { OUTCOME, outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 
@@ -10,6 +11,7 @@ interface DeliveryCardProps {
   ball: Ball;
   extraNarrative?: string;
   onShare?: (ball: Ball) => void;
+  format?: MatchFormat;
 }
 
 /**
@@ -20,16 +22,16 @@ interface DeliveryCardProps {
  *     ribbon — no mini-gif, no narrative, just the essential info.
  *   - Card bg gradient uses the unified outcome palette.
  */
-export default function DeliveryCard({ ball, extraNarrative, onShare }: DeliveryCardProps) {
+export default function DeliveryCard({ ball, extraNarrative, onShare, format = "T20" }: DeliveryCardProps) {
   const kind = outcomeKindOf(ball);
   const palette = OUTCOME[kind];
   const bgStyle = cardBackgroundFor(kind);
   const isFull = ball.isWicket || ball.isBoundary4 || ball.isBoundary6;
 
   if (!isFull) {
-    return <CompactRow ball={ball} bgStyle={bgStyle} badgeBg={palette.primary} badgeFg={palette.badgeFg} badgeText={palette.badgeText} onShare={onShare} />;
+    return <CompactRow ball={ball} bgStyle={bgStyle} badgeBg={palette.primary} badgeFg={palette.badgeFg} badgeText={palette.badgeText} onShare={onShare} format={format} />;
   }
-  return <FullCard ball={ball} extraNarrative={extraNarrative} bgStyle={bgStyle} palette={palette} onShare={onShare} />;
+  return <FullCard ball={ball} extraNarrative={extraNarrative} bgStyle={bgStyle} palette={palette} onShare={onShare} format={format} />;
 }
 
 // ============================================================================
@@ -37,7 +39,7 @@ export default function DeliveryCard({ ball, extraNarrative, onShare }: Delivery
 // ============================================================================
 
 function CompactRow({
-  ball, bgStyle, badgeBg, badgeFg, badgeText, onShare,
+  ball, bgStyle, badgeBg, badgeFg, badgeText, onShare, format = "T20",
 }: {
   ball: Ball;
   bgStyle: React.CSSProperties;
@@ -45,6 +47,7 @@ function CompactRow({
   badgeFg: string;
   badgeText: string;
   onShare?: (ball: Ball) => void;
+  format?: MatchFormat;
 }) {
   return (
     <article
@@ -58,7 +61,7 @@ function CompactRow({
         {badgeText}
       </span>
       <span className="num font-bold text-text-primary text-xs shrink-0">
-        {ball.over}.{ball.ballInOver + 1}
+        {ballLabel(ball, format)}
       </span>
       <SpeedDot ball={ball} />
       <span className="text-[11px] text-text-secondary truncate flex-1 min-w-0">
@@ -90,13 +93,14 @@ function compactLineFor(ball: Ball): string {
 // ============================================================================
 
 function FullCard({
-  ball, extraNarrative, bgStyle, palette, onShare,
+  ball, extraNarrative, bgStyle, palette, onShare, format = "T20",
 }: {
   ball: Ball;
   extraNarrative?: string;
   bgStyle: React.CSSProperties;
   palette: { primary: string; badgeFg: string; badgeText: string };
   onShare?: (ball: Ball) => void;
+  format?: MatchFormat;
 }) {
   return (
     <article className="rounded-xl overflow-hidden border" style={bgStyle}>
@@ -114,7 +118,7 @@ function FullCard({
               {palette.badgeText}
             </span>
             <div className="flex items-baseline gap-1.5 text-[10px] text-text-secondary min-w-0">
-              <span className="num font-bold text-text-primary shrink-0">{ball.over}.{ball.ballInOver + 1}</span>
+              <span className="num font-bold text-text-primary shrink-0">{ballLabel(ball, format)}</span>
               <span className="text-text-dim">·</span>
               <span className="truncate">{ball.bowlerName} → {ball.batterName}</span>
             </div>

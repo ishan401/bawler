@@ -2,6 +2,7 @@
 
 import type { Ball, Match, WinProbPoint } from "@/lib/types";
 import { totalBallsForFormat } from "@/lib/winProb";
+import { ballLabel, absoluteBallNumber } from "@/lib/formatUtils";
 
 interface MomentStoryCardProps {
   ball: Ball;
@@ -78,7 +79,7 @@ export default function MomentStoryCard({
             <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{ball.batterName}</span>
           </div>
           <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>
-            Over {ball.over}.{ball.ballInOver + 1}
+            {ballLabel(ball, match.format)}
           </span>
         </div>
       </div>
@@ -207,7 +208,7 @@ export default function MomentStoryCard({
 // ─────────────────────────────────────────────────────────────────────────────
 function StoryProgressBar({ ball, match, aColor, bColor }: { ball: Ball; match: Match; aColor: string; bColor: string }) {
   const totalBalls = totalBallsForFormat(match);
-  const ballsDone = ball.over * 6 + ball.ballInOver + 1;
+  const ballsDone = absoluteBallNumber(ball, match.format);
   const pct = Math.min(100, Math.round((ballsDone / totalBalls) * 100));
 
   return (

@@ -1,19 +1,20 @@
-import type { Ball } from "@/lib/types";
+import type { Ball, MatchFormat } from "@/lib/types";
+import { setLabel, ballsPerSet } from "@/lib/formatUtils";
 
 interface OverSummaryProps {
   over: number;
   balls: Ball[]; // up to 6 (or more if extras)
   bowlerName: string;
+  format?: MatchFormat;
 }
 
 /**
- * Over change/recap strip — appears between balls when the over changes.
- *
- * Per Sarthak v0.4:
- *   - Easily identifiable transition between overs.
- *   - 6 colored dots whose distribution at-a-glance conveys "good" or "bad" over.
+ * Over/Set change recap strip.
+ * Shows "Over X" for T20/ODI/Test, "Set X" for The Hundred.
+ * Dot count adapts: 5 for Hundred, 6 for all other formats.
  */
-export default function OverSummary({ over, balls, bowlerName }: OverSummaryProps) {
+export default function OverSummary({ over, balls, bowlerName, format = "T20" }: OverSummaryProps) {
+  const bps = ballsPerSet(format);
   const runs = balls.reduce((s, b) => s + b.runs + b.extras, 0);
   const wickets = balls.filter(b => b.isWicket).length;
   const verdict = quickVerdict(runs, wickets, balls);
@@ -26,16 +27,16 @@ export default function OverSummary({ over, balls, bowlerName }: OverSummaryProp
       {/* center pill */}
       <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-bg-surface border border-line">
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-text-dim">
-          Over {over}
+          {setLabel(format)} {over}
         </span>
         <span className="text-[10px] num text-text-secondary">{bowlerName}</span>
         {/* 6 dots */}
         <div className="flex gap-1">
-          {balls.slice(0, 6).map((b, i) => (
+          {balls.slice(0, bps).map((b, i) => (
             <BallDot key={i} ball={b} />
           ))}
-          {/* fill remaining with placeholders if fewer than 6 */}
-          {Array.from({ length: Math.max(0, 6 - balls.length) }).map((_, i) => (
+          {/* fill remaining with placeholders if fewer than bps */}
+          {Array.from({ length: Math.max(0, bps - balls.length) }).map((_, i) => (
             <span key={`p-${i}`} className="w-2 h-2 rounded-full bg-line" />
           ))}
         </div>

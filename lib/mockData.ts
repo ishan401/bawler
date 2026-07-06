@@ -186,7 +186,7 @@ export const COMPETITIONS: Record<string, Competition> = {
   engSaOdi2026:  { id: "eng-sa-odi-2026",  name: "South Africa tour of England 2026", shortName: "ENG v SA", type: "bilateral", format: "ODI",  season: "2026",    logoColor: "#C8102E",  hasStandings: false },
   bbl2526:       { id: "bbl-2025-26",      name: "Big Bash League 2025-26",       shortName: "BBL",       type: "league",        format: "T20",  season: "2025-26", logoColor: "#00BFFF",  hasStandings: true },
   psl2026:       { id: "psl-2026",         name: "HBL PSL 2026",                  shortName: "PSL",       type: "league",        format: "T20",  season: "2026",    logoColor: "#00A651",  hasStandings: true },
-  hundred2026:   { id: "hundred-2026",     name: "The Hundred 2026",              shortName: "Hundred",   type: "league",        format: "T20",  season: "2026",    logoColor: "#6B2C91",  hasStandings: true },
+  hundred2026:   { id: "hundred-2026",     name: "The Hundred 2026",              shortName: "Hundred",   type: "league",        format: "Hundred",  season: "2026",    logoColor: "#6B2C91",  hasStandings: true },
   sa202026:      { id: "sa20-2026",        name: "SA20 2026",                     shortName: "SA20",      type: "league",        format: "T20",  season: "2026",    logoColor: "#007A4D",  hasStandings: true },
   cpl2025:       { id: "cpl-2025",         name: "CPL 2025",                      shortName: "CPL",       type: "league",        format: "T20",  season: "2025",    logoColor: "#7B0041",  hasStandings: true },
   mlc2026:       { id: "mlc-2026",         name: "Major League Cricket 2026",     shortName: "MLC",       type: "league",        format: "T20",  season: "2026",    logoColor: "#B22234",  hasStandings: true },

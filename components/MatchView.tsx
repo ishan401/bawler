@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/types";
 import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
+import { ballsPerSet, absoluteBallNumber, inningsProgressLabel, situationLabel } from "@/lib/formatUtils";
 import { computeAIMetrics } from "@/lib/metrics";
 import { extractMatchEvents } from "@/lib/events";
 import ScoreBar from "@/components/ScoreBar";
@@ -173,7 +174,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       const runs = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
       const wickets = truncBalls.filter(b => b.isWicket).length;
       const lastBall = truncBalls[truncBalls.length - 1];
-      const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / 6 : 0;
+      const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / ballsPerSet(match.format) : 0;
       innings.push({
         ...match.innings[0],
         balls: truncBalls,
@@ -187,7 +188,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       const runs = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
       const wickets = truncBalls.filter(b => b.isWicket).length;
       const lastBall = truncBalls[truncBalls.length - 1];
-      const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / 6 : 0;
+      const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / ballsPerSet(match.format) : 0;
       // When no balls available yet, fall back to the real scorecard values
       // so ScoreBar always shows the correct chase score even without ball-by-ball.
       const hasBalls = truncBalls.length > 0;
@@ -242,7 +243,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       if (firstInnings) {
         const target = firstInnings.runs + 1;
         const remaining = target - currentInnings.runs;
-        const ballsBowled = Math.round(currentInnings.overs * 6);
+        const ballsBowled = Math.round(currentInnings.overs * ballsPerSet(match.format));
         const totalBalls = totalBallsForFormat(match);
         const ballsLeft = totalBalls - ballsBowled;
         if (remaining > 0 && ballsLeft > 0) {
@@ -251,8 +252,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       }
     }
     // 1st innings
-    const overLabel = `Over ${Math.floor(currentInnings.overs)}.${Math.round((currentInnings.overs % 1) * 10)}`;
-    return overLabel;
+    return inningsProgressLabel(currentInnings.overs, match.format);
   })();
 
   // Compute context for any ball and queue it for capture
@@ -265,7 +265,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     const wpA = Math.round(fullWinProbPoints[idx]?.winProbTeamA ?? 50);
     // Score/situation text at that ball
     const innings = match.innings.find(inn => inn.balls.some(b => b.id === ball.id));
-    let sText = `Over ${ball.over}.${ball.ballInOver + 1}`;
+    let sText = inningsProgressLabel(ball.over - 1 + (ball.ballInOver + 1) / ballsPerSet(match.format), match.format);
     let scText = "";
     if (innings) {
       const bIdx = innings.balls.findIndex(b => b.id === ball.id);
@@ -276,12 +276,13 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       }
       const sName = innings.battingTeam === match.teamA.code
         ? match.teamA.shortName : match.teamB.shortName;
-      scText = `${sName} ${runs}/${wkts} (${ball.over}.${ball.ballInOver + 1})`;
+      const ballLbl = match.format === "Hundred" ? `B${absoluteBallNumber(ball, match.format)}` : `${ball.over}.${ball.ballInOver + 1}`;
+      scText = `${sName} ${runs}/${wkts} (${ballLbl})`;
       if (innings.number >= 2 && match.innings[0]) {
         const target = match.innings[0].runs + 1;
         const remaining = target - runs;
         const totalBalls = totalBallsForFormat(match);
-        const ballsDone = ball.over * 6 + ball.ballInOver + 1;
+        const ballsDone = absoluteBallNumber(ball, match.format);
         if (remaining > 0 && totalBalls - ballsDone > 0) {
           sText = `Need ${remaining} off ${totalBalls - ballsDone}`;
         }

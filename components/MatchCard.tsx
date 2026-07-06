@@ -254,7 +254,8 @@ function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: nu
 /** Total legal deliveries per side for a format. */
 function totalBallsForFormat(match: Match): number {
   if (match.format === "ODI") return 300;
-  if (match.format === "Test") return 450; // approx — Tests are declaration-based
+  if (match.format === "Test") return 450;
+  if (match.format === "Hundred") return 100;
   return 120; // T20 / T20I
 }
 
