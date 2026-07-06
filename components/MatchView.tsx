@@ -96,6 +96,17 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     battingTeamName: string;
     bowlingTeamName: string;
   } | null>(null);
+  // Matchup card persists for 15s after the triggering event so users can read/share
+  const matchupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [displayedMatchup, setDisplayedMatchup] = useState<{
+    batterName: string;
+    bowlerName: string;
+    isPreview: boolean;
+    battingTeamColor: string;
+    bowlingTeamColor: string;
+    battingTeamName: string;
+    bowlingTeamName: string;
+  } | null>(null);
   const [shareTarget, setShareTarget] = useState<{
     ball: Ball;
     wpBefore: number; wpAfter: number;
@@ -400,18 +411,33 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     return null;
   }, [currentBall, currentInnings, allBalls, activeBallIdx, match]);
 
+  // ── Matchup card 15-second persist timer ────────────────────────────────
+  // When matchupInfo becomes non-null, freeze display and reset a 15s timer.
+  useEffect(() => {
+    if (matchupInfo) {
+      setDisplayedMatchup(matchupInfo);
+      if (matchupTimerRef.current) clearTimeout(matchupTimerRef.current);
+      matchupTimerRef.current = setTimeout(() => setDisplayedMatchup(null), 15_000);
+    }
+    // When matchupInfo goes null, leave displayedMatchup — timer handles dismiss.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchupInfo?.batterName, matchupInfo?.bowlerName, matchupInfo?.isPreview]);
+
+  // Cleanup on unmount
+  useEffect(() => () => { if (matchupTimerRef.current) clearTimeout(matchupTimerRef.current); }, []);
+
   // Share handler for MatchupCard
   const triggerMatchupShare = useCallback(() => {
-    if (!matchupInfo || isCapturingRef.current) return;
+    if (!displayedMatchup || isCapturingRef.current) return;
     setMatchupShareTarget({
-      batterName: matchupInfo.batterName,
-      bowlerName: matchupInfo.bowlerName,
-      battingTeamColor: matchupInfo.battingTeamColor,
-      bowlingTeamColor: matchupInfo.bowlingTeamColor,
-      battingTeamName: matchupInfo.battingTeamName,
-      bowlingTeamName: matchupInfo.bowlingTeamName,
+      batterName: displayedMatchup.batterName,
+      bowlerName: displayedMatchup.bowlerName,
+      battingTeamColor: displayedMatchup.battingTeamColor,
+      bowlingTeamColor: displayedMatchup.bowlingTeamColor,
+      battingTeamName: displayedMatchup.battingTeamName,
+      bowlingTeamName: displayedMatchup.bowlingTeamName,
     });
-  }, [matchupInfo]);
+  }, [displayedMatchup]);
 
   // Capture + share the matchup card image
   useEffect(() => {
@@ -564,14 +590,14 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     onShare={triggerShare}
                   />
                 )}
-                {matchupInfo && (
+                {displayedMatchup && (
                   <div className="mt-3">
                     <MatchupCard
-                      batterName={matchupInfo.batterName}
-                      bowlerName={matchupInfo.bowlerName}
-                      isPreview={matchupInfo.isPreview}
-                      battingTeamColor={matchupInfo.battingTeamColor}
-                      bowlingTeamColor={matchupInfo.bowlingTeamColor}
+                      batterName={displayedMatchup.batterName}
+                      bowlerName={displayedMatchup.bowlerName}
+                      isPreview={displayedMatchup.isPreview}
+                      battingTeamColor={displayedMatchup.battingTeamColor}
+                      bowlingTeamColor={displayedMatchup.bowlingTeamColor}
                       format={match.format}
                       onShare={triggerMatchupShare}
                     />

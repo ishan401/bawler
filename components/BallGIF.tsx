@@ -194,49 +194,30 @@ function ImpactFooter({ ball, match, winProbBefore, winProbAfter }: {
   })();
 
   return (
-    <div className="bg-[#0A0E1A] px-3 pt-2 pb-2.5 flex flex-col gap-1.5">
-      {/* win-prob bar */}
-      <div className="flex items-center gap-2">
-        <span className="text-[9px] font-bold text-white/60 w-6 text-right num">{teamAWins}%</span>
-        <div className="flex-1 h-1.5 rounded-full overflow-hidden flex">
-          <div
-            className="h-full rounded-l-full transition-all duration-700"
-            style={{ width: `${teamAWins}%`, background: aColor }}
-          />
-          <div
-            className="h-full rounded-r-full transition-all duration-700"
-            style={{ width: `${teamBWins}%`, background: bColor }}
-          />
+    <div className="bg-[#0A0E1A] px-3 pt-1.5 pb-2 flex flex-col gap-1">
+      {/* Win prob bar — team name | pct% [bar] pct% | team name — single compact row */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-[8px] font-bold text-white/40 uppercase tracking-wide shrink-0" style={{ color: aColor }}>{match.teamA.shortName}</span>
+        <span className="text-[9px] font-bold text-white/55 num w-5 text-right shrink-0">{teamAWins}%</span>
+        <div className="flex-1 h-1 rounded-full overflow-hidden flex">
+          <div className="h-full rounded-l-full transition-all duration-700" style={{ width: `${teamAWins}%`, background: aColor }} />
+          <div className="h-full rounded-r-full transition-all duration-700" style={{ width: `${teamBWins}%`, background: bColor }} />
         </div>
-        <span className="text-[9px] font-bold text-white/60 w-6 num">{teamBWins}%</span>
+        <span className="text-[9px] font-bold text-white/55 num w-5 shrink-0">{teamBWins}%</span>
+        <span className="text-[8px] font-bold text-white/40 uppercase tracking-wide shrink-0" style={{ color: bColor }}>{match.teamB.shortName}</span>
       </div>
 
-      {/* team labels + delta */}
-      <div className="flex items-center justify-between">
-        <span className="text-[8px] font-semibold text-white/40 uppercase tracking-wide">
-          {match.teamA.shortName}
-        </span>
+      {/* Impact line + delta badge — single row */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] font-semibold text-white/55 truncate">{impactLine}</span>
         {absDelta >= 2 && (
           <span
-            className="text-[9px] font-bold num px-1.5 py-0.5 rounded"
-            style={{
-              color: delta > 0 ? aColor : bColor,
-              background: delta > 0
-                ? `${aColor}18`
-                : `${bColor}18`,
-            }}
+            className="text-[9px] font-bold num px-1.5 py-0.5 rounded shrink-0"
+            style={{ color: delta > 0 ? aColor : bColor, background: delta > 0 ? `${aColor}18` : `${bColor}18` }}
           >
-            {delta > 0 ? `+${delta}%` : `${delta}%`} swing
+            {delta > 0 ? `+${delta}%` : `${delta}%`}
           </span>
         )}
-        <span className="text-[8px] font-semibold text-white/40 uppercase tracking-wide">
-          {match.teamB.shortName}
-        </span>
-      </div>
-
-      {/* impact line */}
-      <div className="flex items-center justify-center">
-        <span className="text-[10px] font-semibold text-white/55">{impactLine}</span>
       </div>
     </div>
   );
