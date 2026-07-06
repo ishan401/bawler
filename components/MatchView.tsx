@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useRef } from "react";
-import type { Match, MatchEvent, InsightV2 } from "@/lib/types";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/types";
 import { calculateWinProbForMatch } from "@/lib/winProb";
 import { computeAIMetrics } from "@/lib/metrics";
 import { extractMatchEvents } from "@/lib/events";
@@ -18,6 +18,7 @@ import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
 import { MOCK_INSIGHTS_V2 } from "@/lib/mockData";
 import LineupsCard from "@/components/LineupsCard";
+import MomentStoryCard from "@/components/MomentStoryCard";
 import StandingsTab from "@/components/StandingsTab";
 
 interface MatchViewProps {
@@ -78,6 +79,16 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const [animClass, setAnimClass] = useState("");
   const transitioningRef = useRef(false);
   const [showProbModal, setShowProbModal] = useState(false);
+
+  // ── Story-card share ──────────────────────────────────────────
+  const storyCardRef = useRef<HTMLDivElement>(null);
+  const isCapturingRef = useRef(false);
+  const [shareTarget, setShareTarget] = useState<{
+    ball: Ball;
+    wpBefore: number; wpAfter: number;
+    ballIdx: number;
+    scoreText: string; situationText: string;
+  } | null>(null);
   const [isClosingProb, setIsClosingProb] = useState(false);
 
   // Back-swipe / browser back gesture for win-prob modal
@@ -244,6 +255,76 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     return overLabel;
   })();
 
+  // Compute context for any ball and queue it for capture
+  const triggerShare = useCallback((ball: Ball) => {
+    if (isCapturingRef.current) return;
+    const idx = allBalls.findIndex(b => b.id === ball.id);
+    // Find win-prob around this ball using full winProbPoints array
+    const fullWinProbPoints = calculateWinProbForMatch({ ...match, innings: match.innings });
+    const wpB = idx > 0 ? Math.round(fullWinProbPoints[idx - 1]?.winProbTeamA ?? 50) : 50;
+    const wpA = Math.round(fullWinProbPoints[idx]?.winProbTeamA ?? 50);
+    // Score/situation text at that ball
+    const innings = match.innings.find(inn => inn.balls.some(b => b.id === ball.id));
+    let sText = `Over ${ball.over}.${ball.ballInOver + 1}`;
+    let scText = "";
+    if (innings) {
+      const bIdx = innings.balls.findIndex(b => b.id === ball.id);
+      let runs = 0, wkts = 0;
+      for (let i = 0; i <= bIdx; i++) {
+        runs += (innings.balls[i].runs ?? 0) + (innings.balls[i].extras ?? 0);
+        if (innings.balls[i].isWicket) wkts++;
+      }
+      const sName = innings.battingTeam === match.teamA.code
+        ? match.teamA.shortName : match.teamB.shortName;
+      scText = `${sName} ${runs}/${wkts} (${ball.over}.${ball.ballInOver + 1})`;
+      if (innings.number >= 2 && match.innings[0]) {
+        const target = match.innings[0].runs + 1;
+        const remaining = target - runs;
+        const totalBalls = match.format === "T20" ? 120 : match.format === "ODI" ? 300 : 450;
+        const ballsDone = ball.over * 6 + ball.ballInOver + 1;
+        if (remaining > 0 && totalBalls - ballsDone > 0) {
+          sText = `Need ${remaining} off ${totalBalls - ballsDone}`;
+        }
+      }
+    }
+    setShareTarget({ ball, wpBefore: wpB, wpAfter: wpA, ballIdx: idx, scoreText: scText, situationText: sText });
+  }, [allBalls, match]);
+
+  // After React paints the hidden card, capture → share
+  useEffect(() => {
+    if (!shareTarget || !storyCardRef.current) return;
+    isCapturingRef.current = true;
+    const el = storyCardRef.current;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        try {
+          const { toPng } = await import("html-to-image");
+          const dataUrl = await toPng(el, {
+            pixelRatio: 2, backgroundColor: "#070B14", skipFonts: true,
+          });
+          const byteStr = atob(dataUrl.split(",")[1]);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          const blob = new Blob([arr], { type: "image/png" });
+          const file = new File([blob], "bawler-moment.png", { type: "image/png" });
+          const parts = [shareTarget.scoreText, shareTarget.situationText].filter(Boolean);
+          const text = parts.length ? `${parts.join(" · ")} · bawler-gold.vercel.app` : "bawler-gold.vercel.app";
+          if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: "Bawler", text });
+          } else {
+            const a = document.createElement("a");
+            a.href = dataUrl; a.download = "bawler-moment.png"; a.click();
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name !== "AbortError") console.error("[Bawler] Share failed:", err);
+        }
+        isCapturingRef.current = false;
+        setShareTarget(null);
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareTarget]);
+
   const handleMomentSelect = React.useCallback((event: MatchEvent | null) => {
     if (event === null) {
       setSelectedBallId(null);
@@ -367,6 +448,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     situationText={clipSituationText}
                     winProbBefore={wpBefore}
                     winProbAfter={wpAfter}
+                    onShare={triggerShare}
                   />
                 )}
                 <MomentsStrip
@@ -386,7 +468,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Live commentary</span>
                     <span className="text-[10px] text-text-secondary">{visibleInsights.length} insights</span>
                   </div>
-                  <CommentaryFeed match={truncatedMatch} insights={visibleInsights} />
+                  <CommentaryFeed match={truncatedMatch} insights={visibleInsights} onShare={triggerShare} />
                 </div>
               </>
             )}
@@ -402,6 +484,27 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         </footer>
         </div>
       </main>
+
+      {/* ── Hidden story card for share capture (parent opacity:0, ref clean) ── */}
+      <div
+        aria-hidden="true"
+        style={{ position: "fixed", top: 0, left: 0, width: 375, opacity: 0, pointerEvents: "none", zIndex: -1 }}
+      >
+        <div ref={storyCardRef}>
+          {shareTarget && (
+            <MomentStoryCard
+              ball={shareTarget.ball}
+              match={match}
+              scoreText={shareTarget.scoreText}
+              situationText={shareTarget.situationText}
+              winProbBefore={shareTarget.wpBefore}
+              winProbAfter={shareTarget.wpAfter}
+              winProbPoints={calculateWinProbForMatch(match)}
+              ballIndex={shareTarget.ballIdx}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Full-screen win-prob chart modal */}
       {showProbModal && (

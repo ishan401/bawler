@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 
@@ -9,20 +9,21 @@ interface BallGIFProps {
   match: Match;
   fielders?: FielderPosition[];
   loopMs?: number;
-  situationText?: string;  // "Need 23 off 18" | "Over 18.4"
-  scoreText?: string;      // "KKR 156/4 (18.4)"
-  winProbBefore?: number;  // 0-100, batting team before ball
-  winProbAfter?: number;   // 0-100, batting team after ball
+  situationText?: string;
+  scoreText?: string;
+  winProbBefore?: number;
+  winProbAfter?: number;
+  onShare?: (ball: Ball) => void; // centralised in MatchView
 }
 
 export default function BallGIF({
   ball, match, fielders, loopMs = 6000,
   situationText, scoreText,
   winProbBefore = 50, winProbAfter = 50,
+  onShare,
 }: BallGIFProps) {
   const [activeClip, setActiveClip] = useState<"bowler" | "overhead">("bowler");
-  const [shareLoading, setShareLoading] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+
 
   const isBigMoment = ball.isWicket || ball.isBoundary6 || ball.isBoundary4;
   const kind = outcomeKindOf(ball);
@@ -37,49 +38,7 @@ export default function BallGIF({
     return () => clearInterval(id);
   }, [loopMs]);
 
-  async function handleShare() {
-    if (!cardRef.current || shareLoading) return;
-    setShareLoading(true);
-    try {
-      const { toPng } = await import("html-to-image");
 
-      // Wait one animation frame so the browser has fully painted the card
-      await new Promise<void>(r => requestAnimationFrame(() => r()));
-
-      const dataUrl = await toPng(cardRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: "#070B14",
-        skipFonts: true, // avoids CORS/CSP failures fetching web fonts
-      });
-
-      // Convert data URL → Blob via atob (no fetch, works in all mobile WebViews)
-      const byteStr = atob(dataUrl.split(",")[1]);
-      const arr = new Uint8Array(byteStr.length);
-      for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
-      const blob = new Blob([arr], { type: "image/png" });
-      const file = new File([blob], "bawler-moment.png", { type: "image/png" });
-
-      const parts = [scoreText, situationText].filter(Boolean);
-      const shareText = parts.length ? `${parts.join(" · ")} · bawler-gold.vercel.app` : "bawler-gold.vercel.app";
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Bawler", text: shareText });
-      } else {
-        // Desktop fallback: trigger download
-        const a = document.createElement("a");
-        a.href = dataUrl;
-        a.download = "bawler-moment.png";
-        a.click();
-      }
-    } catch (err) {
-      // AbortError = user cancelled the share sheet — not a real error
-      if (err instanceof Error && err.name !== "AbortError") {
-        console.error("[Bawler] Share failed:", err);
-      }
-    }
-    setShareLoading(false);
-  }
 
   /* accent colour for the share button glow */
   const shareAccent = ball.isWicket
@@ -135,23 +94,17 @@ export default function BallGIF({
         </div>
 
         {/* Share button — top-right, big moments only */}
-        {isBigMoment && (
+        {isBigMoment && onShare && (
           <button
-            onClick={handleShare}
-            disabled={shareLoading}
-            className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-opacity"
+            onClick={() => onShare(ball)}
+            className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
             style={{
-              background: shareAccent.bg,
-              color: "#fff",
+              background: shareAccent.bg, color: "#fff",
               backdropFilter: "blur(8px)",
               boxShadow: `0 0 18px ${shareAccent.shadow}, 0 2px 8px rgba(0,0,0,0.4)`,
-              opacity: shareLoading ? 0.6 : 1,
             }}
           >
-            {shareLoading
-              ? <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              : <ShareIcon />}
-            <span>{shareLoading ? "..." : "Share"}</span>
+            <ShareIcon /><span>Share</span>
           </button>
         )}
       </div>
@@ -164,32 +117,6 @@ export default function BallGIF({
         winProbAfter={winProbAfter}
       />
 
-      {/* ── HIDDEN MOMENT CARD ──
-           opacity:0 is on the PARENT, NOT the ref element.
-           html-to-image reads getComputedStyle of the ref — opacity is not inherited in CSS,
-           so getComputedStyle(ref).opacity === "1" → fully opaque PNG captured correctly.
-           Parent is within-viewport (top:0,left:0) so browser still paints the subtree. ── */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "fixed", top: 0, left: 0, width: 375,
-          opacity: 0, pointerEvents: "none", zIndex: -1,
-        }}
-      >
-        <div
-          ref={cardRef}
-          style={{ width: 375, background: "#070B14", fontFamily: "Inter, sans-serif" }}
-        >
-          <MomentCard
-            ball={ball}
-            match={match}
-            scoreText={scoreText}
-            situationText={situationText}
-            winProbBefore={winProbBefore}
-            winProbAfter={winProbAfter}
-          />
-        </div>
-      </div>
     </div>
   );
 }
@@ -312,203 +239,6 @@ function ImpactFooter({ ball, match, winProbBefore, winProbAfter }: {
         <span className="text-[10px] font-semibold text-white/55">{impactLine}</span>
       </div>
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MOMENT CARD — static card captured as shareable PNG
-// ─────────────────────────────────────────────────────────────────────────────
-
-function MomentCard({ ball, match, scoreText, situationText, winProbBefore, winProbAfter }: {
-  ball: Ball; match: Match; scoreText?: string; situationText?: string;
-  winProbBefore: number; winProbAfter: number;
-}) {
-  const delta = Math.round(winProbAfter - winProbBefore);
-  const aColor = match.teamA.primaryColor;
-  const bColor = match.teamB.primaryColor;
-
-  const outcomeLabel = ball.isWicket ? "WICKET"
-    : ball.isBoundary6 ? "SIX"
-    : ball.isBoundary4 ? "FOUR"
-    : `${ball.runs} RUN${ball.runs !== 1 ? "S" : ""}`;
-
-  const outcomeColor = ball.isWicket ? "#EF4444"
-    : ball.isBoundary6 ? "#A855F7"
-    : ball.isBoundary4 ? "#06B6D4"
-    : "#94A3B8";
-
-  return (
-    <div style={{
-      width: 375, background: "#070B14", fontFamily: "Inter,sans-serif",
-      borderRadius: 20, overflow: "hidden",
-      border: `1.5px solid ${outcomeColor}40`,
-      boxShadow: `0 0 40px ${outcomeColor}30`,
-    }}>
-      {/* top bar */}
-      <div style={{ background: "#0D1220", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            {match.competition?.name ?? "Cricket"} · {match.teamA.shortName} vs {match.teamB.shortName}
-          </div>
-          {scoreText && (
-            <div style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC", marginTop: 2 }}>{scoreText}</div>
-          )}
-        </div>
-        {situationText && (
-          <div style={{
-            fontSize: 9, fontWeight: 700, color: "#06B6D4",
-            background: "rgba(6,182,212,0.15)", border: "1px solid rgba(6,182,212,0.3)",
-            borderRadius: 99, padding: "3px 8px", textTransform: "uppercase", letterSpacing: "0.06em",
-          }}>{situationText}</div>
-        )}
-      </div>
-
-      {/* static pitch map */}
-      <div style={{ padding: "8px 16px 0" }}>
-        <StaticPitchMap ball={ball} />
-      </div>
-
-      {/* outcome badge */}
-      <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: 12, background: `${outcomeColor}22`,
-          border: `2px solid ${outcomeColor}`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 15, fontWeight: 900, color: outcomeColor, flexShrink: 0,
-        }}>{outcomeLabel.split("")[0]}{ball.isBoundary6 ? "6" : ball.isBoundary4 ? "4" : ""}</div>
-        <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: outcomeColor }}>{outcomeLabel}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>
-              {ball.bowlerName} → {ball.batterName}
-            </div>
-            {ball.ballSpeedKmh && (
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>
-                {ball.ballSpeedKmh} km/h · {formatVariation(ball)}
-              </div>
-            )}
-          </div>
-          {/* Dismissal type — right side, wickets only */}
-          {ball.isWicket && ball.dismissalType && (
-            <div style={{
-              fontSize: 11, fontWeight: 800, color: outcomeColor,
-              background: `${outcomeColor}1A`,
-              border: `1.5px solid ${outcomeColor}50`,
-              borderRadius: 8, padding: "4px 9px",
-              textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap",
-            }}>
-              {formatDismissal(ball.dismissalType)}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* win prob bar */}
-      <div style={{ padding: "0 16px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.5)", width: 28, textAlign: "right" }}>
-            {Math.round(winProbAfter)}%
-          </span>
-          <div style={{ flex: 1, height: 6, borderRadius: 99, overflow: "hidden", display: "flex" }}>
-            <div style={{ width: `${winProbAfter}%`, background: aColor, height: "100%" }} />
-            <div style={{ width: `${100 - winProbAfter}%`, background: bColor, height: "100%" }} />
-          </div>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.5)", width: 28 }}>
-            {Math.round(100 - winProbAfter)}%
-          </span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
-            {match.teamA.shortName}
-          </span>
-          {Math.abs(delta) >= 2 && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: delta > 0 ? aColor : bColor }}>
-              {delta > 0 ? `+${delta}%` : `${delta}%`} swing
-            </span>
-          )}
-          <span style={{ fontSize: 8, fontWeight: 600, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
-            {match.teamB.shortName}
-          </span>
-        </div>
-      </div>
-
-      {/* watermark */}
-      <div style={{
-        background: "#0D1220", borderTop: "1px solid rgba(255,255,255,0.06)",
-        padding: "8px 16px", display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: "#06B6D4", letterSpacing: "0.05em" }}>BAWLER</span>
-        <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)" }}>Every ball, visualized</span>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STATIC PITCH MAP — non-animated, for MomentCard PNG capture
-// ─────────────────────────────────────────────────────────────────────────────
-
-function StaticPitchMap({ ball }: { ball: Ball }) {
-  const W = 343, H = 160;
-  const CX = W / 2;
-  const PITCH_TOP_W = 50, PITCH_BOT_W = 130, PITCH_TOP_Y = 18, PITCH_BOT_Y = 138;
-  const wRatio = PITCH_BOT_W / PITCH_TOP_W;
-  const pitchPath = `M ${CX - PITCH_TOP_W/2} ${PITCH_TOP_Y} L ${CX + PITCH_TOP_W/2} ${PITCH_TOP_Y} L ${CX + PITCH_BOT_W/2} ${PITCH_BOT_Y} L ${CX - PITCH_BOT_W/2} ${PITCH_BOT_Y} Z`;
-  const pitchXAtY = (y: number) => {
-    const t = (y - PITCH_TOP_Y) / (PITCH_BOT_Y - PITCH_TOP_Y);
-    const half = (PITCH_TOP_W + (PITCH_BOT_W - PITCH_TOP_W) * t) / 2;
-    return { left: CX - half, right: CX + half };
-  };
-
-  const pitchY = ball.pitchY ?? 0.65;
-  const impactY = PITCH_BOT_Y - (wRatio * (PITCH_BOT_Y - PITCH_TOP_Y) * pitchY) / (1 + (wRatio - 1) * pitchY);
-  const { right: rI, left: lI } = pitchXAtY(impactY);
-  const impactX = CX + (ball.pitchX ?? 0) * (rI - lI) / 2 * 0.9;
-
-  const swingD = (ball.swingDirection === "in" ? -1 : ball.swingDirection === "out" ? 1 : 0) * 14;
-  // Correct bowler side — over-the-wicket or round-the-wicket
-  const pmBowlerSide = ball.bowlingFrom === "round"
-    ? (ball.bowlingArm === "right" ? -1 : 1)
-    : (ball.bowlingArm === "right" ? 1 : -1);
-  // Offset ~22px from CX in 343px-wide map — proportional to BowlerView's 40px in 800px
-  const releaseX = CX + pmBowlerSide * 22, releaseY = PITCH_TOP_Y - 14;
-  const batterY = PITCH_BOT_Y + 14;
-  const pmSpinFromVariation =
-    (ball.ballVariation === "leg-cutter" || ball.ballVariation === "doosra" || ball.ballVariation === "carrom") ? 1 :
-    (ball.ballVariation === "off-cutter" || ball.ballVariation === "googly") ? -1 : 0;
-  const pmSpinBase = ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : pmSpinFromVariation;
-  const spinD = pmSpinBase * 14;
-
-  const prePath = `M ${releaseX} ${releaseY} Q ${(releaseX + impactX) / 2 + swingD} ${(releaseY + impactY) / 2} ${impactX} ${impactY}`;
-  const postPath = `M ${impactX} ${impactY} Q ${(impactX + CX) / 2 + spinD} ${impactY - 30} ${CX} ${batterY}`;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
-      <defs>
-        <linearGradient id="spm-pitch" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#3B2918" />
-          <stop offset="100%" stopColor="#6B4828" />
-        </linearGradient>
-      </defs>
-      <path d={pitchPath} fill="url(#spm-pitch)" stroke="#5B3E22" strokeWidth="1" />
-      <line x1={CX - PITCH_TOP_W/2 - 4} y1={PITCH_TOP_Y + 8} x2={CX + PITCH_TOP_W/2 + 4} y2={PITCH_TOP_Y + 8} stroke="rgba(255,255,255,0.3)" strokeWidth="0.8" />
-      <line x1={CX - PITCH_BOT_W/2 - 5} y1={PITCH_BOT_Y - 10} x2={CX + PITCH_BOT_W/2 + 5} y2={PITCH_BOT_Y - 10} stroke="rgba(255,255,255,0.35)" strokeWidth="0.8" />
-      {/* stumps */}
-      {[-4,0,4].map((dx,i)=>(
-        <line key={i} x1={CX+dx} y1={PITCH_TOP_Y+4} x2={CX+dx} y2={PITCH_TOP_Y-8} stroke="#E8D5B7" strokeWidth="1.2"/>
-      ))}
-      {[-6,0,6].map((dx,i)=>(
-        <line key={i} x1={CX+dx} y1={PITCH_BOT_Y-6} x2={CX+dx} y2={PITCH_BOT_Y-18} stroke="#E8D5B7" strokeWidth="1.5"/>
-      ))}
-      {/* trajectory */}
-      <path d={prePath} stroke="#FF6B35" strokeWidth="1.5" fill="none" strokeDasharray="3 4" opacity="0.7" />
-      <path d={postPath} stroke={ball.spinDirection && ball.spinDirection !== "none" ? "#A855F7" : "#00E5FF"} strokeWidth="1.5" fill="none" strokeDasharray="3 4" opacity="0.7" />
-      {/* impact dot */}
-      <circle cx={impactX} cy={impactY} r="5" fill="#FF6B35" opacity="0.5" />
-      <circle cx={impactX} cy={impactY} r="2.5" fill="#FFE9A0" />
-      {/* ball at impact */}
-      <circle cx={impactX} cy={impactY} r="4" fill="none" stroke="#FFE9A0" strokeWidth="1" opacity="0.6" />
-    </svg>
   );
 }
 
@@ -699,13 +429,5 @@ function formatVariation(ball: Ball): string {
   return"Stock";
 }
 
-function formatDismissal(type: string): string {
-  const map: Record<string, string> = {
-    "bowled": "Bowled", "caught": "Caught", "lbw": "LBW",
-    "run-out": "Run Out", "stumped": "Stumped",
-    "hit-wicket": "Hit Wkt", "retired": "Retired",
-  };
-  return map[type] ?? type;
-}
 
 function capitalize(s:string){return s.charAt(0).toUpperCase()+s.slice(1);}
