@@ -174,17 +174,6 @@ function PartnershipFooter({ ball, partnership, match }: {
   partnership?: PartnershipInfo;
   match: Match;
 }) {
-  /* outcome one-liner */
-  const outcomeLine = (() => {
-    if (ball.isWicket) return `${ball.batterName} out · ${ball.dismissalType ?? "dismissed"}`;
-    if (ball.isBoundary6) {
-      const dist = ball.shotPower ? `${Math.round(ball.shotPower * 120 + 60)}m ` : "";
-      return `${dist}SIX · ${ball.batterName}`;
-    }
-    if (ball.isBoundary4) return `FOUR · ${ball.batterName}`;
-    return `${ball.runs} run${ball.runs !== 1 ? "s" : ""}`;
-  })();
-
   /* batting team colour */
   const battingTeam = ball.inningsNumber % 2 === 1 ? match.teamA : match.teamB;
   const partnerColor = battingTeam.primaryColor;
@@ -214,15 +203,10 @@ function PartnershipFooter({ ball, partnership, match }: {
             <span className="text-white/20">·</span>
             <span className="text-[11px] font-bold num text-[#60A5FA]">{partnership.totalFours}<span className="text-white/35 font-normal"> 4s</span></span>
             <span className="text-[11px] font-bold num text-[#4ADE80]">{partnership.totalSixes}<span className="text-white/35 font-normal"> 6s</span></span>
-            <span className="text-white/20 ml-auto">·</span>
-            <span className="text-[11px] font-semibold text-white/45 truncate">{outcomeLine}</span>
+
           </div>
         </>
-      ) : (
-        <div className="flex items-center">
-          <span className="text-[12px] font-semibold text-white/50 truncate">{outcomeLine}</span>
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }
