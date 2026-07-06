@@ -40,8 +40,14 @@ export default function MiniBallGIF({ ball }: MiniBallGIFProps) {
   const halfAtImpact = pitchXAtY(impactY);
   const impactX = CX + (ball.pitchX ?? 0) * halfAtImpact * 0.85;
 
-  // Release + arrival points
-  const releaseX = CX;
+  // Release point — over or round the wicket (never from directly above stumps)
+  // over-the-wicket: right-arm → right of stumps (+), left-arm → left (-)
+  // round-the-wicket: opposite side
+  const mBowlerSide = ball.bowlingFrom === "round"
+    ? (ball.bowlingArm === "right" ? -1 : 1)
+    : (ball.bowlingArm === "right" ? 1 : -1);
+  // 6px offset in 90px SVG — proportional to BowlerView's 40px in 800px
+  const releaseX = CX + mBowlerSide * 6;
   const releaseY = PITCH_TOP_Y - 6;
   const lineOffsetMap: Record<string, number> = {
     "wide-off": -16,

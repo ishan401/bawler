@@ -374,16 +374,30 @@ function MomentCard({ ball, match, scoreText, situationText, winProbBefore, winP
           width: 44, height: 44, borderRadius: 12, background: `${outcomeColor}22`,
           border: `2px solid ${outcomeColor}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 15, fontWeight: 900, color: outcomeColor,
+          fontSize: 15, fontWeight: 900, color: outcomeColor, flexShrink: 0,
         }}>{outcomeLabel.split("")[0]}{ball.isBoundary6 ? "6" : ball.isBoundary4 ? "4" : ""}</div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: outcomeColor }}>{outcomeLabel}</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>
-            {ball.bowlerName} → {ball.batterName}
+        <div style={{ flex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: outcomeColor }}>{outcomeLabel}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>
+              {ball.bowlerName} → {ball.batterName}
+            </div>
+            {ball.ballSpeedKmh && (
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>
+                {ball.ballSpeedKmh} km/h · {formatVariation(ball)}
+              </div>
+            )}
           </div>
-          {ball.ballSpeedKmh && (
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", marginTop: 1 }}>
-              {ball.ballSpeedKmh} km/h · {formatVariation(ball)}
+          {/* Dismissal type — right side, wickets only */}
+          {ball.isWicket && ball.dismissalType && (
+            <div style={{
+              fontSize: 11, fontWeight: 800, color: outcomeColor,
+              background: `${outcomeColor}1A`,
+              border: `1.5px solid ${outcomeColor}50`,
+              borderRadius: 8, padding: "4px 9px",
+              textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap",
+            }}>
+              {formatDismissal(ball.dismissalType)}
             </div>
           )}
         </div>
@@ -451,8 +465,13 @@ function StaticPitchMap({ ball }: { ball: Ball }) {
   const { right: rI, left: lI } = pitchXAtY(impactY);
   const impactX = CX + (ball.pitchX ?? 0) * (rI - lI) / 2 * 0.9;
 
-  const swingD = (ball.swingDirection === "in" ? -1 : ball.swingDirection === "out" ? 1 : 0) * 16;
-  const releaseX = CX, releaseY = PITCH_TOP_Y - 18;
+  const swingD = (ball.swingDirection === "in" ? -1 : ball.swingDirection === "out" ? 1 : 0) * 14;
+  // Correct bowler side — over-the-wicket or round-the-wicket
+  const pmBowlerSide = ball.bowlingFrom === "round"
+    ? (ball.bowlingArm === "right" ? -1 : 1)
+    : (ball.bowlingArm === "right" ? 1 : -1);
+  // Offset ~22px from CX in 343px-wide map — proportional to BowlerView's 40px in 800px
+  const releaseX = CX + pmBowlerSide * 22, releaseY = PITCH_TOP_Y - 14;
   const batterY = PITCH_BOT_Y + 14;
   const spinD = (ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : 0) * 14;
 
@@ -522,8 +541,13 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
   const {right:rightImpact,left:leftImpact} = pitchXAtY(impactY);
   const halfImpact = (rightImpact-leftImpact)/2;
   const impactX = CX + (ball.pitchX??0)*halfImpact*0.9;
+  // over-the-wicket: right-arm releases from right of stumps (+), left-arm from left (-)
+  // round-the-wicket: opposite side
   const bowlerSide = ball.bowlingFrom==="round" ? (ball.bowlingArm==="right"?-1:1) : (ball.bowlingArm==="right"?1:-1);
-  const releaseX = CX+bowlerSide*18, releaseY = PITCH_TOP_Y-28;
+  // Offset 40px from CX in 800px SVG — clearly beside the pitch crease, not on stumps
+  const releaseX = CX+bowlerSide*40, releaseY = PITCH_TOP_Y-32;
+  const runUpFromX = CX+bowlerSide*72, runUpFromY = PITCH_TOP_Y-90;
+  const overRoundLabel = ball.bowlingFrom==="round" ? "Round the wicket" : "Over the wicket";
   const lineOffsetMap: Record<string,number> = {"wide-off":-75,"outside-off":-38,"off":-16,"middle":0,"leg":16,"outside-leg":38,"wide-leg":75};
   const batterArrivalX = CX+(ball.bowlingLine?lineOffsetMap[ball.bowlingLine]:(ball.pitchX??0)*38);
   const batterArrivalY = PITCH_BOT_Y-14;
@@ -548,6 +572,12 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
       </defs>
       <path d={pitchPath} fill="url(#pitchB)" stroke="#5B3E22" strokeWidth="1"/>
       <line x1={CX-PITCH_TOP_W/2-6} y1={PITCH_TOP_Y+12} x2={CX+PITCH_TOP_W/2+6} y2={PITCH_TOP_Y+12} stroke="#FFFFFF" strokeOpacity="0.35"/>
+      {/* Return crease line on bowler side */}
+      <line x1={releaseX} y1={PITCH_TOP_Y+14} x2={releaseX} y2={PITCH_TOP_Y-10} stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="0.8" strokeDasharray="3 3"/>
+      {/* Bowler run-up approach path */}
+      <line x1={runUpFromX} y1={runUpFromY} x2={releaseX} y2={releaseY+10} stroke="#94A3B8" strokeWidth="1" strokeDasharray="4 5" opacity="0.4"/>
+      {/* Over/round label */}
+      <text x={releaseX+bowlerSide*8} y={runUpFromY+14} fill="#94A3B8" fontSize="9" fontWeight="600" fontFamily="Inter,sans-serif" textAnchor={bowlerSide>0?"start":"end"} opacity="0.7">{overRoundLabel}</text>
       <line x1={CX-PITCH_BOT_W/2-8} y1={PITCH_BOT_Y-14} x2={CX+PITCH_BOT_W/2+8} y2={PITCH_BOT_Y-14} stroke="#FFFFFF" strokeOpacity="0.4" strokeWidth="1.2"/>
       <Stumps cx={CX} cy={PITCH_TOP_Y+8} scale={0.6}/>
       <Stumps cx={CX} cy={PITCH_BOT_Y-6} scale={1.1} flying={ball.isWicket&&ball.dismissalType==="bowled"}/>
@@ -658,6 +688,15 @@ function formatVariation(ball: Ball): string {
   if(ball.pace==="fast")return"Fast";
   if(ball.pace==="slow")return"Slow";
   return"Stock";
+}
+
+function formatDismissal(type: string): string {
+  const map: Record<string, string> = {
+    "bowled": "Bowled", "caught": "Caught", "lbw": "LBW",
+    "run-out": "Run Out", "stumped": "Stumped",
+    "hit-wicket": "Hit Wkt", "retired": "Retired",
+  };
+  return map[type] ?? type;
 }
 
 function capitalize(s:string){return s.charAt(0).toUpperCase()+s.slice(1);}
