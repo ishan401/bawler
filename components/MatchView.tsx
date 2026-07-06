@@ -430,25 +430,43 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     const inn = currentBall.inningsNumber;
     // All balls in current innings up to and including activeBallIdx
     const inningsBalls = allBalls.slice(0, activeBallIdx + 1).filter(b => b.inningsNumber === inn);
-    // Find the last wicket ball index within this innings slice
+
+    // Find the last GENUINE wicket (striker dismissed).
+    // Fix 1: Non-striker run-outs — if the ball after a run-out wicket has the same
+    // batterName, the striker survived → non-striker was dismissed → don't reset partnership.
     let partnershipStart = 0;
     for (let i = inningsBalls.length - 1; i >= 0; i--) {
-      if (inningsBalls[i].isWicket) { partnershipStart = i + 1; break; }
+      const b = inningsBalls[i];
+      if (b.isWicket) {
+        const nextBall = inningsBalls[i + 1];
+        const isNonStrikerRunOut =
+          b.dismissalType === "run-out" &&
+          nextBall != null &&
+          nextBall.batterName === b.batterName;
+        if (!isNonStrikerRunOut) {
+          partnershipStart = i + 1;
+          break;
+        }
+      }
     }
+
     const partnerBalls = inningsBalls.slice(partnershipStart);
+
     // Accumulate per batter
+    // Fix 2: No-balls (nb) ARE faced by the batter — only wides (wd) are not.
+    // Runs: b.runs = bat runs only; extras (byes, leg-byes, wides) live in b.extras.
     const batsmenMap = new Map<string, { runs: number; balls: number }>();
     for (const b of partnerBalls) {
-      const isLegal = !b.extraType || b.extraType === "b" || b.extraType === "lb";
+      const isFaced = b.extraType !== "wd"; // wide = not faced; nb/b/lb = faced
       const entry = batsmenMap.get(b.batterName) ?? { runs: 0, balls: 0 };
-      entry.runs += b.runs;
-      if (isLegal) entry.balls++;
+      entry.runs += b.runs;          // bat runs only — correct for all delivery types
+      if (isFaced) entry.balls++;
       batsmenMap.set(b.batterName, entry);
     }
-    // Convert to array — up to 2 batters
+
     const batters = Array.from(batsmenMap.entries()).map(([name, s]) => ({ name, ...s }));
-    const totalRuns = batters.reduce((s, b) => s + b.runs, 0);
-    const totalBalls = partnerBalls.filter(b => !b.extraType || b.extraType === "b" || b.extraType === "lb").length;
+    const totalRuns   = batters.reduce((s, b) => s + b.runs, 0);
+    const totalBalls  = partnerBalls.filter(b => b.extraType !== "wd").length;
     return { batters, totalRuns, totalBalls };
   }, [allBalls, activeBallIdx, currentBall]);
 

@@ -22,6 +22,48 @@ import type {
 } from "./types";
 
 // ============================================================================
+// Name normalisation — applied at every API boundary so partnership tracker,
+// matchup lookup, and player links all use a consistent format.
+//
+// APIs send names in wildly different formats:
+//   "Virat Kohli"  /  "V Kohli"  /  "kohli, v"  /  "V. Kohli"
+// We normalise to "First-Initial Surname" (e.g. "V Kohli") throughout.
+// ============================================================================
+
+/**
+ * Normalise a player name to "I Surname" format.
+ * Works for:
+ *   "Virat Kohli"       → "V Kohli"
+ *   "V Kohli"           → "V Kohli"   (already short)
+ *   "kohli, virat"      → "V Kohli"   (comma-last format)
+ *   "Pat Cummins"       → "P Cummins"
+ *   "Mohammed Siraj"    → "M Siraj"
+ */
+export function normaliseName(raw: string): string {
+  if (!raw) return raw;
+  const s = raw.trim();
+  // Handle "Surname, Firstname" format
+  if (s.includes(",")) {
+    const [last, first] = s.split(",").map(p => p.trim());
+    const initial = first.charAt(0).toUpperCase();
+    const surname = last.charAt(0).toUpperCase() + last.slice(1).toLowerCase();
+    return `${initial} ${surname}`;
+  }
+  const parts = s.split(/\s+/);
+  if (parts.length === 1) return s; // single name — return as-is
+  // Already initialised ("V Kohli") — first part is one char
+  if (parts[0].length === 1 || (parts[0].length === 2 && parts[0].endsWith("."))) {
+    const initial = parts[0].replace(".", "");
+    const surname = parts.slice(1).join(" ");
+    return `${initial} ${surname}`;
+  }
+  // Full name — take first initial + last word as surname
+  const initial = parts[0].charAt(0).toUpperCase();
+  const surname = parts[parts.length - 1];
+  return `${initial} ${surname}`;
+}
+
+// ============================================================================
 // Cricbuzz (unofficial) — https://cricbuzz-cricket.p.rapidapi.com
 // Most widely used for Indian cricket. Real-time ball-by-ball.
 // ============================================================================
@@ -560,9 +602,9 @@ function transformESPNBall(raw: ESPNRawBall): Ball {
     ballInOver: raw.BallNumber,
     timestampIso: new Date().toISOString(),   // ESPN doesn't provide per-ball timestamps
     batterId: String(raw.BatterId),
-    batterName: raw.BatterName,
+    batterName: normaliseName(raw.BatterName),
     bowlerId: String(raw.BowlerId),
-    bowlerName: raw.BowlerName,
+    bowlerName: normaliseName(raw.BowlerName),
     runs: raw.Runs,
     extras: raw.Extras,
     isWicket: raw.IsWicket,
@@ -664,6 +706,8 @@ export interface SportRadarTimeline {
     runs_scored: number;
     runs_off_bat: number;
     extras_type?: string;
+    batsman_name?: string;   // present in full delivery feeds
+    bowler_name?: string;    // present in full delivery feeds
     wicket?: { type: string; };
     boundary?: { boundary_type: "4" | "6" };
   }>;
@@ -700,9 +744,9 @@ export function transformSportRadarTimeline(
       ballInOver: b.delivery,
       timestampIso: b.time,
       batterId: "unknown",  // TODO: SportRadar timeline doesn't include batter ID directly
-      batterName: "unknown",
+      batterName: normaliseName(b.batsman_name ?? "unknown"),
       bowlerId: "unknown",
-      bowlerName: "unknown",
+      bowlerName: normaliseName(b.bowler_name ?? "unknown"),
       runs: b.runs_scored,
       extras: b.runs_scored - b.runs_off_bat,
       extraType: b.extras_type as Ball["extraType"],
