@@ -102,19 +102,19 @@ function MatchupCard({
             />
           </div>
 
-          {/* ── Row 3: matches · avg · sr · dots · live 4s · live 6s ── */}
+          {/* ── Row 3: matches · 4s · 6s · avg · sr · dots ── */}
           <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 text-[10px] text-text-dim leading-none">
             <span><span className="text-text-secondary font-bold num">{stats.matches}</span> matches</span>
+            <span className="text-line">·</span>
+            <span><span className="text-boundary font-bold num">{totalFours}</span> 4s</span>
+            <span className="text-line">·</span>
+            <span><span className="text-six font-bold num">{totalSixes}</span> 6s</span>
             <span className="text-line">·</span>
             <span>Avg <span className="text-text-secondary font-bold num">{avg}</span></span>
             <span className="text-line">·</span>
             <span>SR <span className="text-text-secondary font-bold num">{sr}</span></span>
             <span className="text-line">·</span>
             <span>Dots <span className="text-text-secondary font-bold num">{dotPct}%</span></span>
-            <span className="text-line">·</span>
-            <span><span className="text-boundary font-bold num">{totalFours}</span> 4s</span>
-            <span className="text-line">·</span>
-            <span><span className="text-six font-bold num">{totalSixes}</span> 6s</span>
             {stats.timesOut === 0 && (
               <>
                 <span className="text-line">·</span>
