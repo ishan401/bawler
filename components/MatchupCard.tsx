@@ -10,6 +10,10 @@ interface MatchupCardProps {
   battingTeamColor: string;
   bowlingTeamColor: string;
   format: MatchFormat;
+  liveBalls?: number;
+  liveRuns?: number;
+  liveOuts?: number;
+  liveDots?: number;
   liveMatchFours?: number;
   liveMatchSixes?: number;
   onShare?: () => void;
@@ -18,21 +22,25 @@ interface MatchupCardProps {
 function MatchupCard({
   batterName, bowlerName, isPreview,
   battingTeamColor, bowlingTeamColor,
-  format, liveMatchFours = 0, liveMatchSixes = 0, onShare,
+  format,
+  liveBalls = 0, liveRuns = 0, liveOuts = 0, liveDots = 0,
+  liveMatchFours = 0, liveMatchSixes = 0,
+  onShare,
 }: MatchupCardProps) {
   const stats = getMatchupStats(batterName, bowlerName, format);
 
-  const avg = stats
-    ? stats.timesOut === 0 ? "∞" : (stats.runsScored / stats.timesOut).toFixed(1)
-    : null;
-  const sr = stats
-    ? ((stats.runsScored / stats.ballsFaced) * 100).toFixed(0)
-    : null;
-  const dotPct = stats
-    ? Math.round((stats.dotBalls / stats.ballsFaced) * 100)
-    : null;
-  const totalFours = (stats?.fours ?? 0) + liveMatchFours;
-  const totalSixes = (stats?.sixes ?? 0) + liveMatchSixes;
+  // Merge career H2H with live match counters so every stat updates in real-time
+  const totalBalls = (stats?.ballsFaced ?? 0) + liveBalls;
+  const totalRuns  = (stats?.runsScored ?? 0) + liveRuns;
+  const totalOuts  = (stats?.timesOut   ?? 0) + liveOuts;
+  const totalDots  = (stats?.dotBalls   ?? 0) + liveDots;
+  const totalFours = (stats?.fours      ?? 0) + liveMatchFours;
+  const totalSixes = (stats?.sixes      ?? 0) + liveMatchSixes;
+
+  const hasData = !!stats || liveBalls > 0;
+  const avg    = hasData ? (totalOuts === 0 ? "∞" : (totalRuns / totalOuts).toFixed(1))       : null;
+  const sr     = hasData ? (totalBalls > 0 ? ((totalRuns / totalBalls) * 100).toFixed(0) : "0") : null;
+  const dotPct = hasData ? (totalBalls > 0 ? Math.round((totalDots / totalBalls) * 100) : 0)   : null;
 
   const formatLabel: Record<MatchFormat, string> = {
     T20: "T20", T20I: "T20I", ODI: "ODI", Test: "Test", Hundred: "100-ball",
@@ -88,35 +96,35 @@ function MatchupCard({
         )}
       </div>
 
-      {stats ? (
+      {hasData ? (
         <>
           {/* ── Row 2: 3 primary stats compact grid ── */}
           <div className="grid grid-cols-3 divide-x divide-line mx-3 rounded-lg overflow-hidden border border-line/60"
                style={{ background: "#FFFFFF05" }}>
-            <CompactStat label="BALLS"  value={stats.ballsFaced}  color="text-text-primary" />
-            <CompactStat label="RUNS"   value={stats.runsScored}  color="text-cyan" />
+            <CompactStat label="BALLS"  value={totalBalls}  color="text-text-primary" />
+            <CompactStat label="RUNS"   value={totalRuns}   color="text-cyan" />
             <CompactStat
-              label={stats.timesOut === 1 ? "OUT" : "OUTS"}
-              value={stats.timesOut}
-              color={stats.timesOut === 0 ? "text-six" : stats.timesOut >= 3 ? "text-wicket" : "text-orange"}
+              label={totalOuts === 1 ? "OUT" : "OUTS"}
+              value={totalOuts}
+              color={totalOuts === 0 ? "text-six" : totalOuts >= 3 ? "text-wicket" : "text-orange"}
             />
           </div>
 
           {/* ── Row 3: label-value format ── */}
           <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 text-[10px] text-text-dim leading-none">
-            <span>matches-<span className="text-text-secondary font-bold num">{stats.matches}</span></span>
+            {stats && <span>matches-<span className="text-text-secondary font-bold num">{stats.matches}</span></span>}
             <span>4s-<span className="text-boundary font-bold num">{totalFours}</span></span>
             <span>6s-<span className="text-six font-bold num">{totalSixes}</span></span>
             <span>Avg-<span className="text-text-secondary font-bold num">{avg}</span></span>
             <span>SR-<span className="text-text-secondary font-bold num">{sr}</span></span>
             <span>Dots-<span className="text-text-secondary font-bold num">{dotPct}%</span></span>
-            {stats.timesOut === 0 && (
+            {totalOuts === 0 && hasData && (
               <span className="text-six font-semibold">Never dismissed</span>
             )}
           </div>
 
           {/* ── Row 4: Watch for ── */}
-          {stats.dangerDelivery ? (
+          {stats?.dangerDelivery ? (
             <div className="flex items-center gap-1.5 px-3 pt-1 pb-2.5 text-[10px] leading-none">
               <span className="text-orange font-semibold shrink-0">Watch for:</span>
               <span className="text-text-secondary">{stats.dangerDelivery}</span>
@@ -132,7 +140,7 @@ function MatchupCard({
           <span className="text-[11px] text-text-secondary font-semibold">
             First {formatLabel[format]} meeting
           </span>
-          <span className="text-[10px] text-text-dim">— no prior record</span>
+          <span className="text-[10px] text-text-dim">— making history right now</span>
         </div>
       )}
     </div>

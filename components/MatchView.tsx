@@ -401,18 +401,26 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     };
   }, [currentBall, currentInnings, match]);
 
-  // Live boundary tracking for matchup card (4s and 6s hit in this match between current batter+bowler)
-  const liveMatchupBoundaries = useMemo(() => {
-    if (!matchupInfo) return { fours: 0, sixes: 0 };
+  // Live stat tracking for matchup card — all balls between current batter+bowler in this match
+  const liveMatchupCounters = useMemo(() => {
+    if (!matchupInfo) return { balls: 0, runs: 0, outs: 0, dots: 0, fours: 0, sixes: 0 };
     return allBalls.slice(0, activeBallIdx + 1).reduce(
       (acc, b) => {
         if (b.batterName === matchupInfo.batterName && b.bowlerName === matchupInfo.bowlerName) {
-          if (b.isBoundary4) acc.fours++;
-          if (b.isBoundary6) acc.sixes++;
+          // Only legal deliveries count toward balls faced
+          const isLegal = !b.extraType || b.extraType === "b" || b.extraType === "lb";
+          if (isLegal) {
+            acc.balls++;
+            acc.runs += b.runs;
+            if (b.isWicket) acc.outs++;
+            if (b.runs === 0 && b.extras === 0 && !b.isWicket) acc.dots++;
+            if (b.isBoundary4) acc.fours++;
+            if (b.isBoundary6) acc.sixes++;
+          }
         }
         return acc;
       },
-      { fours: 0, sixes: 0 }
+      { balls: 0, runs: 0, outs: 0, dots: 0, fours: 0, sixes: 0 }
     );
   }, [allBalls, activeBallIdx, matchupInfo?.batterName, matchupInfo?.bowlerName, matchupInfo]);
 
@@ -589,8 +597,12 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                       battingTeamColor={matchupInfo.battingTeamColor}
                       bowlingTeamColor={matchupInfo.bowlingTeamColor}
                       format={match.format}
-                      liveMatchFours={liveMatchupBoundaries.fours}
-                      liveMatchSixes={liveMatchupBoundaries.sixes}
+                      liveBalls={liveMatchupCounters.balls}
+                      liveRuns={liveMatchupCounters.runs}
+                      liveOuts={liveMatchupCounters.outs}
+                      liveDots={liveMatchupCounters.dots}
+                      liveMatchFours={liveMatchupCounters.fours}
+                      liveMatchSixes={liveMatchupCounters.sixes}
                       onShare={triggerMatchupShare}
                     />
                   </div>
