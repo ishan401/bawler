@@ -21,7 +21,6 @@ export default function BallGIF({
   winProbBefore = 50, winProbAfter = 50,
 }: BallGIFProps) {
   const [activeClip, setActiveClip] = useState<"bowler" | "overhead">("bowler");
-  const [sharing, setSharing] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +39,6 @@ export default function BallGIF({
 
   async function handleShare() {
     if (!cardRef.current) return;
-    setSharing(true);
     setShareLoading(true);
     try {
       const { toPng } = await import("html-to-image");
@@ -62,7 +60,6 @@ export default function BallGIF({
       }
     } catch (_) {}
     setShareLoading(false);
-    setSharing(false);
   }
 
   /* accent colour for the share button glow */
@@ -148,21 +145,25 @@ export default function BallGIF({
         winProbAfter={winProbAfter}
       />
 
-      {/* ── OFF-SCREEN MOMENT CARD (captured for share PNG) ── */}
-      {sharing && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
-          <div ref={cardRef} style={{ width: 375, background: "#070B14", fontFamily: "Inter, sans-serif" }}>
-            <MomentCard
-              ball={ball}
-              match={match}
-              scoreText={scoreText}
-              situationText={situationText}
-              winProbBefore={winProbBefore}
-              winProbAfter={winProbAfter}
-            />
-          </div>
-        </div>
-      )}
+      {/* ── OFF-SCREEN MOMENT CARD — always rendered so ref is populated on click ── */}
+      <div
+        ref={cardRef}
+        aria-hidden="true"
+        style={{
+          position: "fixed", top: "-9999px", left: "-9999px",
+          width: 375, background: "#070B14", fontFamily: "Inter, sans-serif",
+          pointerEvents: "none", zIndex: -1,
+        }}
+      >
+        <MomentCard
+          ball={ball}
+          match={match}
+          scoreText={scoreText}
+          situationText={situationText}
+          winProbBefore={winProbBefore}
+          winProbAfter={winProbAfter}
+        />
+      </div>
     </div>
   );
 }
