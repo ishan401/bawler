@@ -21,6 +21,9 @@ import { MOCK_INSIGHTS_V2 } from "@/lib/mockData";
 import LineupsCard from "@/components/LineupsCard";
 import MomentStoryCard from "@/components/MomentStoryCard";
 import StandingsTab from "@/components/StandingsTab";
+import MatchupCard from "@/components/MatchupCard";
+import MatchupShareCard from "@/components/MatchupShareCard";
+import { getMatchupStats } from "@/lib/mockMatchups";
 
 interface MatchViewProps {
   match: Match;
@@ -83,7 +86,16 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
 
   // ── Story-card share ──────────────────────────────────────────
   const storyCardRef = useRef<HTMLDivElement>(null);
+  const matchupShareRef = useRef<HTMLDivElement>(null);
   const isCapturingRef = useRef(false);
+  const [matchupShareTarget, setMatchupShareTarget] = useState<{
+    batterName: string;
+    bowlerName: string;
+    battingTeamColor: string;
+    bowlingTeamColor: string;
+    battingTeamName: string;
+    bowlingTeamName: string;
+  } | null>(null);
   const [shareTarget, setShareTarget] = useState<{
     ball: Ball;
     wpBefore: number; wpAfter: number;
@@ -352,6 +364,89 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     }
   }, [allBalls.length]);
 
+  // ── Matchup card visibility ──────────────────────────────────────────────
+  // Show when a wicket ball is current (preview incoming batter)
+  // OR when we're within 3 balls of a wicket and the batter has changed (active).
+  const matchupInfo = useMemo(() => {
+    if (!currentBall || !currentInnings) return null;
+
+    const battingTeamColor = currentInnings.battingTeam === match.teamA.code
+      ? match.teamA.primaryColor : match.teamB.primaryColor;
+    const bowlingTeamColor = currentInnings.battingTeam === match.teamA.code
+      ? match.teamB.primaryColor : match.teamA.primaryColor;
+    const battingTeamName = currentInnings.battingTeam === match.teamA.code
+      ? match.teamA.shortName : match.teamB.shortName;
+    const bowlingTeamName = currentInnings.battingTeam === match.teamA.code
+      ? match.teamB.shortName : match.teamA.shortName;
+    const teamMeta = { battingTeamColor, bowlingTeamColor, battingTeamName, bowlingTeamName };
+
+    // Case 1: wicket just fell — preview incoming batter vs current bowler
+    if (currentBall.isWicket && currentBall.nextBatterName) {
+      return { batterName: currentBall.nextBatterName, bowlerName: currentBall.bowlerName, isPreview: true, ...teamMeta };
+    }
+
+    // Case 2: first 3 balls after a wicket with batter changed
+    const lookback = Math.min(4, activeBallIdx);
+    for (let i = activeBallIdx - 1; i >= activeBallIdx - lookback; i--) {
+      const prev = allBalls[i];
+      if (!prev) break;
+      if (prev.isWicket) {
+        if (currentBall.batterName !== prev.batterName) {
+          return { batterName: currentBall.batterName, bowlerName: currentBall.bowlerName, isPreview: false, ...teamMeta };
+        }
+        break;
+      }
+    }
+    return null;
+  }, [currentBall, currentInnings, allBalls, activeBallIdx, match]);
+
+  // Share handler for MatchupCard
+  const triggerMatchupShare = useCallback(() => {
+    if (!matchupInfo || isCapturingRef.current) return;
+    setMatchupShareTarget({
+      batterName: matchupInfo.batterName,
+      bowlerName: matchupInfo.bowlerName,
+      battingTeamColor: matchupInfo.battingTeamColor,
+      bowlingTeamColor: matchupInfo.bowlingTeamColor,
+      battingTeamName: matchupInfo.battingTeamName,
+      bowlingTeamName: matchupInfo.bowlingTeamName,
+    });
+  }, [matchupInfo]);
+
+  // Capture + share the matchup card image
+  useEffect(() => {
+    if (!matchupShareTarget || !matchupShareRef.current) return;
+    isCapturingRef.current = true;
+    const el = matchupShareRef.current;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        try {
+          const { toPng } = await import("html-to-image");
+          const dataUrl = await toPng(el, {
+            pixelRatio: 2, backgroundColor: "#070B14", skipFonts: true,
+          });
+          const byteStr = atob(dataUrl.split(",")[1]);
+          const arr = new Uint8Array(byteStr.length);
+          for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+          const blob = new Blob([arr], { type: "image/png" });
+          const file = new File([blob], "bawler-matchup.png", { type: "image/png" });
+          const text = `${matchupShareTarget.batterName} vs ${matchupShareTarget.bowlerName} · bawler-gold.vercel.app`;
+          if (navigator.share && navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: "Bawler Matchup", text });
+          } else {
+            const a = document.createElement("a");
+            a.href = dataUrl; a.download = "bawler-matchup.png"; a.click();
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name !== "AbortError") console.error("[Bawler] Matchup share failed:", err);
+        }
+        isCapturingRef.current = false;
+        setMatchupShareTarget(null);
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchupShareTarget]);
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Sticky header */}
@@ -469,6 +564,19 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     onShare={triggerShare}
                   />
                 )}
+                {matchupInfo && (
+                  <div className="mt-3">
+                    <MatchupCard
+                      batterName={matchupInfo.batterName}
+                      bowlerName={matchupInfo.bowlerName}
+                      isPreview={matchupInfo.isPreview}
+                      battingTeamColor={matchupInfo.battingTeamColor}
+                      bowlingTeamColor={matchupInfo.bowlingTeamColor}
+                      format={match.format}
+                      onShare={triggerMatchupShare}
+                    />
+                  </div>
+                )}
                 <MomentsStrip
                   events={events}
                   activeBallId={currentBall?.id}
@@ -509,6 +617,21 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         aria-hidden="true"
         style={{ position: "fixed", top: 0, left: 0, width: 375, opacity: 0, pointerEvents: "none", zIndex: -1 }}
       >
+        {/* Matchup share card */}
+        <div ref={matchupShareRef}>
+          {matchupShareTarget && (
+            <MatchupShareCard
+              stats={getMatchupStats(matchupShareTarget.batterName, matchupShareTarget.bowlerName)}
+              batterName={matchupShareTarget.batterName}
+              bowlerName={matchupShareTarget.bowlerName}
+              battingTeamName={matchupShareTarget.battingTeamName}
+              bowlingTeamName={matchupShareTarget.bowlingTeamName}
+              battingTeamColor={matchupShareTarget.battingTeamColor}
+              bowlingTeamColor={matchupShareTarget.bowlingTeamColor}
+              format={match.format}
+            />
+          )}
+        </div>
         <div ref={storyCardRef}>
           {shareTarget && (
             <MomentStoryCard

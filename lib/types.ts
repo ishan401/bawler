@@ -399,3 +399,28 @@ export interface PlayerProfile {
   franchiseStats?: FormatStats;
   franchiseLeague?: string;  // "IPL" | "BBL" | "PSL" | "SA20" | "The Hundred" | "CPL" | "MLC" etc.
 }
+
+// ============================================================================
+// Matchup stats — batter vs bowler career H2H
+// ============================================================================
+
+export interface MatchupDismissalType {
+  type: string;   // "Caught" | "Bowled" | "LBW" | "Stumped" | "Run Out"
+  count: number;
+}
+
+export interface MatchupStats {
+  batterName: string;
+  bowlerName: string;
+  format: MatchFormat;
+  ballsFaced: number;
+  runsScored: number;
+  timesOut: number;
+  dotBalls: number;
+  fours: number;
+  sixes: number;
+  dismissalTypes: MatchupDismissalType[];
+  dangerDelivery?: string;   // e.g. "Full, seaming in, yorker length"
+  lastDismissal?: string;    // e.g. "Caught Warner · Jan 2024"
+  venueStat?: string;        // e.g. "Best: 47 at MCG · 2024"
+}
