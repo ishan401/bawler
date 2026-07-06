@@ -42,7 +42,7 @@ export default function BallGIF({
     setShareLoading(true);
     try {
       const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, cacheBust: true });
+      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, cacheBust: true, backgroundColor: "#070B14" });
       const res = await fetch(dataUrl);
       const blob = await res.blob();
       const file = new File([blob], "bawler-moment.png", { type: "image/png" });
@@ -145,14 +145,15 @@ export default function BallGIF({
         winProbAfter={winProbAfter}
       />
 
-      {/* ── OFF-SCREEN MOMENT CARD — always rendered so ref is populated on click ── */}
+      {/* ── HIDDEN MOMENT CARD — always in DOM so ref is ready; opacity:0 keeps it painted ── */}
       <div
         ref={cardRef}
         aria-hidden="true"
         style={{
-          position: "fixed", top: "-9999px", left: "-9999px",
+          position: "fixed", top: 0, left: 0,
           width: 375, background: "#070B14", fontFamily: "Inter, sans-serif",
-          pointerEvents: "none", zIndex: -1,
+          pointerEvents: "none", opacity: 0, zIndex: -1,
+          clipPath: "inset(0 0 0 100vw)",
         }}
       >
         <MomentCard
