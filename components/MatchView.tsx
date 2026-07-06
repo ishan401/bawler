@@ -622,7 +622,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         <div ref={matchupShareRef}>
           {matchupShareTarget && (
             <MatchupShareCard
-              stats={getMatchupStats(matchupShareTarget.batterName, matchupShareTarget.bowlerName)}
+              stats={getMatchupStats(matchupShareTarget.batterName, matchupShareTarget.bowlerName, match.format)}
               batterName={matchupShareTarget.batterName}
               bowlerName={matchupShareTarget.bowlerName}
               battingTeamName={matchupShareTarget.battingTeamName}

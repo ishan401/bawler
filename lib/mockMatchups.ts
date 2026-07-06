@@ -6,8 +6,8 @@ function normalise(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function key(batter: string, bowler: string): string {
-  return `${normalise(batter)}_${normalise(bowler)}`;
+function key(batter: string, bowler: string, format: string): string {
+  return `${normalise(batter)}_${normalise(bowler)}_${format}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -308,19 +308,177 @@ const MATCHUP_DATA: MatchupStats[] = [
     dangerDelivery: "Yorker, angling in",
     lastDismissal: "Bowled · Jan 2024",
   },
+
+  // ── ODI career H2H ──────────────────────────────────────────────────────
+  {
+    batterName: "V Kohli",
+    bowlerName: "P Cummins",
+    format: "ODI",
+    ballsFaced: 218, runsScored: 196, timesOut: 5,
+    dotBalls: 71, fours: 17, sixes: 3,
+    dismissalTypes: [{ type: "Caught", count: 3 }, { type: "Bowled", count: 1 }, { type: "LBW", count: 1 }],
+    dangerDelivery: "Full, late outswing, off-stump channel",
+    lastDismissal: "LBW · Sep 2023",
+  },
+  {
+    batterName: "V Kohli",
+    bowlerName: "M Starc",
+    format: "ODI",
+    ballsFaced: 164, runsScored: 182, timesOut: 3,
+    dotBalls: 48, fours: 19, sixes: 4,
+    dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Full, swinging in, left-arm angle",
+    lastDismissal: "Bowled · Nov 2023",
+  },
+  {
+    batterName: "R Sharma",
+    bowlerName: "P Cummins",
+    format: "ODI",
+    ballsFaced: 142, runsScored: 168, timesOut: 4,
+    dotBalls: 38, fours: 22, sixes: 8,
+    dismissalTypes: [{ type: "Caught", count: 4 }],
+    dangerDelivery: "Short ball, pulling zone outside off",
+    lastDismissal: "Caught Head · Oct 2023",
+  },
+  {
+    batterName: "R Sharma",
+    bowlerName: "M Starc",
+    format: "ODI",
+    ballsFaced: 118, runsScored: 142, timesOut: 3,
+    dotBalls: 29, fours: 18, sixes: 6,
+    dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Angling in, full, left-arm over",
+    lastDismissal: "Caught Maxwell · Nov 2023",
+  },
+  {
+    batterName: "S Gill",
+    bowlerName: "P Cummins",
+    format: "ODI",
+    ballsFaced: 87, runsScored: 79, timesOut: 2,
+    dotBalls: 28, fours: 8, sixes: 2,
+    dismissalTypes: [{ type: "Caught", count: 2 }],
+    dangerDelivery: "Short ball, outside off, movement away",
+    lastDismissal: "Caught Inglis · Sep 2023",
+  },
+  {
+    batterName: "T Head",
+    bowlerName: "J Bumrah",
+    format: "ODI",
+    ballsFaced: 74, runsScored: 52, timesOut: 5,
+    dotBalls: 34, fours: 5, sixes: 1,
+    dismissalTypes: [{ type: "LBW", count: 2 }, { type: "Bowled", count: 2 }, { type: "Caught", count: 1 }],
+    dangerDelivery: "Full, angling in, hitting middle stump",
+    lastDismissal: "Bowled · Oct 2023",
+  },
+  {
+    batterName: "S Smith",
+    bowlerName: "M Siraj",
+    format: "ODI",
+    ballsFaced: 96, runsScored: 88, timesOut: 2,
+    dotBalls: 31, fours: 9, sixes: 0,
+    dismissalTypes: [{ type: "Caught", count: 1 }, { type: "LBW", count: 1 }],
+    dangerDelivery: "Outswinger, full, off-stump line",
+    lastDismissal: "Caught Kohli · Sep 2023",
+  },
+
+  // ── Test career H2H ─────────────────────────────────────────────────────
+  {
+    batterName: "V Kohli",
+    bowlerName: "P Cummins",
+    format: "Test",
+    ballsFaced: 412, runsScored: 298, timesOut: 9,
+    dotBalls: 198, fours: 28, sixes: 2,
+    dismissalTypes: [{ type: "Caught", count: 5 }, { type: "LBW", count: 3 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Full, seaming, 4th-stump channel — draws the drive",
+    lastDismissal: "Caught Smith · Jan 2025",
+    venueStat: "Best: 89 at MCG · 2020",
+  },
+  {
+    batterName: "V Kohli",
+    bowlerName: "M Starc",
+    format: "Test",
+    ballsFaced: 276, runsScored: 224, timesOut: 6,
+    dotBalls: 118, fours: 26, sixes: 1,
+    dismissalTypes: [{ type: "Caught", count: 4 }, { type: "Bowled", count: 2 }],
+    dangerDelivery: "Full, swinging late, angling into stumps",
+    lastDismissal: "Caught Maxwell · Nov 2024",
+  },
+  {
+    batterName: "V Kohli",
+    bowlerName: "J Hazlewood",
+    format: "Test",
+    ballsFaced: 338, runsScored: 201, timesOut: 11,
+    dotBalls: 172, fours: 18, sixes: 0,
+    dismissalTypes: [{ type: "Caught", count: 7 }, { type: "LBW", count: 3 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Back of length, 5th-stump channel — probing the outside edge",
+    lastDismissal: "Caught Head · Jan 2025",
+    venueStat: "Record: 141 at MCG · 2014",
+  },
+  {
+    batterName: "R Sharma",
+    bowlerName: "P Cummins",
+    format: "Test",
+    ballsFaced: 187, runsScored: 134, timesOut: 6,
+    dotBalls: 92, fours: 14, sixes: 3,
+    dismissalTypes: [{ type: "Caught", count: 4 }, { type: "LBW", count: 1 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Short ball, rising into the ribs — top edge to fine leg",
+    lastDismissal: "Caught Inglis · Nov 2024",
+  },
+  {
+    batterName: "T Head",
+    bowlerName: "J Bumrah",
+    format: "Test",
+    ballsFaced: 112, runsScored: 68, timesOut: 7,
+    dotBalls: 58, fours: 6, sixes: 1,
+    dismissalTypes: [{ type: "Bowled", count: 3 }, { type: "LBW", count: 2 }, { type: "Caught", count: 2 }],
+    dangerDelivery: "Unplayable: full, angling in, seaming away late",
+    lastDismissal: "Bowled · Jan 2025",
+  },
+  {
+    batterName: "S Smith",
+    bowlerName: "J Bumrah",
+    format: "Test",
+    ballsFaced: 198, runsScored: 112, timesOut: 4,
+    dotBalls: 104, fours: 9, sixes: 0,
+    dismissalTypes: [{ type: "LBW", count: 2 }, { type: "Caught", count: 1 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Full, straight, angling in — beats the gate",
+    lastDismissal: "LBW · Dec 2024",
+  },
+
+  // ── T20 (franchise/IPL) H2H ─────────────────────────────────────────────
+  {
+    batterName: "V Kohli",
+    bowlerName: "J Bumrah",
+    format: "T20",
+    ballsFaced: 48, runsScored: 44, timesOut: 2,
+    dotBalls: 18, fours: 4, sixes: 2,
+    dismissalTypes: [{ type: "Caught", count: 2 }],
+    dangerDelivery: "Yorker, angling in, toe-crushing",
+    lastDismissal: "Caught Hardik · May 2024",
+  },
+  {
+    batterName: "R Sharma",
+    bowlerName: "Y Chahal",
+    format: "T20",
+    ballsFaced: 36, runsScored: 28, timesOut: 3,
+    dotBalls: 14, fours: 2, sixes: 1,
+    dismissalTypes: [{ type: "Caught", count: 2 }, { type: "Bowled", count: 1 }],
+    dangerDelivery: "Legbreak, flighted, outside off",
+    lastDismissal: "Caught deep · Apr 2024",
+  },
 ];
 
 // ---------------------------------------------------------------------------
 // Build lookup map — O(1) access at runtime
 // ---------------------------------------------------------------------------
 const MATCHUP_MAP = new Map<string, MatchupStats>(
-  MATCHUP_DATA.map(m => [key(m.batterName, m.bowlerName), m])
+  MATCHUP_DATA.map(m => [key(m.batterName, m.bowlerName, m.format), m])
 );
 
 /**
  * Returns career H2H stats for batter vs bowler, or null if not in mock data.
  * Normalises names so spacing/capitalisation differences don't matter.
  */
-export function getMatchupStats(batterName: string, bowlerName: string): MatchupStats | null {
-  return MATCHUP_MAP.get(key(batterName, bowlerName)) ?? null;
+export function getMatchupStats(batterName: string, bowlerName: string, format: import("./types").MatchFormat): MatchupStats | null {
+  return MATCHUP_MAP.get(key(batterName, bowlerName, format)) ?? null;
 }

@@ -23,7 +23,7 @@ function MatchupCard({
   format,
   onShare,
 }: MatchupCardProps) {
-  const stats = getMatchupStats(batterName, bowlerName);
+  const stats = getMatchupStats(batterName, bowlerName, format);
 
   // ── Derived stats ──────────────────────────────────────────────────────────
   const avg = stats
