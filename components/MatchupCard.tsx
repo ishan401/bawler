@@ -6,43 +6,28 @@ import { getMatchupStats } from "@/lib/mockMatchups";
 interface MatchupCardProps {
   batterName: string;
   bowlerName: string;
-  /** true = batter not yet on strike (wicket just fell, previewing next batter) */
   isPreview: boolean;
-  battingTeamColor: string;   // hex
-  bowlingTeamColor: string;   // hex
+  battingTeamColor: string;
+  bowlingTeamColor: string;
   format: MatchFormat;
   onShare?: () => void;
 }
 
 function MatchupCard({
-  batterName,
-  bowlerName,
-  isPreview,
-  battingTeamColor,
-  bowlingTeamColor,
-  format,
-  onShare,
+  batterName, bowlerName, isPreview,
+  battingTeamColor, bowlingTeamColor,
+  format, onShare,
 }: MatchupCardProps) {
   const stats = getMatchupStats(batterName, bowlerName, format);
 
-  // ── Derived stats ──────────────────────────────────────────────────────────
   const avg = stats
-    ? stats.timesOut === 0
-      ? "∞"
-      : (stats.runsScored / stats.timesOut).toFixed(1)
+    ? stats.timesOut === 0 ? "∞" : (stats.runsScored / stats.timesOut).toFixed(1)
     : null;
-
   const sr = stats
-    ? ((stats.runsScored / stats.ballsFaced) * 100).toFixed(1)
+    ? ((stats.runsScored / stats.ballsFaced) * 100).toFixed(0)
     : null;
-
   const dotPct = stats
     ? Math.round((stats.dotBalls / stats.ballsFaced) * 100)
-    : null;
-
-  // Primary dismissal mode (e.g. "Caught" if it's the most common)
-  const primaryDismissal = stats?.dismissalTypes.length
-    ? [...stats.dismissalTypes].sort((a, b) => b.count - a.count)[0]
     : null;
 
   const formatLabel: Record<MatchFormat, string> = {
@@ -50,186 +35,119 @@ function MatchupCard({
   };
 
   return (
-    <div
-      className="rounded-2xl border border-line overflow-hidden"
-      style={{ background: "#0B101C" }}
-    >
-      {/* ── Colour bar: left = batting team, right = bowling team ── */}
+    <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
+
+      {/* ── Dual-colour top bar ── */}
       <div className="h-0.5 flex">
         <div className="flex-1" style={{ background: battingTeamColor }} />
         <div className="flex-1" style={{ background: bowlingTeamColor }} />
       </div>
 
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3.5 pt-3 pb-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[9px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded"
-            style={{ background: isPreview ? "#BE185D22" : "#0E7490/20", color: isPreview ? "#FB7185" : "#22D3EE" }}
-          >
-            {isPreview ? "NEXT IN" : "MATCHUP"}
-          </span>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">
-            {formatLabel[format]} career
-          </span>
-        </div>
+      {/* ── Row 1: names + badge + share ── */}
+      <div className="flex items-center gap-1.5 px-3 pt-2 pb-1.5">
+        {/* Batter */}
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
+        <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
+          {batterName}
+        </span>
+
+        <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
+
+        {/* Bowler */}
+        <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
+          {bowlerName}
+        </span>
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
+
+        {/* Spacer */}
+        <span className="flex-1" />
+
+        {/* Preview badge */}
+        <span
+          className="text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+          style={isPreview
+            ? { background: "#BE185D22", color: "#FB7185" }
+            : { background: "#0E749022", color: "#22D3EE" }}
+        >
+          {isPreview ? "NEXT IN" : formatLabel[format]}
+        </span>
+
+        {/* Share */}
         {onShare && (
           <button
             onClick={onShare}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-text-secondary hover:text-cyan transition-colors"
-            style={{ background: "#FFFFFF08" }}
+            className="shrink-0 text-text-dim hover:text-cyan transition-colors p-0.5"
             aria-label="Share matchup"
           >
             <ShareIcon />
-            Share
           </button>
         )}
       </div>
 
-      {/* ── Names row ── */}
-      <div className="flex items-center justify-between px-3.5 pb-3">
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          <span
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ background: battingTeamColor }}
-          />
-          <span
-            className="text-[15px] font-extrabold leading-none truncate"
-            style={{ color: battingTeamColor }}
-          >
-            {batterName}
-          </span>
-        </div>
-        <span className="text-[10px] font-bold text-text-dim px-3 shrink-0">vs</span>
-        <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-          <span
-            className="text-[15px] font-extrabold leading-none truncate text-right"
-            style={{ color: bowlingTeamColor }}
-          >
-            {bowlerName}
-          </span>
-          <span
-            className="w-2 h-2 rounded-full shrink-0"
-            style={{ background: bowlingTeamColor }}
-          />
-        </div>
-      </div>
-
-      {/* ── Divider ── */}
-      <div className="h-px bg-line mx-3.5" />
-
       {stats ? (
         <>
-          {/* ── Primary stats row ── */}
-          <div className="grid grid-cols-3 divide-x divide-line px-0 py-3">
-            <StatCell label="BALLS" value={stats.ballsFaced} color="text-text-primary" />
-            <StatCell label="RUNS" value={stats.runsScored} color="text-cyan" />
-            <StatCell
-              label={stats.timesOut === 1 ? "DISMISSAL" : "DISMISSALS"}
+          {/* ── Row 2: 3 primary stats compact grid ── */}
+          <div className="grid grid-cols-3 divide-x divide-line mx-3 rounded-lg overflow-hidden border border-line/60"
+               style={{ background: "#FFFFFF05" }}>
+            <CompactStat label="BALLS"  value={stats.ballsFaced}  color="text-text-primary" />
+            <CompactStat label="RUNS"   value={stats.runsScored}  color="text-cyan" />
+            <CompactStat
+              label={stats.timesOut === 1 ? "OUT" : "OUTS"}
               value={stats.timesOut}
-              color={stats.timesOut >= 3 ? "text-wicket" : stats.timesOut === 0 ? "text-six" : "text-orange"}
+              color={stats.timesOut === 0 ? "text-six" : stats.timesOut >= 3 ? "text-wicket" : "text-orange"}
             />
           </div>
 
-          {/* ── Divider ── */}
-          <div className="h-px bg-line mx-3.5" />
-
-          {/* ── Secondary stats ── */}
-          <div className="flex items-center gap-3 px-3.5 py-2.5 text-[11px] text-text-secondary">
-            <span>Avg <span className="text-text-primary font-bold num">{avg}</span></span>
+          {/* ── Row 3: secondary stats + danger inline ── */}
+          <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 pb-2 text-[10px] text-text-dim leading-none">
+            <span>Avg <span className="text-text-secondary font-bold num">{avg}</span></span>
             <span className="text-line">·</span>
-            <span>SR <span className="text-text-primary font-bold num">{sr}</span></span>
+            <span>SR <span className="text-text-secondary font-bold num">{sr}</span></span>
             <span className="text-line">·</span>
-            <span>Dots <span className="text-text-primary font-bold num">{dotPct}%</span></span>
-            {stats.sixes > 0 && (
+            <span>Dots <span className="text-text-secondary font-bold num">{dotPct}%</span></span>
+            {stats.timesOut === 0 && (
               <>
                 <span className="text-line">·</span>
-                <span><span className="text-six font-bold num">{stats.sixes}</span> <span className="text-text-dim">6s</span></span>
+                <span className="text-six font-semibold">Never dismissed</span>
+              </>
+            )}
+            {stats.dangerDelivery && (
+              <>
+                <span className="text-line">·</span>
+                <span className="text-orange">⚡</span>
+                <span className="text-text-dim truncate" style={{ maxWidth: 140 }}>{stats.dangerDelivery}</span>
               </>
             )}
           </div>
-
-          {/* ── Insights ── */}
-          {(primaryDismissal || stats.dangerDelivery || stats.lastDismissal) && (
-            <>
-              <div className="h-px bg-line mx-3.5" />
-              <div className="px-3.5 py-2.5 flex flex-col gap-1.5">
-                {primaryDismissal && stats.timesOut > 0 && (
-                  <div className="flex items-start gap-2 text-[11px]">
-                    <span className="text-wicket mt-0.5 shrink-0">■</span>
-                    <span className="text-text-secondary leading-snug">
-                      <span className="text-text-primary font-semibold">{bowlerName.split(" ").pop()}</span>
-                      {" dismissed "}
-                      <span className="text-text-primary font-semibold">{batterName.split(" ").pop()}</span>
-                      {" "}
-                      <span className="text-wicket font-bold">{stats.timesOut}×</span>
-                      {" — mostly "}
-                      <span className="font-medium">{primaryDismissal.type.toLowerCase()}</span>
-                      {stats.lastDismissal && (
-                        <span className="text-text-dim"> · Last: {stats.lastDismissal}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-                {stats.timesOut === 0 && (
-                  <div className="flex items-start gap-2 text-[11px]">
-                    <span className="text-six mt-0.5 shrink-0">✦</span>
-                    <span className="text-text-secondary leading-snug">
-                      <span className="text-text-primary font-semibold">{batterName.split(" ").pop()}</span>
-                      {" has "}
-                      <span className="text-six font-bold">never</span>
-                      {" been dismissed by "}
-                      <span className="text-text-primary font-semibold">{bowlerName.split(" ").pop()}</span>
-                    </span>
-                  </div>
-                )}
-                {stats.dangerDelivery && (
-                  <div className="flex items-start gap-2 text-[11px]">
-                    <span className="text-orange mt-0.5 shrink-0">⚡</span>
-                    <span className="text-text-secondary leading-snug">
-                      <span className="text-orange font-semibold">Danger: </span>
-                      {stats.dangerDelivery}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
         </>
       ) : (
-        /* ── No data / first meeting ── */
-        <div className="flex flex-col items-center justify-center gap-1 px-3.5 py-5">
-          <span className="text-[22px]">✦</span>
-          <span className="text-[13px] font-bold text-text-primary">First {formatLabel[format]} Meeting</span>
-          <span className="text-[11px] text-text-dim text-center">No previous record in this format</span>
+        /* ── No data ── */
+        <div className="flex items-center gap-2 px-3 pb-2.5 pt-0.5">
+          <span className="text-[11px] text-text-dim">✦</span>
+          <span className="text-[11px] text-text-secondary font-semibold">
+            First {formatLabel[format]} meeting
+          </span>
+          <span className="text-[10px] text-text-dim">— no prior record</span>
         </div>
       )}
     </div>
   );
 }
 
-function StatCell({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
+function CompactStat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 py-1">
-      <span className={`text-[22px] font-extrabold num leading-none ${color}`}>{value}</span>
-      <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{label}</span>
+    <div className="flex flex-col items-center py-1.5 gap-0.5">
+      <span className={`text-[17px] font-extrabold num leading-none ${color}`}>{value}</span>
+      <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim">{label}</span>
     </div>
   );
 }
 
 function ShareIcon() {
   return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
     </svg>
   );
 }
