@@ -131,11 +131,28 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const TABS_ORDER: TabKey[] = showTable ? ["live", "scorecard", "info", "table"] : ["live", "scorecard", "info"];
   const swipeTouchX = useRef(0);
   const swipeTouchY = useRef(0);
+  const swipeIgnored = useRef(false); // true when touch started inside an h-scroll container
+
+  // Walk up the DOM from the touch target; if any ancestor scrolls horizontally,
+  // the gesture belongs to that scroller — don't steal it for tab switching.
+  function touchStartsInHScroll(e: React.TouchEvent): boolean {
+    let el = e.target as HTMLElement | null;
+    while (el && el !== e.currentTarget) {
+      const style = window.getComputedStyle(el);
+      const ox = style.overflowX;
+      if ((ox === "auto" || ox === "scroll") && el.scrollWidth > el.clientWidth) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
   const onSwipeStart = (e: React.TouchEvent) => {
+    swipeIgnored.current = touchStartsInHScroll(e);
     swipeTouchX.current = e.touches[0].clientX;
     swipeTouchY.current = e.touches[0].clientY;
   };
   const onSwipeEnd = (e: React.TouchEvent) => {
+    if (swipeIgnored.current) return;
     const dx = e.changedTouches[0].clientX - swipeTouchX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - swipeTouchY.current);
     if (Math.abs(dx) < 60 || dy > Math.abs(dx) * 0.75) return;
