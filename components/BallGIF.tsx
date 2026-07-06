@@ -38,27 +38,46 @@ export default function BallGIF({
   }, [loopMs]);
 
   async function handleShare() {
-    if (!cardRef.current) return;
+    if (!cardRef.current || shareLoading) return;
     setShareLoading(true);
     try {
       const { toPng } = await import("html-to-image");
-      const dataUrl = await toPng(cardRef.current, { pixelRatio: 2, cacheBust: true, backgroundColor: "#070B14" });
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
+
+      // Wait one animation frame so the browser has fully painted the card
+      await new Promise<void>(r => requestAnimationFrame(() => r()));
+
+      const dataUrl = await toPng(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: "#070B14",
+        skipFonts: true, // avoids CORS/CSP failures fetching web fonts
+      });
+
+      // Convert data URL → Blob via atob (no fetch, works in all mobile WebViews)
+      const byteStr = atob(dataUrl.split(",")[1]);
+      const arr = new Uint8Array(byteStr.length);
+      for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+      const blob = new Blob([arr], { type: "image/png" });
       const file = new File([blob], "bawler-moment.png", { type: "image/png" });
+
+      const parts = [scoreText, situationText].filter(Boolean);
+      const shareText = parts.length ? `${parts.join(" · ")} · bawler-gold.vercel.app` : "bawler-gold.vercel.app";
+
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: "Bawler · Every ball, visualized",
-          text: `${scoreText ?? ""} · ${situationText ?? ""} · bawler-gold.vercel.app`,
-        });
+        await navigator.share({ files: [file], title: "Bawler", text: shareText });
       } else {
+        // Desktop fallback: trigger download
         const a = document.createElement("a");
         a.href = dataUrl;
         a.download = "bawler-moment.png";
         a.click();
       }
-    } catch (_) {}
+    } catch (err) {
+      // AbortError = user cancelled the share sheet — not a real error
+      if (err instanceof Error && err.name !== "AbortError") {
+        console.error("[Bawler] Share failed:", err);
+      }
+    }
     setShareLoading(false);
   }
 
@@ -145,25 +164,31 @@ export default function BallGIF({
         winProbAfter={winProbAfter}
       />
 
-      {/* ── HIDDEN MOMENT CARD — always in DOM so ref is ready; opacity:0 keeps it painted ── */}
+      {/* ── HIDDEN MOMENT CARD ──
+           opacity:0 is on the PARENT, NOT the ref element.
+           html-to-image reads getComputedStyle of the ref — opacity is not inherited in CSS,
+           so getComputedStyle(ref).opacity === "1" → fully opaque PNG captured correctly.
+           Parent is within-viewport (top:0,left:0) so browser still paints the subtree. ── */}
       <div
-        ref={cardRef}
         aria-hidden="true"
         style={{
-          position: "fixed", top: 0, left: 0,
-          width: 375, background: "#070B14", fontFamily: "Inter, sans-serif",
-          pointerEvents: "none", opacity: 0, zIndex: -1,
-          clipPath: "inset(0 0 0 100vw)",
+          position: "fixed", top: 0, left: 0, width: 375,
+          opacity: 0, pointerEvents: "none", zIndex: -1,
         }}
       >
-        <MomentCard
-          ball={ball}
-          match={match}
-          scoreText={scoreText}
-          situationText={situationText}
-          winProbBefore={winProbBefore}
-          winProbAfter={winProbAfter}
-        />
+        <div
+          ref={cardRef}
+          style={{ width: 375, background: "#070B14", fontFamily: "Inter, sans-serif" }}
+        >
+          <MomentCard
+            ball={ball}
+            match={match}
+            scoreText={scoreText}
+            situationText={situationText}
+            winProbBefore={winProbBefore}
+            winProbAfter={winProbAfter}
+          />
+        </div>
       </div>
     </div>
   );
