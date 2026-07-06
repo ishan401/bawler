@@ -65,7 +65,11 @@ export default function MiniBallGIF({ ball }: MiniBallGIFProps) {
   const swingDelta = (ball.swingDirection === "in" ? -1 : ball.swingDirection === "out" ? 1 : 0) * 5;
   const prePitchControlX = (releaseX + impactX) / 2 + swingDelta;
   const prePitchControlY = (releaseY + impactY) / 2 - 2;
-  const spinDelta = (ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : 0) * 4;
+  const miniSpinFromVariation =
+    (ball.ballVariation === "leg-cutter" || ball.ballVariation === "doosra" || ball.ballVariation === "carrom") ? 1 :
+    (ball.ballVariation === "off-cutter" || ball.ballVariation === "googly") ? -1 : 0;
+  const miniSpinBase = ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : miniSpinFromVariation;
+  const spinDelta = miniSpinBase * 4;
   const postPitchControlX = (impactX + batterArrivalX) / 2 + spinDelta;
   const postPitchControlY = (impactY + batterArrivalY) / 2;
 

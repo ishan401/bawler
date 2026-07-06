@@ -473,7 +473,11 @@ function StaticPitchMap({ ball }: { ball: Ball }) {
   // Offset ~22px from CX in 343px-wide map — proportional to BowlerView's 40px in 800px
   const releaseX = CX + pmBowlerSide * 22, releaseY = PITCH_TOP_Y - 14;
   const batterY = PITCH_BOT_Y + 14;
-  const spinD = (ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : 0) * 14;
+  const pmSpinFromVariation =
+    (ball.ballVariation === "leg-cutter" || ball.ballVariation === "doosra" || ball.ballVariation === "carrom") ? 1 :
+    (ball.ballVariation === "off-cutter" || ball.ballVariation === "googly") ? -1 : 0;
+  const pmSpinBase = ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : pmSpinFromVariation;
+  const spinD = pmSpinBase * 14;
 
   const prePath = `M ${releaseX} ${releaseY} Q ${(releaseX + impactX) / 2 + swingD} ${(releaseY + impactY) / 2} ${impactX} ${impactY}`;
   const postPath = `M ${impactX} ${impactY} Q ${(impactX + CX) / 2 + spinD} ${impactY - 30} ${CX} ${batterY}`;
@@ -553,7 +557,12 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
   const batterArrivalY = PITCH_BOT_Y-14;
   const swingDelta = (ball.swingDirection==="in"?-1:ball.swingDirection==="out"?1:0)*22*1.8;
   const prePitchControl = {x:(releaseX+impactX)/2+swingDelta,y:(releaseY+impactY)/2-6};
-  const spinDelta = (ball.spinDirection==="off"?-1:ball.spinDirection==="leg"?1:0)*18*2.2;
+
+  const spinFromVariation =
+    (ball.ballVariation === "leg-cutter" || ball.ballVariation === "doosra" || ball.ballVariation === "carrom") ? 1 :
+    (ball.ballVariation === "off-cutter" || ball.ballVariation === "googly") ? -1 : 0;
+  const spinBase = ball.spinDirection === "off" ? -1 : ball.spinDirection === "leg" ? 1 : spinFromVariation;
+  const spinDelta = spinBase * 18 * 2.2;
   const _bounceH = 10+pitchY*50;
   const postPitchControl = {x:(impactX+batterArrivalX)/2+spinDelta,y:impactY-_bounceH};
   const speedFactor = ball.pace==="fast"?0.85:ball.pace==="slow"?1.2:1.0;
