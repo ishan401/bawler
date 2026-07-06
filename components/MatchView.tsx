@@ -401,6 +401,21 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     };
   }, [currentBall, currentInnings, match]);
 
+  // Live boundary tracking for matchup card (4s and 6s hit in this match between current batter+bowler)
+  const liveMatchupBoundaries = useMemo(() => {
+    if (!matchupInfo) return { fours: 0, sixes: 0 };
+    return allBalls.slice(0, activeBallIdx + 1).reduce(
+      (acc, b) => {
+        if (b.batterName === matchupInfo.batterName && b.bowlerName === matchupInfo.bowlerName) {
+          if (b.isBoundary4) acc.fours++;
+          if (b.isBoundary6) acc.sixes++;
+        }
+        return acc;
+      },
+      { fours: 0, sixes: 0 }
+    );
+  }, [allBalls, activeBallIdx, matchupInfo?.batterName, matchupInfo?.bowlerName, matchupInfo]);
+
   // Share handler for MatchupCard
   const triggerMatchupShare = useCallback(() => {
     if (!matchupInfo || isCapturingRef.current) return;
@@ -574,6 +589,8 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                       battingTeamColor={matchupInfo.battingTeamColor}
                       bowlingTeamColor={matchupInfo.bowlingTeamColor}
                       format={match.format}
+                      liveMatchFours={liveMatchupBoundaries.fours}
+                      liveMatchSixes={liveMatchupBoundaries.sixes}
                       onShare={triggerMatchupShare}
                     />
                   </div>

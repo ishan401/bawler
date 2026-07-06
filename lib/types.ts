@@ -413,6 +413,7 @@ export interface MatchupStats {
   batterName: string;
   bowlerName: string;
   format: MatchFormat;
+  matches: number;       // career matches faced each other in this format
   ballsFaced: number;
   runsScored: number;
   timesOut: number;

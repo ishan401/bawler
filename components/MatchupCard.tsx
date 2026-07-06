@@ -10,13 +10,15 @@ interface MatchupCardProps {
   battingTeamColor: string;
   bowlingTeamColor: string;
   format: MatchFormat;
+  liveMatchFours?: number;
+  liveMatchSixes?: number;
   onShare?: () => void;
 }
 
 function MatchupCard({
   batterName, bowlerName, isPreview,
   battingTeamColor, bowlingTeamColor,
-  format, onShare,
+  format, liveMatchFours = 0, liveMatchSixes = 0, onShare,
 }: MatchupCardProps) {
   const stats = getMatchupStats(batterName, bowlerName, format);
 
@@ -29,6 +31,8 @@ function MatchupCard({
   const dotPct = stats
     ? Math.round((stats.dotBalls / stats.ballsFaced) * 100)
     : null;
+  const totalFours = (stats?.fours ?? 0) + liveMatchFours;
+  const totalSixes = (stats?.sixes ?? 0) + liveMatchSixes;
 
   const formatLabel: Record<MatchFormat, string> = {
     T20: "T20", T20I: "T20I", ODI: "ODI", Test: "Test", Hundred: "100-ball",
@@ -98,27 +102,36 @@ function MatchupCard({
             />
           </div>
 
-          {/* ── Row 3: secondary stats + danger inline ── */}
-          <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 pb-2.5 text-[10px] text-text-dim leading-none">
+          {/* ── Row 3: matches · avg · sr · dots · live 4s · live 6s ── */}
+          <div className="flex items-center flex-wrap gap-x-2 px-3 pt-1.5 text-[10px] text-text-dim leading-none">
+            <span><span className="text-text-secondary font-bold num">{stats.matches}</span> matches</span>
+            <span className="text-line">·</span>
             <span>Avg <span className="text-text-secondary font-bold num">{avg}</span></span>
             <span className="text-line">·</span>
             <span>SR <span className="text-text-secondary font-bold num">{sr}</span></span>
             <span className="text-line">·</span>
             <span>Dots <span className="text-text-secondary font-bold num">{dotPct}%</span></span>
+            <span className="text-line">·</span>
+            <span><span className="text-boundary font-bold num">{totalFours}</span> 4s</span>
+            <span className="text-line">·</span>
+            <span><span className="text-six font-bold num">{totalSixes}</span> 6s</span>
             {stats.timesOut === 0 && (
               <>
                 <span className="text-line">·</span>
                 <span className="text-six font-semibold">Never dismissed</span>
               </>
             )}
-            {stats.dangerDelivery && (
-              <>
-                <span className="text-line">·</span>
-                <span className="text-orange font-semibold shrink-0">Watch for:</span>
-                <span className="text-text-secondary truncate">{stats.dangerDelivery}</span>
-              </>
-            )}
           </div>
+
+          {/* ── Row 4: Watch for ── */}
+          {stats.dangerDelivery ? (
+            <div className="flex items-center gap-1.5 px-3 pt-1 pb-2.5 text-[10px] leading-none">
+              <span className="text-orange font-semibold shrink-0">Watch for:</span>
+              <span className="text-text-secondary">{stats.dangerDelivery}</span>
+            </div>
+          ) : (
+            <div className="pb-2.5" />
+          )}
         </>
       ) : (
         /* ── No data ── */
