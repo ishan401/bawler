@@ -455,19 +455,23 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     // Accumulate per batter
     // Fix 2: No-balls (nb) ARE faced by the batter — only wides (wd) are not.
     // Runs: b.runs = bat runs only; extras (byes, leg-byes, wides) live in b.extras.
-    const batsmenMap = new Map<string, { runs: number; balls: number }>();
+    const batsmenMap = new Map<string, { runs: number; balls: number; fours: number; sixes: number }>();
     for (const b of partnerBalls) {
       const isFaced = b.extraType !== "wd"; // wide = not faced; nb/b/lb = faced
-      const entry = batsmenMap.get(b.batterName) ?? { runs: 0, balls: 0 };
-      entry.runs += b.runs;          // bat runs only — correct for all delivery types
+      const entry = batsmenMap.get(b.batterName) ?? { runs: 0, balls: 0, fours: 0, sixes: 0 };
+      entry.runs += b.runs;
       if (isFaced) entry.balls++;
+      if (b.isBoundary4) entry.fours++;
+      if (b.isBoundary6) entry.sixes++;
       batsmenMap.set(b.batterName, entry);
     }
 
     const batters = Array.from(batsmenMap.entries()).map(([name, s]) => ({ name, ...s }));
     const totalRuns   = batters.reduce((s, b) => s + b.runs, 0);
     const totalBalls  = partnerBalls.filter(b => b.extraType !== "wd").length;
-    return { batters, totalRuns, totalBalls };
+    const totalFours  = batters.reduce((s, b) => s + b.fours, 0);
+    const totalSixes  = batters.reduce((s, b) => s + b.sixes, 0);
+    return { batters, totalRuns, totalBalls, totalFours, totalSixes };
   }, [allBalls, activeBallIdx, currentBall]);
 
   // Share handler for MatchupCard

@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 
-interface PartnershipBatter { name: string; runs: number; balls: number; }
-interface PartnershipInfo { batters: PartnershipBatter[]; totalRuns: number; totalBalls: number; }
+interface PartnershipBatter { name: string; runs: number; balls: number; fours: number; sixes: number; }
+interface PartnershipInfo { batters: PartnershipBatter[]; totalRuns: number; totalBalls: number; totalFours: number; totalSixes: number; }
 
 interface BallGIFProps {
   ball: Ball;
@@ -185,39 +185,46 @@ function PartnershipFooter({ ball, partnership, match }: {
     return `${ball.runs} run${ball.runs !== 1 ? "s" : ""}`;
   })();
 
-  /* batting team colour for partnership highlight */
-  const currentInningsNum = ball.inningsNumber;
-  const battingTeam = currentInningsNum % 2 === 1 ? match.teamA : match.teamB;
+  /* batting team colour */
+  const battingTeam = ball.inningsNumber % 2 === 1 ? match.teamA : match.teamB;
   const partnerColor = battingTeam.primaryColor;
 
   return (
-    <div className="bg-[#0A0E1A] px-3 pt-1.5 pb-2 flex flex-col gap-1">
-      {/* Partnership row */}
+    <div className="bg-[#0A0E1A] px-3 pt-2 pb-2.5 flex flex-col gap-2">
       {partnership && partnership.batters.length > 0 && (
-        <div className="flex items-center gap-2">
-          {/* PSHIP label */}
-          <span className="text-[8px] font-bold uppercase tracking-widest text-white/30 shrink-0">Pship</span>
-          {/* Total */}
-          <span className="text-[10px] font-extrabold num shrink-0" style={{ color: partnerColor }}>
-            {partnership.totalRuns}
-            <span className="text-[9px] font-semibold text-white/40"> ({partnership.totalBalls})</span>
-          </span>
-          {/* Separator */}
-          <span className="text-white/20 text-[9px]">·</span>
-          {/* Individual batters */}
-          {partnership.batters.map((b, i) => (
-            <span key={b.name} className="flex items-baseline gap-0.5">
-              {i > 0 && <span className="text-white/20 text-[9px] mr-1">·</span>}
-              <span className="text-[9px] font-semibold text-white/60 truncate max-w-[72px]">{b.name.split(" ").pop()}</span>
-              <span className="text-[10px] font-extrabold num text-white/80">{b.runs}</span>
-              <span className="text-[9px] text-white/35">({b.balls})</span>
+        <>
+          {/* Row 1 — Partnership total */}
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-white/35 shrink-0">Partnership</span>
+            <span className="text-[13px] font-extrabold num leading-none" style={{ color: partnerColor }}>
+              {partnership.totalRuns}
+              <span className="text-[11px] font-semibold text-white/50"> ({partnership.totalBalls})</span>
             </span>
-          ))}
-        </div>
+            {/* 4s and 6s of the partnership */}
+            <span className="ml-auto flex items-center gap-2 text-[11px] font-bold num">
+              <span className="text-[#60A5FA]">{partnership.totalFours}<span className="text-white/35 font-normal"> 4s</span></span>
+              <span className="text-[#4ADE80]">{partnership.totalSixes}<span className="text-white/35 font-normal"> 6s</span></span>
+            </span>
+          </div>
+
+          {/* Row 2 — Individual batters */}
+          <div className="flex items-center gap-3">
+            {partnership.batters.map((b, i) => (
+              <div key={b.name} className="flex items-baseline gap-1">
+                {i > 0 && <span className="text-white/20 text-[10px] mr-1">·</span>}
+                <span className="text-[11px] font-semibold text-white/55">{b.name.split(" ").pop()}</span>
+                <span className="text-[14px] font-extrabold num text-white/90 leading-none">{b.runs}</span>
+                <span className="text-[11px] text-white/40">({b.balls})</span>
+                {b.fours > 0 && <span className="text-[10px] font-bold text-[#60A5FA]">{b.fours}×4</span>}
+                {b.sixes > 0 && <span className="text-[10px] font-bold text-[#4ADE80]">{b.sixes}×6</span>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
       {/* Outcome line */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-semibold text-white/55 truncate">{outcomeLine}</span>
+      <div className="flex items-center">
+        <span className="text-[11px] font-semibold text-white/50 truncate">{outcomeLine}</span>
       </div>
     </div>
   );
