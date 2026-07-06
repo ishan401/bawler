@@ -68,12 +68,24 @@ export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
           wpTeamA = 1; // team A wins, chase failed
         } else {
           const rrr = (need / ballsRemaining) * ballsPerSet(match.format);
-          const achievableRPO = 8.5 + (wicketsLeft - 5) * 0.4; // crude
+
+          // Max RPO a full-strength team can sustain, by format
+          const baseRPO = match.format === "ODI" ? 8.0
+                        : match.format === "Test" ? 3.5
+                        : match.format === "Hundred" ? 9.5
+                        : 9.5; // T20 / T20I
+
+          // Wickets-in-hand reduces achievable RPO via a gentle power curve:
+          //   10 wkts → full baseRPO;  4 wkts → ~76%;  2 wkts → ~66%
+          // Power 0.25 keeps wickets influential without double-counting.
+          const achievableRPO = baseRPO * Math.pow(wicketsLeft / 10, 0.25);
+
+          // Sigmoid: ratio > 1 = chasing team has headroom; < 1 = under pressure
           const ratio = achievableRPO / rrr;
-          const wpTeamB = 1 / (1 + Math.exp(-(ratio - 1) * 3));
-          // Wicket penalty
-          const wicketPenalty = Math.max(0.3, wicketsLeft / 10);
-          wpTeamA = 1 - wpTeamB * wicketPenalty;
+          const wpTeamB = 1 / (1 + Math.exp(-(ratio - 1) * 5));
+
+          // No separate wicket multiplier — already encoded in achievableRPO
+          wpTeamA = 1 - wpTeamB;
         }
       }
 
