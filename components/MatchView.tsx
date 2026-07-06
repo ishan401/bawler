@@ -474,6 +474,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   activeBallId={currentBall?.id}
                   isLive={isLiveFollowing}
                   onSelect={handleMomentSelect}
+                  format={match.format}
                 />
                 <MiniWinProb
                   match={truncatedMatch}

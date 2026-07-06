@@ -1,13 +1,15 @@
 "use client";
 import { memo } from "react";
 
-import type { MatchEvent } from "@/lib/types";
+import type { MatchEvent, MatchFormat } from "@/lib/types";
+import { ballsPerSet } from "@/lib/formatUtils";
 
 interface MomentsStripProps {
   events: MatchEvent[];
   activeBallId?: string;
   onSelect: (event: MatchEvent | null) => void;
   isLive: boolean;
+  format?: MatchFormat;
 }
 
 const KIND_STYLES: Record<MatchEvent["kind"], { color: string; bg: string; border: string; chip: string; chipBg: string }> = {
@@ -22,7 +24,7 @@ const KIND_STYLES: Record<MatchEvent["kind"], { color: string; bg: string; borde
   "key-bowling-change": { color: "text-text-secondary", bg: "bg-bg-surface", border: "border-line",   chip: "↻", chipBg: "bg-bg-elevated text-text-secondary" },
 };
 
-function MomentsStrip({ events, activeBallId, onSelect, isLive }: MomentsStripProps) {
+function MomentsStrip({ events, activeBallId, onSelect, isLive, format }: MomentsStripProps) {
   const sorted = [...events].sort((a, b) => b.overFloat - a.overFloat);
 
   return (
@@ -45,6 +47,7 @@ function MomentsStrip({ events, activeBallId, onSelect, isLive }: MomentsStripPr
           <EventChip
             key={event.id}
             event={event}
+            format={format}
             active={!isLive && event.ballId === activeBallId}
             onClick={() => onSelect(event)}
           />
@@ -70,12 +73,17 @@ function LiveChip({ active, onClick }: { active: boolean; onClick: () => void })
   );
 }
 
-function EventChip({ event, active, onClick }: { event: MatchEvent; active: boolean; onClick: () => void }) {
+function EventChip({ event, format, active, onClick }: { event: MatchEvent; format?: MatchFormat; active: boolean; onClick: () => void }) {
   const s = KIND_STYLES[event.kind];
-  // Format over number: 13.4 → "13.4"
-  const over = Math.floor(event.overFloat);
-  const ball = Math.round((event.overFloat % 1) * 6) || 6;
-  const overStr = `${over}.${ball}`;
+  // Reconstruct Cricinfo-style label from overFloat
+  // overFloat = (0-indexed over) + (ball / bps), e.g. 19 + 6/6 = 20.0 for last T20 ball
+  const bps = ballsPerSet(format ?? "T20");
+  const rawOver = Math.floor(event.overFloat);
+  const rawBall = Math.round((event.overFloat % 1) * bps);
+  // When fraction rounds to 0 (integer overFloat = end of set), it's the last ball of the previous set
+  const displayOver = rawBall === 0 ? rawOver - 1 : rawOver;
+  const displayBall = rawBall === 0 ? bps : rawBall;
+  const overStr = format === "Hundred" ? `Ball ${Math.round(event.overFloat * bps)}` : `${displayOver}.${displayBall}`;
 
   return (
     <button
