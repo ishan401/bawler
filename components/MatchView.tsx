@@ -96,17 +96,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     battingTeamName: string;
     bowlingTeamName: string;
   } | null>(null);
-  // Matchup card persists for 15s after the triggering event so users can read/share
-  const matchupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [displayedMatchup, setDisplayedMatchup] = useState<{
-    batterName: string;
-    bowlerName: string;
-    isPreview: boolean;
-    battingTeamColor: string;
-    bowlingTeamColor: string;
-    battingTeamName: string;
-    bowlingTeamName: string;
-  } | null>(null);
   const [shareTarget, setShareTarget] = useState<{
     ball: Ball;
     wpBefore: number; wpAfter: number;
@@ -375,9 +364,12 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     }
   }, [allBalls.length]);
 
-  // ── Matchup card visibility ──────────────────────────────────────────────
-  // Show when a wicket ball is current (preview incoming batter)
-  // OR when we're within 3 balls of a wicket and the batter has changed (active).
+  // ── Matchup card — always-on, always accurate ───────────────────────────
+  // Show current striker vs current bowler on every ball.
+  // Strike rotation (singles), bowling changes, new batters — all handled
+  // automatically because currentBall already reflects the live state.
+  // Only special case: on a wicket ball show the INCOMING batter (nextBatterName)
+  // since the dismissed batter's matchup is over.
   const matchupInfo = useMemo(() => {
     if (!currentBall || !currentInnings) return null;
 
@@ -389,55 +381,38 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       ? match.teamA.shortName : match.teamB.shortName;
     const bowlingTeamName = currentInnings.battingTeam === match.teamA.code
       ? match.teamB.shortName : match.teamA.shortName;
-    const teamMeta = { battingTeamColor, bowlingTeamColor, battingTeamName, bowlingTeamName };
 
-    // Case 1: wicket just fell — preview incoming batter vs current bowler
+    // Wicket ball: show incoming batter (NEXT IN) if we know who it is
     if (currentBall.isWicket && currentBall.nextBatterName) {
-      return { batterName: currentBall.nextBatterName, bowlerName: currentBall.bowlerName, isPreview: true, ...teamMeta };
+      return {
+        batterName: currentBall.nextBatterName,
+        bowlerName: currentBall.bowlerName,
+        isPreview: true,
+        battingTeamColor, bowlingTeamColor, battingTeamName, bowlingTeamName,
+      };
     }
 
-    // Case 2: first 3 balls after a wicket with batter changed
-    const lookback = Math.min(4, activeBallIdx);
-    for (let i = activeBallIdx - 1; i >= activeBallIdx - lookback; i--) {
-      const prev = allBalls[i];
-      if (!prev) break;
-      if (prev.isWicket) {
-        if (currentBall.batterName !== prev.batterName) {
-          return { batterName: currentBall.batterName, bowlerName: currentBall.bowlerName, isPreview: false, ...teamMeta };
-        }
-        break;
-      }
-    }
-    return null;
-  }, [currentBall, currentInnings, allBalls, activeBallIdx, match]);
-
-  // ── Matchup card 15-second persist timer ────────────────────────────────
-  // When matchupInfo becomes non-null, freeze display and reset a 15s timer.
-  useEffect(() => {
-    if (matchupInfo) {
-      setDisplayedMatchup(matchupInfo);
-      if (matchupTimerRef.current) clearTimeout(matchupTimerRef.current);
-      matchupTimerRef.current = setTimeout(() => setDisplayedMatchup(null), 15_000);
-    }
-    // When matchupInfo goes null, leave displayedMatchup — timer handles dismiss.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchupInfo?.batterName, matchupInfo?.bowlerName, matchupInfo?.isPreview]);
-
-  // Cleanup on unmount
-  useEffect(() => () => { if (matchupTimerRef.current) clearTimeout(matchupTimerRef.current); }, []);
+    // All other balls: current striker vs current bowler
+    return {
+      batterName: currentBall.batterName,
+      bowlerName: currentBall.bowlerName,
+      isPreview: false,
+      battingTeamColor, bowlingTeamColor, battingTeamName, bowlingTeamName,
+    };
+  }, [currentBall, currentInnings, match]);
 
   // Share handler for MatchupCard
   const triggerMatchupShare = useCallback(() => {
-    if (!displayedMatchup || isCapturingRef.current) return;
+    if (!matchupInfo || isCapturingRef.current) return;
     setMatchupShareTarget({
-      batterName: displayedMatchup.batterName,
-      bowlerName: displayedMatchup.bowlerName,
-      battingTeamColor: displayedMatchup.battingTeamColor,
-      bowlingTeamColor: displayedMatchup.bowlingTeamColor,
-      battingTeamName: displayedMatchup.battingTeamName,
-      bowlingTeamName: displayedMatchup.bowlingTeamName,
+      batterName: matchupInfo.batterName,
+      bowlerName: matchupInfo.bowlerName,
+      battingTeamColor: matchupInfo.battingTeamColor,
+      bowlingTeamColor: matchupInfo.bowlingTeamColor,
+      battingTeamName: matchupInfo.battingTeamName,
+      bowlingTeamName: matchupInfo.bowlingTeamName,
     });
-  }, [displayedMatchup]);
+  }, [matchupInfo]);
 
   // Capture + share the matchup card image
   useEffect(() => {
@@ -590,14 +565,14 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     onShare={triggerShare}
                   />
                 )}
-                {displayedMatchup && (
+                {matchupInfo && (
                   <div className="mt-3">
                     <MatchupCard
-                      batterName={displayedMatchup.batterName}
-                      bowlerName={displayedMatchup.bowlerName}
-                      isPreview={displayedMatchup.isPreview}
-                      battingTeamColor={displayedMatchup.battingTeamColor}
-                      bowlingTeamColor={displayedMatchup.bowlingTeamColor}
+                      batterName={matchupInfo.batterName}
+                      bowlerName={matchupInfo.bowlerName}
+                      isPreview={matchupInfo.isPreview}
+                      battingTeamColor={matchupInfo.battingTeamColor}
+                      bowlingTeamColor={matchupInfo.bowlingTeamColor}
                       format={match.format}
                       onShare={triggerMatchupShare}
                     />
