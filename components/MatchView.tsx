@@ -206,6 +206,44 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   );
   const fielders = currentInnings?.fieldingPositions ?? match.innings[match.innings.length - 1]?.fieldingPositions;
 
+  // BallGIF clip props — win-prob before/after + situation/score text
+  const wpBefore = activeBallIdx > 0
+    ? Math.round(winProbPoints[activeBallIdx - 1]?.winProbTeamA ?? 50)
+    : 50;
+  const wpAfter = Math.round(winProbPoints[activeBallIdx]?.winProbTeamA ?? 50);
+
+  const clipScoreText = (() => {
+    if (!currentBall || !currentInnings) return undefined;
+    const { battingTeam, runs, wickets, overs } = currentInnings;
+    const shortName = battingTeam === match.teamA.code
+      ? match.teamA.shortName
+      : match.teamB.shortName;
+    const overLabel = `${Math.floor(overs)}.${Math.round((overs % 1) * 10)}`;
+    return `${shortName} ${runs}/${wickets} (${overLabel})`;
+  })();
+
+  const clipSituationText = (() => {
+    if (!currentBall || !currentInnings) return undefined;
+    const inningsNum = currentInnings.number;
+    // Chase innings
+    if (inningsNum >= 2) {
+      const firstInnings = truncatedMatch.innings[0];
+      if (firstInnings) {
+        const target = firstInnings.runs + 1;
+        const remaining = target - currentInnings.runs;
+        const ballsBowled = Math.round(currentInnings.overs * 6);
+        const totalBalls = match.format === "T20" ? 120 : match.format === "ODI" ? 300 : 450;
+        const ballsLeft = totalBalls - ballsBowled;
+        if (remaining > 0 && ballsLeft > 0) {
+          return `Need ${remaining} off ${ballsLeft}`;
+        }
+      }
+    }
+    // 1st innings
+    const overLabel = `Over ${Math.floor(currentInnings.overs)}.${Math.round((currentInnings.overs % 1) * 10)}`;
+    return overLabel;
+  })();
+
   const handleMomentSelect = React.useCallback((event: MatchEvent | null) => {
     if (event === null) {
       setSelectedBallId(null);
@@ -319,7 +357,18 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
             ) : (
               /* ── Full ball-by-ball view ── */
               <>
-                {currentBall && <BallGIF ball={currentBall} fielders={fielders} loopMs={GIF_LOOP_MS} />}
+                {currentBall && (
+                  <BallGIF
+                    ball={currentBall}
+                    match={truncatedMatch}
+                    fielders={fielders}
+                    loopMs={GIF_LOOP_MS}
+                    scoreText={clipScoreText}
+                    situationText={clipSituationText}
+                    winProbBefore={wpBefore}
+                    winProbAfter={wpAfter}
+                  />
+                )}
                 <MomentsStrip
                   events={events}
                   activeBallId={currentBall?.id}
