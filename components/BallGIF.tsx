@@ -190,42 +190,39 @@ function PartnershipFooter({ ball, partnership, match }: {
   const partnerColor = battingTeam.primaryColor;
 
   return (
-    <div className="bg-[#0A0E1A] px-3 pt-2 pb-2.5 flex flex-col gap-2">
-      {partnership && partnership.batters.length > 0 && (
+    <div className="bg-[#0A0E1A] px-3 pt-2 pb-2.5 flex flex-col gap-1.5">
+      {partnership && partnership.batters.length > 0 ? (
         <>
-          {/* Row 1 — Partnership total */}
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-bold uppercase tracking-widest text-white/35 shrink-0">Partnership</span>
-            <span className="text-[13px] font-extrabold num leading-none" style={{ color: partnerColor }}>
-              {partnership.totalRuns}
-              <span className="text-[11px] font-semibold text-white/50"> ({partnership.totalBalls})</span>
-            </span>
-            {/* 4s and 6s of the partnership */}
-            <span className="ml-auto flex items-center gap-2 text-[11px] font-bold num">
-              <span className="text-[#60A5FA]">{partnership.totalFours}<span className="text-white/35 font-normal"> 4s</span></span>
-              <span className="text-[#4ADE80]">{partnership.totalSixes}<span className="text-white/35 font-normal"> 6s</span></span>
-            </span>
-          </div>
-
-          {/* Row 2 — Individual batters */}
+          {/* Row 1 — Individual batters (prominent) */}
           <div className="flex items-center gap-3">
             {partnership.batters.map((b, i) => (
               <div key={b.name} className="flex items-baseline gap-1">
-                {i > 0 && <span className="text-white/20 text-[10px] mr-1">·</span>}
+                {i > 0 && <span className="text-white/20 text-[10px] mx-1">·</span>}
                 <span className="text-[11px] font-semibold text-white/55">{b.name.split(" ").pop()}</span>
-                <span className="text-[14px] font-extrabold num text-white/90 leading-none">{b.runs}</span>
+                <span className="text-[15px] font-extrabold num leading-none" style={{ color: partnerColor }}>{b.runs}</span>
                 <span className="text-[11px] text-white/40">({b.balls})</span>
-                {b.fours > 0 && <span className="text-[10px] font-bold text-[#60A5FA]">{b.fours}×4</span>}
-                {b.sixes > 0 && <span className="text-[10px] font-bold text-[#4ADE80]">{b.sixes}×6</span>}
+                {b.fours > 0 && <span className="text-[10px] font-bold text-[#60A5FA] ml-0.5">{b.fours}×4</span>}
+                {b.sixes > 0 && <span className="text-[10px] font-bold text-[#4ADE80] ml-0.5">{b.sixes}×6</span>}
               </div>
             ))}
           </div>
+          {/* Row 2 — Partnership total + 4s/6s + outcome */}
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-widest text-white/30 shrink-0">Pship</span>
+            <span className="text-[12px] font-extrabold num text-white/75">{partnership.totalRuns}</span>
+            <span className="text-[11px] text-white/35">({partnership.totalBalls})</span>
+            <span className="text-white/20">·</span>
+            <span className="text-[11px] font-bold num text-[#60A5FA]">{partnership.totalFours}<span className="text-white/35 font-normal"> 4s</span></span>
+            <span className="text-[11px] font-bold num text-[#4ADE80]">{partnership.totalSixes}<span className="text-white/35 font-normal"> 6s</span></span>
+            <span className="text-white/20 ml-auto">·</span>
+            <span className="text-[11px] font-semibold text-white/45 truncate">{outcomeLine}</span>
+          </div>
         </>
+      ) : (
+        <div className="flex items-center">
+          <span className="text-[12px] font-semibold text-white/50 truncate">{outcomeLine}</span>
+        </div>
       )}
-      {/* Outcome line */}
-      <div className="flex items-center">
-        <span className="text-[11px] font-semibold text-white/50 truncate">{outcomeLine}</span>
-      </div>
     </div>
   );
 }
