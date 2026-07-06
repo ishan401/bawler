@@ -1,83 +1,142 @@
 /**
- * Format-specific cricket rules.
- *
- * All format constants live here so changes propagate everywhere automatically.
- * Import what you need — never duplicate these values inline.
+ * Format-specific cricket rules — single source of truth.
+ * Import from here; never duplicate inline.
  */
 
-import type { MatchFormat } from "./types";
-import type { Ball } from "./types";
+import type { MatchFormat, Ball } from "./types";
 
 // ─── Core constants ────────────────────────────────────────────────────────────
 
-/** Legal deliveries per innings per side. */
+/** Legal deliveries per innings. */
 export function totalBallsFor(format: MatchFormat): number {
-  if (format === "Test")    return 450;   // unlimited in practice; capped for modelling
+  if (format === "Test")    return 450;   // unlimited; capped for modelling
   if (format === "ODI")     return 300;   // 50 × 6
   if (format === "Hundred") return 100;   // 100-ball format
-  return 120;                             // T20 / T20I  (20 × 6)
+  return 120;                             // T20 / T20I (20 × 6)
 }
 
-/** Deliveries per bowling "set" / over. */
+/** Deliveries per bowling set / over. 5 for Hundred, 6 for all others. */
 export function ballsPerSet(format: MatchFormat): number {
   return format === "Hundred" ? 5 : 6;
 }
 
 /**
- * Powerplay length in balls (fielding restriction: ≤ 2 outside circle).
- *  - T20 / T20I : first 6 overs  = 36 balls
- *  - ODI        : first 10 overs = 60 balls
- *  - Hundred    : first 25 balls (official rule)
- *  - Test       : no formal powerplay
+ * Powerplay length in legal deliveries.
+ *   T20 / T20I : 6 overs  = 36 balls
+ *   ODI        : 10 overs = 60 balls
+ *   Hundred    : 25 balls (official rule)
+ *   Test       : no powerplay
  */
 export function powerplayBalls(format: MatchFormat): number {
   if (format === "Hundred") return 25;
   if (format === "ODI")     return 60;
   if (format === "Test")    return 0;
-  return 36; // T20 / T20I
+  return 36;
 }
 
 /**
- * Maximum balls a single bowler may bowl in an innings.
- *  - Hundred : 20  (4 × 5-ball sets)
- *  - T20/T20I: 24  (4 × 6-ball overs)
- *  - ODI     : 60  (10 × 6-ball overs)
- *  - Test    : unlimited
+ * Maximum balls one bowler may bowl per innings.
+ *   Hundred : 20  (4 × 5-ball sets)
+ *   T20/T20I: 24  (4 × 6-ball overs)
+ *   ODI     : 60  (10 overs)
+ *   Test    : unlimited
  */
 export function maxBowlerBalls(format: MatchFormat): number {
   if (format === "Hundred") return 20;
   if (format === "ODI")     return 60;
   if (format === "Test")    return Infinity;
-  return 24; // T20 / T20I
+  return 24;
+}
+
+// ─── Phase thresholds (1-indexed ball.over values) ───────────────────────────
+
+export interface FormatPhases {
+  /** First ball.over value AFTER the powerplay (exclusive). 0 = no powerplay. */
+  powerplayEndOver: number;
+  /** First ball.over value where death overs begin (inclusive). 0 = no death phase. */
+  deathStartOver: number;
+  /** For Hundred (ball-based): absolute ball number after which powerplay ends. */
+  powerplayBallEnd?: number;
+  /** For Hundred (ball-based): absolute ball number at which death phase starts. */
+  deathBallStart?: number;
+}
+
+/**
+ * Official phase boundaries per format.
+ * All over values are 1-indexed (matching ball.over in our data model).
+ */
+export function formatPhases(format: MatchFormat): FormatPhases {
+  if (format === "Hundred") {
+    // Powerplay = balls 1–25; Death = balls 76–100
+    return { powerplayEndOver: 0, deathStartOver: 0, powerplayBallEnd: 25, deathBallStart: 76 };
+  }
+  if (format === "ODI") {
+    // Powerplay = overs 1–10; Death = overs 41–50
+    return { powerplayEndOver: 11, deathStartOver: 41 };
+  }
+  if (format === "Test") {
+    return { powerplayEndOver: 0, deathStartOver: 0 };
+  }
+  // T20 / T20I: Powerplay = overs 1–6; Death = overs 16–20
+  return { powerplayEndOver: 7, deathStartOver: 16 };
+}
+
+/** Human-readable phase label. */
+export function phaseLabel(
+  phase: "powerplay" | "middle" | "death",
+  format: MatchFormat,
+): string {
+  if (format === "Hundred") {
+    return phase === "powerplay" ? "Power Play (25 balls)"
+         : phase === "death"     ? "Death (last 25 balls)"
+         : "Middle";
+  }
+  if (format === "ODI") {
+    return phase === "powerplay" ? "Powerplay (10 ov)"
+         : phase === "death"     ? "Death overs (41–50)"
+         : "Middle overs";
+  }
+  // T20 / T20I
+  return phase === "powerplay" ? "Powerplay (6 ov)"
+       : phase === "death"     ? "Death overs (16–20)"
+       : "Middle overs";
 }
 
 // ─── Ball-number helpers ───────────────────────────────────────────────────────
 
 /**
- * Absolute 1-based ball number within the innings.
- * For Hundred: set × 5 + ballInSet + 1
- * For all others: over × 6 + ballInOver + 1
+ * 1-based absolute ball number within the innings.
+ *
+ * ball.over is 1-indexed (first over = 1), so we subtract 1 before
+ * multiplying to get a 0-based completed-set count.
+ *
+ *   over=1, ballInOver=0 → (1-1)×6 + 0 + 1 = 1   (first ball ever)
+ *   over=20, ballInOver=5 → (20-1)×6 + 5 + 1 = 120 (last ball of T20)
  */
 export function absoluteBallNumber(ball: Ball, format: MatchFormat): number {
-  return ball.over * ballsPerSet(format) + ball.ballInOver + 1;
+  return (ball.over - 1) * ballsPerSet(format) + ball.ballInOver + 1;
 }
 
 /**
- * Short label for a single delivery.
- *   Hundred → "Ball 84"
- *   others  → "16.4"
+ * Short ball label — Cricinfo convention:
+ *   completed_overs_in_over.ball_in_current_over
+ *
+ *   over=1, ballInOver=0 → "0.1"  (0 complete overs, 1st ball)
+ *   over=20, ballInOver=5 → "19.6" (19 complete overs, 6th ball)
+ *
+ * For Hundred: "Ball 84"
  */
 export function ballLabel(ball: Ball, format: MatchFormat): string {
   if (format === "Hundred") {
     return `Ball ${absoluteBallNumber(ball, format)}`;
   }
-  return `${ball.over}.${ball.ballInOver + 1}`;
+  return `${ball.over - 1}.${ball.ballInOver + 1}`;
 }
 
 /**
- * Overs/progress label for a running innings total (from innings.overs float).
- *   Hundred → "Ball 84"   (uses ballsDone computed from the overs float)
- *   others  → "Over 16.4"
+ * Innings progress label from a running overs float (already 0-indexed).
+ *   oversFloat=16.0 → "Over 16.0"
+ *   Hundred → "Ball 80"
  */
 export function inningsProgressLabel(oversFloat: number, format: MatchFormat): string {
   if (format === "Hundred") {
@@ -88,33 +147,34 @@ export function inningsProgressLabel(oversFloat: number, format: MatchFormat): s
 }
 
 /**
- * "Need X off Y" or "Over / Ball X" situation string.
+ * "Need X off Y" situation string, or "Over X.Y" / "Ball X" label.
  * Used in BallGIF context header and share card.
  */
 export function situationLabel(
   ball: Ball,
   format: MatchFormat,
-  inningsNumber: number,
-  chaseRemaining: number | null,  // null if 1st innings
+  _inningsNumber: number,
+  chaseRemaining: number | null,
 ): string {
   if (chaseRemaining !== null && chaseRemaining > 0) {
-    const totalBalls  = totalBallsFor(format);
-    const ballsDone   = absoluteBallNumber(ball, format);
-    const ballsLeft   = totalBalls - ballsDone;
+    const ballsDone = absoluteBallNumber(ball, format);
+    const ballsLeft = totalBallsFor(format) - ballsDone;
     if (ballsLeft > 0) return `Need ${chaseRemaining} off ${ballsLeft}`;
   }
-  if (format === "Hundred") {
-    return `Ball ${absoluteBallNumber(ball, format)}`;
-  }
-  return `Over ${ball.over}.${ball.ballInOver + 1}`;
+  return ballLabel(ball, format);
 }
 
-/** True if the ball is inside the powerplay window. */
+/** True if this ball is inside the powerplay window. */
 export function isInPowerplay(ball: Ball, format: MatchFormat): boolean {
-  return absoluteBallNumber(ball, format) <= powerplayBalls(format);
+  const phases = formatPhases(format);
+  if (format === "Hundred") {
+    return absoluteBallNumber(ball, format) <= (phases.powerplayBallEnd ?? 25);
+  }
+  if (phases.powerplayEndOver === 0) return false;
+  return ball.over < phases.powerplayEndOver;
 }
 
-/** Label for a bowling "over" / set. */
+/** "Over" or "Set" depending on format. */
 export function setLabel(format: MatchFormat): string {
   return format === "Hundred" ? "Set" : "Over";
 }
