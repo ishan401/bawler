@@ -1,6 +1,7 @@
 "use client";
 
 import type { Ball, Match, WinProbPoint } from "@/lib/types";
+import { totalBallsForFormat } from "@/lib/winProb";
 
 interface MomentStoryCardProps {
   ball: Ball;
@@ -205,7 +206,7 @@ export default function MomentStoryCard({
 // Progress bar — shows how far through the innings this ball was
 // ─────────────────────────────────────────────────────────────────────────────
 function StoryProgressBar({ ball, match, aColor, bColor }: { ball: Ball; match: Match; aColor: string; bColor: string }) {
-  const totalBalls = match.format === "T20" ? 120 : match.format === "ODI" ? 300 : 450;
+  const totalBalls = totalBallsForFormat(match);
   const ballsDone = ball.over * 6 + ball.ballInOver + 1;
   const pct = Math.min(100, Math.round((ballsDone / totalBalls) * 100));
 

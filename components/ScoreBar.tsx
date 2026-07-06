@@ -76,7 +76,7 @@ function ScoreBar({ match }: ScoreBarProps) {
             {isLive ? "LIVE" : isPost ? "FINAL" : "PRE"}
           </div>
           <div className="flex items-center gap-1">
-            {match.format !== "T20" && (
+            {match.format !== "T20" && match.format !== "T20I" && (
               <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none text-text-dim border border-line">
                 {match.format}
               </span>

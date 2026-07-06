@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/types";
-import { calculateWinProbForMatch } from "@/lib/winProb";
+import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
 import { computeAIMetrics } from "@/lib/metrics";
 import { extractMatchEvents } from "@/lib/events";
 import ScoreBar from "@/components/ScoreBar";
@@ -243,7 +243,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         const target = firstInnings.runs + 1;
         const remaining = target - currentInnings.runs;
         const ballsBowled = Math.round(currentInnings.overs * 6);
-        const totalBalls = match.format === "T20" ? 120 : match.format === "ODI" ? 300 : 450;
+        const totalBalls = totalBallsForFormat(match);
         const ballsLeft = totalBalls - ballsBowled;
         if (remaining > 0 && ballsLeft > 0) {
           return `Need ${remaining} off ${ballsLeft}`;
@@ -280,7 +280,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       if (innings.number >= 2 && match.innings[0]) {
         const target = match.innings[0].runs + 1;
         const remaining = target - runs;
-        const totalBalls = match.format === "T20" ? 120 : match.format === "ODI" ? 300 : 450;
+        const totalBalls = totalBallsForFormat(match);
         const ballsDone = ball.over * 6 + ball.ballInOver + 1;
         if (remaining > 0 && totalBalls - ballsDone > 0) {
           sText = `Need ${remaining} off ${totalBalls - ballsDone}`;
