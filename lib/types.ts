@@ -196,6 +196,7 @@ export interface Ball {
   inflectionLabel?: string;
 
   oneLiner?: string;
+  nextBatterName?: string;  // set on isWicket balls — the incoming batter
 }
 
 // ============================================================================

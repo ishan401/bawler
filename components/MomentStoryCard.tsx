@@ -49,15 +49,13 @@ export default function MomentStoryCard({
           </span>
         </div>
 
-        {/* Both-team scores */}
+        {/* Scores + chase — single row */}
         {(() => {
-          // Find which innings this ball belongs to and compute live score
-          const inn1 = match.innings[0];
-          const inn2 = match.innings[1];
+          const inn1       = match.innings[0];
           const currentInn = match.innings.find(i => i.balls.some(b => b.id === ball.id));
-          const iSecond = currentInn && currentInn.number >= 2;
+          const iSecond    = !!(currentInn && currentInn.number >= 2);
 
-          // Compute cumulative score up to this ball in the current innings
+          // Cumulative score up to (and including) this ball
           let liveRuns = 0, liveWkts = 0;
           if (currentInn) {
             for (const b of currentInn.balls) {
@@ -67,79 +65,107 @@ export default function MomentStoryCard({
             }
           }
 
-          // First-innings completed score (for the other team in a chase)
-          const inn1Score = inn1 ? `${inn1.runs}/${inn1.wickets}` : null;
-          const inn1Team  = inn1 ? (inn1.battingTeam === match.teamA.code ? match.teamA : match.teamB) : null;
-          const inn2Team  = inn2 ? (inn2.battingTeam === match.teamA.code ? match.teamA : match.teamB)
-                          : currentInn ? (currentInn.battingTeam === match.teamA.code ? match.teamA : match.teamB) : null;
-          const isBattingA = currentInn?.battingTeam === match.teamA.code;
+          const isBattingA  = currentInn?.battingTeam === match.teamA.code;
           const battingTeam = isBattingA ? match.teamA : match.teamB;
-          const bowlingTeam = isBattingA ? match.teamB : match.teamA;
+          const inn1Team    = inn1 ? (inn1.battingTeam === match.teamA.code ? match.teamA : match.teamB) : null;
+          const inn1Score   = inn1 ? `${inn1.runs}/${inn1.wickets}` : null;
 
-          // Chase info
+          // Chase
           const target    = iSecond && inn1 ? inn1.runs + 1 : null;
           const need      = target != null ? target - liveRuns : null;
           const ballsDone = absoluteBallNumber(ball, match.format);
-          const ballsLeft = target != null ? totalBallsFor(match.format) - ballsDone : null;
+          const ballsLeft = target != null ? Math.max(0, totalBallsFor(match.format) - ballsDone) : null;
           const chasing   = need != null && need > 0 && ballsLeft != null && ballsLeft > 0;
+
+          // Next batter: explicit field first, then infer from next delivery in innings
+          const nextBatter = ball.nextBatterName ?? (() => {
+            if (!ball.isWicket || !currentInn) return null;
+            const idx = currentInn.balls.findIndex(b => b.id === ball.id);
+            const next = currentInn.balls[idx + 1];
+            return next && next.batterName !== ball.batterName ? next.batterName : null;
+          })();
 
           return (
             <>
-              {/* Score row — both teams */}
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 10, marginBottom: chasing ? 8 : 10 }}>
-                {/* 1st innings (if exists) */}
+              {/* Single score row */}
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 0, marginBottom: 10 }}>
+
+                {/* 1st-innings team score (dimmed, smaller) */}
                 {inn1Score && inn1Team && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: inn1Team.primaryColor, textTransform: "uppercase", letterSpacing: "0.08em" }}>{inn1Team.shortName}</span>
-                    <span style={{ fontSize: iSecond ? 20 : 28, fontWeight: 900, color: iSecond ? "rgba(255,255,255,0.5)" : "#F8FAFC", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, marginRight: 10 }}>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: inn1Team.primaryColor, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      {inn1Team.shortName}
+                    </span>
+                    <span style={{ fontSize: 20, fontWeight: 900, color: "rgba(255,255,255,0.45)", letterSpacing: "-0.02em", lineHeight: 1 }}>
                       {inn1Score}
                     </span>
                   </div>
                 )}
-                {inn1Score && <span style={{ fontSize: 13, color: "rgba(255,255,255,0.2)", marginBottom: 2, alignSelf: "flex-end" }}>vs</span>}
-                {/* Current innings (live) */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: battingTeam.primaryColor, textTransform: "uppercase", letterSpacing: "0.08em" }}>{battingTeam.shortName}</span>
-                  <span style={{ fontSize: 28, fontWeight: 900, color: "#F8FAFC", letterSpacing: "-0.03em", lineHeight: 1 }}>
+
+                {inn1Score && (
+                  <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", marginBottom: 2, marginRight: 10, alignSelf: "flex-end" }}>vs</span>
+                )}
+
+                {/* Current batting team (large, bright) */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: battingTeam.primaryColor, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                    {battingTeam.shortName}
+                  </span>
+                  <span style={{ fontSize: 26, fontWeight: 900, color: "#F8FAFC", letterSpacing: "-0.03em", lineHeight: 1 }}>
                     {liveRuns}/{liveWkts}
                   </span>
                 </div>
-                {/* Situation pill — only for 1st innings */}
-                {!chasing && situationText && (
+
+                {/* Chase inline — Need X off Y */}
+                {chasing ? (
                   <div style={{
-                    marginLeft: "auto", marginBottom: 2,
-                    fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.5)",
-                    background: "rgba(255,255,255,0.07)",
-                    border: "1.5px solid rgba(255,255,255,0.1)",
-                    borderRadius: 99, padding: "5px 11px", whiteSpace: "nowrap",
-                    textTransform: "uppercase", letterSpacing: "0.07em",
+                    marginLeft: "auto", display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-end",
                   }}>
-                    {situationText}
+                    <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(6,182,212,0.7)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Need
+                    </span>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                      <span style={{ fontSize: 26, fontWeight: 900, color: "#06B6D4", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                        {need}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>
+                        off {ballsLeft}
+                      </span>
+                    </div>
                   </div>
+                ) : (
+                  /* 1st innings — situation pill */
+                  situationText && (
+                    <div style={{
+                      marginLeft: "auto", alignSelf: "flex-end", marginBottom: 2,
+                      fontSize: 10, fontWeight: 800,
+                      color: "rgba(255,255,255,0.5)",
+                      background: "rgba(255,255,255,0.07)",
+                      border: "1.5px solid rgba(255,255,255,0.1)",
+                      borderRadius: 99, padding: "5px 11px", whiteSpace: "nowrap",
+                      textTransform: "uppercase", letterSpacing: "0.07em",
+                    }}>
+                      {situationText}
+                    </div>
+                  )
                 )}
               </div>
 
-              {/* Chase banner — only in 2nd innings */}
-              {chasing && (
+              {/* Next batter — only on wicket balls */}
+              {ball.isWicket && nextBatter && (
                 <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  background: "rgba(6,182,212,0.1)", border: "1.5px solid rgba(6,182,212,0.3)",
-                  borderRadius: 10, padding: "7px 12px", marginBottom: 10,
+                  display: "flex", alignItems: "center", gap: 7,
+                  background: "rgba(239,68,68,0.08)",
+                  border: "1px solid rgba(239,68,68,0.2)",
+                  borderRadius: 8, padding: "5px 10px", marginBottom: 8,
                 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Need</span>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: "#06B6D4", letterSpacing: "-0.02em", lineHeight: 1 }}>{need}</span>
-                  </div>
-                  <div style={{ width: 1, height: 32, background: "rgba(6,182,212,0.25)" }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1, textAlign: "center" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Balls left</span>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: "#F8FAFC", letterSpacing: "-0.02em", lineHeight: 1 }}>{ballsLeft}</span>
-                  </div>
-                  <div style={{ width: 1, height: 32, background: "rgba(6,182,212,0.25)" }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 1, textAlign: "right" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Target</span>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: "rgba(255,255,255,0.6)", letterSpacing: "-0.02em", lineHeight: 1 }}>{target}</span>
-                  </div>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(239,68,68,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
+                    Next in
+                  </span>
+                  <span style={{ width: 1, height: 12, background: "rgba(239,68,68,0.25)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: "#F8FAFC" }}>
+                    {nextBatter}
+                  </span>
                 </div>
               )}
             </>
