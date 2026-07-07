@@ -364,6 +364,12 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     }
   }, [allBalls.length]);
 
+  const handleMomentShare = React.useCallback((event: MatchEvent) => {
+    if (!event.ballId) return;
+    const ball = allBalls.find(b => b.id === event.ballId);
+    if (ball) triggerShare(ball);
+  }, [allBalls, triggerShare]);
+
   // ── Matchup card — always-on, always accurate ───────────────────────────
   // Show current striker vs current bowler on every ball.
   // Strike rotation (singles), bowling changes, new batters — all handled
@@ -661,6 +667,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   activeBallId={currentBall?.id}
                   isLive={isLiveFollowing}
                   onSelect={handleMomentSelect}
+                  onShare={handleMomentShare}
                   format={match.format}
                 />
                 <MiniWinProb
