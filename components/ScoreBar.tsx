@@ -114,7 +114,7 @@ function ScoreBar({ match }: ScoreBarProps) {
             <span className="text-text-dim">&nbsp;at this pace</span>
           </span>
           <span className="text-text-secondary num">
-            CRR&nbsp;<span className="font-bold text-text-primary">{projected.perOver.toFixed(2)}</span>
+            {i1 && (i1.battingTeam === teamA.code ? teamA.shortName : teamB.shortName)}&nbsp;CRR&nbsp;<span className="font-bold text-text-primary">{projected.perOver.toFixed(2)}</span>
           </span>
         </div>
       )}

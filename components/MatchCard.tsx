@@ -165,8 +165,9 @@ export function LiveMatchCard({ match }: { match: Match }) {
   const status = liveStatusOf(match);
   const wp     = liveWinProb(match);
 
-  // Projected score — 1st innings only, non-Test
-  const isFirstInn = innings.length === 1 && !isTest && match.status === "live";
+  // Projected score — 1st innings only, non-Test, only when no liveStatusOverride
+  // (liveStatusOverride is mock-only and already contains projection text baked in)
+  const isFirstInn = innings.length === 1 && !isTest && match.status === "live" && !match.liveStatusOverride;
   const projected  = isFirstInn ? calculateProjectedScore(match) : null;
 
   return (
@@ -199,13 +200,10 @@ export function LiveMatchCard({ match }: { match: Match }) {
 
         {/* Row 3 — projected score (1st innings, non-Test) */}
         {projected && (
-          <div className="flex items-center justify-between text-[10px] px-0.5">
+          <div className="text-[10px] px-0.5">
             <span className="text-white/50 num">
               Proj&nbsp;<span className="text-white font-bold num">~{projected.runs}</span>
-              <span className="text-white/40"> at this pace</span>
-            </span>
-            <span className="text-white/50 num">
-              CRR&nbsp;<span className="font-bold text-white/80">{projected.perOver.toFixed(2)}</span>
+              <span className="text-white/40">&nbsp;at {projected.perOver.toFixed(1)} RPO</span>
             </span>
           </div>
         )}
