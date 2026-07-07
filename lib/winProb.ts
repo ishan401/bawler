@@ -137,20 +137,41 @@ function formatDelta(delta: number, teamACode: string): string {
 // Per-ball projected score and pressure gauge for the current state
 export function calculateProjectedScore(match: Match): { runs: number; perOver: number; confidence: number } | null {
   const totalBalls2 = totalBallsForFormat(match);
+  const bps = ballsPerSet(match.format);
+
+  // Path 1: ball-by-ball data available — wicket-adjusted projection
   const live = match.innings.find(i => i.balls.length > 0 && i.balls.length < totalBalls2);
-  if (!live) return null;
-  const ballsBowled = live.balls.length;
-  const cumulativeRuns = live.balls.reduce((s, b) => s + b.runs + b.extras, 0);
-  const cumulativeWickets = live.balls.filter(b => b.isWicket).length;
+  if (live) {
+    const ballsBowled = live.balls.length;
+    const cumulativeRuns = live.balls.reduce((s, b) => s + b.runs + b.extras, 0);
+    const cumulativeWickets = live.balls.filter(b => b.isWicket).length;
+    if (ballsBowled === 0) return null;
+    const perOver = cumulativeRuns / (ballsBowled / bps);
+    const wicketsLeft = 10 - cumulativeWickets;
+    const projectedTotal = cumulativeRuns + (totalBalls2 - ballsBowled) * (perOver / bps) * Math.max(0.7, wicketsLeft / 9);
+    return {
+      runs: Math.round(projectedTotal),
+      perOver: Math.round(perOver * 100) / 100,
+      confidence: 0.6 + (ballsBowled / totalBalls2) * 0.3,
+    };
+  }
+
+  // Path 2: scorecard-level only (overs + runs, no ball objects) — used for matches
+  // where live score feeds provide aggregates but not delivery-by-delivery data.
+  const liveByOvers = match.innings.find(
+    i => i.number === 1 && i.overs > 0 && match.innings.length === 1 && match.status === "live"
+  );
+  if (!liveByOvers) return null;
+  const ballsBowled = Math.round(liveByOvers.overs * bps);
   if (ballsBowled === 0) return null;
-  const perOver = cumulativeRuns / (ballsBowled / ballsPerSet(match.format));
-  const wicketsLeft = 10 - cumulativeWickets;
-  // Slight slow-down expected as wickets fall
-  const projectedTotal = cumulativeRuns + (totalBalls2 - ballsBowled) * (perOver / ballsPerSet(match.format)) * Math.max(0.7, wicketsLeft / 9);
+  const wicketsLeft = 10 - (liveByOvers.wickets ?? 0);
+  const perOver = liveByOvers.runs / liveByOvers.overs;
+  const ballsLeft = totalBalls2 - ballsBowled;
+  const projectedTotal = liveByOvers.runs + ballsLeft * (perOver / bps) * Math.max(0.7, wicketsLeft / 9);
   return {
     runs: Math.round(projectedTotal),
     perOver: Math.round(perOver * 100) / 100,
-    confidence: 0.6 + (ballsBowled / totalBalls2) * 0.3,
+    confidence: 0.4,
   };
 }
 

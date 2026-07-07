@@ -594,9 +594,12 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
 
                 {/* Win probability */}
                 {match.liveWinProbOverride && (() => {
-                  const pctA = Math.round(match.liveWinProbOverride.teamCode === match.teamA.code
+                  const rawPct = match.liveWinProbOverride.pct > 1
                     ? match.liveWinProbOverride.pct
-                    : 100 - match.liveWinProbOverride.pct);
+                    : match.liveWinProbOverride.pct * 100;
+                  const pctA = Math.round(match.liveWinProbOverride.teamCode === match.teamA.code
+                    ? rawPct
+                    : 100 - rawPct);
                   const pctB = 100 - pctA;
                   return (
                     <div className="card px-4 py-3 space-y-2">

@@ -48,7 +48,7 @@ function ScoreBar({ match }: ScoreBarProps) {
   const rrr = need && ballsLeft && ballsLeft > 0 ? (need / ballsLeft) * ballsPerSet(match.format) : null;
 
   // Projected score — 1st innings only, non-Test
-  const isFirstInningsLive = !isTest && innings.length === 1 && i1 && i1.balls.length > 0 && match.status === "live";
+  const isFirstInningsLive = !isTest && innings.length === 1 && i1 && i1.overs > 0 && match.status === "live";
   const projected = isFirstInningsLive ? calculateProjectedScore(match) : null;
 
   return (
