@@ -178,9 +178,8 @@ export function LiveMatchCard({ match }: { match: Match }) {
     return (battingInn.runs / actualOvers).toFixed(2);
   })();
 
-  // Projected score — 1st innings only, non-Test, only when no liveStatusOverride
-  // (liveStatusOverride is mock-only and already contains projection text baked in)
-  const isFirstInn = innings.length === 1 && !isTest && match.status === "live" && !match.liveStatusOverride;
+  // Projected score — 1st innings only, non-Test
+  const isFirstInn = innings.length === 1 && !isTest && match.status === "live";
   const projected  = isFirstInn ? calculateProjectedScore(match) : null;
 
   return (
