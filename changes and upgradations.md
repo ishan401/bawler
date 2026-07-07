@@ -5,6 +5,84 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.34] 2026-07-07
+
+### Partnership velocity spark — Scorecard tab
+
+#### Added — `computePartnerships()` in `components/Scorecard.tsx`
+- Groups `innings.balls` by wicket intervals to define partnership boundaries
+- Resolves batter display names via `battingCard.playerId` match → `ball.batterName` fallback
+- Computes total runs + balls per partnership
+- Generates `velocity[]` array: RPO per 3-ball window — the data series for the sparkline
+- Returns `[]` when `innings.balls` is empty, making the section invisible on scorecard-only matches
+
+#### Added — `VelocitySpark` SVG component
+- 72×22px inline SVG, no external dependency
+- Team `primaryColor` used for stroke and area fill
+- Gradient area fill: team color at 25% opacity (top) → 2% (bottom)
+- Polyline with `strokeLinecap="round"` + `strokeLinejoin="round"` for smooth appearance
+- Terminal dot marks the end of the partnership
+- Y scale: `max(velocity, 6 RPO)` — slow partnerships don't exaggerate flat lines
+- Single-point fallback: centered dot for 1-ball partnerships
+
+#### Added — Partnerships section in `InningsCard`
+- Sits between Batting card and Bowling card in the Scorecard tab
+- Only rendered when `partnerships.length > 0` (ball data required)
+- Each row: sparkline | batter 1 & batter 2 names + "Pship N" label | runs (balls)
+- Uses `SectionLabel` component consistent with Batting/Bowling headers
+
+---
+
+## [1.0.33] 2026-07-07
+
+### iOS Safari back-swipe fix + SeriesScheduleSheet real-data decoupling
+
+#### Fixed — `BottomSheet` back-button handling (`components/LiveCarousel.tsx`)
+- **Before:** `history.pushState({ bawlerModal: true }, "")` with no URL change — iOS Safari ignores this for its left-edge swipe gesture, so back-swipe navigated the full page instead of closing the sheet
+- **After:** `history.pushState({ bawlerModal: true }, "", cleanUrl + "#modal")` — hash change is treated as a navigable history entry by iOS Safari, so back-swipe fires `popstate` and closes the sheet correctly
+- **Cleanup fix:** replaced `history.back()` in cleanup with `history.replaceState(null, "", cleanUrl)` — avoids double-navigation when the sheet is dismissed programmatically (swipe-down, backdrop tap, × button)
+- Stable `onCloseRef` pattern prevents stale closure on the `popstate` handler
+- Works correctly on: Android Chrome/Firefox, iOS Safari browser + PWA, desktop Chrome/Safari/Firefox
+
+#### Refactored — `SeriesScheduleSheet` real-data decoupling
+- Removed direct imports of `ALL_PAST_MATCHES`, `ALL_LIVE_MATCHES`, `ALL_UPCOMING_MATCHES` from inside the component
+- Now accepts `seriesPool: Match[]` prop — the parent passes all matches; the component only filters
+- `LiveCarousel` builds `seriesPool = useMemo(() => [...ALL_PAST_MATCHES, ...matches, ...ALL_UPCOMING_MATCHES], [matches])` where `matches` is the live-data prop (already real-data-ready)
+- When real API data arrives: replace the two `ALL_*` references in `LiveCarousel` — zero changes to `SeriesScheduleSheet`
+
+#### Added — `resolveCompetition()` in `lib/transformers.ts`
+- Maps numeric Cricbuzz `seriesId` → internal `Competition` via `CRICBUZZ_SERIES_ID_MAP`
+- Falls back to `unknown-series-{id}` with a `console.warn` for unmapped series — sheet returns 0 matches rather than silently mixing up two different series
+- All transformer paths (live, recent, schedule) must call this instead of passing raw seriesId strings into `Match.competition.id` — ensures `competition.id` is identical across all match statuses for the same series
+
+---
+
+## [1.0.32] 2026-07-07
+
+### Series schedule bottom sheet
+
+#### Added — Series status chip now clickable (`components/LiveCarousel.tsx`)
+- `<span>` → `<button>` with `onClick={() => setView("series")}`
+- Hover/tap styling: `hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale`
+- Chevron icon (8px) appended inside the chip to signal interactivity
+- `view` state union extended: `"none" | "standings" | "team-schedule" | "series"`
+
+#### Added — `SeriesScheduleSheet` component (`components/LiveCarousel.tsx`)
+- Opens as a `BottomSheet` with competition name as title
+- Filters `seriesPool` by `competition.id` + same two team codes (Set-based, handles either team order)
+- Three sections sorted chronologically: past matches, live match, upcoming matches
+- **Past match cards:** date, team names, innings scores (attribution-aware via `battingTeam` field), result margin, venue
+- **Live match card:** green `bg-six/10` highlight, pulsing LIVE badge, current scores, venue
+- **Upcoming match cards:** countdown chip (in Xd / in Xh Xm), date + time, venue
+- Empty state when no series matches found
+- Book-page swipe indicator (double-bar drag handle)
+
+#### Added — 1st T20I (AUS vs IND) to `PAST_INTERNATIONAL` in `lib/mockData.ts`
+- Match id: `ind-aus-t20i-2026-m1` — AUS won by 23 runs; T Head 76(48) MOM
+- Gives the series sheet a full 3-match context: 1st T20I (past) → 2nd T20I (live) → 3rd T20I (upcoming)
+- Full batting + bowling cards for both innings
+
+---
 ## [1.0.15] 2026-07-02
 
 ### Home page — TABLE button + team schedule popup

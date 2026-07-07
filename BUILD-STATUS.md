@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.31 (deployed)
+**Current version:** v1.0.34 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -67,6 +67,9 @@
 - ✅ **Swipe between tabs** — left = forward, right = backward; ignores vertical swipes
 - ✅ **Score event badge** — red pulsing dot (wicket) or teal dot (six) on Scorecard tab; clears after 4s
 - ✅ **Partnership tracker** — single-row footer below ball visualizer: `Pship N(B) · BatterA N(B) [×4][×6] · BatterB N(B)` + total 4s/6s pinned right; resets on wicket; handles non-striker run-outs and no-balls correctly
+- ✅ **Series schedule bottom sheet** — bilateral series status chip on live cards is now a tappable button; opens BottomSheet with complete series timeline: past matches (result + scorecard scores), live match highlighted in green, upcoming matches with countdown; back-swipe / swipe-down to close
+- ✅ **iOS Safari back-swipe fix** — BottomSheet now pushes a `#modal` URL hash entry so iOS Safari's edge-swipe fires `popstate` correctly; cleanup uses `replaceState` (not `history.back()`) to avoid double-navigation on programmatic close; works correctly on Android, desktop, and iOS PWA
+- ✅ **Partnership velocity spark** — Scorecard tab now shows a Partnerships section between Batting and Bowling; each row has a 72×22px SVG sparkline (team-coloured area + polyline) showing RPO per 3-ball window across that partnership, batter names, and runs(balls); only renders when ball data exists
 - ✅ **BallGIF** — two clips (bowler perspective + overhead) 3s each, 4 reps/ball (24s dwell)
 - ✅ **Perspective-correct impact Y** — uses trapezoid width ratio (220/80=2.75) for accurate pitch length display
 - ✅ **Post-pitch bounce arc** — bezier control above impact point; bounce height scales with pitchY (10–55px)
@@ -186,6 +189,9 @@
 
 | Version | Highlight |
 |---|---|
+| **v1.0.34** | Partnership velocity spark in Scorecard — sparkline (RPO/3-ball window) per partnership, between batting + bowling cards |
+| **v1.0.33** | iOS Safari back-swipe fix + SeriesScheduleSheet real-data decoupling (seriesPool prop, resolveCompetition) |
+| **v1.0.32** | Series schedule bottom sheet — clickable series chip, past/live/upcoming timeline, back-swipe + swipe-down close |
 | **v1.0.31** | API robustness: `normaliseName()` in transformers.ts — consistent player names across ESPN/Sportradar |
 | **v1.0.30** | Win prob fix: power-curve achievable RPO, remove double wicket penalty — IND 21 off 22 now shows 83% not 31% |
 | **v1.0.29** | Partnership tracker replaces win-prob bar below BallGIF — single row, live per-batter runs/balls/4s/6s |
