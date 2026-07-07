@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import type { Match, Team } from "@/lib/types";
 import SplitTeamBg from "./SplitTeamBg";
-import { calculateWinProbForMatch } from "@/lib/winProb";
+import { calculateWinProbForMatch, calculateProjectedScore } from "@/lib/winProb";
 
 // ============================================================================
 // Fixed card heights — past + future identical so rows align perfectly
@@ -165,6 +165,10 @@ export function LiveMatchCard({ match }: { match: Match }) {
   const status = liveStatusOf(match);
   const wp     = liveWinProb(match);
 
+  // Projected score — 1st innings only, non-Test
+  const isFirstInn = innings.length === 1 && !isTest && match.status === "live";
+  const projected  = isFirstInn ? calculateProjectedScore(match) : null;
+
   return (
     <Link
       href={`/match/${match.id}`}
@@ -192,6 +196,19 @@ export function LiveMatchCard({ match }: { match: Match }) {
           <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
           <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting ? status : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
         </div>
+
+        {/* Row 3 — projected score (1st innings, non-Test) */}
+        {projected && (
+          <div className="flex items-center justify-between text-[10px] px-0.5">
+            <span className="text-white/50 num">
+              Proj&nbsp;<span className="text-white font-bold num">~{projected.runs}</span>
+              <span className="text-white/40"> at this pace</span>
+            </span>
+            <span className="text-white/50 num">
+              CRR&nbsp;<span className="font-bold text-white/80">{projected.perOver.toFixed(2)}</span>
+            </span>
+          </div>
+        )}
 
         {/* Row 4 — prominent win-prob split bar (highlighted) */}
         {wp && <WinProbBar teamA={match.teamA} teamB={match.teamB} pctA={wp.pctA} />}
