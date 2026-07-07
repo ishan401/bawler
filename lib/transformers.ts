@@ -136,9 +136,49 @@ export interface CricbuzzRawStandings {
   }>;
 }
 
+// ============================================================================
+// Competition ID normalisation
+// ============================================================================
+// The series schedule bottom sheet filters matches by competition.id.
+// This MUST be the same string for every match in a series (past, live,
+// upcoming). Different API endpoints (recent, live, schedule) often return
+// the same series under slightly different IDs. Normalise here at the
+// transformer boundary so no UI code ever has to compensate.
+//
+// Strategy:
+//   1. Keep CRICBUZZ_SERIES_ID_MAP as the single source of truth that maps
+//      numeric Cricbuzz seriesId → your internal competition.id string.
+//   2. Every transformer function (live, recent, schedule) resolves the
+//      competition object through this map — never pass the raw seriesId into
+//      Match.competition.id.
+//   3. If an API returns a seriesId you haven't mapped yet, fall back to
+//      `"unknown-series-${seriesId}"` and log a warning. The series sheet
+//      will still work (returns 0 matches) but won't silently mix up series.
+export function resolveCompetition(
+  seriesId: number,
+  seriesIdMap: Record<number, Competition>,
+  seriesName: string,
+): Competition {
+  const mapped = seriesIdMap[seriesId];
+  if (mapped) return mapped;
+  // Fallback — keeps the sheet from crashing; surface this in your API-wiring TODO list
+  console.warn(`[transformers] Unknown Cricbuzz seriesId ${seriesId} ("${seriesName}") — add to CRICBUZZ_SERIES_ID_MAP`);
+  return {
+    id: `unknown-series-${seriesId}`,
+    name: seriesName,
+    shortName: seriesName,
+    type: "bilateral",
+    format: "T20I",
+    season: new Date().getFullYear().toString(),
+    logoColor: "#64748B",
+    hasStandings: false,
+  };
+}
+
 /**
  * Transform a Cricbuzz live match summary → internal Match (partial — no balls).
- * TODO: map seriesId → internal competition.id via a lookup table you maintain.
+ * Use resolveCompetition() (above) to get the competition object — never pass
+ * raw seriesId strings directly into Match.competition.id.
  */
 export function transformCricbuzzMatch(
   raw: CricbuzzRawMatch,

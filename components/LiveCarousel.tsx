@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import type { Match, Competition } from "@/lib/types";
 import { LiveMatchCard } from "./MatchCard";
 import MiniStandings from "./MiniStandings";
@@ -67,17 +67,25 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
     };
   }, []);
 
-  // Android back button / phone back-swipe → close sheet
+  // Back-button / back-swipe → close sheet.
+  // Uses a #modal hash entry so iOS Safari's edge-swipe also fires popstate.
+  // Cleanup uses replaceState (not history.back()) to avoid double-navigation
+  // when the sheet is closed programmatically (swipe-down, tap backdrop, ×).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => {
-    history.pushState({ bawlerModal: true }, "");
-    const onPop = () => { onClose(); };
+    const cleanUrl = window.location.href.split("#")[0];
+    history.pushState({ bawlerModal: true }, "", cleanUrl + "#modal");
+    const onPop = () => onCloseRef.current();
     window.addEventListener("popstate", onPop);
     return () => {
       window.removeEventListener("popstate", onPop);
-      // If sheet closed programmatically (not by back), pop the dummy state
-      if (history.state?.bawlerModal) history.back();
+      // Only clean up the hash entry if it's still ours (programmatic close).
+      // If back was pressed, the browser already popped it.
+      if (window.location.hash === "#modal") {
+        history.replaceState(null, "", cleanUrl);
+      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onTouchStart = (e: React.TouchEvent) => { startY.current = e.touches[0].clientY; dragY.current = 0; };
@@ -261,7 +269,14 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
 
 // ── Main carousel ─────────────────────────────────────────────────────────
 // ── Series schedule popup ──────────────────────────────────────────────────
-function SeriesScheduleSheet({ match, onClose }: { match: Match; onClose: () => void }) {
+function SeriesScheduleSheet({ match, seriesPool, onClose }: {
+  match: Match;
+  // All matches (past + live + upcoming) from whatever data source the parent
+  // is using. When real API data arrives, the parent passes API results here
+  // instead of mock arrays — this component never imports from mockData directly.
+  seriesPool: Match[];
+  onClose: () => void;
+}) {
   const { competition } = match;
   const teamCodes = new Set([match.teamA.code, match.teamB.code]);
 
@@ -272,10 +287,12 @@ function SeriesScheduleSheet({ match, onClose }: { match: Match; onClose: () => 
     teamCodes.has(m.teamA.code) &&
     teamCodes.has(m.teamB.code);
 
-  const past = ALL_PAST_MATCHES.filter(isSameSeries)
+  const past = seriesPool
+    .filter(m => isSameSeries(m) && m.status === "post-match")
     .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso));
-  const live = ALL_LIVE_MATCHES.filter(isSameSeries);
-  const upcoming = ALL_UPCOMING_MATCHES.filter(isSameSeries)
+  const live = seriesPool.filter(m => isSameSeries(m) && m.status === "live");
+  const upcoming = seriesPool
+    .filter(m => isSameSeries(m) && m.status === "upcoming")
     .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso));
 
   const allMatches = [...past, ...live, ...upcoming];
@@ -460,6 +477,16 @@ function SeriesScheduleSheet({ match, onClose }: { match: Match; onClose: () => 
 export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [view, setView] = useState<"none" | "standings" | "team-schedule" | "series">("none");
+
+  // seriesPool: all matches the series-schedule sheet can filter from.
+  // `matches` (live) comes from props — already real-data-ready.
+  // ALL_PAST_MATCHES / ALL_UPCOMING_MATCHES are the only remaining mock
+  // imports; swap them for your API hook results when real data is live.
+  // The component itself (SeriesScheduleSheet) is fully data-source agnostic.
+  const seriesPool = useMemo(
+    () => [...ALL_PAST_MATCHES, ...matches, ...ALL_UPCOMING_MATCHES],
+    [matches]
+  );
   const [openTeamCode, setOpenTeamCode] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -609,7 +636,7 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
 
       {/* Series schedule sheet */}
       {view === "series" && activeMatch && (
-        <SeriesScheduleSheet match={activeMatch} onClose={closeAll} />
+        <SeriesScheduleSheet match={activeMatch} seriesPool={seriesPool} onClose={closeAll} />
       )}
     </>
   );
