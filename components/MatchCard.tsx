@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Match, Team } from "@/lib/types";
 import SplitTeamBg from "./SplitTeamBg";
 import { calculateWinProbForMatch, calculateProjectedScore } from "@/lib/winProb";
+import { ballsPerSet } from "@/lib/formatUtils";
 
 // ============================================================================
 // Fixed card heights — past + future identical so rows align perfectly
@@ -162,8 +163,20 @@ export function LiveMatchCard({ match }: { match: Match }) {
   const teamABatting  = currentBatter === teamA.code;
   const teamBBatting  = currentBatter === teamB.code;
 
-  const status = liveStatusOf(match);
-  const wp     = liveWinProb(match);
+  const wp = liveWinProb(match);
+
+  // CRR — computed from batting team's current innings overs + runs
+  const currentInn = innings[innings.length - 1];
+  const battingInn = teamABatting ? lastInnA : lastInnB;
+  const liveCRR = (() => {
+    if (!battingInn || !battingInn.overs || battingInn.overs === 0) return null;
+    const bps = ballsPerSet(match.format);
+    const fullOv = Math.floor(battingInn.overs);
+    const ballsInOv = Math.round((battingInn.overs % 1) * 10);
+    const actualOvers = fullOv + ballsInOv / bps;
+    if (actualOvers === 0) return null;
+    return (battingInn.runs / actualOvers).toFixed(2);
+  })();
 
   // Projected score — 1st innings only, non-Test, only when no liveStatusOverride
   // (liveStatusOverride is mock-only and already contains projection text baked in)
@@ -193,9 +206,9 @@ export function LiveMatchCard({ match }: { match: Match }) {
 
         {/* Row 2 — teams; innings attributed by battingTeam, not position */}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} status={teamABatting ? status : undefined} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
+          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} status={teamABatting && liveCRR ? `CRR ${liveCRR}` : undefined} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
           <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
-          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting ? status : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
+          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting && liveCRR ? `CRR ${liveCRR}` : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
         </div>
 
         {/* Row 3 — projected score (1st innings, non-Test) */}
