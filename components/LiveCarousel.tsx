@@ -67,6 +67,19 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
     };
   }, []);
 
+  // Android back button / phone back-swipe → close sheet
+  useEffect(() => {
+    history.pushState({ bawlerModal: true }, "");
+    const onPop = () => { onClose(); };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // If sheet closed programmatically (not by back), pop the dummy state
+      if (history.state?.bawlerModal) history.back();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onTouchStart = (e: React.TouchEvent) => { startY.current = e.touches[0].clientY; dragY.current = 0; };
   const onTouchMove  = (e: React.TouchEvent) => {
     const delta = e.touches[0].clientY - startY.current;
@@ -110,7 +123,11 @@ function BottomSheet({ title, subtitle, onClose, onBack, children }: {
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
         >
-          <div className="w-10 h-1 rounded-full bg-line mx-auto mt-2.5" />
+          {/* Book-page swipe indicator */}
+          <div className="flex flex-col items-center gap-0.5 pt-2 pb-0.5">
+            <div className="w-10 h-1 rounded-full bg-line" />
+            <div className="w-6 h-0.5 rounded-full bg-line/40" />
+          </div>
           <div className="px-4 pt-2 pb-2.5 flex items-center justify-between border-b border-line">
             <div className="flex items-center gap-2">
               {onBack && (
@@ -243,9 +260,206 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
 }
 
 // ── Main carousel ─────────────────────────────────────────────────────────
+// ── Series schedule popup ──────────────────────────────────────────────────
+function SeriesScheduleSheet({ match, onClose }: { match: Match; onClose: () => void }) {
+  const { competition } = match;
+  const teamCodes = new Set([match.teamA.code, match.teamB.code]);
+
+  // Filter all matches in same bilateral series (same competition + same two teams)
+  const isSameSeries = (m: Match) =>
+    m.competition.id === competition.id &&
+    m.teamA.code !== undefined &&
+    teamCodes.has(m.teamA.code) &&
+    teamCodes.has(m.teamB.code);
+
+  const past = ALL_PAST_MATCHES.filter(isSameSeries)
+    .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso));
+  const live = ALL_LIVE_MATCHES.filter(isSameSeries);
+  const upcoming = ALL_UPCOMING_MATCHES.filter(isSameSeries)
+    .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso));
+
+  const allMatches = [...past, ...live, ...upcoming];
+
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  };
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true });
+  };
+  const countdown = (iso: string) => {
+    const diff = new Date(iso).getTime() - Date.now();
+    if (diff <= 0) return "Soon";
+    const h = Math.floor(diff / 3600000);
+    const m2 = Math.floor((diff % 3600000) / 60000);
+    if (h >= 24) return `in ${Math.floor(h / 24)}d`;
+    if (h > 0) return `in ${h}h ${m2}m`;
+    return `in ${m2}m`;
+  };
+
+  const teamName = (code: string) => {
+    const t = ALL_TEAMS[code];
+    return t ? (t.shortName ?? code) : code;
+  };
+
+  return (
+    <BottomSheet title={competition.name} subtitle={competition.shortName} onClose={onClose}>
+      <div className="flex flex-col gap-2 pb-4">
+        {allMatches.map((m) => {
+          const isLive = m.status === "live";
+          const isPast = m.status === "post-match";
+          const isUpcoming = m.status === "upcoming";
+          const winner = m.result?.winner;
+          const margin = m.result?.margin;
+
+          return (
+            <div
+              key={m.id}
+              className={[
+                "rounded-xl border px-4 py-3 flex flex-col gap-1",
+                isLive
+                  ? "bg-six/10 border-six/40"
+                  : isPast
+                  ? "bg-bg-elevated border-line"
+                  : "bg-bg-card border-line/60",
+              ].join(" ")}
+            >
+              {/* Header row */}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-text-dim uppercase tracking-widest">
+                  {m.matchNumber ?? "Match"}
+                </span>
+                {isLive && (
+                  <span className="flex items-center gap-1 text-[9px] font-black text-six uppercase tracking-widest">
+                    <span className="w-1.5 h-1.5 rounded-full bg-six animate-pulse" />
+                    LIVE
+                  </span>
+                )}
+                {isPast && (
+                  <span className="text-[10px] text-text-dim">{fmtDate(m.startTimeIso)}</span>
+                )}
+                {isUpcoming && (
+                  <span className="text-[10px] font-bold text-cyan">{countdown(m.startTimeIso)}</span>
+                )}
+              </div>
+
+              {/* Teams row */}
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-0.5">
+                  {/* Team A */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={[
+                        "text-sm font-black num",
+                        winner === m.teamA.code
+                          ? "text-text-primary"
+                          : isPast
+                          ? "text-text-dim"
+                          : "text-text-primary",
+                      ].join(" ")}
+                    >
+                      {teamName(m.teamA.code)}
+                    </span>
+                    {isPast && m.innings[0] && (
+                      <span className="text-xs font-bold text-text-secondary num">
+                        {m.innings[0].battingTeam === m.teamA.code
+                          ? `${m.innings[0].runs}/${m.innings[0].wickets}`
+                          : m.innings[1]
+                          ? `${m.innings[1].runs}/${m.innings[1].wickets}`
+                          : "—"}
+                      </span>
+                    )}
+                    {isLive && m.innings.length > 0 && (() => {
+                      const battInn = m.innings.find(i => i.battingTeam === m.teamA.code);
+                      return battInn ? (
+                        <span className="text-xs font-bold text-text-primary num">
+                          {battInn.runs}/{battInn.wickets}
+                          <span className="text-text-dim font-normal"> ({battInn.overs})</span>
+                        </span>
+                      ) : null;
+                    })()}
+                    {winner === m.teamA.code && (
+                      <span className="text-[9px] font-black text-six bg-six/10 px-1.5 py-0.5 rounded-full">WON</span>
+                    )}
+                  </div>
+                  {/* Team B */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={[
+                        "text-sm font-black num",
+                        winner === m.teamB.code
+                          ? "text-text-primary"
+                          : isPast
+                          ? "text-text-dim"
+                          : "text-text-primary",
+                      ].join(" ")}
+                    >
+                      {teamName(m.teamB.code)}
+                    </span>
+                    {isPast && m.innings[1] && (
+                      <span className="text-xs font-bold text-text-secondary num">
+                        {m.innings[1].battingTeam === m.teamB.code
+                          ? `${m.innings[1].runs}/${m.innings[1].wickets}`
+                          : m.innings[0]
+                          ? `${m.innings[0].runs}/${m.innings[0].wickets}`
+                          : "—"}
+                      </span>
+                    )}
+                    {isLive && m.innings.length > 0 && (() => {
+                      const battInn = m.innings.find(i => i.battingTeam === m.teamB.code);
+                      return battInn ? (
+                        <span className="text-xs font-bold text-text-primary num">
+                          {battInn.runs}/{battInn.wickets}
+                          <span className="text-text-dim font-normal"> ({battInn.overs})</span>
+                        </span>
+                      ) : null;
+                    })()}
+                    {winner === m.teamB.code && (
+                      <span className="text-[9px] font-black text-six bg-six/10 px-1.5 py-0.5 rounded-full">WON</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right side info */}
+                <div className="flex flex-col items-end gap-0.5">
+                  {isPast && margin && (
+                    <span className="text-[11px] text-text-secondary text-right leading-snug max-w-[120px]">
+                      {margin}
+                    </span>
+                  )}
+                  {isUpcoming && (
+                    <>
+                      <span className="text-[11px] text-text-primary font-medium">
+                        {fmtDate(m.startTimeIso)}
+                      </span>
+                      <span className="text-[10px] text-text-dim">{fmtTime(m.startTimeIso)}</span>
+                    </>
+                  )}
+                  {isLive && m.liveStatusOverride && (
+                    <span className="text-[10px] text-text-secondary">{m.liveStatusOverride}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Venue line */}
+              <div className="text-[10px] text-text-dim truncate">
+                {m.venue.name}{m.venue.city ? `, ${m.venue.city}` : ""}
+              </div>
+            </div>
+          );
+        })}
+        {allMatches.length === 0 && (
+          <p className="text-center text-text-dim text-sm py-8">No matches found for this series.</p>
+        )}
+      </div>
+    </BottomSheet>
+  );
+}
+
 export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const [view, setView] = useState<"none" | "standings" | "team-schedule">("none");
+  const [view, setView] = useState<"none" | "standings" | "team-schedule" | "series">("none");
   const [openTeamCode, setOpenTeamCode] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -348,9 +562,12 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
                 {activeComp.shortName} Table
               </button>
             )}
-            {/* Series status chip — bilateral international series */}
+            {/* Series status chip — clickable, opens full series schedule */}
             {activeMatch?.seriesStatus && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary leading-none">
+              <button
+                onClick={() => setView("series")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none"
+              >
                 <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
                   <line x1="4" y1="13" x2="4" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="8" y1="13" x2="8" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -359,7 +576,10 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
                   <path d="M5.5 8 C5.5 5 10.5 5 10.5 8" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
                 </svg>
                 {activeMatch.seriesStatus}
-              </span>
+                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="text-cyan opacity-60">
+                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
             )}
           </div>
         )}
@@ -385,6 +605,11 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
           onClose={closeAll}
           onBack={() => { setOpenTeamCode(null); setView("standings"); }}
         />
+      )}
+
+      {/* Series schedule sheet */}
+      {view === "series" && activeMatch && (
+        <SeriesScheduleSheet match={activeMatch} onClose={closeAll} />
       )}
     </>
   );

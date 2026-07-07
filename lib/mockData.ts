@@ -13919,6 +13919,58 @@ export const LIVE_INTERNATIONAL: Match[] = [
 
 export const PAST_INTERNATIONAL: Match[] = [
   {
+    id: "ind-aus-t20i-2026-m1",
+    format: "T20I",
+    competition: COMPETITIONS.indAusT20i2026,
+    matchNumber: "1st T20I",
+    seriesStatus: "Series level 0-0 · 5-match T20I series",
+    startTimeIso: new Date(Date.now() - 27 * 3600000).toISOString(),
+    status: "post-match",
+    venue: { id: "gabba", name: "The Gabba", city: "Brisbane", country: "AUS", parScore: 162 },
+    teamA: NATIONAL_TEAMS.AUS,
+    teamB: NATIONAL_TEAMS.IND,
+    toss: { winner: "IND", elected: "bowl" },
+    innings: [
+      {
+        number: 1, battingTeam: "AUS", bowlingTeam: "IND", runs: 187, wickets: 6, overs: 20, balls: [],
+        battingCard: [
+          { playerId: "thead2",  playerName: "T Head",     runs: 76, ballsFaced: 48, fours: 7, sixes: 4, strikeRate: 158.3, out: true,  dismissal: "c Kohli b Bumrah" },
+          { playerId: "staylor", playerName: "S Taylor",   runs: 44, ballsFaced: 31, fours: 3, sixes: 2, strikeRate: 141.9, out: true,  dismissal: "b Hardik" },
+          { playerId: "gmax2",   playerName: "G Maxwell",  runs: 38, ballsFaced: 22, fours: 2, sixes: 3, strikeRate: 172.7, out: true,  dismissal: "b Kuldeep" },
+          { playerId: "mmarsh",  playerName: "M Marsh",    runs: 19, ballsFaced: 14, fours: 2, sixes: 1, strikeRate: 135.7, out: false, dismissal: "not out" },
+        ],
+        bowlingCard: [
+          { playerId: "jbumrah",  playerName: "J Bumrah",   oversBowled: 4, maidens: 0, runsConceded: 28, wickets: 2, economy: 7.0 },
+          { playerId: "hardik2",  playerName: "H Pandya",   oversBowled: 4, maidens: 0, runsConceded: 44, wickets: 1, economy: 11.0 },
+          { playerId: "kuldeep2", playerName: "Kuldeep Y",  oversBowled: 4, maidens: 0, runsConceded: 38, wickets: 1, economy: 9.5 },
+          { playerId: "siraj2",   playerName: "M Siraj",    oversBowled: 4, maidens: 0, runsConceded: 41, wickets: 1, economy: 10.25 },
+          { playerId: "jadeja2",  playerName: "R Jadeja",   oversBowled: 4, maidens: 0, runsConceded: 36, wickets: 1, economy: 9.0 },
+        ],
+      },
+      {
+        number: 2, battingTeam: "IND", bowlingTeam: "AUS", runs: 164, wickets: 9, overs: 20, balls: [],
+        battingCard: [
+          { playerId: "rsharma2", playerName: "R Sharma",   runs: 28, ballsFaced: 22, fours: 3, sixes: 1, strikeRate: 127.3, out: true,  dismissal: "c Maxwell b Hazlewood" },
+          { playerId: "sgill2",   playerName: "S Gill",     runs: 55, ballsFaced: 41, fours: 6, sixes: 2, strikeRate: 134.1, out: true,  dismissal: "b Cummins" },
+          { playerId: "vkohli2",  playerName: "V Kohli",    runs: 31, ballsFaced: 28, fours: 3, sixes: 0, strikeRate: 110.7, out: true,  dismissal: "c Head b Starc" },
+          { playerId: "rpant2",   playerName: "R Pant",     runs: 29, ballsFaced: 18, fours: 2, sixes: 2, strikeRate: 161.1, out: true,  dismissal: "b Zampa" },
+          { playerId: "hpand2",   playerName: "H Pandya",   runs: 14, ballsFaced: 11, fours: 1, sixes: 1, strikeRate: 127.3, out: false, dismissal: "not out" },
+        ],
+        bowlingCard: [
+          { playerId: "mstarc",   playerName: "M Starc",     oversBowled: 4, maidens: 0, runsConceded: 37, wickets: 1, economy: 9.25 },
+          { playerId: "jhazle",   playerName: "J Hazlewood", oversBowled: 4, maidens: 0, runsConceded: 31, wickets: 1, economy: 7.75 },
+          { playerId: "pcumm",    playerName: "P Cummins",   oversBowled: 4, maidens: 0, runsConceded: 39, wickets: 1, economy: 9.75 },
+          { playerId: "azampa",   playerName: "A Zampa",     oversBowled: 4, maidens: 0, runsConceded: 28, wickets: 1, economy: 7.0 },
+          { playerId: "gmax2",    playerName: "G Maxwell",   oversBowled: 4, maidens: 0, runsConceded: 29, wickets: 0, economy: 7.25 },
+        ],
+      },
+    ],
+    result: { winner: "AUS", margin: "by 23 runs", teamARuns: 187, teamBRuns: 164, manOfMatch: "T Head" },
+    excitement: 7,
+    highlightBadge: "AUS won",
+    summary: "Travis Head's blazing 76 off 48 set the foundation as Australia defended 187 comfortably.",
+  },
+  {
     id: "t20wc-2026-ind-pak",
     format: "T20I",
     competition: COMPETITIONS.t20wc2026,
