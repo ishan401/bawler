@@ -90,14 +90,29 @@ function EventChip({ event, format, active, onClick, onShare }: { event: MatchEv
 
   return (
     <div
-      className={`shrink-0 rounded-xl border transition-all ${s.bg} ${s.border} ${
+      className={`shrink-0 relative rounded-xl border transition-all ${s.bg} ${s.border} ${
         active ? "ring-2 ring-cyan ring-offset-1 ring-offset-bg scale-[1.02]" : "hover:scale-[0.98]"
       }`}
       style={{ minWidth: 90, maxWidth: 120 }}
     >
+      {/* Share icon — top-right corner */}
+      {onShare && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onShare(); }}
+          className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-md text-white/25 hover:text-white/70 hover:bg-white/10 transition-colors active:scale-90 z-10"
+          aria-label="Share this moment"
+        >
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </button>
+      )}
+
       {/* Tappable content area */}
       <button onClick={onClick} className="w-full text-left">
-        {/* Top strip — color accent bar */}
+        {/* Top strip */}
         <div className="rounded-t-xl px-2.5 pt-2 pb-1.5 flex items-center gap-1.5">
           <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-extrabold shrink-0 ${s.chipBg}`}>
             {s.chip}
@@ -108,7 +123,7 @@ function EventChip({ event, format, active, onClick, onShare }: { event: MatchEv
         </div>
 
         {/* Content */}
-        <div className="px-2.5 pb-1.5">
+        <div className="px-2.5 pb-2.5">
           <div className={`text-[11px] font-bold leading-tight truncate ${s.color}`}>
             {event.label}
           </div>
@@ -124,22 +139,6 @@ function EventChip({ event, format, active, onClick, onShare }: { event: MatchEv
           )}
         </div>
       </button>
-
-      {/* Share button — only if onShare provided */}
-      {onShare && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onShare(); }}
-          className="w-full flex items-center justify-center gap-1 px-2 py-1.5 border-t border-white/5 text-white/30 hover:text-white/60 transition-colors rounded-b-xl hover:bg-white/5 active:scale-95"
-          aria-label="Share this moment"
-        >
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-            <polyline points="16 6 12 2 8 6" />
-            <line x1="12" y1="2" x2="12" y2="15" />
-          </svg>
-          <span className="text-[8px] font-bold uppercase tracking-widest">Share</span>
-        </button>
-      )}
     </div>
   );
 }
