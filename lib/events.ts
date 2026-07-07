@@ -1,91 +1,50 @@
-import type { Match, MatchEvent, WinProbPoint, Ball } from "./types";
-import { calculateWinProbForMatch } from "./winProb";
-import { ballsPerSet, absoluteBallNumber, formatPhases, setLabel } from "./formatUtils";
+import type { Match, MatchEvent, Ball } from "./types";
+import { ballsPerSet, absoluteBallNumber } from "./formatUtils";
 
 export function extractMatchEvents(match: Match): MatchEvent[] {
   const events: MatchEvent[] = [];
-  const wp = calculateWinProbForMatch(match);
-  const wpByBallId = new Map<string, WinProbPoint>(wp.map(p => [p.ballId, p]));
-
-  const bps    = ballsPerSet(match.format);
-  const phases = formatPhases(match.format);
+  const bps = ballsPerSet(match.format);
 
   for (const innings of match.innings) {
-    let battingSideRuns    = 0;
-    let battingSideWickets = 0;
-    let phaseEmittedPP     = false;
-    let phaseEmittedDeath  = false;
-    let runsBeforeSet      = 0;
-    let lastBowler: string | null = null;
-    const batterTotals = new Map<string, number>();
+    // Track state for computed events
+    const batterTotals = new Map<string, number>();       // batter name → cumulative runs
+    const batterBallsFaced = new Map<string, number>();   // batter name → balls faced
+    const bowlerWickets = new Map<string, number>();      // bowler name → total wickets this innings
+    // For hat-trick: track the last two consecutive wicket balls per bowler
+    // consecutive = no non-wicket ball from that bowler in between
+    const bowlerLastTwoWicketConsec = new Map<string, number>(); // bowler → count of consecutive wkt deliveries
 
     for (let i = 0; i < innings.balls.length; i++) {
-      const ball   = innings.balls[i];
-      // 0-indexed overFloat: last T20 ball = 19.something not 20.something
+      const ball = innings.balls[i];
       const overFloat = ball.over - 1 + (ball.ballInOver + 1) / bps;
-      const absBall   = absoluteBallNumber(ball, match.format);
-      const wpPoint   = wpByBallId.get(ball.id);
+      const isFaced = ball.extraType !== "wd";
 
-      battingSideRuns += ball.runs + ball.extras;
-      const prevTotal = batterTotals.get(ball.batterName) ?? 0;
-      const newTotal  = prevTotal + ball.runs;
-      batterTotals.set(ball.batterName, newTotal);
-
-      // ── Powerplay end ────────────────────────────────────────────────────────
-      if (!phaseEmittedPP) {
-        const ppDone = match.format === "Hundred"
-          ? absBall > (phases.powerplayBallEnd ?? 25)
-          : phases.powerplayEndOver > 0 && ball.over >= phases.powerplayEndOver;
-
-        if (ppDone) {
-          events.push({
-            id: `phase-pp-end-${innings.number}`,
-            kind: "phase-shift",
-            overFloat: match.format === "Hundred" ? overFloat : phases.powerplayEndOver - 1,
-            ballId: ball.id,
-            label: "Powerplay ends",
-            context: `${innings.battingTeam} ${battingSideRuns}/${battingSideWickets}`,
-            importance: 0.6,
-          });
-          phaseEmittedPP = true;
-        }
+      // Accumulate batter stats
+      const prevRuns = batterTotals.get(ball.batterName) ?? 0;
+      const newRuns  = prevRuns + ball.runs;
+      batterTotals.set(ball.batterName, newRuns);
+      if (isFaced) {
+        const prevBalls = batterBallsFaced.get(ball.batterName) ?? 0;
+        batterBallsFaced.set(ball.batterName, prevBalls + 1);
       }
 
-      // ── Death overs/balls begin ──────────────────────────────────────────────
-      if (!phaseEmittedDeath) {
-        const deathStarts = match.format === "Hundred"
-          ? absBall >= (phases.deathBallStart ?? 76)
-          : phases.deathStartOver > 0 && ball.over >= phases.deathStartOver;
-
-        if (deathStarts) {
-          events.push({
-            id: `phase-death-${innings.number}`,
-            kind: "phase-shift",
-            overFloat: match.format === "Hundred" ? overFloat : phases.deathStartOver - 1,
-            ballId: ball.id,
-            label: "Death overs begin",
-            context: `${battingSideRuns}/${battingSideWickets}`,
-            importance: 0.55,
-          });
-          phaseEmittedDeath = true;
-        }
-      }
-
-      // ── Wicket ──────────────────────────────────────────────────────────────
-      if (ball.isWicket) {
-        battingSideWickets++;
+      // ── Debut ──────────────────────────────────────────────────────────────
+      if (ball.isDebut) {
+        // Could be batter's debut (first ball of their innings AND debut flag)
+        // or bowler's debut — label accordingly
+        const isFirst = !batterBallsFaced.has(ball.batterName) || batterBallsFaced.get(ball.batterName) === (isFaced ? 1 : 0);
         events.push({
-          id: `wkt-${ball.id}`,
-          kind: "wicket",
+          id: `debut-${ball.id}`,
+          kind: "debut",
           ballId: ball.id,
           overFloat,
-          label: `${ball.batterName} ${ball.dismissalType ?? "out"}`,
-          context: `${ball.bowlerName} · ${prevTotal} off ${ballsFacedByBatter(innings.balls, ball.batterName, i)}`,
-          importance: 0.95,
+          label: `${ball.batterName} debut`,
+          context: `${ball.bowlerName} · first international delivery`,
+          importance: 0.75,
         });
       }
 
-      // ── Six ─────────────────────────────────────────────────────────────────
+      // ── Six ────────────────────────────────────────────────────────────────
       if (ball.isBoundary6) {
         events.push({
           id: `six-${ball.id}`,
@@ -93,118 +52,147 @@ export function extractMatchEvents(match: Match): MatchEvent[] {
           ballId: ball.id,
           overFloat,
           label: `${ball.batterName} SIX`,
-          context: `${ball.bowlerName} · ${formatShotMeta(ball)}`,
-          importance: 0.65,
+          context: `${ball.bowlerName}${ball.shotType ? ` · ${ball.shotType}` : ""}`,
+          importance: 0.70,
         });
       }
 
-      // ── Four (only if batter milestone nearby) ───────────────────────────────
-      if (ball.isBoundary4 && newTotal >= 50 && prevTotal < 50) {
+      // ── Four ───────────────────────────────────────────────────────────────
+      if (ball.isBoundary4) {
         events.push({
           id: `four-${ball.id}`,
           kind: "four",
           ballId: ball.id,
           overFloat,
-          label: `${ball.batterName} four`,
-          context: ball.bowlerName,
-          importance: 0.5,
+          label: `${ball.batterName} FOUR`,
+          context: `${ball.bowlerName}${ball.shotType ? ` · ${ball.shotType}` : ""}`,
+          importance: 0.55,
         });
       }
 
-      // ── Batter milestones ────────────────────────────────────────────────────
-      if (prevTotal < 50 && newTotal >= 50) {
+      // ── Batter milestones ─────────────────────────────────────────────────
+      const ballsFaced = batterBallsFaced.get(ball.batterName) ?? 0;
+      if (prevRuns < 50 && newRuns >= 50) {
         events.push({
           id: `ms-50-${ball.id}`,
           kind: "milestone",
           ballId: ball.id,
           overFloat,
-          label: `${ball.batterName} reaches 50`,
-          context: `${newTotal} off ${ballsFacedByBatter(innings.balls, ball.batterName, i)} balls`,
-          importance: 0.8,
+          label: `${ball.batterName} 50`,
+          context: `${newRuns} off ${ballsFaced} balls`,
+          importance: 0.85,
         });
       }
-      if (prevTotal < 100 && newTotal >= 100) {
+      if (prevRuns < 100 && newRuns >= 100) {
         events.push({
           id: `ms-100-${ball.id}`,
           kind: "milestone",
           ballId: ball.id,
           overFloat,
-          label: `${ball.batterName} century`,
-          context: `${newTotal} off ${ballsFacedByBatter(innings.balls, ball.batterName, i)} balls`,
+          label: `${ball.batterName} 100`,
+          context: `${newRuns} off ${ballsFaced} balls`,
           importance: 0.98,
         });
       }
 
-      // ── Over / set end ──────────────────────────────────────────────────────
-      if (ball.ballInOver === bps - 1) {
-        const runsInSet     = battingSideRuns - runsBeforeSet;
-        const bigThreshold  = match.format === "ODI" ? 9 : 12;
-        const tightThreshold = match.format === "ODI" ? 2 : 3;
-        const sl            = setLabel(match.format);
+      // ── Wicket ────────────────────────────────────────────────────────────
+      if (ball.isWicket) {
+        const prevWkts = bowlerWickets.get(ball.bowlerName) ?? 0;
+        const newWkts  = prevWkts + 1;
+        bowlerWickets.set(ball.bowlerName, newWkts);
 
-        if (runsInSet >= bigThreshold) {
+        // Hat-trick detection: this bowler had 2 consecutive wickets before this
+        const consec = bowlerLastTwoWicketConsec.get(ball.bowlerName) ?? 0;
+        const isHatTrick = consec >= 2;
+
+        if (isHatTrick) {
           events.push({
-            id: `bo-${innings.number}-${ball.over}`,
-            kind: "big-over",
+            id: `hattrick-${ball.id}`,
+            kind: "hat-trick-ball",
             ballId: ball.id,
             overFloat,
-            label: `Big ${sl}: ${runsInSet}`,
-            context: `${innings.battingTeam} ${sl.toLowerCase()} ${ball.over - 1}`,
-            importance: 0.6,
-          });
-        } else if (runsInSet <= tightThreshold) {
-          events.push({
-            id: `qo-${innings.number}-${ball.over}`,
-            kind: "quiet-over",
-            ballId: ball.id,
-            overFloat,
-            label: `Tight ${sl}: ${runsInSet}`,
-            context: ball.bowlerName,
-            importance: 0.4,
+            label: `${ball.bowlerName} HAT-TRICK!`,
+            context: `${ball.batterName} ${ball.dismissalType ?? "out"}`,
+            importance: 1.0,
           });
         }
-        runsBeforeSet = battingSideRuns;
-      }
 
-      // ── Bowling change (late innings only) ───────────────────────────────────
-      const deathThreshold = match.format === "Hundred"
-        ? (phases.deathBallStart ?? 76)
-        : phases.deathStartOver > 0
-          ? phases.deathStartOver
-          : Math.ceil((match.format === "ODI" ? 50 : 20) * 0.6);
-      const lateGame = match.format === "Hundred"
-        ? absBall >= deathThreshold
-        : ball.over >= deathThreshold;
+        // 5-for
+        if (newWkts === 5) {
+          events.push({
+            id: `fivefor-${ball.id}`,
+            kind: "five-for",
+            ballId: ball.id,
+            overFloat,
+            label: `${ball.bowlerName} 5-for`,
+            context: `${newWkts} wickets this innings`,
+            importance: 0.97,
+          });
+        }
 
-      if (ball.ballInOver === 0 && lastBowler && lastBowler !== ball.bowlerName && lateGame) {
+        // Regular wicket event (don't add if hat-trick already pushed — still push for clarity)
         events.push({
-          id: `bch-${ball.id}`,
-          kind: "key-bowling-change",
+          id: `wkt-${ball.id}`,
+          kind: "wicket",
           ballId: ball.id,
           overFloat,
-          label: `${ball.bowlerName} returns`,
-          context: `over ${ball.over - 1}`,
-          importance: 0.35,
+          label: `${ball.batterName} out`,
+          context: `${ball.dismissalType ?? "dismissed"} · ${ball.bowlerName} · ${prevRuns}(${ballsFaced})`,
+          importance: 0.90,
+        });
+
+        // Update consecutive wicket counter for this bowler
+        bowlerLastTwoWicketConsec.set(ball.bowlerName, consec + 1);
+      } else {
+        // Any non-wicket delivery resets that bowler's consecutive count
+        // (only resets for the bowler bowling THIS ball)
+        if (ball.bowlerName) {
+          bowlerLastTwoWicketConsec.set(ball.bowlerName, 0);
+        }
+      }
+
+      // ── Near run-out ──────────────────────────────────────────────────────
+      if (ball.isNearRunOut) {
+        events.push({
+          id: `nro-${ball.id}`,
+          kind: "near-runout",
+          ballId: ball.id,
+          overFloat,
+          label: `Near run-out miss`,
+          context: `${ball.batterName} · ${ball.bowlerName}`,
+          importance: 0.60,
         });
       }
-      lastBowler = ball.bowlerName;
 
-      // ── Win-prob momentum swing ─────────────────────────────────────────────
-      if (wpPoint?.isInflection && Math.abs(deltaSince(wp, wpPoint, 6)) >= 0.1) {
-        if (!events.find(e => e.ballId === ball.id && e.importance > 0.7)) {
-          const dPct = Math.round(deltaSince(wp, wpPoint, 6) * 100);
-          events.push({
-            id: `mom-${ball.id}`,
-            kind: "momentum-swing",
-            ballId: ball.id,
-            overFloat,
-            label: dPct > 0
-              ? `${match.teamA.shortName} momentum +${dPct}%`
-              : `${match.teamB.shortName} momentum +${-dPct}%`,
-            context: `${ball.bowlerName} to ${ball.batterName}`,
-            importance: 0.55,
-          });
-        }
+      // ── Overthrows ────────────────────────────────────────────────────────
+      if (ball.overthrows && ball.overthrows > 0) {
+        events.push({
+          id: `ot-${ball.id}`,
+          kind: "overthrow",
+          ballId: ball.id,
+          overFloat,
+          label: `Overthrows +${ball.overthrows}`,
+          context: `${ball.batterName} · ${ball.bowlerName}`,
+          importance: 0.55,
+        });
+      }
+
+      // ── DRS review ───────────────────────────────────────────────────────
+      if (ball.isDRSReview) {
+        const resultLabel = ball.drsResult
+          ? ball.drsResult === "upheld" ? "Review upheld"
+          : ball.drsResult === "overturned" ? "Decision overturned"
+          : "Umpire's call"
+          : "DRS review";
+        events.push({
+          id: `drs-${ball.id}`,
+          kind: "drs-review",
+          ballId: ball.id,
+          overFloat,
+          label: resultLabel,
+          context: `${ball.batterName} vs ${ball.bowlerName}`,
+          importance: 0.65,
+        });
       }
     }
   }
@@ -216,23 +204,9 @@ export function extractMatchEvents(match: Match): MatchEvent[] {
 function ballsFacedByBatter(balls: Ball[], batter: string, uptoIdx: number): number {
   let count = 0;
   for (let i = 0; i <= uptoIdx; i++) {
-    if (balls[i].batterName === batter && !balls[i].extras) count++;
+    if (balls[i].batterName === batter && balls[i].extraType !== "wd") count++;
   }
   return count;
-}
-
-function formatShotMeta(b: Ball): string {
-  const parts: string[] = [];
-  if (b.shotType && b.shotType !== "defensive") parts.push(b.shotType);
-  if (b.shotIsAerial) parts.push("aerial");
-  return parts.length ? parts.join(" · ") : "boundary";
-}
-
-function deltaSince(wp: WinProbPoint[], point: WinProbPoint, ballsBack: number): number {
-  const idx = wp.findIndex(p => p.ballId === point.ballId);
-  if (idx <= 0) return 0;
-  const baseIdx = Math.max(0, idx - ballsBack);
-  return wp[idx].winProbTeamA - wp[baseIdx].winProbTeamA;
 }
 
 export function filterEventsForZoom(
@@ -245,6 +219,6 @@ export function filterEventsForZoom(
   if (zoomLevel === "recent") {
     scoped = events.filter(e => e.overFloat >= Math.max(0, currentOver - 6));
   }
-  const top = [...scoped].sort((a, b) => b.importance - a.importance).slice(0, 8);
+  const top = [...scoped].sort((a, b) => b.importance - a.importance).slice(0, 12);
   return top.sort((a, b) => a.overFloat - b.overFloat);
 }

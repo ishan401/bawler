@@ -197,6 +197,13 @@ export interface Ball {
 
   oneLiner?: string;
   nextBatterName?: string;  // set on isWicket balls — the incoming batter
+
+  // Enriched moment fields
+  isDebut?: boolean;          // first international ball for this batter or bowler
+  isNearRunOut?: boolean;     // missed run-out chance on this ball
+  overthrows?: number;        // extra runs conceded via overthrows
+  isDRSReview?: boolean;      // DRS review triggered on this ball
+  drsResult?: "upheld" | "overturned" | "umpire's call";  // result of DRS review
 }
 
 // ============================================================================
@@ -263,11 +270,12 @@ export type EventKind =
   | "six"
   | "four"
   | "milestone"
-  | "phase-shift"
-  | "big-over"
-  | "quiet-over"
-  | "momentum-swing"
-  | "key-bowling-change";
+  | "debut"
+  | "near-runout"
+  | "overthrow"
+  | "drs-review"
+  | "hat-trick-ball"
+  | "five-for";
 
 export interface MatchEvent {
   id: string;

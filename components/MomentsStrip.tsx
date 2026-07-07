@@ -13,15 +13,16 @@ interface MomentsStripProps {
 }
 
 const KIND_STYLES: Record<MatchEvent["kind"], { color: string; bg: string; border: string; chip: string; chipBg: string }> = {
-  wicket:               { color: "text-wicket",   bg: "bg-wicket/10",   border: "border-wicket/40",   chip: "W", chipBg: "bg-wicket text-white" },
-  six:                  { color: "text-six",       bg: "bg-six/10",      border: "border-six/40",      chip: "6", chipBg: "bg-six text-white" },
-  four:                 { color: "text-cyan",      bg: "bg-cyan/10",     border: "border-cyan/40",     chip: "4", chipBg: "bg-cyan text-bg" },
-  milestone:            { color: "text-boundary",  bg: "bg-boundary/10", border: "border-boundary/40", chip: "★", chipBg: "bg-boundary text-bg" },
-  "phase-shift":        { color: "text-orange",    bg: "bg-orange/10",   border: "border-orange/40",   chip: "→", chipBg: "bg-orange text-bg" },
-  "big-over":           { color: "text-boundary",  bg: "bg-boundary/10", border: "border-boundary/40", chip: "▲", chipBg: "bg-boundary text-bg" },
-  "quiet-over":         { color: "text-text-dim",  bg: "bg-bg-surface",  border: "border-line",        chip: "▽", chipBg: "bg-bg-elevated text-text-dim" },
-  "momentum-swing":     { color: "text-orange",    bg: "bg-orange/10",   border: "border-orange/40",   chip: "~", chipBg: "bg-orange text-bg" },
-  "key-bowling-change": { color: "text-text-secondary", bg: "bg-bg-surface", border: "border-line",   chip: "↻", chipBg: "bg-bg-elevated text-text-secondary" },
+  wicket:           { color: "text-wicket",          bg: "bg-wicket/10",    border: "border-wicket/40",    chip: "W",  chipBg: "bg-wicket text-white" },
+  six:              { color: "text-six",              bg: "bg-six/10",       border: "border-six/40",       chip: "6",  chipBg: "bg-six text-white" },
+  four:             { color: "text-cyan",             bg: "bg-cyan/10",      border: "border-cyan/40",      chip: "4",  chipBg: "bg-cyan text-bg" },
+  milestone:        { color: "text-boundary",         bg: "bg-boundary/10",  border: "border-boundary/40",  chip: "★",  chipBg: "bg-boundary text-bg" },
+  debut:            { color: "text-orange",           bg: "bg-orange/10",    border: "border-orange/40",    chip: "✦",  chipBg: "bg-orange text-bg" },
+  "near-runout":    { color: "text-text-secondary",  bg: "bg-bg-surface",   border: "border-line",          chip: "!",  chipBg: "bg-bg-elevated text-orange" },
+  overthrow:        { color: "text-orange",           bg: "bg-orange/10",    border: "border-orange/40",    chip: "↗",  chipBg: "bg-orange text-bg" },
+  "drs-review":     { color: "text-cyan",            bg: "bg-cyan/10",      border: "border-cyan/40",      chip: "D",  chipBg: "bg-cyan text-bg" },
+  "hat-trick-ball": { color: "text-wicket",          bg: "bg-wicket/20",    border: "border-wicket/60",    chip: "🎯", chipBg: "bg-wicket text-white" },
+  "five-for":       { color: "text-six",             bg: "bg-six/10",       border: "border-six/40",       chip: "5W", chipBg: "bg-six text-white" },
 };
 
 function MomentsStrip({ events, activeBallId, onSelect, isLive, format }: MomentsStripProps) {

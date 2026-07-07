@@ -1336,6 +1336,7 @@ export const LIVE_INTERNATIONAL: Match[] = [
         inningsNumber: 1,
         over: 1,
         ballInOver: 0,
+        isDebut: true,
         timestampIso: "2026-07-02T08:07:22.000Z",
         batterId: "dwarner",
         batterName: "D Warner",
@@ -1923,6 +1924,7 @@ export const LIVE_INTERNATIONAL: Match[] = [
       },
       {
         id: "ia-1-4.3",
+        isNearRunOut: true,
         inningsNumber: 1,
         over: 4,
         ballInOver: 3,
@@ -2235,6 +2237,7 @@ export const LIVE_INTERNATIONAL: Match[] = [
       },
       {
         id: "ia-1-6.2",
+        overthrows: 4,
         inningsNumber: 1,
         over: 6,
         ballInOver: 2,
@@ -5190,6 +5193,8 @@ export const LIVE_INTERNATIONAL: Match[] = [
       },
       {
         id: "ia-2-3.4",
+        isDRSReview: true,
+        drsResult: "overturned",
         inningsNumber: 2,
         over: 3,
         ballInOver: 4,

@@ -21,7 +21,7 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
 
   const filteredEvents = useMemo(() => events.filter(e =>
     e.kind === "wicket" || e.kind === "six" || e.kind === "milestone" ||
-    e.kind === "big-over" || e.kind === "phase-shift"
+    e.kind === "four" || e.kind === "debut" || e.kind === "five-for" || e.kind === "hat-trick-ball"
   ), [events]);
 
   const visibleEvents = useMemo(() => {
@@ -370,15 +370,17 @@ function xAxisTicks(min: number, max: number): number[] {
 
 function eventColor(kind: MatchEvent["kind"]): string {
   switch (kind) {
-    case "wicket":     return "#EF4444";
-    case "six":        return "#A855F7";
-    case "four":       return "#00E5FF";
-    case "milestone":  return "#10B981";
-    case "big-over":   return "#10B981";
-    case "quiet-over": return "#64748B";
-    case "phase-shift":      return "#FF6B35";
-    case "momentum-swing":   return "#FF6B35";
-    case "key-bowling-change": return "#94A3B8";
+    case "wicket":          return "#EF4444";
+    case "six":             return "#A855F7";
+    case "four":            return "#00E5FF";
+    case "milestone":       return "#10B981";
+    case "debut":           return "#FF6B35";
+    case "near-runout":     return "#94A3B8";
+    case "overthrow":       return "#FF6B35";
+    case "drs-review":      return "#00E5FF";
+    case "hat-trick-ball":  return "#EF4444";
+    case "five-for":        return "#A855F7";
+    default:               return "#94A3B8";
   }
 }
 
