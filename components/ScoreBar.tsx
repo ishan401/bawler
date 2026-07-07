@@ -3,6 +3,7 @@ import { memo } from "react";
 import Link from "next/link";
 import type { Match } from "@/lib/types";
 import { ballsPerSet } from "@/lib/formatUtils";
+import { calculateProjectedScore } from "@/lib/winProb";
 
 interface ScoreBarProps {
   match: Match;
@@ -45,6 +46,10 @@ function ScoreBar({ match }: ScoreBarProps) {
   const ballsBowled = chasingInn ? Math.round(chasingInn.overs * ballsPerSet(match.format)) : 0;
   const ballsLeft = chasingInn ? Math.max(0, totalBalls - ballsBowled) : null;
   const rrr = need && ballsLeft && ballsLeft > 0 ? (need / ballsLeft) * ballsPerSet(match.format) : null;
+
+  // Projected score — 1st innings only, non-Test
+  const isFirstInningsLive = !isTest && innings.length === 1 && i1 && i1.balls.length > 0 && match.status === "live";
+  const projected = isFirstInningsLive ? calculateProjectedScore(match) : null;
 
   return (
     <div className="bg-bg/90 backdrop-blur border-b border-line">
@@ -90,7 +95,7 @@ function ScoreBar({ match }: ScoreBarProps) {
           </div>
         </div>
       </div>
-      {/* Second row: chase context */}
+      {/* Second row: chase context OR projected score */}
       {i2 && need !== null && rrr !== null && (
         <div className="px-4 pb-2 flex items-center justify-between text-xs">
           <span className="text-text-secondary num">
@@ -98,6 +103,18 @@ function ScoreBar({ match }: ScoreBarProps) {
           </span>
           <span className="text-text-secondary num">
             RRR <span className={`font-bold ${rrr > 10 ? "text-orange" : rrr > 8 ? "text-text-primary" : "text-boundary"}`}>{rrr.toFixed(2)}</span>
+          </span>
+        </div>
+      )}
+      {projected && !i2 && (
+        <div className="px-4 pb-2 flex items-center justify-between text-xs">
+          <span className="text-text-secondary num">
+            Proj&nbsp;
+            <span className="text-text-primary font-bold num">~{projected.runs}</span>
+            <span className="text-text-dim">&nbsp;at this pace</span>
+          </span>
+          <span className="text-text-secondary num">
+            CRR&nbsp;<span className="font-bold text-text-primary">{projected.perOver.toFixed(2)}</span>
           </span>
         </div>
       )}

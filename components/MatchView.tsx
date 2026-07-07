@@ -4,14 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/types";
 import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
 import { ballsPerSet, absoluteBallNumber, inningsProgressLabel, situationLabel } from "@/lib/formatUtils";
-import { computeAIMetrics } from "@/lib/metrics";
 import { extractMatchEvents } from "@/lib/events";
 import ScoreBar from "@/components/ScoreBar";
 import MiniInsightsBar from "@/components/MiniInsightsBar";
 import BallGIF from "@/components/BallGIF";
 import WinProbChart from "@/components/WinProbChart";
 import MiniWinProb from "@/components/MiniWinProb";
-import AIMetrics from "@/components/AIMetrics";
 import MomentsStrip from "@/components/MomentsStrip";
 import MatchTabs, { type TabKey, type TabBadge } from "@/components/MatchTabs";
 import Scorecard from "@/components/Scorecard";
@@ -234,7 +232,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
 
   const winProbPoints = useMemo(() => calculateWinProbForMatch(truncatedMatch), [truncatedMatch]);
   const events = useMemo(() => extractMatchEvents(truncatedMatch), [truncatedMatch]);
-  const metrics = useMemo(() => computeAIMetrics(truncatedMatch), [truncatedMatch]);
 
   const visibleInsights = useMemo(() => {
     const seenBallIds = new Set(allBalls.slice(0, activeBallIdx + 1).map(b => b.id));
@@ -675,7 +672,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   points={winProbPoints}
                   onExpand={() => setShowProbModal(true)}
                 />
-                <AIMetrics metrics={metrics} />
                 <div className="pt-1">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Live commentary</span>
