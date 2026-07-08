@@ -426,36 +426,45 @@ function buildMatchNarrative(match: Match): string[] {
   if (!result) return [];
   const lines: string[] = [];
 
-  // Line 1 — result + excitement
+  // Special results
   if (result.winner === "draw") {
-    lines.push("An honourable draw — five days of Test cricket and neither side could land the killer blow. Both camps leave with something to build on.");
-  } else if (result.winner === "tie") {
-    lines.push("A tie — the rarest result in cricket and one for the memory banks. Both sides gave everything and the scoreboard could not separate them.");
-  } else if (result.winner === "no-result") {
-    lines.push("A no-result — sometimes the weather has the final say.");
-  } else {
-    const winTeam = result.winner === teamA.code ? teamA.fullName : teamB.code === result.winner ? teamB.fullName : result.winner;
-    lines.push(`${winTeam} win ${result.margin} in ${getExcitementWord(match.excitement)}.`);
+    lines.push("Five days of Test cricket and neither side could land the killer blow.");
+    lines.push("Both camps leave with something to build on.");
+    if (match.seriesStatus) lines.push(match.seriesStatus);
+    return lines;
+  }
+  if (result.winner === "tie") {
+    lines.push("The rarest result in cricket — scoreboard could not separate two evenly-matched sides.");
+    if (match.seriesStatus) lines.push(match.seriesStatus);
+    return lines;
+  }
+  if (result.winner === "no-result") {
+    lines.push("Match abandoned — the weather had the final say.");
+    return lines;
   }
 
-  // Line 2 — first innings batting story
+  // Inn 1 — top bat highlight
   const inn1 = innings[0];
   if (inn1?.battingCard.length) {
     const sorted = [...inn1.battingCard].sort((a, b) => b.runs - a.runs);
     const top = sorted[0];
     const second = sorted[1];
+    const boundaryStr = [
+      top.fours  > 0 ? `${top.fours}×4`  : "",
+      top.sixes  > 0 ? `${top.sixes}×6`  : "",
+    ].filter(Boolean).join(", ");
     if (top.runs >= 50) {
-      const extras = top.fours > 0 || top.sixes > 0
-        ? `, laced with ${[top.fours > 0 ? `${top.fours} fours` : "", top.sixes > 0 ? `${top.sixes} sixes` : ""].filter(Boolean).join(" and ")}`
-        : "";
-      lines.push(`${top.playerName} set the tone with a commanding ${top.runs} off ${top.ballsFaced}${extras}${second && second.runs >= 30 ? `, with ${second.playerName} chipping in a valuable ${second.runs}` : ""}.`);
+      lines.push(`${top.playerName}'s ${top.runs} off ${top.ballsFaced}${boundaryStr ? ` (${boundaryStr})` : ""} was the cornerstone of the ${inn1.battingTeam} innings.`);
     } else if (top.runs >= 25) {
-      lines.push(`A collective batting effort — ${top.playerName} top-scored with ${top.runs}${second && second.runs >= 20 ? ` while ${second.playerName} contributed ${second.runs}` : ""}.`);
+      lines.push(`${top.playerName} top-scored with ${top.runs}${second && second.runs >= 20 ? `; ${second.playerName} supported with ${second.runs}` : ""}.`);
+    }
+    if (second && second.runs >= 35 && second.runs < top.runs) {
+      lines.push(`${second.playerName} chipped in a crucial ${second.runs} off ${second.ballsFaced}.`);
     }
   }
 
-  // Line 3 — bowling story (best spell across all innings)
-  const allBowlers = innings.flatMap((inn, i) =>
+  // Best bowler across all innings
+  const allBowlers = innings.flatMap(inn =>
     inn.bowlingCard.map(b => ({
       ...b,
       teamColor: inn.bowlingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
@@ -463,13 +472,13 @@ function buildMatchNarrative(match: Match): string[] {
   );
   const topBowler = allBowlers.sort((a, b) => b.wickets - a.wickets || a.economy - b.economy)[0];
   if (topBowler && topBowler.wickets >= 2) {
-    const flair = topBowler.wickets >= 5 ? "a match-defining five-for" :
-                  topBowler.wickets >= 4 ? "an outstanding four-wicket haul" :
-                  topBowler.wickets >= 3 ? "a crucial three-wicket burst" : "two telling wickets";
-    lines.push(`${topBowler.playerName} claimed ${flair} — ${topBowler.wickets}/${topBowler.runsConceded} at an economy of ${topBowler.economy.toFixed(1)}.`);
+    const flair = topBowler.wickets >= 5 ? "five-for" :
+                  topBowler.wickets >= 4 ? "four-wicket haul" :
+                  topBowler.wickets >= 3 ? "three-wicket burst" : "two key wickets";
+    lines.push(`${topBowler.playerName} — ${topBowler.wickets}/${topBowler.runsConceded} (${topBowler.economy.toFixed(1)} econ) — the ${flair} that tilted the match.`);
   }
 
-  // Line 4 — chase / defence story (limited overs) or Test innings pivot
+  // Inn 2 — chase / defence story
   if (format !== "Test" && innings.length >= 2) {
     const inn2 = innings[1];
     const target = inn1 ? inn1.runs + 1 : 0;
@@ -477,22 +486,20 @@ function buildMatchNarrative(match: Match): string[] {
     const topChaser = inn2.battingCard.length
       ? [...inn2.battingCard].sort((a, b) => b.runs - a.runs)[0] : null;
     if (chased && topChaser && topChaser.runs >= 20) {
-      lines.push(`In the chase, ${topChaser.playerName}'s ${topChaser.runs} off ${topChaser.ballsFaced} was the innings that settled matters.`);
+      lines.push(`${topChaser.playerName}'s ${topChaser.runs} off ${topChaser.ballsFaced} anchored the chase — ${inn2.battingTeam} got home with ${10 - inn2.wickets} wickets in hand.`);
     } else if (!chased) {
-      lines.push(`The target proved just out of reach — the bowling side kept their nerve when it mattered most.`);
+      lines.push(`${inn2.battingTeam} fell ${target - inn2.runs} short — the bowling attack held its nerve in the final overs.`);
     }
   } else if (format === "Test" && innings.length >= 3) {
     const declaredAny = innings.some(i => i.declared);
-    if (declaredAny) lines.push(`Declarations shaped this Test — captains' gambles that added tactical intrigue to an already absorbing match.`);
+    if (declaredAny) lines.push(`Declarations shaped the tactics — captains gambled and the pitch rewarded the bold.`);
   }
 
-  // Line 5 — MOM / series status
+  // Series / MOM
   if (result.manOfMatch) {
-    lines.push(`${result.manOfMatch} was the unanimous choice for Player of the Match — a performance that swung the balance.`);
+    lines.push(`${result.manOfMatch} named Player of the Match.`);
   }
-  if (match.seriesStatus) {
-    lines.push(match.seriesStatus);
-  }
+  if (match.seriesStatus) lines.push(match.seriesStatus);
 
   return lines.slice(0, 6);
 }
@@ -997,22 +1004,26 @@ function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
         </div>
       )}
 
-      {/* ── Narrative ── */}
-      <div className="px-3 pt-2.5 pb-3 space-y-2">
-        {card.narrative.map((line, i) => (
-          <p
-            key={i}
-            className={`leading-snug ${
-              i === 0
-                ? "text-[13px] font-semibold text-text-primary"
-                : i === card.narrative.length - 1 && card.seriesStatus
-                ? "text-[10px] font-semibold text-cyan/80 italic"
-                : "text-[11px] text-text-secondary"
-            }`}
-          >
-            {line}
-          </p>
-        ))}
+      {/* ── Narrative — bullet points ── */}
+      <div className="px-3 pt-2.5 pb-3 space-y-2.5">
+        {card.narrative.map((line, i) => {
+          const isSeriesLine = i === card.narrative.length - 1 && !!card.seriesStatus;
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span
+                className="mt-[5px] w-[5px] h-[5px] rounded-full shrink-0"
+                style={{ background: isSeriesLine ? "var(--tw-cyan, #00E5FF)" : card.winnerColor }}
+              />
+              <p className={`flex-1 leading-snug ${
+                isSeriesLine
+                  ? "text-[10px] text-cyan/80 italic"
+                  : "text-[11px] text-text-secondary"
+              }`}>
+                {line}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
