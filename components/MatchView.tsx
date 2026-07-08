@@ -379,8 +379,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // Show current striker vs current bowler on every ball.
   // Strike rotation (singles), bowling changes, new batters — all handled
   // automatically because currentBall already reflects the live state.
-  // Only special case: on a wicket ball show the INCOMING batter (nextBatterName)
-  // since the dismissed batter's matchup is over.
   const matchupInfo = useMemo(() => {
     if (!currentBall || !currentInnings) return null;
 
@@ -393,17 +391,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     const bowlingTeamName = currentInnings.battingTeam === match.teamA.code
       ? match.teamB.shortName : match.teamA.shortName;
 
-    // Wicket ball: show incoming batter (NEXT IN) if we know who it is
-    if (currentBall.isWicket && currentBall.nextBatterName) {
-      return {
-        batterName: currentBall.nextBatterName,
-        bowlerName: currentBall.bowlerName,
-        isPreview: true,
-        battingTeamColor, bowlingTeamColor, battingTeamName, bowlingTeamName,
-      };
-    }
-
-    // All other balls: current striker vs current bowler
     return {
       batterName: currentBall.batterName,
       bowlerName: currentBall.bowlerName,
@@ -654,7 +641,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     <MatchupCard
                       batterName={matchupInfo.batterName}
                       bowlerName={matchupInfo.bowlerName}
-                      isPreview={matchupInfo.isPreview}
                       battingTeamColor={matchupInfo.battingTeamColor}
                       bowlingTeamColor={matchupInfo.bowlingTeamColor}
                       format={match.format}

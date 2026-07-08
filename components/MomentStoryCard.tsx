@@ -77,14 +77,6 @@ export default function MomentStoryCard({
           const ballsLeft = target != null ? Math.max(0, totalBallsFor(match.format) - ballsDone) : null;
           const chasing   = need != null && need > 0 && ballsLeft != null && ballsLeft > 0;
 
-          // Next batter: explicit field first, then infer from next delivery in innings
-          const nextBatter = ball.nextBatterName ?? (() => {
-            if (!ball.isWicket || !currentInn) return null;
-            const idx = currentInn.balls.findIndex(b => b.id === ball.id);
-            const next = currentInn.balls[idx + 1];
-            return next && next.batterName !== ball.batterName ? next.batterName : null;
-          })();
-
           return (
             <>
               {/* Single score row */}
@@ -151,23 +143,7 @@ export default function MomentStoryCard({
                 )}
               </div>
 
-              {/* Next batter — only on wicket balls */}
-              {ball.isWicket && nextBatter && (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 7,
-                  background: "rgba(239,68,68,0.08)",
-                  border: "1px solid rgba(239,68,68,0.2)",
-                  borderRadius: 8, padding: "5px 10px", marginBottom: 8,
-                }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(239,68,68,0.7)", textTransform: "uppercase", letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
-                    Next in
-                  </span>
-                  <span style={{ width: 1, height: 12, background: "rgba(239,68,68,0.25)", flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, fontWeight: 800, color: "#F8FAFC" }}>
-                    {nextBatter}
-                  </span>
-                </div>
-              )}
+
             </>
           );
         })()}

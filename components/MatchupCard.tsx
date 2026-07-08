@@ -6,7 +6,6 @@ import { getMatchupStats } from "@/lib/mockMatchups";
 interface MatchupCardProps {
   batterName: string;
   bowlerName: string;
-  isPreview: boolean;
   battingTeamColor: string;
   bowlingTeamColor: string;
   format: MatchFormat;
@@ -20,7 +19,7 @@ interface MatchupCardProps {
 }
 
 function MatchupCard({
-  batterName, bowlerName, isPreview,
+  batterName, bowlerName,
   battingTeamColor, bowlingTeamColor,
   format,
   liveBalls = 0, liveRuns = 0, liveOuts = 0, liveDots = 0,
@@ -77,11 +76,9 @@ function MatchupCard({
         {/* Preview badge */}
         <span
           className="text-[8px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
-          style={isPreview
-            ? { background: "#BE185D22", color: "#FB7185" }
-            : { background: "#0E749022", color: "#22D3EE" }}
+          style={{ background: "#0E749022", color: "#22D3EE" }}
         >
-          {isPreview ? "NEXT IN" : formatLabel[format]}
+          {formatLabel[format]}
         </span>
 
         {/* Share */}
