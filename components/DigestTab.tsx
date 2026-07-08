@@ -193,7 +193,8 @@ function buildDayReport(
 
   // ── Lines 2-4: Per session ───────────────────────────────────────────────
   for (const e of entries) {
-    const sessName = e.sess.session.charAt(0).toUpperCase() + e.sess.session.slice(1);
+    const SESS_LABELS: Record<string, string> = { first: "1st Session", second: "2nd Session", third: "3rd Session" };
+    const sessName = SESS_LABELS[e.sess.session] ?? e.sess.session;
     const r = e.card.runs;
     const w = e.card.wickets;
     const bl = lastName(e.card.bowlerName);
@@ -451,7 +452,7 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
       const bowlerName = dominantBowler(sessBalls);
       const firstOver  = sessOvers[0];
       const lastOver   = sessOvers[sessOvers.length - 1];
-      const sessIdx    = ["morning", "afternoon", "evening"].indexOf(sess.session);
+      const sessIdx    = ["first", "second", "third"].indexOf(sess.session);
 
       const card: SessionCard = {
         kind: "session",
@@ -478,7 +479,7 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
 
   for (const day of days) {
     const entries = dayMap.get(day)!;
-    const order = ["morning", "afternoon", "evening"];
+    const order = ["first", "second", "third"];
     entries.sort((a, b) => order.indexOf(a.sess.session) - order.indexOf(b.sess.session));
 
     for (const { card } of entries) result.push(card);

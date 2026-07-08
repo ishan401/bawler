@@ -7936,8 +7936,8 @@ export const LIVE_INTERNATIONAL: Match[] = [
           { playerId: "hpandya",  playerName: "H Pandya",    oversBowled: 0.3,maidens: 0, runsConceded: 4,  wickets: 1, economy: 8.0 },
         ],
         sessions: [
-          { day: 2, session: "afternoon", label: "Day 2 Afternoon", startOver: 1,  endOver: 28, isComplete: true  },
-          { day: 2, session: "evening",   label: "Day 2 Evening",   startOver: 29, endOver: 58, isComplete: true  },
+          { day: 2, session: "first",     label: "Day 2 1st Session", startOver: 1,  endOver: 28, isComplete: true  },
+          { day: 2, session: "second",    label: "Day 2 2nd Session", startOver: 29, endOver: 58, isComplete: true  },
         ],
       },
       {
@@ -8128,7 +8128,7 @@ export const LIVE_INTERNATIONAL: Match[] = [
           { playerId: "kuldeep",  playerName: "Kuldeep Y",   oversBowled: 4,  maidens: 0, runsConceded: 17, wickets: 1, economy: 4.25 },
         ],
         sessions: [
-          { day: 3, session: "morning",   label: "Day 3 Morning",   startOver: 1,  endOver: 28, isComplete: false },
+          { day: 3, session: "first",     label: "Day 3 1st Session", startOver: 1,  endOver: 28, isComplete: false },
         ],
       },
     ],

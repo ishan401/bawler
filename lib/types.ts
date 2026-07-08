@@ -442,7 +442,7 @@ export interface MatchupStats {
 
 export interface TestSession {
   day: number;                                      // 1 = Day 1, 2 = Day 2, …
-  session: "morning" | "afternoon" | "evening";
+  session: "first" | "second" | "third";
   label: string;                                    // e.g. "Day 2 Afternoon"
   startOver: number;                                // first over (1-indexed, inclusive)
   endOver: number;                                  // last over (inclusive) of this session

@@ -1349,10 +1349,10 @@ export function deriveTestSessions(
   groups.push(current);
 
   // ── Step 2: map each group to a TestSession ──────────────────────────────
-  const SESSION_ORDER: Array<"morning" | "afternoon" | "evening"> = [
-    "morning",
-    "afternoon",
-    "evening",
+  const SESSION_ORDER: Array<"first" | "second" | "third"> = [
+    "first",
+    "second",
+    "third",
   ];
 
   // Track how many sessions have occurred per day so far
@@ -1373,8 +1373,10 @@ export function deriveTestSessions(
     daySessionCount.set(dayNum, sessIdx + 1);
 
     const session = SESSION_ORDER[sessIdx % 3];
-    const cap = session.charAt(0).toUpperCase() + session.slice(1);
-    const label = `Day ${dayNum} ${cap}`;
+    const SESSION_LABELS: Record<string, string> = {
+      first: "1st Session", second: "2nd Session", third: "3rd Session",
+    };
+    const label = `Day ${dayNum} ${SESSION_LABELS[session] ?? session}`;
 
     // Over range from the group's balls
     const overs = group.map(b => b.over);
