@@ -19,7 +19,7 @@ import { Match, Ball, MatchFormat, Innings } from "@/lib/types";
 
 function groupSize(format: MatchFormat): number {
   if (format === "ODI") return 5;
-  if (format === "Test") return 30;
+  if (format === "Test") return 10;
   return 1;
 }
 
