@@ -205,18 +205,20 @@ export function LiveMatchCard({ match }: { match: Match }) {
 
         {/* Row 2 — teams; innings attributed by battingTeam, not position */}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} status={teamABatting && liveCRR ? `CRR ${liveCRR}` : undefined} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
+          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
           <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
-          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight status={teamBBatting && liveCRR ? `CRR ${liveCRR}` : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
+          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
         </div>
 
-        {/* Row 3 — projected score (1st innings, non-Test) */}
-        {projected && (
-          <div className="text-[10px] px-0.5">
-            <span className="text-white/50 num">
-              Proj&nbsp;<span className="text-white font-bold num">~{projected.runs}</span>
-              <span className="text-white/40">&nbsp;at {projected.perOver.toFixed(1)} RPO</span>
-            </span>
+        {/* Row 3 — CRR + projected score on one line */}
+        {(liveCRR || projected) && (
+          <div className="text-[10px] px-0.5 flex items-center gap-2.5 num">
+            {liveCRR && (
+              <span className="text-white/50">CRR&nbsp;<span className="text-white font-bold">{liveCRR}</span></span>
+            )}
+            {projected && (
+              <span className="text-white/50">Proj&nbsp;<span className="text-white font-bold">~{projected.runs}</span></span>
+            )}
           </div>
         )}
 
@@ -227,7 +229,7 @@ export function LiveMatchCard({ match }: { match: Match }) {
   );
 }
 
-function LiveSide({ team, runs, wickets, overs, batting, alignRight, status, prevRuns, prevWickets }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; status?: string; prevRuns?: number; prevWickets?: number }) {
+function LiveSide({ team, runs, wickets, overs, batting, alignRight, prevRuns, prevWickets }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; prevRuns?: number; prevWickets?: number }) {
   return (
     <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
       <div className={`flex items-center gap-1.5 ${alignRight ? "flex-row-reverse" : ""}`}>
@@ -245,9 +247,6 @@ function LiveSide({ team, runs, wickets, overs, batting, alignRight, status, pre
           )}
         </div>
       </div>
-      {batting && status && (
-        <p className="text-[9px] text-cyan font-bold mt-0.5 leading-tight">{status}</p>
-      )}
     </div>
   );
 }
