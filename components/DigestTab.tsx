@@ -378,9 +378,189 @@ interface DaySummaryCard {
   report: string[];         // 5-7 line match report
 }
 
-type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard;
+interface MatchSummaryCard {
+  kind: "match-summary";
+  id: string;
+  format: MatchFormat;
+  resultLine: string;
+  winner: string;           // TeamCode | "draw" | "tie" | "no-result"
+  winnerColor: string;
+  loserColor: string;
+  inningsScores: {
+    label: string;
+    runs: number;
+    wickets: number;
+    overs: number;
+    declared: boolean;
+    teamColor: string;
+    batting: boolean;       // true = batting team
+  }[];
+  topBat: { name: string; runs: number; balls: number; fours: number; sixes: number; sr: number; teamColor: string } | null;
+  topBowl: { name: string; wickets: number; runs: number; economy: number; teamColor: string } | null;
+  manOfMatch: string | null;
+  narrative: string[];
+  seriesStatus: string | null;
+  excitement: number;
+}
+
+type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard;
 
 // ── over-group builder (T20 / ODI / Test fallback) ────────────────────────────
+
+// ── match summary card builder ────────────────────────────────────────────────
+
+const EXCITEMENT_WORDS: Record<number, string> = {
+  10: "an all-time classic", 9: "a pulsating thriller", 8: "an enthralling contest",
+  7: "a compelling match", 6: "a competitive encounter", 5: "an evenly-fought game",
+  4: "a steady contest", 3: "a one-sided affair", 2: "a dominant performance", 1: "a comprehensive win",
+};
+
+function getExcitementWord(n?: number): string {
+  if (!n) return "a competitive encounter";
+  const key = Math.max(1, Math.min(10, Math.round(n)));
+  return EXCITEMENT_WORDS[key] ?? "a competitive encounter";
+}
+
+function buildMatchNarrative(match: Match): string[] {
+  const { result, innings, teamA, teamB, format } = match;
+  if (!result) return [];
+  const lines: string[] = [];
+
+  // Line 1 — result + excitement
+  if (result.winner === "draw") {
+    lines.push("An honourable draw — five days of Test cricket and neither side could land the killer blow. Both camps leave with something to build on.");
+  } else if (result.winner === "tie") {
+    lines.push("A tie — the rarest result in cricket and one for the memory banks. Both sides gave everything and the scoreboard could not separate them.");
+  } else if (result.winner === "no-result") {
+    lines.push("A no-result — sometimes the weather has the final say.");
+  } else {
+    const winTeam = result.winner === teamA.code ? teamA.fullName : teamB.code === result.winner ? teamB.fullName : result.winner;
+    lines.push(`${winTeam} win ${result.margin} in ${getExcitementWord(match.excitement)}.`);
+  }
+
+  // Line 2 — first innings batting story
+  const inn1 = innings[0];
+  if (inn1?.battingCard.length) {
+    const sorted = [...inn1.battingCard].sort((a, b) => b.runs - a.runs);
+    const top = sorted[0];
+    const second = sorted[1];
+    if (top.runs >= 50) {
+      const extras = top.fours > 0 || top.sixes > 0
+        ? `, laced with ${[top.fours > 0 ? `${top.fours} fours` : "", top.sixes > 0 ? `${top.sixes} sixes` : ""].filter(Boolean).join(" and ")}`
+        : "";
+      lines.push(`${top.playerName} set the tone with a commanding ${top.runs} off ${top.ballsFaced}${extras}${second && second.runs >= 30 ? `, with ${second.playerName} chipping in a valuable ${second.runs}` : ""}.`);
+    } else if (top.runs >= 25) {
+      lines.push(`A collective batting effort — ${top.playerName} top-scored with ${top.runs}${second && second.runs >= 20 ? ` while ${second.playerName} contributed ${second.runs}` : ""}.`);
+    }
+  }
+
+  // Line 3 — bowling story (best spell across all innings)
+  const allBowlers = innings.flatMap((inn, i) =>
+    inn.bowlingCard.map(b => ({
+      ...b,
+      teamColor: inn.bowlingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    }))
+  );
+  const topBowler = allBowlers.sort((a, b) => b.wickets - a.wickets || a.economy - b.economy)[0];
+  if (topBowler && topBowler.wickets >= 2) {
+    const flair = topBowler.wickets >= 5 ? "a match-defining five-for" :
+                  topBowler.wickets >= 4 ? "an outstanding four-wicket haul" :
+                  topBowler.wickets >= 3 ? "a crucial three-wicket burst" : "two telling wickets";
+    lines.push(`${topBowler.playerName} claimed ${flair} — ${topBowler.wickets}/${topBowler.runsConceded} at an economy of ${topBowler.economy.toFixed(1)}.`);
+  }
+
+  // Line 4 — chase / defence story (limited overs) or Test innings pivot
+  if (format !== "Test" && innings.length >= 2) {
+    const inn2 = innings[1];
+    const target = inn1 ? inn1.runs + 1 : 0;
+    const chased = inn2.runs >= target;
+    const topChaser = inn2.battingCard.length
+      ? [...inn2.battingCard].sort((a, b) => b.runs - a.runs)[0] : null;
+    if (chased && topChaser && topChaser.runs >= 20) {
+      lines.push(`In the chase, ${topChaser.playerName}'s ${topChaser.runs} off ${topChaser.ballsFaced} was the innings that settled matters.`);
+    } else if (!chased) {
+      lines.push(`The target proved just out of reach — the bowling side kept their nerve when it mattered most.`);
+    }
+  } else if (format === "Test" && innings.length >= 3) {
+    const declaredAny = innings.some(i => i.declared);
+    if (declaredAny) lines.push(`Declarations shaped this Test — captains' gambles that added tactical intrigue to an already absorbing match.`);
+  }
+
+  // Line 5 — MOM / series status
+  if (result.manOfMatch) {
+    lines.push(`${result.manOfMatch} was the unanimous choice for Player of the Match — a performance that swung the balance.`);
+  }
+  if (match.seriesStatus) {
+    lines.push(match.seriesStatus);
+  }
+
+  return lines.slice(0, 6);
+}
+
+function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
+  if (match.status !== "post-match" || !match.result) return null;
+  const { result, innings, teamA, teamB } = match;
+
+  const winnerColor = result.winner === teamA.code ? teamA.primaryColor :
+                      result.winner === teamB.code ? teamB.primaryColor : "#94A3B8";
+  const loserColor  = result.winner === teamA.code ? teamB.primaryColor :
+                      result.winner === teamB.code ? teamA.primaryColor : "#94A3B8";
+
+  const inningsScores = innings.map(inn => ({
+    label: inn.number > 2
+      ? `${inn.battingTeam} (${inn.number === 3 ? "3rd" : "4th"} Inn)`
+      : inn.battingTeam,
+    runs: inn.runs, wickets: inn.wickets, overs: inn.overs,
+    declared: inn.declared ?? false,
+    teamColor: inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    batting: true,
+  }));
+
+  // Top bat: highest runs across all innings batting cards
+  const allBatters = innings.flatMap(inn =>
+    inn.battingCard.map(b => ({
+      ...b,
+      teamColor: inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    }))
+  );
+  const topBatEntry = allBatters.sort((a, b) => b.runs - a.runs)[0] ?? null;
+  const topBat = topBatEntry ? {
+    name: topBatEntry.playerName, runs: topBatEntry.runs, balls: topBatEntry.ballsFaced,
+    fours: topBatEntry.fours, sixes: topBatEntry.sixes, sr: topBatEntry.strikeRate,
+    teamColor: topBatEntry.teamColor,
+  } : null;
+
+  // Top bowl: most wickets across all innings bowling cards
+  const allBowlers = innings.flatMap(inn =>
+    inn.bowlingCard.map(b => ({
+      ...b,
+      teamColor: inn.bowlingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    }))
+  );
+  const topBowlEntry = allBowlers.sort((a, b) => b.wickets - a.wickets || a.economy - b.economy)[0] ?? null;
+  const topBowl = topBowlEntry && topBowlEntry.wickets > 0 ? {
+    name: topBowlEntry.playerName, wickets: topBowlEntry.wickets,
+    runs: topBowlEntry.runsConceded, economy: topBowlEntry.economy,
+    teamColor: topBowlEntry.teamColor,
+  } : null;
+
+  return {
+    kind: "match-summary",
+    id: `match-summary-${match.id}`,
+    format: match.format,
+    resultLine: result.margin
+      ? `${result.winner === teamA.code ? teamA.fullName : result.winner === teamB.code ? teamB.fullName : String(result.winner)} won ${result.margin}`
+      : String(result.winner),
+    winner: result.winner,
+    winnerColor, loserColor,
+    inningsScores,
+    topBat, topBowl,
+    manOfMatch: result.manOfMatch ?? null,
+    narrative: buildMatchNarrative(match),
+    seriesStatus: match.seriesStatus ?? null,
+    excitement: match.excitement ?? 5,
+  };
+}
 
 function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): OverGroupCard[] {
   const gs = groupSize(match.format);
@@ -567,11 +747,18 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
 // ── top-level builder ─────────────────────────────────────────────────────────
 
 function buildCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
+  let cards: DigestCardData[] = [];
   if (match.format === "Test") {
     const sessionCards = buildTestSessionCards(match, allBalls, isLive);
-    if (sessionCards.length > 0) return sessionCards;
+    if (sessionCards.length > 0) cards = sessionCards;
+    else cards = buildOverGroupCards(match, allBalls, isLive);
+  } else {
+    cards = buildOverGroupCards(match, allBalls, isLive);
   }
-  return buildOverGroupCards(match, allBalls, isLive);
+  // Prepend match summary card (pinned at top, post-match only)
+  const summary = buildMatchSummaryCard(match);
+  if (summary) cards = [summary, ...cards];
+  return cards;
 }
 
 // ── sub-components ───────────────────────────────────────────────────────────
@@ -714,6 +901,123 @@ function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
   );
 }
 
+// ── MatchSummaryCardView ─────────────────────────────────────────────────────
+
+function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
+  const isSpecial = card.excitement >= 8;
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden border border-line/40"
+      style={{ borderTopColor: card.winnerColor, borderTopWidth: 2 }}
+      data-digest-card
+    >
+      {/* ── Header ── */}
+      <div
+        className="px-3 pt-3 pb-2.5 flex items-center justify-between"
+        style={{ background: `linear-gradient(135deg, ${card.winnerColor}18 0%, transparent 70%)` }}
+      >
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded"
+              style={{ background: `${card.winnerColor}28`, color: card.winnerColor }}
+            >
+              {card.format} · Full Time
+            </span>
+            {isSpecial && (
+              <span className="text-[9px] font-black uppercase tracking-widest text-amber-400 bg-amber-400/15 px-1.5 py-0.5 rounded">
+                🏆 Classic
+              </span>
+            )}
+          </div>
+          <p
+            className="text-[15px] font-black leading-tight mt-1"
+            style={{ color: card.winnerColor }}
+          >
+            {card.resultLine}
+          </p>
+        </div>
+        <ShareButton label={`Match-Summary`} />
+      </div>
+
+      {/* ── Innings scoreline ── */}
+      <div className="px-3 pb-2.5 flex flex-col gap-1 border-b border-line/30">
+        {card.inningsScores.map((inn, i) => (
+          <div key={i} className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: inn.teamColor }} />
+              <span className="text-[11px] font-bold text-text-secondary">{inn.label}</span>
+              {inn.declared && (
+                <span className="text-[8px] font-black text-amber-400/80 uppercase tracking-wider">d</span>
+              )}
+            </div>
+            <span className="text-[13px] font-black num text-text-primary">
+              {inn.runs}<span className="text-text-dim font-semibold text-[11px]">/{inn.wickets}</span>
+              <span className="text-[10px] font-medium text-text-dim ml-1.5">({inn.overs} ov)</span>
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Top performers ── */}
+      <div className="px-3 py-2.5 flex gap-3 border-b border-line/30">
+        {card.topBat && (
+          <div className="flex-1">
+            <p className="text-[8px] font-bold uppercase tracking-widest text-text-dim mb-1">Top Bat</p>
+            <p className="text-[12px] font-black text-text-primary truncate">{card.topBat.name}</p>
+            <p className="text-[10px] font-semibold num" style={{ color: card.topBat.teamColor }}>
+              {card.topBat.runs}
+              <span className="text-text-dim font-medium"> off {card.topBat.balls}</span>
+              {card.topBat.fours > 0 && <span className="text-boundary ml-1.5">{card.topBat.fours}×4</span>}
+              {card.topBat.sixes > 0 && <span className="text-six ml-1">{card.topBat.sixes}×6</span>}
+            </p>
+          </div>
+        )}
+        {card.topBat && card.topBowl && (
+          <div className="w-px bg-line/40 self-stretch" />
+        )}
+        {card.topBowl && (
+          <div className="flex-1">
+            <p className="text-[8px] font-bold uppercase tracking-widest text-text-dim mb-1">Top Bowl</p>
+            <p className="text-[12px] font-black text-text-primary truncate">{card.topBowl.name}</p>
+            <p className="text-[10px] font-semibold num" style={{ color: card.topBowl.teamColor }}>
+              {card.topBowl.wickets}/{card.topBowl.runs}
+              <span className="text-text-dim font-medium ml-1.5">· Econ {card.topBowl.economy.toFixed(1)}</span>
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Man of Match ── */}
+      {card.manOfMatch && (
+        <div className="px-3 py-2 border-b border-line/30 flex items-center gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Player of the Match</span>
+          <span className="text-[11px] font-bold text-text-primary">{card.manOfMatch}</span>
+        </div>
+      )}
+
+      {/* ── Narrative ── */}
+      <div className="px-3 pt-2.5 pb-3 space-y-2">
+        {card.narrative.map((line, i) => (
+          <p
+            key={i}
+            className={`leading-snug ${
+              i === 0
+                ? "text-[13px] font-semibold text-text-primary"
+                : i === card.narrative.length - 1 && card.seriesStatus
+                ? "text-[10px] font-semibold text-cyan/80 italic"
+                : "text-[11px] text-text-secondary"
+            }`}
+          >
+            {line}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Day filter chips ─────────────────────────────────────────────────────────
 
 function DayChips({
@@ -830,6 +1134,7 @@ export default function DigestTab({ match, allBalls }: Props) {
     if (isTest) {
       if (activeDay === null) return cards;
       return cards.filter(c => {
+        if (c.kind === "match-summary") return true;  // always pinned
         if (c.kind === "session")     return c.day === activeDay;
         if (c.kind === "day-summary") return c.day === activeDay;
         return true;
@@ -837,7 +1142,10 @@ export default function DigestTab({ match, allBalls }: Props) {
     }
     // non-Test: filter by innings
     if (activeInnings === null) return cards;
-    return cards.filter(c => c.kind === "over-group" && c.inningsNumber === activeInnings);
+    return cards.filter(c =>
+      c.kind === "match-summary" ||                           // always pinned
+      (c.kind === "over-group" && c.inningsNumber === activeInnings)
+    );
   }, [cards, isTest, activeDay, activeInnings]);
 
   if (cards.length === 0) {
@@ -871,6 +1179,8 @@ export default function DigestTab({ match, allBalls }: Props) {
 
       <div className="space-y-2">
         {visibleCards.map(card => {
+          if (card.kind === "match-summary")
+            return <MatchSummaryCardView key={card.id} card={card} />;
           if (card.kind === "day-summary")
             return <DaySummaryCardView key={card.id} card={card} />;
           if (card.kind === "session")
