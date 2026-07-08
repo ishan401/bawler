@@ -75,6 +75,13 @@ function groupSize(format: MatchFormat): number {
   return 1;
 }
 
+function initials(name: string | null | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length === 1) return parts[0][0].toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function lastName(fullName: string | null | undefined): string {
   if (!fullName) return "";
   const parts = fullName.trim().split(" ");
@@ -398,6 +405,7 @@ interface MatchSummaryCard {
   topBat: { name: string; runs: number; balls: number; fours: number; sixes: number; sr: number; teamColor: string } | null;
   topBowl: { name: string; wickets: number; runs: number; economy: number; teamColor: string } | null;
   manOfMatch: string | null;
+  manOfMatchColor: string;
   narrative: string[];
   seriesStatus: string | null;
   excitement: number;
@@ -551,6 +559,22 @@ function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
     teamColor: topBowlEntry.teamColor,
   } : null;
 
+  // Derive MOM team color — find which innings batting card the MOM appears in
+  let manOfMatchColor = winnerColor;
+  if (result.manOfMatch) {
+    const momName = result.manOfMatch.toLowerCase();
+    for (const inn of innings) {
+      const found = inn.battingCard.some(b =>
+        b.playerName.toLowerCase().includes(momName) ||
+        momName.includes(b.playerName.toLowerCase().split(" ").pop() ?? "")
+      );
+      if (found) {
+        manOfMatchColor = inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor;
+        break;
+      }
+    }
+  }
+
   return {
     kind: "match-summary",
     id: `match-summary-${match.id}`,
@@ -563,6 +587,7 @@ function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
     inningsScores,
     topBat, topBowl,
     manOfMatch: result.manOfMatch ?? null,
+    manOfMatchColor,
     narrative: buildMatchNarrative(match),
     seriesStatus: match.seriesStatus ?? null,
     excitement: match.excitement ?? 5,
@@ -998,9 +1023,21 @@ function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
 
       {/* ── Man of Match ── */}
       {card.manOfMatch && (
-        <div className="px-3 py-2 border-b border-line/30 flex items-center gap-2">
-          <span className="text-[9px] font-black uppercase tracking-widest text-amber-400">Player of the Match</span>
-          <span className="text-[11px] font-bold text-text-primary">{card.manOfMatch}</span>
+        <div className="px-3 py-2.5 border-b border-line/30 flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black"
+            style={{
+              background: `${card.manOfMatchColor}28`,
+              border: `1.5px solid ${card.manOfMatchColor}70`,
+              color: card.manOfMatchColor,
+            }}
+          >
+            {initials(card.manOfMatch)}
+          </div>
+          <div>
+            <p className="text-[8px] font-black uppercase tracking-widest text-amber-400 mb-0.5">Player of the Match</p>
+            <p className="text-[12px] font-bold text-text-primary">{card.manOfMatch}</p>
+          </div>
         </div>
       )}
 
