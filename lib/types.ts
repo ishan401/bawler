@@ -109,6 +109,7 @@ export interface Innings {
   fieldingPositions?: FielderPosition[];
   declared?: boolean;        // Test: batting team declared
   followOn?: boolean;        // Test: this innings is following on
+  sessions?: TestSession[];   // Test: session metadata for Digest grouping
 }
 
 export interface FielderPosition {
@@ -433,4 +434,17 @@ export interface MatchupStats {
   dangerDelivery?: string;   // e.g. "Full, seaming in, yorker length"
   lastDismissal?: string;    // e.g. "Caught Warner · Jan 2024"
   venueStat?: string;        // e.g. "Best: 47 at MCG · 2024"
+}
+
+// ============================================================================
+// Test match session metadata — drives session-based Digest grouping
+// ============================================================================
+
+export interface TestSession {
+  day: number;                                      // 1 = Day 1, 2 = Day 2, …
+  session: "morning" | "afternoon" | "evening";
+  label: string;                                    // e.g. "Day 2 Afternoon"
+  startOver: number;                                // first over (1-indexed, inclusive)
+  endOver: number;                                  // last over (inclusive) of this session
+  isComplete: boolean;                              // false when session still in progress
 }

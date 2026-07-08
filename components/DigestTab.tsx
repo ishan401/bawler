@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * DigestTab — over-by-over digest cards for each innings.
+ * DigestTab — over-by-over / session digest cards for each innings.
  *
  * Format-adaptive grouping:
- *   T20 / T20I / Hundred → 1 card per over  (6 legal-ball dot row)
+ *   T20 / T20I / Hundred → 1 card per over
  *   ODI                  → 1 card per 5 overs
- *   Test                 → 1 card per 30 overs / session
+ *   Test (no sessions)   → 1 card per 10 overs (fallback)
+ *   Test (with sessions) → 1 card per session + Day Summary card at end of each day
  *
- * Cards newest-first. Key ball row has a tappable creative summary
- * that switches to the Live tab and loads that ball's GIF.
+ * Cards newest-first.
  */
 
 import React, { useMemo } from "react";
-import { Match, Ball, MatchFormat, Innings } from "@/lib/types";
+import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ function dominantBowler(balls: Ball[]): string {
   )[0][0];
 }
 
-// ── narrative (row 2 — factual, compact) ─────────────────────────────────────
+// ── narrative (factual, compact) ──────────────────────────────────────────────
 
 function buildNarrative(
   runs: number,
@@ -71,7 +71,7 @@ function buildNarrative(
   format: MatchFormat
 ): string {
   const span = format === "ODI" ? "block" : format === "Test" ? "session" : "over";
-  const big = format === "ODI" ? 30 : format === "Test" ? 40 : 14;
+  const big = format === "ODI" ? 30 : format === "Test" ? 50 : 14;
 
   if (runs === 0 && wickets === 0) return `${lastName(bowler)} maiden`;
   if (wickets >= 3) return `${wickets} wickets — collapse!`;
@@ -88,7 +88,7 @@ function buildNarrative(
   return `${runs} scored`;
 }
 
-// ── over summary (key-ball row — creative, 1-2 lines) ────────────────────────
+// ── over summary (creative, 1-2 lines) ────────────────────────────────────────
 
 function buildOverSummary(
   runs: number,
@@ -97,11 +97,11 @@ function buildOverSummary(
   sixes: number,
   bowlerName: string,
   keyBall: Ball,
-  overStart: number  // used to pick variant
+  variant: number
 ): string {
   const bowler = lastName(bowlerName);
   const batter = lastName(keyBall.batterName);
-  const v = overStart % 3; // 0 | 1 | 2
+  const v = ((variant % 3) + 3) % 3;
 
   if (runs === 0 && wickets === 0) {
     return [
@@ -119,9 +119,9 @@ function buildOverSummary(
   }
   if (wickets >= 2) {
     return [
-      `Two wickets in six balls — the game just tilted.`,
+      `Two wickets in quick succession — the game just tilted.`,
       `${bowler} made it look inevitable. Both batters had no answer.`,
-      `A partnership ended, another began — the chase just got harder.`,
+      `A partnership ended, another began — the pressure just ratcheted up.`,
     ][v];
   }
   if (runs >= 18) {
@@ -135,7 +135,7 @@ function buildOverSummary(
     return [
       `${batter} seized the moment — ${runs} and the momentum swings.`,
       `A statement over. ${bowler} will want to forget this one.`,
-      `${runs} runs scored and the game's balance tipped in an instant.`,
+      `${runs} runs and the game's balance tipped in an instant.`,
     ][v];
   }
   if (sixes >= 2) {
@@ -173,9 +173,55 @@ function buildOverSummary(
   ][v];
 }
 
-// ── data model ───────────────────────────────────────────────────────────────
+// ── day summary creative line ─────────────────────────────────────────────────
 
-interface OverCard {
+function buildDaySummaryLine(
+  runs: number,
+  wickets: number,
+  fours: number,
+  sixes: number,
+  day: number
+): string {
+  const v = day % 3;
+  if (wickets >= 10) {
+    return [
+      "Two teams, one day, ten wickets — cricket at its most dramatic.",
+      "A complete story in a day: batting, bowling, and a full set of wickets.",
+      "The contest was fierce. Ten down by stumps.",
+    ][v];
+  }
+  if (wickets === 0) {
+    return [
+      "Not a wicket to fall. The batters owned every session.",
+      "Flawless with the bat. A day the bowlers would rather forget.",
+      `${runs} scored, none lost — the kind of day Test batters dream of.`,
+    ][v];
+  }
+  if (runs >= 250) {
+    return [
+      `${runs} scored in a day's play. Big hitting, good cricket, great theatre.`,
+      `A prolific day — ${runs} runs, ${wickets} wickets, drama in every session.`,
+      `Runs flowed freely. ${wickets} fell, but the batters had the upper hand.`,
+    ][v];
+  }
+  if (wickets >= 6) {
+    return [
+      `The bowlers dominated — ${wickets} wickets for ${runs} runs. Telling day.`,
+      `${wickets} wickets down and the innings in real trouble. Bowlers on top.`,
+      `Only ${runs} scored but ${wickets} fell. This is the bowlers' match to lose.`,
+    ][v];
+  }
+  return [
+    `Stumps drawn: ${runs} scored, ${wickets} wickets fallen. The game hangs in the balance.`,
+    `${runs} runs and ${wickets} wickets — a hard-fought day with no clear winner yet.`,
+    `Cricket in its truest form — ${runs} scored, ${wickets} lost. Edge-of-seat stuff.`,
+  ][v];
+}
+
+// ── card data types ───────────────────────────────────────────────────────────
+
+interface OverGroupCard {
+  kind: "over-group";
   id: string;
   label: string;
   inningsLabel: string;
@@ -193,11 +239,42 @@ interface OverCard {
   gs: number;
 }
 
-// ── card builder ─────────────────────────────────────────────────────────────
+interface SessionCard {
+  kind: "session";
+  id: string;
+  sessionLabel: string;   // "Day 2 Afternoon"
+  overRange: string;      // "Overs 1–28"
+  inningsLabel: string;
+  teamColor: string;
+  runs: number;
+  wickets: number;
+  fours: number;
+  sixes: number;
+  allBalls: Ball[];
+  keyBall: Ball;
+  bowlerName: string;
+  narrative: string;
+  overSummary: string;
+  isLiveSession: boolean;
+}
 
-function buildCards(match: Match, allBalls: Ball[], isLive: boolean): OverCard[] {
+interface DaySummaryCard {
+  kind: "day-summary";
+  id: string;
+  day: number;
+  sessionRows: { label: string; runs: number; wickets: number; teamColor: string }[];
+  totalRuns: number;
+  totalWickets: number;
+  summaryLine: string;
+}
+
+type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard;
+
+// ── over-group card builder (T20 / ODI / Test fallback) ───────────────────────
+
+function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): OverGroupCard[] {
   const gs = groupSize(match.format);
-  const result: OverCard[] = [];
+  const result: OverGroupCard[] = [];
   const inningsCount = match.innings.length;
 
   for (let innIdx = 0; innIdx < inningsCount; innIdx++) {
@@ -258,6 +335,7 @@ function buildCards(match: Match, allBalls: Ball[], isLive: boolean): OverCard[]
           : `Overs ${chunkStart}–${Math.min(chunkEnd, lastOver)}`;
 
       result.push({
+        kind: "over-group",
         id: `inn${inn.number}-over${chunkStart}`,
         label,
         inningsLabel,
@@ -278,6 +356,149 @@ function buildCards(match: Match, allBalls: Ball[], isLive: boolean): OverCard[]
   }
 
   return result.reverse();
+}
+
+// ── session-based card builder (Test with sessions metadata) ──────────────────
+
+function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
+  // Map: day → chronological list of {session, sessionCard}
+  const dayMap = new Map<number, { sess: TestSession; card: SessionCard }[]>();
+  const inningsCount = match.innings.length;
+  const ordinals = ["1st", "2nd", "3rd", "4th"];
+
+  for (let innIdx = 0; innIdx < inningsCount; innIdx++) {
+    const inn: Innings = match.innings[innIdx];
+    if (!inn.sessions || inn.sessions.length === 0) continue;
+
+    const innBalls = allBalls.filter(b => b.inningsNumber === inn.number);
+    if (innBalls.length === 0) continue;
+
+    const byOver = new Map<number, Ball[]>();
+    for (const b of innBalls) {
+      const arr = byOver.get(b.over) ?? [];
+      arr.push(b);
+      byOver.set(b.over, arr);
+    }
+
+    const allOverNums = [...byOver.keys()].sort((a, b) => a - b);
+    if (allOverNums.length === 0) continue;
+
+    const isLastInn = innIdx === inningsCount - 1;
+    const lastOverNum = allOverNums[allOverNums.length - 1];
+    const lastOverBalls = byOver.get(lastOverNum) ?? [];
+    const completedOverNums =
+      isLive && isLastInn && legalBalls(lastOverBalls).length < 6
+        ? allOverNums.slice(0, -1)
+        : allOverNums;
+
+    const inningsLabel = inningsCount > 1 ? `${ordinals[inn.number - 1]} Inn` : "";
+    const teamColor =
+      inn.battingTeam === match.teamA.code
+        ? match.teamA.primaryColor
+        : match.teamB.primaryColor;
+
+    for (const sess of inn.sessions) {
+      const sessOvers = completedOverNums.filter(
+        n => n >= sess.startOver && n <= sess.endOver
+      );
+      if (sessOvers.length === 0) continue;
+
+      const sessBalls = sessOvers.flatMap(n => byOver.get(n) ?? []);
+      if (sessBalls.length === 0) continue;
+
+      const runs = sessBalls.reduce((s, b) => s + b.runs + b.extras, 0);
+      const wickets = sessBalls.filter(b => b.isWicket).length;
+      const fours = sessBalls.filter(b => b.isBoundary4).length;
+      const sixes = sessBalls.filter(b => b.isBoundary6).length;
+      const keyBall = pickKeyBall(sessBalls);
+      const bowlerName = dominantBowler(sessBalls);
+      const firstOver = sessOvers[0];
+      const lastOver = sessOvers[sessOvers.length - 1];
+
+      const sessionIndex = ["morning", "afternoon", "evening"].indexOf(sess.session);
+
+      const card: SessionCard = {
+        kind: "session",
+        id: `sess-inn${inn.number}-day${sess.day}-${sess.session}`,
+        sessionLabel: sess.label,
+        overRange: `Overs ${firstOver}–${lastOver}`,
+        inningsLabel,
+        teamColor,
+        runs,
+        wickets,
+        fours,
+        sixes,
+        allBalls: sessBalls,
+        keyBall,
+        bowlerName,
+        narrative: buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, "Test"),
+        overSummary: buildOverSummary(
+          runs, wickets, fours, sixes, bowlerName, keyBall,
+          sess.day * 3 + sessionIndex
+        ),
+        isLiveSession: !sess.isComplete,
+      };
+
+      const dayEntries = dayMap.get(sess.day) ?? [];
+      dayEntries.push({ sess, card });
+      dayMap.set(sess.day, dayEntries);
+    }
+  }
+
+  // Build output oldest-first: sessions in order, then Day Summary at end of each complete day
+  const result: DigestCardData[] = [];
+  const days = [...dayMap.keys()].sort((a, b) => a - b);
+
+  for (const day of days) {
+    const entries = dayMap.get(day)!;
+    // Sort sessions chronologically
+    const order = ["morning", "afternoon", "evening"];
+    entries.sort((a, b) => order.indexOf(a.sess.session) - order.indexOf(b.sess.session));
+
+    for (const { card } of entries) {
+      result.push(card);
+    }
+
+    const allComplete = entries.every(e => e.sess.isComplete);
+    if (allComplete) {
+      const totalRuns = entries.reduce((s, e) => s + e.card.runs, 0);
+      const totalWickets = entries.reduce((s, e) => s + e.card.wickets, 0);
+      const totalFours = entries.reduce((s, e) => s + e.card.fours, 0);
+      const totalSixes = entries.reduce((s, e) => s + e.card.sixes, 0);
+
+      const daySummary: DaySummaryCard = {
+        kind: "day-summary",
+        id: `day-summary-${day}`,
+        day,
+        sessionRows: entries.map(e => ({
+          label: e.sess.label,
+          runs: e.card.runs,
+          wickets: e.card.wickets,
+          teamColor: e.card.teamColor,
+        })),
+        totalRuns,
+        totalWickets,
+        summaryLine: buildDaySummaryLine(totalRuns, totalWickets, totalFours, totalSixes, day),
+      };
+      result.push(daySummary);
+    }
+  }
+
+  // Newest-first
+  return result.reverse();
+}
+
+// ── top-level card builder ────────────────────────────────────────────────────
+
+function buildCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
+  // Test with sessions on any innings → use session-based grouping
+  const hasSessionData = match.format === "Test" &&
+    match.innings.some(inn => inn.sessions && inn.sessions.length > 0);
+
+  if (hasSessionData) {
+    return buildTestSessionCards(match, allBalls, isLive);
+  }
+  return buildOverGroupCards(match, allBalls, isLive);
 }
 
 // ── sub-components ───────────────────────────────────────────────────────────
@@ -304,11 +525,11 @@ function BallDot({ ball }: { ball: Ball }) {
   );
 }
 
-function DigestCard({
+function OverGroupCardView({
   card,
   onSelectBall,
 }: {
-  card: OverCard;
+  card: OverGroupCard;
   onSelectBall: (id: string) => void;
 }) {
   const kb = card.keyBall;
@@ -324,12 +545,9 @@ function DigestCard({
 
   return (
     <div className="card overflow-hidden">
-      {/* ── Row 1: label + inline stats ── */}
+      {/* Row 1 */}
       <div className="flex items-center gap-1.5 px-3 py-2">
-        <span
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ background: card.teamColor }}
-        />
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && (
           <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">
             {card.inningsLabel}
@@ -349,7 +567,7 @@ function DigestCard({
         )}
       </div>
 
-      {/* ── Row 2: dots (T20 only) + factual narrative ── */}
+      {/* Row 2 */}
       <div className="flex items-center gap-2 px-3 pb-2">
         {showDots && (
           <div className="flex items-center gap-0.5 shrink-0">
@@ -363,31 +581,135 @@ function DigestCard({
         </p>
       </div>
 
-      {/* ── Row 3: key ball chip + creative over summary ── */}
+      {/* Row 3 */}
       <button
         onClick={() => onSelectBall(card.keyBall.id)}
         className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors"
       >
-        {/* key ball label line */}
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">
-            Key
-          </span>
+          <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">Key</span>
           <span className="text-[10px] font-extrabold text-cyan num">{keyLabel}</span>
-          <svg
-            className="w-3 h-3 text-cyan ml-auto shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="w-3 h-3 text-cyan ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
           </svg>
         </div>
-        {/* creative summary */}
-        <p className="text-[11px] text-text-secondary leading-snug">
-          {card.overSummary}
-        </p>
+        <p className="text-[11px] text-text-secondary leading-snug">{card.overSummary}</p>
       </button>
+    </div>
+  );
+}
+
+function SessionCardView({
+  card,
+  onSelectBall,
+}: {
+  card: SessionCard;
+  onSelectBall: (id: string) => void;
+}) {
+  const kb = card.keyBall;
+  const keyLabel = (() => {
+    const base = `${kb.over}.${kb.ballInOver + 1}`;
+    if (kb.isWicket) return `${base} · OUT`;
+    if (kb.isBoundary6) return `${base} · SIX`;
+    if (kb.isBoundary4) return `${base} · FOUR`;
+    return base;
+  })();
+
+  return (
+    <div className="card overflow-hidden">
+      {/* Row 1: session label + stats */}
+      <div className="flex items-center gap-1.5 px-3 py-2">
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
+        {card.inningsLabel && (
+          <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">
+            {card.inningsLabel}
+          </span>
+        )}
+        <span className="text-[10px] font-extrabold text-text-primary">{card.sessionLabel}</span>
+        {card.isLiveSession && (
+          <span className="text-[8px] font-bold uppercase tracking-widest text-live bg-live/15 px-1.5 py-0.5 rounded-full">
+            Live
+          </span>
+        )}
+        <div className="flex-1" />
+        <span className="text-[10px] font-extrabold num text-text-primary">{card.runs}r</span>
+        {card.wickets > 0 && (
+          <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>
+        )}
+        {card.fours > 0 && (
+          <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>
+        )}
+        {card.sixes > 0 && (
+          <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>
+        )}
+      </div>
+
+      {/* Row 2: over range + factual narrative */}
+      <div className="flex items-center gap-2 px-3 pb-2">
+        <span className="text-[9px] text-text-dim shrink-0">{card.overRange}</span>
+        <span className="text-text-dim/40 text-[9px]">·</span>
+        <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">
+          {card.narrative}
+        </p>
+      </div>
+
+      {/* Row 3: key ball + creative summary */}
+      <button
+        onClick={() => onSelectBall(card.keyBall.id)}
+        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors"
+      >
+        <div className="flex items-center gap-1.5 mb-1">
+          <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">Key</span>
+          <span className="text-[10px] font-extrabold text-cyan num">{keyLabel}</span>
+          <svg className="w-3 h-3 text-cyan ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+        <p className="text-[11px] text-text-secondary leading-snug">{card.overSummary}</p>
+      </button>
+    </div>
+  );
+}
+
+function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
+  const sessionLabel = card.sessionRows
+    .map(r => `${r.label.split(" ").slice(2).join(" ")}: ${r.runs}/${r.wickets}`)
+    .join("  ·  ");
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-line/60 bg-surface-2/70 backdrop-blur-sm">
+      {/* Header bar */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-white/4 border-b border-line/40">
+        <div className="flex items-center gap-1">
+          {card.sessionRows.slice(0, 3).map((r, i) => (
+            <span
+              key={i}
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: r.teamColor }}
+            />
+          ))}
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-text-primary">
+          Day {card.day} · Stumps
+        </span>
+        <div className="flex-1" />
+        <span className="text-[11px] font-extrabold num text-text-primary">{card.totalRuns}r</span>
+        {card.totalWickets > 0 && (
+          <span className="text-[11px] font-extrabold num text-wicket ml-1">{card.totalWickets}w</span>
+        )}
+      </div>
+
+      {/* Session breakdown */}
+      <div className="px-3 py-2">
+        <p className="text-[9px] text-text-dim leading-relaxed">{sessionLabel}</p>
+      </div>
+
+      {/* Summary line */}
+      <div className="px-3 pb-3">
+        <p className="text-[11px] text-text-secondary leading-snug italic">
+          {card.summaryLine}
+        </p>
+      </div>
     </div>
   );
 }
@@ -411,16 +733,22 @@ export default function DigestTab({ match, allBalls, onSelectBall }: Props) {
     return (
       <div className="flex flex-col items-center justify-center pt-16 gap-2 text-center px-6">
         <p className="text-sm font-bold text-text-primary">No digest yet</p>
-        <p className="text-xs text-text-dim">Cards appear as each over completes</p>
+        <p className="text-xs text-text-dim">Cards appear as each session completes</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-2 pb-4">
-      {cards.map(card => (
-        <DigestCard key={card.id} card={card} onSelectBall={onSelectBall} />
-      ))}
+      {cards.map(card => {
+        if (card.kind === "day-summary") {
+          return <DaySummaryCardView key={card.id} card={card} />;
+        }
+        if (card.kind === "session") {
+          return <SessionCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
+        }
+        return <OverGroupCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
+      })}
     </div>
   );
 }
