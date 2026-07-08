@@ -49,6 +49,14 @@ export default function BallGIF({
     ? { bg: "rgba(168,85,247,0.90)", shadow: "rgba(168,85,247,0.55)" }
     : { bg: "rgba(6,182,212,0.90)", shadow: "rgba(6,182,212,0.55)" };
 
+  /* team colours for avatars — use innings data, not inningsNumber parity,
+     so toss-dependent batting order is handled correctly */
+  const currentInnings = match.innings.find(i => i.number === ball.inningsNumber);
+  const battingTeam = currentInnings
+    ? (currentInnings.battingTeam === match.teamA.code ? match.teamA : match.teamB)
+    : match.teamA;
+  const bowlingTeam = battingTeam.code === match.teamA.code ? match.teamB : match.teamA;
+
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden border border-white/10">
 
@@ -88,10 +96,12 @@ export default function BallGIF({
             </div>
             <OutcomeBadge ball={ball} />
           </div>
-          <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[9px] font-semibold text-white/55 leading-none truncate">
-            <span className="text-white/80 font-bold truncate">{ball.bowlerName}</span>
-            <span className="text-white/35">→</span>
-            <span className="text-white/80 font-bold truncate">{ball.batterName}</span>
+          <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[9px] font-semibold leading-none">
+            <PlayerAvatar name={ball.bowlerName} color={bowlingTeam.primaryColor} />
+            <span className="text-white/80 font-bold truncate max-w-[90px]">{ball.bowlerName}</span>
+            <span className="text-white/30 shrink-0">→</span>
+            <PlayerAvatar name={ball.batterName} color={battingTeam.primaryColor} />
+            <span className="text-white/80 font-bold truncate max-w-[90px]">{ball.batterName}</span>
           </div>
         </div>
 
@@ -115,6 +125,32 @@ export default function BallGIF({
       <PartnershipFooter ball={ball} partnership={partnership} match={match} />
 
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLAYER AVATAR — initials circle, imageUrl-ready for Roanuz integration
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PlayerAvatar({ name, color, imageUrl }: { name: string; color: string; imageUrl?: string }) {
+  const parts = name.trim().split(" ");
+  const initials = parts.length >= 2
+    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    : name.slice(0, 2).toUpperCase();
+
+  return (
+    <span
+      className="inline-flex shrink-0 w-[20px] h-[20px] rounded-full items-center justify-center overflow-hidden"
+      style={{ background: `${color}28`, border: `1.5px solid ${color}55` }}
+    >
+      {imageUrl ? (
+        <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
+      ) : (
+        <span className="text-[7px] font-extrabold leading-none" style={{ color }}>
+          {initials}
+        </span>
+      )}
+    </span>
   );
 }
 

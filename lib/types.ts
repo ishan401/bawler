@@ -382,6 +382,7 @@ export interface PlayerProfile {
   id: string;                    // canonical URL slug, e.g. "v-kohli"
   name: string;                  // "Virat Kohli"
   shortName: string;             // "V Kohli"
+  imageUrl?: string;             // headshot URL — Roanuz player object will populate this
   dateOfBirth?: string;          // "1988-11-05"
   nationality: string;           // "India"
   teamCode?: string;             // national team code: "IND"
