@@ -337,6 +337,7 @@ function buildDayReport(
 interface OverGroupCard {
   kind: "over-group";
   id: string;
+  inningsNumber: number;
   label: string;
   inningsLabel: string;
   teamColor: string;
@@ -438,7 +439,7 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
 
       result.push({
         kind: "over-group", id: `inn${inn.number}-over${chunkStart}`,
-        label, inningsLabel, teamColor, runs, wickets, fours, sixes,
+        inningsNumber: inn.number, label, inningsLabel, teamColor, runs, wickets, fours, sixes,
         allBalls: chunkBalls, legalDeliveries: legal, keyBall, bowlerName,
         narrative: buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, match.format),
         overSummary: buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, chunkStart),
@@ -744,6 +745,39 @@ function DayChips({
   );
 }
 
+// ── Innings filter chips (non-Test) ─────────────────────────────────────────
+
+const INN_LABEL: Record<number, string> = { 1: "1st Innings", 2: "2nd Innings", 3: "3rd Innings", 4: "4th Innings" };
+
+function InningsChips({
+  innings,
+  activeInn,
+  onSelect,
+}: {
+  innings: number[];
+  activeInn: number;
+  onSelect: (inn: number) => void;
+}) {
+  if (innings.length <= 1) return null;
+  return (
+    <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
+      {innings.map(inn => (
+        <button
+          key={inn}
+          onClick={() => onSelect(inn)}
+          className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+            inn === activeInn
+              ? "bg-cyan text-bg-base border-cyan"
+              : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
+          }`}
+        >
+          {INN_LABEL[inn] ?? `Innings ${inn}`}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── main export ───────────────────────────────────────────────────────────────
 
 interface Props {
@@ -771,20 +805,40 @@ export default function DigestTab({ match, allBalls }: Props) {
     return [...days].sort((a, b) => a - b);
   }, [cards, isTest]);
 
-  // Default to the latest day with data
-  const latestDay = availableDays[availableDays.length - 1] ?? null;
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const activeDay = selectedDay ?? latestDay;
+  // Derive available innings (non-Test only)
+  const availableInnings = useMemo(() => {
+    if (isTest) return [];
+    const inns = new Set<number>();
+    for (const c of cards) {
+      if (c.kind === "over-group") inns.add(c.inningsNumber);
+    }
+    return [...inns].sort((a, b) => a - b);
+  }, [cards, isTest]);
 
-  // Filter cards to selected day (Test only)
+  // Default to the latest day / innings with data
+  const latestDay     = availableDays[availableDays.length - 1] ?? null;
+  const latestInnings = availableInnings[availableInnings.length - 1] ?? null;
+
+  const [selectedDay,     setSelectedDay]     = useState<number | null>(null);
+  const [selectedInnings, setSelectedInnings] = useState<number | null>(null);
+
+  const activeDay     = selectedDay     ?? latestDay;
+  const activeInnings = selectedInnings ?? latestInnings;
+
+  // Filter cards by selected day (Test) or innings (non-Test)
   const visibleCards = useMemo(() => {
-    if (!isTest || activeDay === null) return cards;
-    return cards.filter(c => {
-      if (c.kind === "session")     return c.day === activeDay;
-      if (c.kind === "day-summary") return c.day === activeDay;
-      return true;
-    });
-  }, [cards, isTest, activeDay]);
+    if (isTest) {
+      if (activeDay === null) return cards;
+      return cards.filter(c => {
+        if (c.kind === "session")     return c.day === activeDay;
+        if (c.kind === "day-summary") return c.day === activeDay;
+        return true;
+      });
+    }
+    // non-Test: filter by innings
+    if (activeInnings === null) return cards;
+    return cards.filter(c => c.kind === "over-group" && c.inningsNumber === activeInnings);
+  }, [cards, isTest, activeDay, activeInnings]);
 
   if (cards.length === 0) {
     return (
@@ -803,6 +857,15 @@ export default function DigestTab({ match, allBalls }: Props) {
           days={availableDays}
           activeDay={activeDay!}
           onSelect={day => setSelectedDay(day === activeDay ? null : day)}
+        />
+      )}
+
+      {/* Innings chips — non-Test, shown when both innings have cards */}
+      {!isTest && availableInnings.length > 1 && (
+        <InningsChips
+          innings={availableInnings}
+          activeInn={activeInnings!}
+          onSelect={inn => setSelectedInnings(inn)}
         />
       )}
 
