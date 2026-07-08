@@ -123,15 +123,7 @@ function MatchupCard({
             )}
           </div>
 
-          {/* ── Row 4: Watch for ── */}
-          {stats?.dangerDelivery ? (
-            <div className="flex items-center gap-1.5 px-3 pt-1 pb-2.5 text-[10px] leading-none">
-              <span className="text-orange font-semibold shrink-0">Watch for:</span>
-              <span className="text-text-secondary">{stats.dangerDelivery}</span>
-            </div>
-          ) : (
-            <div className="pb-2.5" />
-          )}
+          <div className="pb-2.5" />
         </>
       ) : (
         /* ── No data ── */
