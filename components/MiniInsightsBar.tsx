@@ -43,70 +43,44 @@ interface MiniChip {
 
 function deriveMiniInsights(match: Match, _insights: InsightV2[]): MiniChip[] {
   const chips: MiniChip[] = [];
-  const i1 = match.innings[0];
-  const i2 = match.innings[1];
-  const live = i2 ?? i1;
+  const live = match.innings[match.innings.length - 1];
   if (!live) return chips;
 
-  const target = i1 && i2 ? i1.runs + 1 : null;
-  const cumulativeRuns = live.balls.reduce((s, b) => s + b.runs + b.extras, 0);
-  const ballsBowled = live.balls.length;
-  const cumulativeWickets = live.balls.filter(b => b.isWicket).length;
-  const ballsLeft = 120 - ballsBowled;
-  const crr = ballsBowled > 0 ? (cumulativeRuns / ballsBowled) * 6 : 0;
+  // Chips 1 & 2: both not-out batters (striker first)
+  const notOut = live.battingCard.filter(r => !r.out);
+  const striker = notOut.find(r => r.onStrike) ?? notOut[0];
+  const nonStriker = notOut.find(r => r !== striker);
 
-  // Chip 1: RRR or CRR
-  if (target && ballsLeft > 0) {
-    const need = target - cumulativeRuns;
-    const rrr = (need / ballsLeft) * 6;
+  if (striker) {
     chips.push({
-      value: rrr.toFixed(1),
-      valueColor: rrr > 12 ? "text-wicket" : rrr > 9 ? "text-orange" : "text-boundary",
-      label: "RRR",
+      value: `${striker.runs}(${striker.ballsFaced})`,
+      valueColor: striker.runs >= 50 ? "text-boundary" : "text-text-primary",
+      label: (striker.playerName.split(" ").pop() ?? striker.playerName) + "*",
     });
-  } else {
+  }
+  if (nonStriker) {
     chips.push({
-      value: crr.toFixed(1),
-      valueColor: "text-text-primary",
-      label: "CRR",
+      value: `${nonStriker.runs}(${nonStriker.ballsFaced})`,
+      valueColor: nonStriker.runs >= 50 ? "text-boundary" : "text-text-primary",
+      label: nonStriker.playerName.split(" ").pop() ?? nonStriker.playerName,
     });
   }
 
-  // Chip 2: last 12 balls runs
-  const last12 = live.balls.slice(-12);
-  if (last12.length >= 6) {
-    const last12Runs = last12.reduce((s, b) => s + b.runs + b.extras, 0);
-    const last12Wkts = last12.filter(b => b.isWicket).length;
-    chips.push({
-      value: `${last12Runs}${last12Wkts ? `/${last12Wkts}w` : ""}`,
-      valueColor: last12Wkts > 0 ? "text-wicket" : last12Runs >= 15 ? "text-boundary" : "text-text-primary",
-      label: "last 12 balls",
-    });
-  }
-
-  // Chip 3: current bowler stats
-  const currentBowler = live.balls[live.balls.length - 1]?.bowlerName;
-  if (currentBowler) {
-    const bowlerStats = live.bowlingCard.find(b => b.playerName.includes(currentBowler) || currentBowler.includes(b.playerName));
+  // Chip 3: current bowler match figures
+  const currentBowlerName = live.balls[live.balls.length - 1]?.bowlerName;
+  if (currentBowlerName) {
+    const bowlerStats = live.bowlingCard.find(
+      b => b.playerName.includes(currentBowlerName) || currentBowlerName.includes(b.playerName)
+    );
     if (bowlerStats) {
       chips.push({
         value: `${bowlerStats.wickets}/${bowlerStats.runsConceded}`,
         valueColor: bowlerStats.wickets >= 2 ? "text-cyan" : "text-text-primary",
-        label: currentBowler.split(" ").pop() ?? currentBowler,
+        label: currentBowlerName.split(" ").pop() ?? currentBowlerName,
       });
     }
   }
 
-  // Chip 4: top scorer
-  const topScorer = [...live.battingCard].sort((a, b) => b.runs - a.runs)[0];
-  if (topScorer && topScorer.runs > 0) {
-    chips.push({
-      value: `${topScorer.runs}(${topScorer.ballsFaced})`,
-      valueColor: topScorer.runs >= 50 ? "text-boundary" : "text-text-primary",
-      label: topScorer.playerName.split(" ").pop() ?? topScorer.playerName,
-    });
-  }
-
-  return chips.slice(0, 4);
+  return chips;
 }
 export default memo(MiniInsightsBar);
