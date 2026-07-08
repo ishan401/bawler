@@ -925,3 +925,31 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Applied at every API boundary: ESPN `transformESPNBall`, Sportradar `transformSRBall`
 - Ensures partnership tracker, matchup card lookup, and player links all use consistent names regardless of which API feeds the data
 - `batsman_name?` / `bowler_name?` fields added to `SportRadarRawBall` interface
+
+---
+
+## [FUTURE] Digest — W/4/6 stat chip player popup
+
+### Feature spec (shelved — revisit when real player image API is available)
+
+**What**: Tapping the **W**, **×4**, or **×6** stat chips on any digest card (OverGroupCard, SessionCard) opens a bottom-sheet popup listing every relevant ball in that group/session with the player's name and avatar.
+
+**UX**:
+- Tap "2w" → sheet shows 2 rows, one per wicket: batter name + dismissal type ("Caught", "LBW" etc.) + over label (e.g. "Ov 14.3")
+- Tap "3×4" → 3 rows: batter name + "Four" + over label
+- Tap "2×6" → 2 rows: batter name + "Six" + over label
+- Each row has an avatar circle (team colour, initials fallback)
+- Backdrop tap or × button dismisses
+
+**Why shelved**: currently no player photo URL in the data layer (`PlayerProfile` has no `photoUrl`). The feature as built used initials-only avatars — functional but not differentiating enough to justify the added interaction complexity at v1.
+
+**When to ship**: once a player image CDN or API is wired in (e.g. ESPN cricinfo headshots, ICC media, or a self-hosted S3 bucket). Add `photoUrl?: string` to `PlayerProfile` in `types.ts`, populate in `mockData.ts` / transformer, then restore the component below.
+
+**Implementation** (was commit `a7f847f`, reverted at `2c13689`):
+- `StatPopup` component in `DigestTab.tsx` — bottom sheet, `useRef` + `useEffect` for outside-click dismiss
+- `PopupState { type: "w"|"4"|"6"; balls: Ball[] }` local state on each card view
+- `openPopup(type)` filters `card.allBalls` by `isWicket` / `isBoundary4` / `isBoundary6`
+- W/4/6 `<span>` chips become `<button>` elements, card wrapper gets `relative` positioning
+- `DISMISS_LABEL` map: `bowled/caught/lbw/run-out/stumped/hit-wicket → display string`
+- `initials(name)`: first + last initial from full name string
+- Restore from the reverted commit or cherry-pick `a7f847f` onto a feature branch
