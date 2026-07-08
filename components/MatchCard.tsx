@@ -205,17 +205,10 @@ export function LiveMatchCard({ match }: { match: Match }) {
 
         {/* Row 2 — teams; innings attributed by battingTeam, not position */}
         <div className="flex items-center justify-between gap-3 mt-1">
-          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} crr={teamABatting && liveCRR ? liveCRR : undefined} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
+          <LiveSide team={teamA} runs={lastInnA?.runs} wickets={lastInnA?.wickets} overs={lastInnA?.overs} batting={teamABatting} crr={teamABatting && liveCRR ? liveCRR : undefined} proj={teamABatting && projected ? projected.runs : undefined} prevRuns={prevInnA?.runs} prevWickets={prevInnA?.wickets} />
           <span className="text-lg font-extrabold text-white/30 shrink-0">vs</span>
-          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight crr={teamBBatting && liveCRR ? liveCRR : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
+          <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight crr={teamBBatting && liveCRR ? liveCRR : undefined} proj={teamBBatting && projected ? projected.runs : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
         </div>
-
-        {/* Row 3 — Proj score (1st innings only) */}
-        {projected && (
-          <div className="text-[10px] px-0.5 num">
-            <span className="text-white/50">Proj&nbsp;<span className="text-white font-bold">~{projected.runs}</span></span>
-          </div>
-        )}
 
         {/* Row 4 — prominent win-prob split bar (highlighted) */}
         {wp && <WinProbBar teamA={match.teamA} teamB={match.teamB} pctA={wp.pctA} />}
@@ -224,7 +217,7 @@ export function LiveMatchCard({ match }: { match: Match }) {
   );
 }
 
-function LiveSide({ team, runs, wickets, overs, batting, alignRight, crr, prevRuns, prevWickets }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; crr?: string; prevRuns?: number; prevWickets?: number }) {
+function LiveSide({ team, runs, wickets, overs, batting, alignRight, crr, proj, prevRuns, prevWickets }: { team: Team; runs?: number; wickets?: number; overs?: number; batting?: boolean; alignRight?: boolean; crr?: string; proj?: number; prevRuns?: number; prevWickets?: number }) {
   return (
     <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
       <div className={`flex items-center gap-1.5 ${alignRight ? "flex-row-reverse" : ""}`}>
@@ -241,7 +234,9 @@ function LiveSide({ team, runs, wickets, overs, batting, alignRight, crr, prevRu
             </span>
           )}
           {crr && (
-            <p className="text-[9px] text-cyan font-bold mt-0.5 leading-tight">CRR {crr}</p>
+            <p className="text-[9px] text-cyan font-bold mt-0.5 leading-tight num">
+              CRR {crr}{proj !== undefined && <span className="text-white/50 font-normal ml-2">Proj <span className="text-white font-bold">~{proj}</span></span>}
+            </p>
           )}
         </div>
       </div>
