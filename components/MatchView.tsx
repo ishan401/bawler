@@ -198,42 +198,42 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   useEffect(() => { if (tab === "scorecard") setScorecardBadge(null); }, [tab]);
 
   const truncatedMatch = useMemo(() => {
-    const ballsToShow = activeBallIdx + 1;
-    const i1Balls = match.innings[0]?.balls ?? [];
-    const i2Balls = match.innings[1]?.balls ?? [];
-    const i1Count = Math.min(ballsToShow, i1Balls.length);
-    const i2Count = Math.max(0, ballsToShow - i1Balls.length);
+    // Generalised N-innings truncation — works for T20/ODI (2 inn) and Test (up to 4 inn).
+    // We slice the global ball timeline at activeBallIdx and distribute the visible
+    // balls across innings in order. Any innings not yet reached is excluded;
+    // any fully-consumed innings keeps its real scorecard values.
+    let remaining = activeBallIdx + 1;
     const innings: typeof match.innings = [];
-    if (match.innings[0]) {
-      const truncBalls = i1Balls.slice(0, i1Count);
-      const runs = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
-      const wickets = truncBalls.filter(b => b.isWicket).length;
-      const lastBall = truncBalls[truncBalls.length - 1];
-      const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / ballsPerSet(match.format) : 0;
-      innings.push({
-        ...match.innings[0],
-        balls: truncBalls,
-        runs: i2Count > 0 ? match.innings[0].runs : runs,
-        wickets: i2Count > 0 ? match.innings[0].wickets : wickets,
-        overs: i2Count > 0 ? match.innings[0].overs : Math.round(overs * 10) / 10,
-      });
-    }
-    if (match.innings[1] && i2Count > 0) {
-      const truncBalls = i2Balls.slice(0, i2Count);
-      const runs = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
-      const wickets = truncBalls.filter(b => b.isWicket).length;
-      const lastBall = truncBalls[truncBalls.length - 1];
-      const overs = lastBall ? lastBall.over - 1 + (lastBall.ballInOver + 1) / ballsPerSet(match.format) : 0;
-      // When no balls available yet, fall back to the real scorecard values
-      // so ScoreBar always shows the correct chase score even without ball-by-ball.
-      const hasBalls = truncBalls.length > 0;
-      innings.push({
-        ...match.innings[1],
-        balls: truncBalls,
-        runs:    hasBalls ? runs    : match.innings[1].runs,
-        wickets: hasBalls ? wickets : match.innings[1].wickets,
-        overs:   hasBalls ? Math.round(overs * 10) / 10 : match.innings[1].overs,
-      });
+
+    for (const inn of match.innings) {
+      if (remaining <= 0) break; // innings not started in current playback position
+
+      const innBalls  = inn.balls;
+      const isComplete = remaining > innBalls.length; // all balls of this innings are visible
+      const take       = Math.min(remaining, innBalls.length);
+      const truncBalls = innBalls.slice(0, take);
+      remaining -= take;
+
+      if (isComplete) {
+        // Innings fully consumed — use authoritative scorecard values
+        innings.push({ ...inn, balls: truncBalls });
+      } else {
+        // Viewing mid-innings — derive runs/wickets/overs from truncated balls
+        const hasBalls  = truncBalls.length > 0;
+        const runs      = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
+        const wickets   = truncBalls.filter(b => b.isWicket).length;
+        const lastBall  = truncBalls[truncBalls.length - 1];
+        const overs     = lastBall
+          ? lastBall.over - 1 + (lastBall.ballInOver + 1) / ballsPerSet(match.format)
+          : 0;
+        innings.push({
+          ...inn,
+          balls:   truncBalls,
+          runs:    hasBalls ? runs    : inn.runs,
+          wickets: hasBalls ? wickets : inn.wickets,
+          overs:   hasBalls ? Math.round(overs * 10) / 10 : inn.overs,
+        });
+      }
     }
     return { ...match, innings };
   }, [match, activeBallIdx]);
