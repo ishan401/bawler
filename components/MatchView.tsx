@@ -637,8 +637,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     match={truncatedMatch}
                     fielders={fielders}
                     loopMs={GIF_LOOP_MS}
-                    scoreText={clipScoreText}
-                    situationText={clipSituationText}
                     partnership={partnershipInfo ?? undefined}
                     onShare={triggerShare}
                   />
