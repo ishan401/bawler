@@ -83,7 +83,7 @@ export default function BallGIF({
         {/* scene */}
         <div key={`${activeClip}-${ball.id}`} className="scene-fade-in absolute inset-0">
           {activeClip === "bowler"
-            ? <BowlerView ball={ball} loopMs={loopMs / 2} />
+            ? <BowlerView ball={ball} loopMs={loopMs / 2} battingColor={battingTeam.primaryColor} bowlingColor={bowlingTeam.primaryColor} />
             : <OverheadView ball={ball} fielders={fielders} loopMs={loopMs / 2} />}
         </div>
 
@@ -96,12 +96,10 @@ export default function BallGIF({
             </div>
             <OutcomeBadge ball={ball} />
           </div>
-          <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[9px] font-semibold leading-none">
-            <PlayerAvatar name={ball.bowlerName} color={bowlingTeam.primaryColor} />
-            <span className="text-white/80 font-bold truncate max-w-[90px]">{ball.bowlerName}</span>
-            <span className="text-white/30 shrink-0">→</span>
-            <PlayerAvatar name={ball.batterName} color={battingTeam.primaryColor} />
-            <span className="text-white/80 font-bold truncate max-w-[90px]">{ball.batterName}</span>
+          <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[9px] font-semibold text-white/55 leading-none truncate">
+            <span className="text-white/80 font-bold truncate">{ball.bowlerName}</span>
+            <span className="text-white/35">→</span>
+            <span className="text-white/80 font-bold truncate">{ball.batterName}</span>
           </div>
         </div>
 
@@ -125,32 +123,6 @@ export default function BallGIF({
       <PartnershipFooter ball={ball} partnership={partnership} match={match} />
 
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PLAYER AVATAR — initials circle, imageUrl-ready for Roanuz integration
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PlayerAvatar({ name, color, imageUrl }: { name: string; color: string; imageUrl?: string }) {
-  const parts = name.trim().split(" ");
-  const initials = parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : name.slice(0, 2).toUpperCase();
-
-  return (
-    <span
-      className="inline-flex shrink-0 w-[20px] h-[20px] rounded-full items-center justify-center overflow-hidden"
-      style={{ background: `${color}28`, border: `1.5px solid ${color}55` }}
-    >
-      {imageUrl ? (
-        <img src={imageUrl} alt={name} className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-[7px] font-extrabold leading-none" style={{ color }}>
-          {initials}
-        </span>
-      )}
-    </span>
   );
 }
 
@@ -260,7 +232,8 @@ function ShareIcon() {
 // Clip A — Bowler's direction (unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
+function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; loopMs: number; battingColor: string; bowlingColor: string }) {
+  const initials = (n: string) => { const p = n.trim().split(" "); return p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : n.slice(0,2).toUpperCase(); };
   const W = 800, H = 500;
   const PITCH_TOP_W = 80, PITCH_BOT_W = 220, PITCH_TOP_Y = 80, PITCH_BOT_Y = 380, CX = W / 2;
   const pitchXAtY = (y: number) => {
@@ -321,12 +294,18 @@ function BowlerView({ ball, loopMs }: { ball: Ball; loopMs: number }) {
       <Stumps cx={CX} cy={PITCH_TOP_Y+8} scale={0.6}/>
       <Stumps cx={CX} cy={PITCH_BOT_Y-6} scale={1.1} flying={ball.isWicket&&ball.dismissalType==="bowled"}/>
       <Person cx={releaseX} cy={releaseY+20} scale={0.55} arm={ball.bowlingArm??"right"} from={ball.bowlingFrom??"over"}/>
-      <text x={releaseX+22} y={releaseY+12} fill="#F8FAFC" fontSize="13" fontWeight="700" fontFamily="Inter, sans-serif">{ball.bowlerName}</text>
-      <text x={releaseX+22} y={releaseY+26} fill="#94A3B8" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Bowler</text>
+      {/* Bowler avatar — initials circle beside name */}
+      <circle cx={releaseX+10} cy={releaseY+8} r={11} fill={`${bowlingColor}28`} stroke={`${bowlingColor}70`} strokeWidth="1.5"/>
+      <text x={releaseX+10} y={releaseY+8} textAnchor="middle" dominantBaseline="central" fill={bowlingColor} fontSize="8" fontWeight="800" fontFamily="Inter,sans-serif">{initials(ball.bowlerName)}</text>
+      <text x={releaseX+25} y={releaseY+12} fill="#F8FAFC" fontSize="13" fontWeight="700" fontFamily="Inter, sans-serif">{ball.bowlerName}</text>
+      <text x={releaseX+25} y={releaseY+26} fill="#94A3B8" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Bowler</text>
       <Person cx={CX-26} cy={PITCH_BOT_Y+30} scale={1.0} arm="right" from="over"/>
       <Bat cx={CX-26} cy={PITCH_BOT_Y+30} shotAngle={ball.shotAngle??0}/>
-      <text x={CX-50} y={PITCH_BOT_Y+56} textAnchor="end" fill="#F8FAFC" fontSize="14" fontWeight="700" fontFamily="Inter, sans-serif">{ball.batterName}</text>
-      <text x={CX-50} y={PITCH_BOT_Y+72} textAnchor="end" fill="#94A3B8" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Batter</text>
+      {/* Batter avatar — initials circle beside name */}
+      <circle cx={CX-88} cy={PITCH_BOT_Y+50} r={11} fill={`${battingColor}28`} stroke={`${battingColor}70`} strokeWidth="1.5"/>
+      <text x={CX-88} y={PITCH_BOT_Y+50} textAnchor="middle" dominantBaseline="central" fill={battingColor} fontSize="8" fontWeight="800" fontFamily="Inter,sans-serif">{initials(ball.batterName)}</text>
+      <text x={CX-74} y={PITCH_BOT_Y+56} textAnchor="start" fill="#F8FAFC" fontSize="14" fontWeight="700" fontFamily="Inter, sans-serif">{ball.batterName}</text>
+      <text x={CX-74} y={PITCH_BOT_Y+72} textAnchor="start" fill="#94A3B8" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Batter</text>
       <use href="#pre-B" stroke="#FF6B35" strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.5"/>
       <use href="#post-B" stroke={ball.spinDirection!=="none"?"#A855F7":"#00E5FF"} strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.55"/>
       <circle cx={impactX} cy={impactY} r="9" fill="#FF6B35" opacity="0.4"/>
