@@ -13,7 +13,7 @@
  * Default view = latest day with data.
  */
 
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 
@@ -64,112 +64,6 @@ function ShareButton({ label }: { label: string }) {
           d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
       </svg>
     </button>
-  );
-}
-
-
-// ── stat popup (W / 4 / 6 tap) ───────────────────────────────────────────────
-
-function initials(name: string | null | undefined): string {
-  if (!name) return "?";
-  const parts = name.trim().split(" ").filter(Boolean);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-const DISMISS_LABEL: Record<string, string> = {
-  bowled: "Bowled", caught: "Caught", lbw: "LBW",
-  "run-out": "Run Out", stumped: "Stumped", "hit-wicket": "Hit Wicket", retired: "Retired",
-};
-
-interface PopupState {
-  type: "w" | "4" | "6";
-  balls: Ball[];
-}
-
-function StatPopup({
-  popup,
-  teamColor,
-  onClose,
-}: {
-  popup: PopupState;
-  teamColor: string;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose]);
-
-  const title =
-    popup.type === "w" ? "Wickets" :
-    popup.type === "6" ? "Sixes" : "Fours";
-
-  const accent =
-    popup.type === "w" ? "text-wicket" :
-    popup.type === "6" ? "text-six" : "text-boundary";
-
-  return (
-    <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
-      {/* backdrop */}
-      <div
-        className="fixed inset-0 z-20 bg-black/40 pointer-events-auto"
-        onPointerDown={onClose}
-      />
-      {/* sheet */}
-      <div
-        ref={ref}
-        className="relative z-30 pointer-events-auto mx-3 mb-3 rounded-xl bg-surface-2 border border-line/60 shadow-xl overflow-hidden"
-      >
-        {/* header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-line/40">
-          <span className={`text-[11px] font-black uppercase tracking-widest ${accent}`}>{title}</span>
-          <button
-            onPointerDown={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-white/8 active:bg-white/15"
-            aria-label="Close"
-          >
-            <svg className="w-3 h-3 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {/* ball rows */}
-        <div className="divide-y divide-line/30">
-          {popup.balls.map(b => {
-            const name = popup.type === "w" ? b.batterName : b.batterName;
-            const detail =
-              popup.type === "w"
-                ? (b.dismissalType ? DISMISS_LABEL[b.dismissalType] ?? b.dismissalType : "Out")
-                : popup.type === "6" ? "Six" : "Four";
-            const overLabel = `Ov ${b.over}.${b.ballInOver + 1}`;
-            return (
-              <div key={b.id} className="flex items-center gap-2.5 px-3 py-2.5">
-                {/* avatar */}
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black"
-                  style={{ background: `${teamColor}28`, border: `1.5px solid ${teamColor}70`, color: teamColor }}
-                >
-                  {initials(name)}
-                </div>
-                {/* name + detail */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-bold text-text-primary truncate">{name || "Unknown"}</p>
-                  <p className={`text-[10px] font-semibold ${accent}`}>{detail}</p>
-                </div>
-                {/* over label */}
-                <span className="text-[10px] text-text-dim font-mono shrink-0">{overLabel}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -699,27 +593,18 @@ function OverGroupCardView({ card }: { card: OverGroupCard }) {
   const kb = card.keyBall;
   const keyLabel = kb ? `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}` : "";
   const showDots = card.gs === 1;
-  const [popup, setPopup] = useState<PopupState | null>(null);
-
-  function openPopup(type: "w" | "4" | "6") {
-    const balls = card.allBalls.filter(b =>
-      type === "w" ? b.isWicket : type === "6" ? b.isBoundary6 : b.isBoundary4
-    );
-    if (balls.length) setPopup({ type, balls });
-  }
 
   return (
-    <div className="card overflow-hidden relative" data-digest-card>
-      {popup && <StatPopup popup={popup} teamColor={card.teamColor} onClose={() => setPopup(null)} />}
+    <div className="card overflow-hidden" data-digest-card>
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
         <span className="text-[10px] font-extrabold text-text-primary">{card.label}</span>
         <div className="flex-1" />
         <span className="text-[10px] font-extrabold num text-text-primary">{card.runs}r</span>
-        {card.wickets > 0 && <button onClick={() => openPopup("w")} className="text-[10px] font-extrabold num text-wicket ml-1 active:opacity-60 transition-opacity">{card.wickets}w</button>}
-        {card.fours > 0   && <button onClick={() => openPopup("4")} className="text-[10px] font-bold num text-boundary ml-1 active:opacity-60 transition-opacity">{card.fours}×4</button>}
-        {card.sixes > 0   && <button onClick={() => openPopup("6")} className="text-[10px] font-bold num text-six ml-1 active:opacity-60 transition-opacity">{card.sixes}×6</button>}
+        {card.wickets > 0 && <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>}
+        {card.fours > 0   && <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>}
+        {card.sixes > 0   && <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>}
       </div>
       <div className="flex items-center gap-2 px-3 pb-2">
         {showDots && (
@@ -740,18 +625,9 @@ function OverGroupCardView({ card }: { card: OverGroupCard }) {
 function SessionCardView({ card }: { card: SessionCard }) {
   const kb = card.keyBall;
   const keyLabel = kb ? `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}` : "";
-  const [popup, setPopup] = useState<PopupState | null>(null);
-
-  function openPopup(type: "w" | "4" | "6") {
-    const balls = card.allBalls.filter(b =>
-      type === "w" ? b.isWicket : type === "6" ? b.isBoundary6 : b.isBoundary4
-    );
-    if (balls.length) setPopup({ type, balls });
-  }
 
   return (
-    <div className="card overflow-hidden relative" data-digest-card>
-      {popup && <StatPopup popup={popup} teamColor={card.teamColor} onClose={() => setPopup(null)} />}
+    <div className="card overflow-hidden" data-digest-card>
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
@@ -761,9 +637,9 @@ function SessionCardView({ card }: { card: SessionCard }) {
         )}
         <div className="flex-1" />
         <span className="text-[10px] font-extrabold num text-text-primary">{card.runs}r</span>
-        {card.wickets > 0 && <button onClick={() => openPopup("w")} className="text-[10px] font-extrabold num text-wicket ml-1 active:opacity-60 transition-opacity">{card.wickets}w</button>}
-        {card.fours > 0   && <button onClick={() => openPopup("4")} className="text-[10px] font-bold num text-boundary ml-1 active:opacity-60 transition-opacity">{card.fours}×4</button>}
-        {card.sixes > 0   && <button onClick={() => openPopup("6")} className="text-[10px] font-bold num text-six ml-1 active:opacity-60 transition-opacity">{card.sixes}×6</button>}
+        {card.wickets > 0 && <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>}
+        {card.fours > 0   && <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>}
+        {card.sixes > 0   && <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>}
       </div>
       <div className="flex items-center gap-2 px-3 pb-2">
         <span className="text-[9px] text-text-dim shrink-0">{card.overRange}</span>
