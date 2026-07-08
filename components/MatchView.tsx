@@ -15,6 +15,7 @@ import MatchTabs, { type TabKey, type TabBadge } from "@/components/MatchTabs";
 import Scorecard from "@/components/Scorecard";
 import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
+import DigestTab from "@/components/DigestTab";
 import { MOCK_INSIGHTS_V2 } from "@/lib/mockData";
 import LineupsCard from "@/components/LineupsCard";
 import MomentStoryCard from "@/components/MomentStoryCard";
@@ -66,6 +67,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // Show TABLE tab if the match's own competition OR its championship (e.g. WTC) has standings
   const tableComp = match.championship?.hasStandings ? match.championship : match.competition;
   const showTable = tableComp.hasStandings;
+  const showDigest = allBalls.length > 0 && !isUpcoming;
   const defaultTab: TabKey = isUpcoming ? "info" : "live";
 
   // Restore the last-viewed tab when navigating back from a player profile.
@@ -138,7 +140,13 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   }, [tab, SESSION_KEY]);
 
   // ── Swipe between tabs ──────────────────────────────────────────
-  const TABS_ORDER: TabKey[] = showTable ? ["live", "scorecard", "info", "table"] : ["live", "scorecard", "info"];
+  const TABS_ORDER: TabKey[] = [
+      "live",
+      "scorecard",
+      ...(showDigest ? ["digest" as TabKey] : []),
+      "info",
+      ...(showTable ? ["table" as TabKey] : []),
+    ];
   const swipeTouchX = useRef(0);
   const swipeTouchY = useRef(0);
   const swipeIgnored = useRef(false); // true when touch started inside an h-scroll container
@@ -530,7 +538,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       <div className="sticky top-0 z-30">
         <ScoreBar match={truncatedMatch} />
         <MiniInsightsBar match={truncatedMatch} insights={visibleInsights} />
-        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} />
+        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} showDigest={showDigest} />
       </div>
 
       <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
@@ -686,6 +694,13 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         )}
 
         {renderedTab === "scorecard" && <Scorecard match={truncatedMatch} />}
+        {renderedTab === "digest" && (
+          <DigestTab
+            match={truncatedMatch}
+            allBalls={allBalls}
+            onSelectBall={(id) => { setSelectedBallId(id); goToTab("live"); }}
+          />
+        )}
         {renderedTab === "info" && <InfoTab match={truncatedMatch} />}
         {renderedTab === "table" && <StandingsTab competition={tableComp} />}
 

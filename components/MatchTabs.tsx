@@ -1,7 +1,7 @@
 "use client";
 import { memo } from "react";
 
-export type TabKey = "live" | "scorecard" | "info" | "table";
+export type TabKey = "live" | "scorecard" | "digest" | "info" | "table";
 
 export interface TabBadge {
   tab: TabKey;
@@ -13,12 +13,14 @@ interface MatchTabsProps {
   onChange: (tab: TabKey) => void;
   badge?: TabBadge | null;
   showTable?: boolean;
+  showDigest?: boolean;
 }
 
-function MatchTabs({ active, onChange, badge, showTable }: MatchTabsProps) {
+function MatchTabs({ active, onChange, badge, showTable, showDigest }: MatchTabsProps) {
   const TABS: { key: TabKey; label: string }[] = [
     { key: "live", label: "Live" },
     { key: "scorecard", label: "Scorecard" },
+    ...(showDigest ? [{ key: "digest" as TabKey, label: "Digest" }] : []),
     { key: "info", label: "Info" },
     ...(showTable ? [{ key: "table" as TabKey, label: "Table" }] : []),
   ];
