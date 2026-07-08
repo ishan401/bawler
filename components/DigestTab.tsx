@@ -1,18 +1,19 @@
 "use client";
 
 /**
- * DigestTab — over-by-over / session digest cards for each innings.
+ * DigestTab — session / over-group digest cards.
  *
  * Format-adaptive grouping:
  *   T20 / T20I / Hundred → 1 card per over
  *   ODI                  → 1 card per 5 overs
- *   Test (no sessions)   → 1 card per 10 overs (fallback)
- *   Test (with sessions) → 1 card per session + Day Summary card at end of each day
+ *   Test (with sessions) → 1 card per session + Day Report card at end of each day
+ *   Test (no sessions)   → 1 card per 10 overs (fallback, auto-derives from timestamps)
  *
- * Cards newest-first.
+ * Test-only: Day filter chips let the user browse by day.
+ * Default view = latest day with data.
  */
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 
@@ -60,27 +61,20 @@ function dominantBowler(balls: Ball[]): string {
   )[0][0];
 }
 
-// ── narrative (factual, compact) ──────────────────────────────────────────────
+// ── narrative (row 2 — factual, compact) ─────────────────────────────────────
 
 function buildNarrative(
-  runs: number,
-  wickets: number,
-  fours: number,
-  sixes: number,
-  bowler: string,
-  keyBall: Ball,
-  format: MatchFormat
+  runs: number, wickets: number, fours: number, sixes: number,
+  bowler: string, keyBall: Ball, format: MatchFormat
 ): string {
   const span = format === "ODI" ? "block" : format === "Test" ? "session" : "over";
-  const big = format === "ODI" ? 30 : format === "Test" ? 50 : 14;
+  const big  = format === "ODI" ? 30 : format === "Test" ? 50 : 14;
 
   if (runs === 0 && wickets === 0) return `${lastName(bowler)} maiden`;
   if (wickets >= 3) return `${wickets} wickets — collapse!`;
   if (wickets === 2) return `Two wickets, ${runs} conceded`;
   if (runs >= big)
-    return sixes >= 2
-      ? `${sixes} sixes, ${fours} fours — carnage`
-      : `Big ${span} — ${runs} runs`;
+    return sixes >= 2 ? `${sixes} sixes, ${fours} fours — carnage` : `Big ${span} — ${runs} runs`;
   if (wickets === 1 && runs >= 10) return `${runs} & a wicket — ${lastName(bowler)}`;
   if (wickets === 1) return `${lastName(bowler)} strikes`;
   if (sixes >= 2) return `${sixes} sixes — ${lastName(keyBall.batterName)} in flow`;
@@ -89,134 +83,197 @@ function buildNarrative(
   return `${runs} scored`;
 }
 
-// ── over summary (creative, 1-2 lines) ────────────────────────────────────────
+// ── over summary (row 3 — creative 1-2 lines) ─────────────────────────────────
 
 function buildOverSummary(
-  runs: number,
-  wickets: number,
-  fours: number,
-  sixes: number,
-  bowlerName: string,
-  keyBall: Ball,
-  variant: number
+  runs: number, wickets: number, fours: number, sixes: number,
+  bowlerName: string, keyBall: Ball, variant: number
 ): string {
   const bowler = lastName(bowlerName);
   const batter = lastName(keyBall.batterName);
   const v = ((variant % 3) + 3) % 3;
 
-  if (runs === 0 && wickets === 0) {
-    return [
-      `${bowler} was unplayable — six balls, not a run to spare.`,
-      `A maiden under pressure. ${bowler} made every delivery count.`,
-      `Dots all the way. The kind of over that wins matches quietly.`,
-    ][v];
-  }
-  if (wickets >= 3) {
-    return [
-      `Three gone — the innings buckled without warning.`,
-      `${bowler} went through the lineup. Chaos in the middle.`,
-      `A collapse that no batting card can explain. Drama, pure and simple.`,
-    ][v];
-  }
-  if (wickets >= 2) {
-    return [
-      `Two wickets in quick succession — the game just tilted.`,
-      `${bowler} made it look inevitable. Both batters had no answer.`,
-      `A partnership ended, another began — the pressure just ratcheted up.`,
-    ][v];
-  }
-  if (runs >= 18) {
-    return [
-      `${batter} was in another zone entirely — ${runs} off the over, relentless.`,
-      `The bowling had no plan. ${batter} had every shot in the book.`,
-      `${runs} runs. The crowd barely sat down. This is why you watch cricket.`,
-    ][v];
-  }
-  if (runs >= 14) {
-    return [
-      `${batter} seized the moment — ${runs} and the momentum swings.`,
-      `A statement over. ${bowler} will want to forget this one.`,
-      `${runs} runs and the game's balance tipped in an instant.`,
-    ][v];
-  }
-  if (sixes >= 2) {
-    return [
-      `${batter} cleared the ropes twice. ${bowler} had no answers.`,
-      `Two sixes — pick a length, they said. ${batter} didn't care either way.`,
-      `The big hits arrived on cue. The crowd erupted, and rightly so.`,
-    ][v];
-  }
-  if (fours >= 3) {
-    return [
-      `Boundaries everywhere — ${batter} was in cruise control.`,
-      `Three fours: elegant, ruthless, clinical. ${bowler} had no room to hide.`,
-      `The scoreboard ticked quickly. ${batter} made it all look effortless.`,
-    ][v];
-  }
-  if (wickets === 1) {
-    return [
-      `One wicket — and the mood in the middle changed instantly.`,
-      `${bowler} got the big one. This is where the match could turn.`,
-      `${batter} walks back. The questions start. The pressure is real now.`,
-    ][v];
-  }
-  if (runs <= 4) {
-    return [
-      `${runs} runs off the over. ${bowler} gave nothing away, nothing at all.`,
-      `Tight, disciplined, relentless — ${bowler}'s kind of over.`,
-      `${runs} off six balls. May as well have been a maiden. Pressure applied.`,
-    ][v];
-  }
-  return [
-    `A balanced over. Neither side dominated, but the tension stayed.`,
-    `The contest quietly continues — ${runs} runs, nothing decided yet.`,
-    `${runs} scored and the match stays on a knife edge. Next over matters.`,
-  ][v];
+  if (runs === 0 && wickets === 0)
+    return [`${bowler} was unplayable — six balls, not a run to spare.`,
+            `A maiden under pressure. ${bowler} made every delivery count.`,
+            `Dots all the way. The kind of over that wins matches quietly.`][v];
+  if (wickets >= 3)
+    return [`Three gone — the innings buckled without warning.`,
+            `${bowler} went through the lineup. Chaos in the middle.`,
+            `A collapse that no batting card can explain. Drama, pure and simple.`][v];
+  if (wickets >= 2)
+    return [`Two wickets in quick succession — the game just tilted.`,
+            `${bowler} made it look inevitable. Both batters had no answer.`,
+            `A partnership ended, another began — the pressure just ratcheted up.`][v];
+  if (runs >= 18)
+    return [`${batter} was in another zone entirely — ${runs} off the over, relentless.`,
+            `The bowling had no plan. ${batter} had every shot in the book.`,
+            `${runs} runs. The crowd barely sat down. This is why you watch cricket.`][v];
+  if (runs >= 14)
+    return [`${batter} seized the moment — ${runs} and the momentum swings.`,
+            `A statement over. ${bowler} will want to forget this one.`,
+            `${runs} runs and the game's balance tipped in an instant.`][v];
+  if (sixes >= 2)
+    return [`${batter} cleared the ropes twice. ${bowler} had no answers.`,
+            `Two sixes — pick a length, they said. ${batter} didn't care either way.`,
+            `The big hits arrived on cue. The crowd erupted, and rightly so.`][v];
+  if (fours >= 3)
+    return [`Boundaries everywhere — ${batter} was in cruise control.`,
+            `Three fours: elegant, ruthless, clinical. ${bowler} had no room to hide.`,
+            `The scoreboard ticked quickly. ${batter} made it all look effortless.`][v];
+  if (wickets === 1)
+    return [`One wicket — and the mood in the middle changed instantly.`,
+            `${bowler} got the big one. This is where the match could turn.`,
+            `${batter} walks back. The questions start. The pressure is real now.`][v];
+  if (runs <= 4)
+    return [`${runs} runs off the over. ${bowler} gave nothing away, nothing at all.`,
+            `Tight, disciplined, relentless — ${bowler}'s kind of over.`,
+            `${runs} off six balls. May as well have been a maiden. Pressure applied.`][v];
+  return [`A balanced over. Neither side dominated, but the tension stayed.`,
+          `The contest quietly continues — ${runs} runs, nothing decided yet.`,
+          `${runs} scored and the match stays on a knife edge. Next over matters.`][v];
 }
 
-// ── day summary creative line ─────────────────────────────────────────────────
+// ── day report (5-7 lines for the Day Stumps card) ───────────────────────────
 
-function buildDaySummaryLine(
-  runs: number,
-  wickets: number,
-  fours: number,
-  sixes: number,
-  day: number
-): string {
+interface SessionEntry {
+  sess: TestSession;
+  card: SessionCard;
+}
+
+function buildDayReport(
+  day: number,
+  entries: SessionEntry[],
+  isCurrentDay: boolean
+): string[] {
+  const lines: string[] = [];
+  const totalRuns    = entries.reduce((s, e) => s + e.card.runs, 0);
+  const totalWickets = entries.reduce((s, e) => s + e.card.wickets, 0);
+  const totalFours   = entries.reduce((s, e) => s + e.card.fours, 0);
+  const totalSixes   = entries.reduce((s, e) => s + e.card.sixes, 0);
+
+  // Top bowler on the day
+  const bowlerWkts = new Map<string, number>();
+  for (const e of entries) {
+    bowlerWkts.set(e.card.bowlerName,
+      (bowlerWkts.get(e.card.bowlerName) ?? 0) + e.card.wickets);
+  }
+  const [topBowlerName, topBowlerWkts] = [...bowlerWkts.entries()]
+    .sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+  const topBowler = lastName(topBowlerName);
+
   const v = day % 3;
-  if (wickets >= 10) {
-    return [
-      "Two teams, one day, ten wickets — cricket at its most dramatic.",
-      "A complete story in a day: batting, bowling, and a full set of wickets.",
-      "The contest was fierce. Ten down by stumps.",
-    ][v];
+
+  // ── Line 1: Day overview ─────────────────────────────────────────────────
+  if (totalWickets >= 10) {
+    lines.push([
+      `Day ${day} was a bowler's masterclass — ${totalWickets} wickets fell for ${totalRuns} runs across a dramatic day's play.`,
+      `Wickets, drama, and relentless pressure defined Day ${day}: ${totalWickets} down, ${totalRuns} scored. A day the batting side would rather forget.`,
+      `${totalWickets} wickets and ${totalRuns} runs summed up a Day ${day} that belonged entirely to the bowlers.`,
+    ][v]);
+  } else if (totalWickets <= 2) {
+    lines.push([
+      `Day ${day} was a batter's paradise — ${totalRuns} runs flowed with barely a scare, as the bowling attacks toiled without reward.`,
+      `The bowlers had a long and thankless Day ${day}: ${totalRuns} scored, only ${totalWickets} wickets conceded. A commanding display of batting.`,
+      `${totalRuns} runs and just ${totalWickets} wicket${totalWickets !== 1 ? "s" : ""} lost on Day ${day} — the kind of day that changes the shape of a Test match.`,
+    ][v]);
+  } else if (totalWickets >= 6) {
+    lines.push([
+      `Day ${day} swung decisively: ${totalRuns} runs, ${totalWickets} wickets — the bowling side seized the initiative and held on to it.`,
+      `An eventful Day ${day} with ${totalWickets} wickets and ${totalRuns} runs. The balance tilted, and the bowling side were the ones smiling at stumps.`,
+      `${totalWickets} wickets for ${totalRuns} runs on Day ${day} — a day that opened up the Test match and left plenty to play for.`,
+    ][v]);
+  } else {
+    lines.push([
+      `Day ${day} produced the kind of cricket Tests are made for — ${totalRuns} scored, ${totalWickets} wickets, momentum shifting more than once.`,
+      `An absorbing Day ${day}: ${totalRuns} runs, ${totalWickets} wickets, and a match that refused to settle into a clear pattern.`,
+      `${totalRuns} runs and ${totalWickets} wickets on Day ${day}. Hard-fought, absorbing, and genuinely unresolved at stumps.`,
+    ][v]);
   }
-  if (wickets === 0) {
-    return [
-      "Not a wicket to fall. The batters owned every session.",
-      "Flawless with the bat. A day the bowlers would rather forget.",
-      `${runs} scored, none lost — the kind of day Test batters dream of.`,
-    ][v];
+
+  // ── Lines 2-4: Per session ───────────────────────────────────────────────
+  for (const e of entries) {
+    const sessName = e.sess.session.charAt(0).toUpperCase() + e.sess.session.slice(1);
+    const r = e.card.runs;
+    const w = e.card.wickets;
+    const bl = lastName(e.card.bowlerName);
+    const range = e.card.overRange;
+
+    if (w >= 5) {
+      lines.push(`${sessName} (${range}): Only ${r} runs came in a session dominated by ${bl}, who took ${w} wickets in a spell that dismantled the innings. Brutal and brilliant.`);
+    } else if (w >= 3) {
+      lines.push(`${sessName} (${range}): ${r} runs, ${w} wickets — ${bl} led a sustained bowling effort that put the batting side firmly on the back foot.`);
+    } else if (w === 0 && r >= 70) {
+      lines.push(`${sessName} (${range}): A dominant batting session — ${r} runs without a single wicket lost. The bowlers toiled, the batters accumulated, and the scoreboard ticked over freely.`);
+    } else if (w === 0 && r >= 40) {
+      lines.push(`${sessName} (${range}): A steady ${r} runs with the wickets intact. Controlled rather than expansive, but the batting side will take it — no alarms, plenty of runs.`);
+    } else if (w === 0) {
+      lines.push(`${sessName} (${range}): Just ${r} runs, no wickets. A cautious session — the bowlers were tight, the batters were patient, and neither side truly dominated.`);
+    } else if (r <= 35 && w >= 2) {
+      lines.push(`${sessName} (${range}): A session that swung the match — ${w} wickets for only ${r} runs. The batting side lost their way, and ${bl} made them pay.`);
+    } else {
+      lines.push(`${sessName} (${range}): ${r} runs, ${w} wicket${w !== 1 ? "s" : ""} — a competitive session where both sides had their moments and no one could fully take charge.`);
+    }
   }
-  if (runs >= 250) {
-    return [
-      `${runs} scored in a day's play. Big hitting, good cricket, great theatre.`,
-      `A prolific day — ${runs} runs, ${wickets} wickets, drama in every session.`,
-      `Runs flowed freely. ${wickets} fell, but the batters had the upper hand.`,
-    ][v];
+
+  // ── Line 5: Star bowler ──────────────────────────────────────────────────
+  if (topBowlerWkts >= 4) {
+    lines.push([
+      `${topBowler} was the story of the day — ${topBowlerWkts} wickets, each one a piece of high-quality bowling that the batter could do little about. A performance that will be remembered.`,
+      `The standout individual: ${topBowler} with ${topBowlerWkts} wickets. Relentless, accurate, and utterly unplayable at times. A spell that shifted the entire match.`,
+      `${topBowler} put his name all over this day. ${topBowlerWkts} wickets and a performance that reminded everyone why he's among the best in the world right now.`,
+    ][v]);
+  } else if (topBowlerWkts >= 2) {
+    lines.push([
+      `${topBowler} was the pick of the bowlers with ${topBowlerWkts} wickets — combining consistency, movement, and the odd delivery that was simply too good.`,
+      `If one bowler stood out, it was ${topBowler}: ${topBowlerWkts} wickets and a performance that showed exactly why he's trusted in Test conditions.`,
+      `${topBowler} led the attack with ${topBowlerWkts} wickets, bowling with the kind of discipline that forces mistakes even from well-set batters.`,
+    ][v]);
+  } else if (totalFours + totalSixes >= 12) {
+    lines.push([
+      `The batting side found the boundary freely — ${totalFours} fours and ${totalSixes} sixes over the course of the day. Shot-making of the highest order.`,
+      `${totalFours} fours and ${totalSixes} sixes scored on the day. The boundary count tells its own story — this was batting with intent.`,
+      `The scoreboard moved briskly: ${totalFours} fours, ${totalSixes} sixes. When batters were in, they made it count.`,
+    ][v]);
   }
-  if (wickets >= 6) {
-    return [
-      `The bowlers dominated — ${wickets} wickets for ${runs} runs. Telling day.`,
-      `${wickets} wickets down and the innings in real trouble. Bowlers on top.`,
-      `Only ${runs} scored but ${wickets} fell. This is the bowlers' match to lose.`,
-    ][v];
+
+  // ── Line 6: Match context ────────────────────────────────────────────────
+  if (isCurrentDay) {
+    lines.push([
+      `The day's play continues — every ball from here carries enormous weight as the match enters its defining phase.`,
+      `Still live and still moving. This is Test cricket at its most gripping — nothing is decided, everything matters.`,
+      `The match is in the balance right now. The next session — or even the next wicket — could be the one that decides it.`,
+    ][v]);
+  } else if (totalWickets >= 8) {
+    lines.push([
+      `With ${totalWickets} wickets on the day, the scales have tilted sharply. The side that batted will need to dig deep to stay in this contest.`,
+      `${totalWickets} wickets in a day leaves very little room for error. The bowling side have put themselves in a commanding position heading into tomorrow.`,
+      `A day that could prove decisive — ${totalWickets} wickets lost in a single day rarely leaves the match in doubt for long.`,
+    ][v]);
+  } else if (totalWickets === 0) {
+    lines.push([
+      `Not a wicket fell. Tomorrow morning, the bowling side desperately need an early breakthrough to shift the momentum before this game gets away from them.`,
+      `A wicketless day changes the character of a Test. Come tomorrow, the bowling side must find a way in — quickly.`,
+      `With no wickets on the board, the batting side go to stumps firmly in control. The bowlers will be working late on their plans tonight.`,
+    ][v]);
+  } else {
+    lines.push([
+      `The match remains genuinely open. Tomorrow's first session could define which way this Test goes — and both sides know it.`,
+      `Neither side can claim to have won the day outright. That uncertainty is what makes Test cricket what it is.`,
+      `Intriguingly poised at stumps. The two-session rule applies — whoever wins the first session of tomorrow sets the tone for everything that follows.`,
+    ][v]);
   }
-  return [
-    `Stumps drawn: ${runs} scored, ${wickets} wickets fallen. The game hangs in the balance.`,
-    `${runs} runs and ${wickets} wickets — a hard-fought day with no clear winner yet.`,
-    `Cricket in its truest form — ${runs} scored, ${wickets} lost. Edge-of-seat stuff.`,
-  ][v];
+
+  // ── Line 7: Tomorrow's tease (completed days only) ───────────────────────
+  if (!isCurrentDay) {
+    lines.push([
+      `All eyes on the morning session tomorrow — the first wicket of the day almost always sets the tone. Come back at 10:30.`,
+      `What tomorrow brings is anyone's guess. In Test cricket, overnight momentum can evaporate before the first drinks break. That's the beauty of it.`,
+      `Day ${day + 1} starts with a fresh ball, fresh legs, and fresh pressure. In Test cricket, you can never truly bank on yesterday's runs.`,
+    ][v]);
+  }
+
+  return lines;
 }
 
 // ── card data types ───────────────────────────────────────────────────────────
@@ -227,10 +284,7 @@ interface OverGroupCard {
   label: string;
   inningsLabel: string;
   teamColor: string;
-  runs: number;
-  wickets: number;
-  fours: number;
-  sixes: number;
+  runs: number; wickets: number; fours: number; sixes: number;
   allBalls: Ball[];
   legalDeliveries: Ball[];
   keyBall: Ball;
@@ -243,14 +297,12 @@ interface OverGroupCard {
 interface SessionCard {
   kind: "session";
   id: string;
-  sessionLabel: string;   // "Day 2 Afternoon"
-  overRange: string;      // "Overs 1–28"
+  day: number;              // which day this session belongs to
+  sessionLabel: string;
+  overRange: string;
   inningsLabel: string;
   teamColor: string;
-  runs: number;
-  wickets: number;
-  fours: number;
-  sixes: number;
+  runs: number; wickets: number; fours: number; sixes: number;
   allBalls: Ball[];
   keyBall: Ball;
   bowlerName: string;
@@ -266,12 +318,12 @@ interface DaySummaryCard {
   sessionRows: { label: string; inningsLabel: string; runs: number; wickets: number; teamColor: string }[];
   totalRuns: number;
   totalWickets: number;
-  summaryLine: string;
+  report: string[];         // 5-7 line match report
 }
 
 type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard;
 
-// ── over-group card builder (T20 / ODI / Test fallback) ───────────────────────
+// ── over-group builder (T20 / ODI / Test fallback) ────────────────────────────
 
 function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): OverGroupCard[] {
   const gs = groupSize(match.format);
@@ -300,21 +352,18 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
       isLive && isLastInn && legalBalls(lastOverBalls).length < 6
         ? overNums.slice(0, -1)
         : overNums;
-
     if (completedOverNums.length === 0) continue;
 
     const ordinals = ["1st", "2nd", "3rd", "4th"];
     const inningsLabel = inningsCount > 1 ? `${ordinals[inn.number - 1]} Inn` : "";
-    const teamColor =
-      inn.battingTeam === match.teamA.code
-        ? match.teamA.primaryColor
-        : match.teamB.primaryColor;
+    const teamColor = inn.battingTeam === match.teamA.code
+      ? match.teamA.primaryColor : match.teamB.primaryColor;
 
     const firstOver = completedOverNums[0];
-    const lastOver = completedOverNums[completedOverNums.length - 1];
+    const lastOver  = completedOverNums[completedOverNums.length - 1];
 
     for (let chunkStart = firstOver; chunkStart <= lastOver; chunkStart += gs) {
-      const chunkEnd = chunkStart + gs - 1;
+      const chunkEnd  = chunkStart + gs - 1;
       const chunkOvers = completedOverNums.filter(n => n >= chunkStart && n <= chunkEnd);
       if (chunkOvers.length === 0) continue;
       if (gs > 1 && lastOver < chunkStart + gs - 1) continue;
@@ -322,48 +371,32 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
       const chunkBalls = chunkOvers.flatMap(n => byOver.get(n) ?? []);
       if (chunkBalls.length === 0) continue;
 
-      const runs = chunkBalls.reduce((s, b) => s + b.runs + b.extras, 0);
+      const runs    = chunkBalls.reduce((s, b) => s + b.runs + b.extras, 0);
       const wickets = chunkBalls.filter(b => b.isWicket).length;
-      const fours = chunkBalls.filter(b => b.isBoundary4).length;
-      const sixes = chunkBalls.filter(b => b.isBoundary6).length;
-      const keyBall = pickKeyBall(chunkBalls);
+      const fours   = chunkBalls.filter(b => b.isBoundary4).length;
+      const sixes   = chunkBalls.filter(b => b.isBoundary6).length;
+      const keyBall    = pickKeyBall(chunkBalls);
       const bowlerName = dominantBowler(chunkBalls);
-      const legal = legalBalls(chunkBalls);
-
-      const label =
-        gs === 1
-          ? `Over ${chunkStart}`
-          : `Overs ${chunkStart}–${Math.min(chunkEnd, lastOver)}`;
+      const legal      = legalBalls(chunkBalls);
+      const label = gs === 1 ? `Over ${chunkStart}` : `Overs ${chunkStart}–${Math.min(chunkEnd, lastOver)}`;
 
       result.push({
-        kind: "over-group",
-        id: `inn${inn.number}-over${chunkStart}`,
-        label,
-        inningsLabel,
-        teamColor,
-        runs,
-        wickets,
-        fours,
-        sixes,
-        allBalls: chunkBalls,
-        legalDeliveries: legal,
-        keyBall,
-        bowlerName,
+        kind: "over-group", id: `inn${inn.number}-over${chunkStart}`,
+        label, inningsLabel, teamColor, runs, wickets, fours, sixes,
+        allBalls: chunkBalls, legalDeliveries: legal, keyBall, bowlerName,
         narrative: buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, match.format),
         overSummary: buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, chunkStart),
         gs,
       });
     }
   }
-
   return result.reverse();
 }
 
-// ── session-based card builder (Test with sessions metadata) ──────────────────
+// ── session-based builder (Test) ──────────────────────────────────────────────
 
 function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
-  // Map: day → chronological list of {session, sessionCard}
-  const dayMap = new Map<number, { sess: TestSession; card: SessionCard }[]>();
+  const dayMap = new Map<number, SessionEntry[]>();
   const inningsCount = match.innings.length;
   const ordinals = ["1st", "2nd", "3rd", "4th"];
 
@@ -383,27 +416,25 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
     if (allOverNums.length === 0) continue;
 
     const isLastInn = innIdx === inningsCount - 1;
-    const lastOverNum = allOverNums[allOverNums.length - 1];
-    const lastOverBalls = byOver.get(lastOverNum) ?? [];
+    const lastOverNum    = allOverNums[allOverNums.length - 1];
+    const lastOverBalls  = byOver.get(lastOverNum) ?? [];
     const completedOverNums =
       isLive && isLastInn && legalBalls(lastOverBalls).length < 6
         ? allOverNums.slice(0, -1)
         : allOverNums;
 
     const inningsLabel = inningsCount > 1 ? `${ordinals[inn.number - 1]} Inn` : "";
-    const teamColor =
-      inn.battingTeam === match.teamA.code
-        ? match.teamA.primaryColor
-        : match.teamB.primaryColor;
+    const teamColor    = inn.battingTeam === match.teamA.code
+      ? match.teamA.primaryColor : match.teamB.primaryColor;
 
-    // Use explicit sessions from data layer; fall back to timestamp derivation
-    const derivedSessions: TestSession[] =
+    // Use explicit sessions if available, else derive from timestamps
+    const sessions: TestSession[] =
       inn.sessions && inn.sessions.length > 0
         ? inn.sessions
         : deriveTestSessions(innBalls, match.startTimeIso, isLive && isLastInn);
-    if (derivedSessions.length === 0) continue;
+    if (sessions.length === 0) continue;
 
-    for (const sess of derivedSessions) {
+    for (const sess of sessions) {
       const sessOvers = completedOverNums.filter(
         n => n >= sess.startOver && n <= sess.endOver
       );
@@ -412,36 +443,26 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
       const sessBalls = sessOvers.flatMap(n => byOver.get(n) ?? []);
       if (sessBalls.length === 0) continue;
 
-      const runs = sessBalls.reduce((s, b) => s + b.runs + b.extras, 0);
+      const runs    = sessBalls.reduce((s, b) => s + b.runs + b.extras, 0);
       const wickets = sessBalls.filter(b => b.isWicket).length;
-      const fours = sessBalls.filter(b => b.isBoundary4).length;
-      const sixes = sessBalls.filter(b => b.isBoundary6).length;
-      const keyBall = pickKeyBall(sessBalls);
+      const fours   = sessBalls.filter(b => b.isBoundary4).length;
+      const sixes   = sessBalls.filter(b => b.isBoundary6).length;
+      const keyBall    = pickKeyBall(sessBalls);
       const bowlerName = dominantBowler(sessBalls);
-      const firstOver = sessOvers[0];
-      const lastOver = sessOvers[sessOvers.length - 1];
-
-      const sessionIndex = ["morning", "afternoon", "evening"].indexOf(sess.session);
+      const firstOver  = sessOvers[0];
+      const lastOver   = sessOvers[sessOvers.length - 1];
+      const sessIdx    = ["morning", "afternoon", "evening"].indexOf(sess.session);
 
       const card: SessionCard = {
         kind: "session",
         id: `sess-inn${inn.number}-day${sess.day}-${sess.session}`,
+        day: sess.day,
         sessionLabel: sess.label,
         overRange: `Overs ${firstOver}–${lastOver}`,
-        inningsLabel,
-        teamColor,
-        runs,
-        wickets,
-        fours,
-        sixes,
-        allBalls: sessBalls,
-        keyBall,
-        bowlerName,
-        narrative: buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, "Test"),
-        overSummary: buildOverSummary(
-          runs, wickets, fours, sixes, bowlerName, keyBall,
-          sess.day * 3 + sessionIndex
-        ),
+        inningsLabel, teamColor, runs, wickets, fours, sixes,
+        allBalls: sessBalls, keyBall, bowlerName,
+        narrative:    buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, "Test"),
+        overSummary:  buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, sess.day * 3 + sessIdx),
         isLiveSession: !sess.isComplete,
       };
 
@@ -451,31 +472,24 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
     }
   }
 
-  // Build output oldest-first: sessions in order, then Day Summary at end of each complete day
+  // Build oldest-first: sessions in chronological order, Day Report after each complete day
   const result: DigestCardData[] = [];
   const days = [...dayMap.keys()].sort((a, b) => a - b);
 
   for (const day of days) {
     const entries = dayMap.get(day)!;
-    // Sort sessions chronologically
     const order = ["morning", "afternoon", "evening"];
     entries.sort((a, b) => order.indexOf(a.sess.session) - order.indexOf(b.sess.session));
 
-    for (const { card } of entries) {
-      result.push(card);
-    }
+    for (const { card } of entries) result.push(card);
 
     const allComplete = entries.every(e => e.sess.isComplete);
     if (allComplete) {
-      const totalRuns = entries.reduce((s, e) => s + e.card.runs, 0);
+      const totalRuns    = entries.reduce((s, e) => s + e.card.runs, 0);
       const totalWickets = entries.reduce((s, e) => s + e.card.wickets, 0);
-      const totalFours = entries.reduce((s, e) => s + e.card.fours, 0);
-      const totalSixes = entries.reduce((s, e) => s + e.card.sixes, 0);
 
       const daySummary: DaySummaryCard = {
-        kind: "day-summary",
-        id: `day-summary-${day}`,
-        day,
+        kind: "day-summary", id: `day-summary-${day}`, day,
         sessionRows: entries.map(e => ({
           label: e.sess.label,
           inningsLabel: e.card.inningsLabel,
@@ -483,25 +497,19 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
           wickets: e.card.wickets,
           teamColor: e.card.teamColor,
         })),
-        totalRuns,
-        totalWickets,
-        summaryLine: buildDaySummaryLine(totalRuns, totalWickets, totalFours, totalSixes, day),
+        totalRuns, totalWickets,
+        report: buildDayReport(day, entries, false),
       };
       result.push(daySummary);
     }
   }
 
-  // Newest-first
-  return result.reverse();
+  return result.reverse(); // newest-first
 }
 
-// ── top-level card builder ────────────────────────────────────────────────────
+// ── top-level builder ─────────────────────────────────────────────────────────
 
 function buildCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
-  // Test: always try session-based grouping first.
-  // buildTestSessionCards uses explicit sessions if present, otherwise derives
-  // them from ball timestamps. Falls back to over-group cards only if no
-  // sessions can be derived at all (e.g. balls have no timestamps).
   if (match.format === "Test") {
     const sessionCards = buildTestSessionCards(match, allBalls, isLive);
     if (sessionCards.length > 0) return sessionCards;
@@ -512,20 +520,11 @@ function buildCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCard
 // ── sub-components ───────────────────────────────────────────────────────────
 
 function BallDot({ ball }: { ball: Ball }) {
-  let bg = "bg-white/10";
-  let textColor = "text-text-dim";
-  let content = "·";
-
-  if (ball.isWicket) {
-    bg = "bg-wicket/25"; textColor = "text-wicket"; content = "W";
-  } else if (ball.isBoundary6) {
-    bg = "bg-six/25"; textColor = "text-six"; content = "6";
-  } else if (ball.isBoundary4) {
-    bg = "bg-boundary/25"; textColor = "text-boundary"; content = "4";
-  } else if (ball.runs > 0) {
-    bg = "bg-white/12"; textColor = "text-text-secondary"; content = String(ball.runs);
-  }
-
+  let bg = "bg-white/10", textColor = "text-text-dim", content = "·";
+  if (ball.isWicket)     { bg = "bg-wicket/25";   textColor = "text-wicket";   content = "W"; }
+  else if (ball.isBoundary6) { bg = "bg-six/25";  textColor = "text-six";      content = "6"; }
+  else if (ball.isBoundary4) { bg = "bg-boundary/25"; textColor = "text-boundary"; content = "4"; }
+  else if (ball.runs > 0)    { bg = "bg-white/12"; textColor = "text-text-secondary"; content = String(ball.runs); }
   return (
     <div className={`w-[17px] h-[17px] rounded-full ${bg} flex items-center justify-center shrink-0`}>
       <span className={`text-[8px] font-bold leading-none ${textColor}`}>{content}</span>
@@ -533,73 +532,45 @@ function BallDot({ ball }: { ball: Ball }) {
   );
 }
 
-function OverGroupCardView({
-  card,
-  onSelectBall,
-}: {
-  card: OverGroupCard;
-  onSelectBall: (id: string) => void;
-}) {
-  const kb = card.keyBall;
-  const keyLabel = (() => {
-    const base = `${kb.over}.${kb.ballInOver + 1}`;
-    if (kb.isWicket) return `${base} · OUT`;
-    if (kb.isBoundary6) return `${base} · SIX`;
-    if (kb.isBoundary4) return `${base} · FOUR`;
-    return base;
-  })();
+function KeyBallChevron() {
+  return (
+    <svg className="w-3 h-3 text-cyan ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
 
+function OverGroupCardView({ card, onSelectBall }: { card: OverGroupCard; onSelectBall: (id: string) => void }) {
+  const kb = card.keyBall;
+  const keyLabel = `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}`;
   const showDots = card.gs === 1;
 
   return (
     <div className="card overflow-hidden">
-      {/* Row 1 */}
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
-        {card.inningsLabel && (
-          <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">
-            {card.inningsLabel}
-          </span>
-        )}
+        {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
         <span className="text-[10px] font-extrabold text-text-primary">{card.label}</span>
         <div className="flex-1" />
         <span className="text-[10px] font-extrabold num text-text-primary">{card.runs}r</span>
-        {card.wickets > 0 && (
-          <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>
-        )}
-        {card.fours > 0 && (
-          <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>
-        )}
-        {card.sixes > 0 && (
-          <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>
-        )}
+        {card.wickets > 0 && <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>}
+        {card.fours > 0   && <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>}
+        {card.sixes > 0   && <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>}
       </div>
-
-      {/* Row 2 */}
       <div className="flex items-center gap-2 px-3 pb-2">
         {showDots && (
           <div className="flex items-center gap-0.5 shrink-0">
-            {card.legalDeliveries.map(b => (
-              <BallDot key={b.id} ball={b} />
-            ))}
+            {card.legalDeliveries.map(b => <BallDot key={b.id} ball={b} />)}
           </div>
         )}
-        <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">
-          {card.narrative}
-        </p>
+        <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">{card.narrative}</p>
       </div>
-
-      {/* Row 3 */}
-      <button
-        onClick={() => onSelectBall(card.keyBall.id)}
-        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors"
-      >
+      <button onClick={() => onSelectBall(card.keyBall.id)}
+        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors">
         <div className="flex items-center gap-1.5 mb-1">
           <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">Key</span>
           <span className="text-[10px] font-extrabold text-cyan num">{keyLabel}</span>
-          <svg className="w-3 h-3 text-cyan ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-          </svg>
+          <KeyBallChevron />
         </div>
         <p className="text-[11px] text-text-secondary leading-snug">{card.overSummary}</p>
       </button>
@@ -607,71 +578,36 @@ function OverGroupCardView({
   );
 }
 
-function SessionCardView({
-  card,
-  onSelectBall,
-}: {
-  card: SessionCard;
-  onSelectBall: (id: string) => void;
-}) {
+function SessionCardView({ card, onSelectBall }: { card: SessionCard; onSelectBall: (id: string) => void }) {
   const kb = card.keyBall;
-  const keyLabel = (() => {
-    const base = `${kb.over}.${kb.ballInOver + 1}`;
-    if (kb.isWicket) return `${base} · OUT`;
-    if (kb.isBoundary6) return `${base} · SIX`;
-    if (kb.isBoundary4) return `${base} · FOUR`;
-    return base;
-  })();
+  const keyLabel = `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}`;
 
   return (
     <div className="card overflow-hidden">
-      {/* Row 1: session label + stats */}
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
-        {card.inningsLabel && (
-          <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">
-            {card.inningsLabel}
-          </span>
-        )}
+        {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
         <span className="text-[10px] font-extrabold text-text-primary">{card.sessionLabel}</span>
         {card.isLiveSession && (
-          <span className="text-[8px] font-bold uppercase tracking-widest text-live bg-live/15 px-1.5 py-0.5 rounded-full">
-            Live
-          </span>
+          <span className="text-[8px] font-bold uppercase tracking-widest text-live bg-live/15 px-1.5 py-0.5 rounded-full">Live</span>
         )}
         <div className="flex-1" />
         <span className="text-[10px] font-extrabold num text-text-primary">{card.runs}r</span>
-        {card.wickets > 0 && (
-          <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>
-        )}
-        {card.fours > 0 && (
-          <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>
-        )}
-        {card.sixes > 0 && (
-          <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>
-        )}
+        {card.wickets > 0 && <span className="text-[10px] font-extrabold num text-wicket ml-1">{card.wickets}w</span>}
+        {card.fours > 0   && <span className="text-[10px] font-bold num text-boundary ml-1">{card.fours}×4</span>}
+        {card.sixes > 0   && <span className="text-[10px] font-bold num text-six ml-1">{card.sixes}×6</span>}
       </div>
-
-      {/* Row 2: over range + factual narrative */}
       <div className="flex items-center gap-2 px-3 pb-2">
         <span className="text-[9px] text-text-dim shrink-0">{card.overRange}</span>
         <span className="text-text-dim/40 text-[9px]">·</span>
-        <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">
-          {card.narrative}
-        </p>
+        <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">{card.narrative}</p>
       </div>
-
-      {/* Row 3: key ball + creative summary */}
-      <button
-        onClick={() => onSelectBall(card.keyBall.id)}
-        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors"
-      >
+      <button onClick={() => onSelectBall(card.keyBall.id)}
+        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors">
         <div className="flex items-center gap-1.5 mb-1">
           <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">Key</span>
           <span className="text-[10px] font-extrabold text-cyan num">{keyLabel}</span>
-          <svg className="w-3 h-3 text-cyan ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-          </svg>
+          <KeyBallChevron />
         </div>
         <p className="text-[11px] text-text-secondary leading-snug">{card.overSummary}</p>
       </button>
@@ -680,55 +616,91 @@ function SessionCardView({
 }
 
 function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
-  // Detect duplicate session names (two innings in the same session slot)
-  const sessionLabelCounts = card.sessionRows.reduce(
+  // Detect duplicate session names (two innings in same session slot)
+  const labelCounts = card.sessionRows.reduce(
     (acc, r) => { acc[r.label] = (acc[r.label] ?? 0) + 1; return acc; },
     {} as Record<string, number>
   );
-  const sessionLabel = card.sessionRows
+  const sessionBreakdown = card.sessionRows
     .map(r => {
-      const short = r.label.split(" ").slice(2).join(" "); // "Morning" etc.
-      const suffix = sessionLabelCounts[r.label] > 1 && r.inningsLabel
-        ? ` (${r.inningsLabel})`
-        : "";
+      const short  = r.label.split(" ").slice(2).join(" ");
+      const suffix = labelCounts[r.label] > 1 && r.inningsLabel ? ` (${r.inningsLabel})` : "";
       return `${short}${suffix}: ${r.runs}/${r.wickets}`;
     })
     .join("  ·  ");
 
   return (
-    <div className="rounded-xl overflow-hidden border border-line/60 bg-surface-2/70 backdrop-blur-sm">
-      {/* Header bar */}
-      <div className="flex items-center gap-2 px-3 py-2 bg-white/4 border-b border-line/40">
+    <div className="rounded-xl overflow-hidden border border-cyan/20 bg-surface-2/80 backdrop-blur-sm">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-cyan/6 border-b border-cyan/15">
         <div className="flex items-center gap-1">
           {card.sessionRows.slice(0, 3).map((r, i) => (
-            <span
-              key={i}
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: r.teamColor }}
-            />
+            <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: r.teamColor }} />
           ))}
         </div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-text-primary">
+        <span className="text-[10px] font-black uppercase tracking-widest text-cyan">
           Day {card.day} · Stumps
         </span>
         <div className="flex-1" />
-        <span className="text-[11px] font-extrabold num text-text-primary">{card.totalRuns}r</span>
+        <span className="text-[12px] font-extrabold num text-text-primary">{card.totalRuns}r</span>
         {card.totalWickets > 0 && (
-          <span className="text-[11px] font-extrabold num text-wicket ml-1">{card.totalWickets}w</span>
+          <span className="text-[12px] font-extrabold num text-wicket ml-1">{card.totalWickets}w</span>
         )}
       </div>
 
-      {/* Session breakdown */}
-      <div className="px-3 py-2">
-        <p className="text-[9px] text-text-dim leading-relaxed">{sessionLabel}</p>
+      {/* Session breakdown row */}
+      <div className="px-3 pt-2 pb-1">
+        <p className="text-[9px] text-text-dim tracking-wide">{sessionBreakdown}</p>
       </div>
 
-      {/* Summary line */}
-      <div className="px-3 pb-3">
-        <p className="text-[11px] text-text-secondary leading-snug italic">
-          {card.summaryLine}
-        </p>
+      {/* 5-7 line match report */}
+      <div className="px-3 pb-3 pt-1 space-y-2 border-t border-line/30 mt-1.5">
+        {card.report.map((line, i) => (
+          <p
+            key={i}
+            className={`leading-snug ${
+              i === 0
+                ? "text-[12px] font-semibold text-text-primary"
+                : i === card.report.length - 1
+                ? "text-[11px] text-cyan/80 italic"
+                : "text-[11px] text-text-secondary"
+            }`}
+          >
+            {line}
+          </p>
+        ))}
       </div>
+    </div>
+  );
+}
+
+// ── Day filter chips ─────────────────────────────────────────────────────────
+
+function DayChips({
+  days,
+  activeDay,
+  onSelect,
+}: {
+  days: number[];
+  activeDay: number;
+  onSelect: (day: number) => void;
+}) {
+  if (days.length <= 1) return null;
+  return (
+    <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
+      {days.map(day => (
+        <button
+          key={day}
+          onClick={() => onSelect(day)}
+          className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+            day === activeDay
+              ? "bg-cyan text-bg-base border-cyan"
+              : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
+          }`}
+        >
+          Day {day}
+        </button>
+      ))}
     </div>
   );
 }
@@ -743,10 +715,38 @@ interface Props {
 
 export default function DigestTab({ match, allBalls, onSelectBall }: Props) {
   const isLive = match.status === "live";
+  const isTest = match.format === "Test";
+
   const cards = useMemo(
     () => buildCards(match, allBalls, isLive),
     [match, allBalls, isLive]
   );
+
+  // Derive available days (Test only)
+  const availableDays = useMemo(() => {
+    if (!isTest) return [];
+    const days = new Set<number>();
+    for (const c of cards) {
+      if (c.kind === "session")     days.add(c.day);
+      if (c.kind === "day-summary") days.add(c.day);
+    }
+    return [...days].sort((a, b) => a - b);
+  }, [cards, isTest]);
+
+  // Default to the latest day with data
+  const latestDay = availableDays[availableDays.length - 1] ?? null;
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const activeDay = selectedDay ?? latestDay;
+
+  // Filter cards to selected day (Test only)
+  const visibleCards = useMemo(() => {
+    if (!isTest || activeDay === null) return cards;
+    return cards.filter(c => {
+      if (c.kind === "session")     return c.day === activeDay;
+      if (c.kind === "day-summary") return c.day === activeDay;
+      return true;
+    });
+  }, [cards, isTest, activeDay]);
 
   if (cards.length === 0) {
     return (
@@ -758,16 +758,25 @@ export default function DigestTab({ match, allBalls, onSelectBall }: Props) {
   }
 
   return (
-    <div className="space-y-2 pb-4">
-      {cards.map(card => {
-        if (card.kind === "day-summary") {
-          return <DaySummaryCardView key={card.id} card={card} />;
-        }
-        if (card.kind === "session") {
-          return <SessionCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
-        }
-        return <OverGroupCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
-      })}
+    <div className="pb-4">
+      {/* Day filter chips — Test only, shown when multiple days available */}
+      {isTest && availableDays.length > 1 && (
+        <DayChips
+          days={availableDays}
+          activeDay={activeDay!}
+          onSelect={day => setSelectedDay(day === activeDay ? null : day)}
+        />
+      )}
+
+      <div className="space-y-2">
+        {visibleCards.map(card => {
+          if (card.kind === "day-summary")
+            return <DaySummaryCardView key={card.id} card={card} />;
+          if (card.kind === "session")
+            return <SessionCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
+          return <OverGroupCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
+        })}
+      </div>
     </div>
   );
 }
