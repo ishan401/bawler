@@ -19,6 +19,7 @@ import type {
   MatchFormat,
   PlayerProfile,
   FormatStats,
+  TestSession,
 } from "./types";
 
 // ============================================================================
@@ -1273,3 +1274,115 @@ export const CRICBUZZ_TEAM_ID_MAP: Record<number, string> = {
 export const SPORTRADAR_TEAM_ID_MAP: Record<string, string> = {
   // "sr:competitor:123456": "MI",
 };
+
+// ============================================================================
+// Test session derivation — fallback when API has no explicit session events
+// ============================================================================
+//
+// Real-time Test feeds rarely send explicit "lunch break" or "tea break" events.
+// This function detects session boundaries from gaps in ball timestamps and
+// produces the same TestSession[] shape the DigestTab expects.
+//
+// How to use:
+//   In your match transformer, after building inn.balls, call:
+//
+//     if (match.format === "Test" && inn.balls.some(b => b.timestampIso)) {
+//       inn.sessions = deriveTestSessions(inn.balls, match.startTimeIso, isLive);
+//     }
+//
+//   If explicit session events ARE available from your API, build the sessions
+//   array directly from that data — skip this function.
+//
+// Gap thresholds:
+//   > 60 min  → day break (end of play)
+//   20–60 min → session break (lunch or tea)
+//   < 20 min  → normal play gap (drinks, over change, etc.) — ignored
+// ============================================================================
+
+
+const DAY_BREAK_MS    = 60 * 60 * 1000;  // > 60 min  = new day
+const SESSION_BREAK_MS = 20 * 60 * 1000; // 20–60 min = session break (lunch/tea)
+
+/**
+ * Derive Test match session metadata from ball timestamps.
+ *
+ * @param balls         All balls for one innings (may include extras).
+ * @param matchStartIso ISO string for the match's scheduled start time — used
+ *                      to compute the day number (Day 1 = match start date).
+ * @param isLastInnLive Set true when this is the live innings still in
+ *                      progress; marks the last session as isComplete: false.
+ */
+export function deriveTestSessions(
+  balls: Ball[],
+  matchStartIso: string,
+  isLastInnLive = false
+): TestSession[] {
+  // Only balls with timestamps are usable
+  const withTs = balls.filter(b => b.timestampIso);
+  if (withTs.length === 0) return [];
+
+  const sorted = [...withTs].sort(
+    (a, b) =>
+      new Date(a.timestampIso!).getTime() - new Date(b.timestampIso!).getTime()
+  );
+
+  // Match start — midnight of the match start date (timezone-naive, UTC)
+  const matchStartDate = new Date(matchStartIso);
+  matchStartDate.setUTCHours(0, 0, 0, 0);
+
+  // ── Step 1: split balls into session groups at significant gaps ──────────
+  const groups: Ball[][] = [];
+  let current: Ball[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const gap =
+      new Date(sorted[i].timestampIso!).getTime() -
+      new Date(sorted[i - 1].timestampIso!).getTime();
+
+    if (gap >= SESSION_BREAK_MS) {
+      // Either a session break or a day break — either way, new group
+      groups.push(current);
+      current = [];
+    }
+    current.push(sorted[i]);
+  }
+  groups.push(current);
+
+  // ── Step 2: map each group to a TestSession ──────────────────────────────
+  const SESSION_ORDER: Array<"morning" | "afternoon" | "evening"> = [
+    "morning",
+    "afternoon",
+    "evening",
+  ];
+
+  // Track how many sessions have occurred per day so far
+  const daySessionCount = new Map<number, number>();
+
+  return groups.map((group, gIdx) => {
+    // Determine day number from the first ball's UTC date
+    const firstTs = new Date(group[0].timestampIso!);
+    const firstMidnight = new Date(firstTs);
+    firstMidnight.setUTCHours(0, 0, 0, 0);
+    const dayNum =
+      Math.round(
+        (firstMidnight.getTime() - matchStartDate.getTime()) / (24 * 3600 * 1000)
+      ) + 1;
+
+    // Assign session name (morning → afternoon → evening, reset each day)
+    const sessIdx = daySessionCount.get(dayNum) ?? 0;
+    daySessionCount.set(dayNum, sessIdx + 1);
+
+    const session = SESSION_ORDER[sessIdx % 3];
+    const cap = session.charAt(0).toUpperCase() + session.slice(1);
+    const label = `Day ${dayNum} ${cap}`;
+
+    // Over range from the group's balls
+    const overs = group.map(b => b.over);
+    const startOver = Math.min(...overs);
+    const endOver = Math.max(...overs);
+
+    const isComplete = !(isLastInnLive && gIdx === groups.length - 1);
+
+    return { day: dayNum, session, label, startOver, endOver, isComplete };
+  });
+}

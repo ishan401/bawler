@@ -14,6 +14,7 @@
 
 import React, { useMemo } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
+import { deriveTestSessions } from "@/lib/transformers";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ interface DaySummaryCard {
   kind: "day-summary";
   id: string;
   day: number;
-  sessionRows: { label: string; runs: number; wickets: number; teamColor: string }[];
+  sessionRows: { label: string; inningsLabel: string; runs: number; wickets: number; teamColor: string }[];
   totalRuns: number;
   totalWickets: number;
   summaryLine: string;
@@ -368,8 +369,6 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
 
   for (let innIdx = 0; innIdx < inningsCount; innIdx++) {
     const inn: Innings = match.innings[innIdx];
-    if (!inn.sessions || inn.sessions.length === 0) continue;
-
     const innBalls = allBalls.filter(b => b.inningsNumber === inn.number);
     if (innBalls.length === 0) continue;
 
@@ -397,7 +396,14 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
         ? match.teamA.primaryColor
         : match.teamB.primaryColor;
 
-    for (const sess of inn.sessions) {
+    // Use explicit sessions from data layer; fall back to timestamp derivation
+    const derivedSessions: TestSession[] =
+      inn.sessions && inn.sessions.length > 0
+        ? inn.sessions
+        : deriveTestSessions(innBalls, match.startTimeIso, isLive && isLastInn);
+    if (derivedSessions.length === 0) continue;
+
+    for (const sess of derivedSessions) {
       const sessOvers = completedOverNums.filter(
         n => n >= sess.startOver && n <= sess.endOver
       );
@@ -472,6 +478,7 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
         day,
         sessionRows: entries.map(e => ({
           label: e.sess.label,
+          inningsLabel: e.card.inningsLabel,
           runs: e.card.runs,
           wickets: e.card.wickets,
           teamColor: e.card.teamColor,
@@ -491,12 +498,13 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
 // ── top-level card builder ────────────────────────────────────────────────────
 
 function buildCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
-  // Test with sessions on any innings → use session-based grouping
-  const hasSessionData = match.format === "Test" &&
-    match.innings.some(inn => inn.sessions && inn.sessions.length > 0);
-
-  if (hasSessionData) {
-    return buildTestSessionCards(match, allBalls, isLive);
+  // Test: always try session-based grouping first.
+  // buildTestSessionCards uses explicit sessions if present, otherwise derives
+  // them from ball timestamps. Falls back to over-group cards only if no
+  // sessions can be derived at all (e.g. balls have no timestamps).
+  if (match.format === "Test") {
+    const sessionCards = buildTestSessionCards(match, allBalls, isLive);
+    if (sessionCards.length > 0) return sessionCards;
   }
   return buildOverGroupCards(match, allBalls, isLive);
 }
@@ -672,8 +680,19 @@ function SessionCardView({
 }
 
 function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
+  // Detect duplicate session names (two innings in the same session slot)
+  const sessionLabelCounts = card.sessionRows.reduce(
+    (acc, r) => { acc[r.label] = (acc[r.label] ?? 0) + 1; return acc; },
+    {} as Record<string, number>
+  );
   const sessionLabel = card.sessionRows
-    .map(r => `${r.label.split(" ").slice(2).join(" ")}: ${r.runs}/${r.wickets}`)
+    .map(r => {
+      const short = r.label.split(" ").slice(2).join(" "); // "Morning" etc.
+      const suffix = sessionLabelCounts[r.label] > 1 && r.inningsLabel
+        ? ` (${r.inningsLabel})`
+        : "";
+      return `${short}${suffix}: ${r.runs}/${r.wickets}`;
+    })
     .join("  ·  ");
 
   return (
