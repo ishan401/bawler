@@ -64,6 +64,183 @@ export function normaliseName(raw: string): string {
 }
 
 // ============================================================================
+// Ball normalisation — canonical entry point for real-data robustness
+// ============================================================================
+// Every API transformer MUST route ball data through normalizeBall().
+// This fixes the three known fragility points in one place:
+//
+//   1. Over indexing    — Bawler is 1-indexed (over 1 = first over).
+//                         SportRadar & Cricbuzz are 0-indexed; ESPN is 1-indexed.
+//                         Set overIsZeroIndexed=true for 0-indexed APIs.
+//
+//   2. ballInOver       — Bawler is 0-indexed (ball 0 = first delivery).
+//                         ESPN & Cricbuzz send 1-indexed ball numbers.
+//                         Set ballInOverIsOneIndexed=true for those APIs.
+//
+//   3. extraType string — APIs send "WIDE", "wide", "no_ball", "Wide" etc.
+//                         normalizeExtraType() maps all variants to our enum.
+//
+//   4. Boundary flags   — Some APIs don't send isBoundary4/6 at all; they
+//                         just set runs=4 or runs=6. normalizeBall() derives
+//                         them when the explicit flags are absent.
+//
+//   5. Player names     — normaliseName() applied automatically.
+// ============================================================================
+
+/**
+ * Normalize over number to Bawler's 1-indexed convention.
+ *
+ *   SportRadar timeline: 0-indexed → overIsZeroIndexed = true
+ *   Cricbuzz ball-by-ball: 0-indexed → overIsZeroIndexed = true
+ *   Roanuz: 0-indexed → overIsZeroIndexed = true
+ *   ESPN sportsdata.io: 1-indexed → overIsZeroIndexed = false (default)
+ */
+export function normalizeOver(rawOver: number, apiIsZeroIndexed = false): number {
+  return apiIsZeroIndexed ? rawOver + 1 : rawOver;
+}
+
+/**
+ * Normalize ball-in-over to Bawler's 0-indexed convention.
+ * (ballInOver 0 = first delivery of the over; 5 = sixth delivery)
+ *
+ *   ESPN sportsdata.io BallNumber: 1-indexed → apiIsOneIndexed = true
+ *   Cricbuzz ball-by-ball: 1-indexed → apiIsOneIndexed = true
+ *   SportRadar delivery: 0-indexed → apiIsOneIndexed = false (default)
+ *   Roanuz: 0-indexed → apiIsOneIndexed = false (default)
+ */
+export function normalizeBallInOver(rawBall: number, apiIsOneIndexed = false): number {
+  return apiIsOneIndexed ? rawBall - 1 : rawBall;
+}
+
+/**
+ * Normalize any API extra-type string to Bawler's internal enum values.
+ * Case-insensitive; strips spaces, underscores, hyphens before matching.
+ *
+ * Known API variants handled:
+ *   "wide" / "WIDE" / "Wide"          → "wd"
+ *   "no_ball" / "noball" / "No Ball"  → "nb"
+ *   "bye" / "byes" / "Bye"            → "b"
+ *   "leg_bye" / "legbye" / "Leg Byes" → "lb"
+ *   "penalty" / "pen"                 → "pen"
+ */
+export function normalizeExtraType(raw?: string | null): Ball["extraType"] | undefined {
+  if (!raw) return undefined;
+  const s = raw.toLowerCase().replace(/[\s_\-]/g, "");
+  if (s === "wd" || s === "wide") return "wd";
+  if (s === "nb" || s === "noball") return "nb";
+  if (s === "b" || s === "bye" || s === "byes") return "b";
+  if (s === "lb" || s === "legbye" || s === "legbyes") return "lb";
+  if (s === "pen" || s === "penalty" || s === "penalties") return "pen";
+  console.warn(`[transformers] Unknown extraType "${raw}" — ignoring`);
+  return undefined;
+}
+
+/**
+ * Raw ball input accepted by normalizeBall().
+ * Only the fields required for every ball — all enriched fields are optional.
+ */
+export interface RawBallInput {
+  id: string;
+  inningsNumber: 1 | 2 | 3 | 4;
+  /** Raw over number from the API — normalized per overIsZeroIndexed */
+  over: number;
+  /** Raw ball-in-over from the API — normalized per ballInOverIsOneIndexed */
+  ballInOver: number;
+  batterName: string;
+  bowlerName: string;
+  /** Runs off the bat (not including extras) */
+  runs: number;
+  /** Total extras on this delivery */
+  extras?: number;
+  /** Raw extra-type string from the API — normalized automatically */
+  extraType?: string | null;
+  isWicket?: boolean;
+  dismissalType?: Ball["dismissalType"];
+  /**
+   * Explicit boundary flag from the API.
+   * If absent, derived: runs === 4 && extras === 0 && !isWicket.
+   */
+  isBoundary4?: boolean;
+  /**
+   * Explicit boundary flag from the API.
+   * If absent, derived: runs === 6 && extras === 0 && !isWicket.
+   */
+  isBoundary6?: boolean;
+  batterId?: string;
+  bowlerId?: string;
+  timestampIso?: string;
+  // Pass-through enriched fields (Bawler-generated, not from APIs)
+  oneLiner?: string;
+  nextBatterName?: string;
+  // ── Indexing conventions — set once per API, not per ball ──────────────────
+  /** true if this API's first over is numbered 0 (SportRadar, Cricbuzz, Roanuz) */
+  overIsZeroIndexed?: boolean;
+  /** true if this API's first ball of an over is numbered 1 (ESPN, Cricbuzz) */
+  ballInOverIsOneIndexed?: boolean;
+}
+
+/**
+ * Canonical ball builder — call this in every API transformer instead of
+ * constructing Ball objects directly. Handles all normalization in one place.
+ *
+ * Usage example (Cricbuzz ball-by-ball):
+ *   const ball = normalizeBall({
+ *     id: String(raw.ballId),
+ *     inningsNumber: 1,
+ *     over: raw.overNumber,          // e.g. 0 for first over
+ *     ballInOver: raw.ballNumber,    // e.g. 1 for first ball
+ *     batterName: raw.batsmanName,
+ *     bowlerName: raw.bowlerName,
+ *     runs: raw.runs,
+ *     extras: raw.extras,
+ *     extraType: raw.extrasType,     // e.g. "Wide" — normalized automatically
+ *     isWicket: raw.isWicket,
+ *     overIsZeroIndexed: true,       // Cricbuzz is 0-indexed
+ *     ballInOverIsOneIndexed: true,  // Cricbuzz ball numbers start at 1
+ *   });
+ */
+export function normalizeBall(raw: RawBallInput): Ball {
+  const over      = normalizeOver(raw.over, raw.overIsZeroIndexed ?? false);
+  const ballInOver = normalizeBallInOver(raw.ballInOver, raw.ballInOverIsOneIndexed ?? false);
+  const extraType = normalizeExtraType(raw.extraType);
+  const runs      = raw.runs ?? 0;
+  const extras    = raw.extras ?? 0;
+  const isWicket  = raw.isWicket ?? false;
+
+  // Derive boundary flags when the API doesn't send them explicitly.
+  // Guard: a 4 off a no-ball is runs=4, extras≥1 — that's NOT a boundary 4.
+  const isBoundary4 =
+    raw.isBoundary4 !== undefined
+      ? raw.isBoundary4
+      : runs === 4 && extras === 0 && !isWicket;
+  const isBoundary6 =
+    raw.isBoundary6 !== undefined
+      ? raw.isBoundary6
+      : runs === 6 && extras === 0 && !isWicket;
+
+  return {
+    id: raw.id,
+    inningsNumber: raw.inningsNumber,
+    over,
+    ballInOver,
+    timestampIso:  raw.timestampIso ?? new Date().toISOString(),
+    batterId:      raw.batterId ?? raw.batterName,
+    batterName:    normaliseName(raw.batterName),
+    bowlerId:      raw.bowlerId ?? raw.bowlerName,
+    bowlerName:    normaliseName(raw.bowlerName),
+    runs,
+    extras,
+    extraType,
+    isWicket,
+    dismissalType: raw.dismissalType,
+    isBoundary4,
+    isBoundary6,
+    oneLiner:       raw.oneLiner,
+    nextBatterName: raw.nextBatterName,
+  };
+}
+
+// ============================================================================
 // Cricbuzz (unofficial) — https://cricbuzz-cricket.p.rapidapi.com
 // Most widely used for Indian cricket. Real-time ball-by-ball.
 // ============================================================================
@@ -554,7 +731,7 @@ export function transformESPNMatch(
     runs: inn.Runs,
     wickets: inn.Wickets,
     overs: inn.Overs,
-    balls: (inn.Balls ?? []).map(b => transformESPNBall(b)),
+    balls: (inn.Balls ?? []).map(b => transformESPNBall(b, inn.InningsNumber as 1 | 2 | 3 | 4)),
     battingCard: [],  // TODO: fetch from scorecard endpoint
     bowlingCard: [],
   }));
@@ -634,23 +811,28 @@ export function transformESPNScorecard(raw: ESPNRawScorecard): {
   };
 }
 
-function transformESPNBall(raw: ESPNRawBall): Ball {
-  return {
+function transformESPNBall(raw: ESPNRawBall, inningsNumber: 1 | 2 | 3 | 4 = 1): Ball {
+  // ESPN sportsdata.io conventions:
+  //   Over       — 1-indexed (Over 1 = first over)     → overIsZeroIndexed: false
+  //   BallNumber — 1-indexed (BallNumber 1 = first ball) → ballInOverIsOneIndexed: true
+  //   IsBoundary4/6 — explicit booleans sent; normalizeBall respects them.
+  return normalizeBall({
     id: raw.BallId,
-    inningsNumber: 1,   // TODO: pass innings number from parent
+    inningsNumber,
     over: raw.Over,
     ballInOver: raw.BallNumber,
-    timestampIso: new Date().toISOString(),   // ESPN doesn't provide per-ball timestamps
     batterId: String(raw.BatterId),
-    batterName: normaliseName(raw.BatterName),
+    batterName: raw.BatterName,
     bowlerId: String(raw.BowlerId),
-    bowlerName: normaliseName(raw.BowlerName),
+    bowlerName: raw.BowlerName,
     runs: raw.Runs,
     extras: raw.Extras,
     isWicket: raw.IsWicket,
     isBoundary4: raw.IsBoundary4,
     isBoundary6: raw.IsBoundary6,
-  };
+    overIsZeroIndexed: false,       // ESPN Over is 1-indexed
+    ballInOverIsOneIndexed: true,   // ESPN BallNumber is 1-indexed
+  });
 }
 
 
@@ -777,23 +959,30 @@ export function transformSportRadarTimeline(
     const battingTeam = battingTeamId.includes(teamA.code) ? teamA.code : teamB.code;
     const bowlingTeam = battingTeam === teamA.code ? teamB.code : teamA.code;
 
-    const internalBalls: Ball[] = balls.map(b => ({
-      id: String(b.id),
-      inningsNumber: (idx + 1) as 1 | 2 | 3 | 4,
-      over: b.over,
-      ballInOver: b.delivery,
-      timestampIso: b.time,
-      batterId: "unknown",  // TODO: SportRadar timeline doesn't include batter ID directly
-      batterName: normaliseName(b.batsman_name ?? "unknown"),
-      bowlerId: "unknown",
-      bowlerName: normaliseName(b.bowler_name ?? "unknown"),
-      runs: b.runs_scored,
-      extras: b.runs_scored - b.runs_off_bat,
-      extraType: b.extras_type as Ball["extraType"],
-      isWicket: b.type === "wicket",
-      isBoundary4: b.boundary?.boundary_type === "4",
-      isBoundary6: b.boundary?.boundary_type === "6",
-    }));
+    const internalBalls: Ball[] = balls.map(b => {
+      // SportRadar timeline conventions:
+      //   over     — 0-indexed (over 0 = first over)     → overIsZeroIndexed: true
+      //   delivery — 0-indexed (delivery 0 = first ball) → ballInOverIsOneIndexed: false
+      //   extras_type — free-form string e.g. "wide", "no_ball" → normalizeExtraType handles it
+      //   boundary — nested object; absent when not a boundary  → normalizeBall derives when missing
+      return normalizeBall({
+        id: String(b.id),
+        inningsNumber: (idx + 1) as 1 | 2 | 3 | 4,
+        over: b.over,
+        ballInOver: b.delivery,
+        timestampIso: b.time,
+        batterName: b.batsman_name ?? "Unknown",
+        bowlerName: b.bowler_name ?? "Unknown",
+        runs: b.runs_off_bat,                       // runs_off_bat = bat runs only
+        extras: b.runs_scored - b.runs_off_bat,     // total − bat = extras
+        extraType: b.extras_type,                   // normalized by normalizeBall
+        isWicket: b.type === "wicket",
+        isBoundary4: b.boundary?.boundary_type === "4",
+        isBoundary6: b.boundary?.boundary_type === "6",
+        overIsZeroIndexed: true,        // SportRadar over is 0-indexed
+        ballInOverIsOneIndexed: false,  // SportRadar delivery is 0-indexed
+      });
+    });
 
     const runs = internalBalls.reduce((s, b) => s + b.runs, 0);
     const wickets = internalBalls.filter(b => b.isWicket).length;
