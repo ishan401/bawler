@@ -5,121 +5,6 @@ import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 
-// ─── Partnership computation ───────────────────────────────────────────────
-interface Partnership {
-  p: number;
-  batter1: string; // playerName (display)
-  batter2: string;
-  runs: number;
-  balls: number;
-  velocity: number[]; // RPO per 3-ball window — drives the sparkline
-}
-
-function computePartnerships(innings: Innings): Partnership[] {
-  const balls = innings.balls;
-  if (!balls || balls.length === 0) return [];
-
-  const nameOf = (id: string) =>
-    innings.battingCard.find(r => r.playerId === id)?.playerName
-    ?? innings.balls.find(b => b.batterId === id)?.batterName
-    ?? id;
-
-  const results: Partnership[] = [];
-  let start = 0;
-  let pNum = 1;
-
-  for (let i = 0; i < balls.length; i++) {
-    const ball = balls[i];
-    const isLast = i === balls.length - 1;
-    if (!ball.isWicket && !isLast) continue;
-
-    // Slice inclusive of current ball
-    const slice = balls.slice(start, i + 1);
-    if (slice.length === 0) { start = i + 1; continue; }
-
-    // Tally runs and which batters faced balls
-    const faced = new Map<string, number>();
-    let runs = 0;
-    for (const b of slice) {
-      runs += (b.runs ?? 0) + (b.extras ?? 0);
-      faced.set(b.batterId, (faced.get(b.batterId) ?? 0) + 1);
-    }
-
-    // Velocity: RPO in each 3-ball window
-    const velocity: number[] = [];
-    for (let j = 0; j < slice.length; j += 3) {
-      const win = slice.slice(j, j + 3);
-      const wRuns = win.reduce((s, b) => s + (b.runs ?? 0) + (b.extras ?? 0), 0);
-      velocity.push(Math.round((wRuns / win.length) * 6 * 10) / 10);
-    }
-
-    // Top 2 batters by balls faced
-    const sorted = [...faced.entries()].sort((a, b) => b[1] - a[1]);
-    const name1 = nameOf(sorted[0]?.[0] ?? "");
-    const name2 = nameOf(sorted[1]?.[0] ?? "");
-
-    results.push({ p: pNum++, batter1: name1, batter2: name2, runs, balls: slice.length, velocity });
-    start = i + 1;
-  }
-
-  return results;
-}
-
-// ─── Velocity sparkline ────────────────────────────────────────────────────
-function VelocitySpark({ velocity, color }: { velocity: number[]; color: string }) {
-  const W = 72;
-  const H = 22;
-  const PAD = 2;
-  if (velocity.length < 2) {
-    // Single point — show a dot
-    return (
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="opacity-70">
-        <circle cx={W / 2} cy={H / 2} r={2.5} fill={color} opacity={0.8} />
-      </svg>
-    );
-  }
-
-  const max = Math.max(...velocity, 6); // at least 6 RPO scale
-  const xs = velocity.map((_, i) => PAD + (i / (velocity.length - 1)) * (W - PAD * 2));
-  const ys = velocity.map(v => H - PAD - ((v / max) * (H - PAD * 2)));
-
-  const points = xs.map((x, i) => `${x},${ys[i]}`).join(" ");
-  // closed polygon for area fill
-  const area = `${xs[0]},${H - PAD} ` + points + ` ${xs[xs.length - 1]},${H - PAD}`;
-
-  return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
-      <defs>
-        <linearGradient id={`vsg-${color.replace("#", "")}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      <polygon
-        points={area}
-        fill={`url(#vsg-${color.replace("#", "")})`}
-      />
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.9"
-      />
-      {/* End dot */}
-      <circle
-        cx={xs[xs.length - 1]}
-        cy={ys[ys.length - 1]}
-        r={2}
-        fill={color}
-        opacity="0.9"
-      />
-    </svg>
-  );
-}
-
 interface ScorecardProps {
   match: Match;
 }
@@ -133,7 +18,7 @@ export default function Scorecard({ match }: ScorecardProps) {
         <div className="card p-6 flex flex-col items-center gap-3 text-center">
           <span className="text-3xl">{isUpcoming ? "🗓️" : isLive ? "📡" : "🏏"}</span>
           <p className="text-sm font-bold text-text-primary">
-            {isUpcoming ? "Match hasn\'t started yet" : isLive ? "Scorecard updating…" : "Scorecard not available"}
+            {isUpcoming ? "Match hasn't started yet" : isLive ? "Scorecard updating…" : "Scorecard not available"}
           </p>
           <p className="text-xs text-text-secondary max-w-[220px]">
             {isUpcoming
@@ -206,8 +91,6 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
       null as BattingEntry | null
     );
 
-  const partnerships = computePartnerships(innings);
-
   return (
     <div className="card">
       {/* Sticky innings header */}
@@ -255,37 +138,6 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
           </tbody>
         </table>
       </div>
-
-      {/* Partnerships */}
-      {partnerships.length > 0 && (
-        <div className="px-4 py-3 border-t border-line">
-          <SectionLabel>Partnerships</SectionLabel>
-          <div className="flex flex-col gap-1 mt-1">
-            {partnerships.map(p => (
-              <div key={p.p} className="flex items-center gap-2 py-1.5">
-                {/* Sparkline */}
-                <VelocitySpark velocity={p.velocity} color={team?.primaryColor ?? "#06B6D4"} />
-                {/* Names */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-semibold text-text-primary truncate leading-tight">
-                    {p.batter1}
-                    <span className="text-text-dim font-normal"> & </span>
-                    {p.batter2}
-                  </div>
-                  <div className="text-[10px] text-text-dim leading-tight">
-                    Pship {p.p}
-                  </div>
-                </div>
-                {/* Runs & balls */}
-                <div className="text-right shrink-0">
-                  <span className="text-sm font-extrabold num text-text-primary">{p.runs}</span>
-                  <span className="text-[10px] text-text-dim num"> ({p.balls})</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Bowling */}
       <div className="px-4 py-3 border-t border-line">
