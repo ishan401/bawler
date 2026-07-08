@@ -318,3 +318,47 @@ Player names from different APIs (`"Virat Kohli"`, `"V Kohli"`, `"kohli, virat"`
 
 **WP1 — Win prob chase formula: power curve, single wicket term**
 The old formula had two independent wicket penalties stacked: (1) a linear `achievableRPO` that underestimated chasing team headroom, and (2) a separate `wicketPenalty` multiplier on the final probability. Together they made easy chases look much harder than they are (IND needing 21 off 22 showed 31% when it should be ~83%). Fix: one power-curve term `baseRPO × (wicketsLeft/10)^0.25` encodes wickets once. The steeper sigmoid (5 vs 3) gives crisper probability swings on boundaries and wickets. All components read from the single `calculateWinProbForMatch()` function so the fix applied platform-wide automatically.
+
+---
+
+## Digest tab — v1.0.35 to v1.0.40
+
+**DG1 — Separate "Digest" tab, not inline in Live tab**
+Digest is a distinct reading mode — the fan wants to catch up on what happened, not watch the live ball. Mixing digest cards into the Live feed would break the chronological "newest first" live experience. A separate tab keeps both modes clean and lets the fan switch intent deliberately.
+
+**DG2 — Format-adaptive grouping: 1 per over (T20), 5 overs (ODI), per session (Test), 10 overs (Test fallback)**
+The natural unit of cricket drama maps to format: in T20 every over matters; in ODI a 5-over block is a meaningful phase; in Test cricket a session (1.5–3 hours of play) is the real atomic unit — nobody talks about "over 27" in a Test, they talk about the afternoon session. The 10-over fallback handles Test data where session metadata isn't available.
+
+**DG3 — Session-based grouping for Test (not fixed-over)**
+ICC session names (1st Session, 2nd Session, 3rd Session) are the lingua franca of Test cricket coverage. A "Day 2 2nd Session: 42/3" card is instantly meaningful to any Test fan. Over-based grouping (overs 29–38) carries zero narrative weight. Sessions win.
+
+**DG4 — `deriveTestSessions()` auto-derivation from timestamps**
+Real cricket APIs (Cricbuzz, ESPN) don't always return session metadata. Gaps > 60 minutes in ball timestamps = session break; gaps > 720 minutes = new day. This heuristic is accurate enough for digestible grouping and degrades gracefully — the Digest tab works regardless of whether the upstream source provides session structure.
+
+**DG5 — Day filter chips only when ≥ 2 days have data**
+Showing a single "Day 1" chip is noise — it filters to the only content that exists anyway. Single-day Test matches (a dramatic collapse on day 1) show no chips and just list all session cards. Chips appear on day 2+ of a multi-day match when they actually save the user scroll time.
+
+**DG6 — Innings chips only when both innings have ball data**
+Same logic as DG5. An "1st Innings" chip when there's no 2nd innings data is meaningless. The chips appear when the user would actually benefit from switching views — after the first innings is complete and ball data for the second has started coming in.
+
+**DG7 — Default to latest day / latest innings**
+A fan opening the Digest tab mid-match wants to see what just happened, not what happened yesterday. Defaulting to the latest active day or innings respects that intent. The fan can tap "Day 2" to scroll back.
+
+**DG8 — Post-match summary card always pinned, not hidden by day/innings filter**
+The match summary card is the post-match verdict — it sits above all per-over/session detail. Hiding it when the user switches to "Day 2" or "1st Innings" would make it feel ephemeral. It's always visible at the top regardless of the active filter.
+
+**DG9 — Match summary card condition: `match.result` (not `status === "post-match"`)**
+The `FEATURED_MATCH` (KKR vs MI) keeps `status: "live"` intentionally — it appears in the live carousel even though the match is over. Checking `status === "post-match"` would permanently hide the summary card for the one match that has full ball data and a result. The correct guard is `!match.result`: if a result exists, the match is over, show the card.
+
+**DG10 — Shareable PNG export per card, not per tab**
+Users share specific moments, not entire digests. A "Share all" button would produce an unreadable image. Per-card share (with `html-to-image` capture of exactly that card element) produces a clean, targeted shareable for WhatsApp / Twitter. The card's `data-digest-card` attribute scopes the capture precisely.
+
+**DG11 — MOM avatar: real photo + initials fallback (same as BallGIF PlayerAvatar)**
+The match summary card needed the MOM to feel like a person, not a name string. The BallGIF already had a proven initials-avatar pattern (2-letter initials, team colour circle). Reusing the same visual language unifies the product. Real photo URLs can be wired in platform-wide when the player image CDN is integrated — no component change needed, just `photoUrl` on `PlayerProfile`.
+
+**DG12 — W/4/6 chip player reveal: deferred (no photoUrl in data layer yet)**
+Tapping the W/4/6 chips on a digest card to reveal who got out / hit the six was built and immediately reverted. The UX is good in concept but hollow without player photos — initials-only popups feel like a debug view. Decision: ship it only when `photoUrl` is wired into the data layer so the reveal shows a real face.
+
+**DG13 — Card narrative is factual, over-summary is creative**
+Row 2 of each card is a tight factual descriptor ("Two wickets — collapse!", "Bumrah strikes", "Big over — 18 runs"). Row 3 is the punchy cricket-flavour creative line ("Dew is helping the seamers probe the top order" etc.). Keeping them in separate rows maintains scannability: the fan can read row 2 in 0.5 seconds; row 3 rewards a deeper read. Mixing them would blur the information hierarchy.
+

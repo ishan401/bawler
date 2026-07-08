@@ -941,3 +941,161 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 - No player image source in the data layer yet — `PlayerProfile` in `types.ts` has no `photoUrl`
 - Wire in a player image CDN first (ESPN Cricinfo headshots, ICC media, or self-hosted), add `photoUrl?: string` to `PlayerProfile`, populate through the transformer, then build this
+
+---
+
+## [1.0.35] 2026-07-07
+
+### Digest tab — initial build (over-by-over cards, compact layout, real-data hardening)
+
+#### Added — `components/DigestTab.tsx` (new file)
+- New 4th match page tab: **Digest** — story-of-the-match told through over/session cards
+- Format-adaptive grouping:
+  - T20 / T20I / Hundred → 1 card per over
+  - ODI → 1 card per 5 overs
+  - Test (no sessions) → 1 card per 10 overs (fallback)
+- Each card: 3-row layout (header row + narrative row + over-summary row)
+  - **Row 1**: over label + runs / wickets / 4s / 6s chips; ball-dot row for T20/T20I
+  - **Row 2**: compact factual narrative ("Bumrah strikes", "Big over — 18 runs", etc.)
+  - **Row 3**: creative 1-2 line over-summary with cricket flavour
+- `pickKeyBall()` — selects wicket > six > four > max-runs as the key delivery per group
+- `buildNarrative()` — format-aware short description (span label varies: "over" / "block" / "session")
+- `buildOverSummary()` — punchy 1-2 line creative description per over
+- `dominantBowler()` — picks bowler with most wickets then most balls in the group
+- Newest cards shown first (reversed chronological order)
+
+#### Updated — `components/MatchView.tsx`
+- `showDigest = allBalls.length > 0 && !isUpcoming` — DIGEST tab only visible when ball data exists
+- Tab order: `["live", "scorecard", ...(showDigest ? ["digest"] : []), "info", ...(showTable ? ["table"] : [])]`
+- `allBalls = match.innings.flatMap(i => i.balls)` — collects balls from all innings
+
+#### Updated — `lib/transformers.ts`
+- **New**: `normalizeBall(raw, defaults)` — normalises any raw API ball into the internal `Ball` type; handles missing fields gracefully
+- **New**: `legalBalls()`, `wickets()`, `boundaries()` helper extractors
+- Applied `normalizeBall` in `transformESPNBall` and `transformSRBall`
+- Ensures DigestTab receives clean, type-safe ball objects from any API source
+
+---
+
+## [1.0.36] 2026-07-07
+
+### Digest — Test match session cards + Day Stumps summary card
+
+#### Updated — `lib/types.ts`
+- Added `TestSession` type: `{ day: number; session: "first" | "second" | "third"; label: string; startOver: number; endOver: number; isComplete: boolean }`
+- Added `sessions?: TestSession[]` to `Innings` interface — optional, falls back to auto-derivation
+
+#### Updated — `lib/mockData.ts` (Test match)
+- Added 512 balls of ball-by-ball data to the IND vs ENG test match (`ind-eng-test-2026-d3-live`):
+  - **Innings 2** (ENG 1st): 348 `test2-*` balls (overs 1–58), covering Day 2 1st Session (overs 1–28) and Day 2 2nd Session (overs 29–58) — ENG all out for 199
+  - **Innings 3** (ENG 2nd/follow-on): 164 `test3-*` balls (overs 1–28), covering Day 3 1st Session — ENG on 88/4, live
+- `sessions` metadata added to each innings with correct `day`, `session`, `label`, `startOver`, `endOver`, `isComplete` fields
+
+#### Updated — `lib/transformers.ts`
+- **New**: `deriveTestSessions(innings, balls)` — auto-detects session boundaries from timestamp gaps (> 60 min gap = new session; > 720 min = new day) when `sessions` metadata is absent from the data
+- Fallback means the DigestTab works for Test matches even when the API does not supply session structure
+
+#### Rewritten — `components/DigestTab.tsx` — Test session support
+- `buildTestSessionCards()` — builds one `SessionCard` per session entry in `inn.sessions` (or derived sessions if absent)
+- Each `SessionCard` contains: session label, day number, innings label, over range, runs/wickets/4s/6s, narrative, over-summary, and a `isLiveSession` flag for the in-progress badge
+- `buildDayReport()` — at the end of each completed day, generates a `DaySummaryCard`:
+  - 5–7 line detailed day report: runs scored, wickets taken, key batters, best bowlers, session-by-session breakdown
+  - Styled distinctly with cyan border to visually separate from per-session cards
+- `buildCards()` — top-level dispatcher: routes to `buildTestSessionCards` for Test, `buildOverGroupCards` for all other formats; always prepends match summary card (when available)
+
+---
+
+## [1.0.37] 2026-07-07
+
+### Digest — Day filter chips (Test) + expanded Day Summary card
+
+#### Updated — `components/DigestTab.tsx`
+- **Day filter chips** — rendered above session cards when `availableDays.length > 1`:
+  - Pill buttons: "Day 2", "Day 3", etc. in cyan when active, dim border when inactive
+  - Clicking a day shows only that day's session cards + day-summary card
+  - Match summary card always pinned regardless of selected day
+  - Default = latest day with data (so a live Day 3 match opens on Day 3 automatically)
+- **Expanded Day Summary card** — fully informative 5-7 line report:
+  - Header: "Day N Stumps" with cyan accent + stumps emoji
+  - Session breakdown table: each session's runs/wickets inline
+  - Narrative lines covering: top scorer with dismissal, top bowler, key innings context, phase-of-play notes
+  - Styled with cyan/20 border + cyan/6 header background to visually stand out
+
+---
+
+## [1.0.38] 2026-07-08
+
+### Digest — Shareable cards + innings chips (T20/ODI) + post-match summary card + MOM avatar
+
+#### Updated — `components/DigestTab.tsx`
+
+**Shareable cards**
+- Each digest card now has a `<ShareButton>` in its bottom-right corner
+- Tapping captures the card as a PNG via `html-to-image` (`toPng`, 2× pixel ratio, transparent-to-dark background)
+- `navigator.share()` used when available (mobile PWA); falls back to `<a download>` PNG export on desktop
+- `data-digest-card` attribute on each card root allows the share button to capture the correct element
+- `AbortError` silently swallowed (user cancelled share sheet)
+
+**Innings chips (T20 / ODI / non-Test)**
+- `InningsChips` component — rendered above over-group cards when both innings have data (`availableInnings.length > 1`)
+- Pills: "1st Innings", "2nd Innings" in cyan when active; tapping switches the filtered view
+- Default = latest innings with ball data (2nd innings for a completed match; 1st if only 1st is done)
+- Match summary card always pinned regardless of selected innings
+
+**Removed — digest card navigation**
+- Tapping a digest card no longer navigates to the Live tab
+- Cards were navigating to the Live tab showing the key ball — UX was confusing; sharing is more valuable
+- `onSelectBall` prop removed from DigestTab; share replaces it
+
+**Post-match summary card (end-of-match digest)**
+- `buildMatchSummaryCard()` — generates a rich pinned card at the top of the Digest tab for any match with a `result` field
+- Card contains:
+  - Winner announcement + margin (e.g. "KKR won by 4 wickets")
+  - Top batter highlight: name, runs, balls, boundaries — from innings 1 batting card
+  - Top bowler highlight: wickets/runs/economy — from all innings bowling cards combined
+  - Chase story (non-Test): top chaser's runs or "fell N short" narrative
+  - Man of Match: name
+  - Series status: bilateral series chip if `match.seriesStatus` is set
+  - Narrative bullet list (up to 6 lines): auto-generated from match data
+- Styled distinctly: larger card, `bg-surface-2/80` with `backdrop-blur-sm`, left accent bar in winning team color
+
+**MOM avatar in summary card**
+- Man of Match entry in the summary card shows a player avatar:
+  - Attempts to load `player.photoUrl` from `PLAYERS` lookup
+  - Falls back to initials avatar (2-letter initials in a team-colored circle) — same visual language as BallGIF PlayerAvatar
+  - `slugifyPlayer()` used to resolve MOM name to a player profile slug for the PLAYERS lookup
+
+---
+
+## [1.0.39] 2026-07-08
+
+### AUS vs IND T20I — ball data restoration + platform state restore
+
+#### Context — Revert
+- A subsequent session added pitch reports for international venues but introduced a file truncation bug that deleted ~13,800 lines from `mockData.ts`, removing all ball data and digest functionality
+- Platform reverted via `git reset --hard 5333611` + `git push --force` to restore the complete 15,215-line `mockData.ts`
+
+#### Restored — `lib/mockData.ts`
+- `ind-aus-t20i-2026-m2-live` match confirmed intact with full ball data:
+  - **Innings 1** (AUS batting): 120 balls `ia-1-*` (overs 1–20 complete; D Warner debut ball, full pace attack, AUS 175/8)
+  - **Innings 2** (IND batting): 98 balls `ia-2-*` (overs 1–17 live; Kohli 61*, Pant 5*, IND need 34 off 22)
+  - Both innings have `battingCard` and `bowlingCard` arrays
+- `ind-eng-test-2026-d3-live` match confirmed intact with 512 balls across innings 2 and 3
+- `FEATURED_MATCH` (KKR vs MI `ipl2026-m37-kkrvmi`) confirmed intact with full scripted ball data from `buildInnings1()` / `buildInnings2()`
+
+---
+
+## [1.0.40] 2026-07-08
+
+### Fix: match summary card shown for live matches with result; IND vs ENG test match ID corrected
+
+#### Fixed — `components/DigestTab.tsx`
+- `buildMatchSummaryCard()`: condition changed from `match.status !== "post-match" || !match.result` → `!match.result`
+- **Root cause**: The `FEATURED_MATCH` (KKR vs MI) intentionally has `status: "live"` to remain in the live carousel even though the match is over — it has a full `result` object. The old guard silently dropped the match summary card for every navigable match.
+- **Effect**: The end-of-match digest card now appears at the top of the KKR vs MI Digest tab showing the full post-match report: KKR won by 4 wickets, top batter/bowler highlights, MOM (Andre Russell), series status.
+
+#### Fixed — `lib/mockData.ts`
+- Test match ID renamed: `eng-sa-test-2026-d3-live` → `ind-eng-test-2026-d3-live`
+- **Root cause**: The match was using `COMPETITIONS.indEngTest2026` (India tour of England 2026, teams ENG + IND) but the ID string incorrectly said "eng-sa" (England vs South Africa) — a copy-paste error from a different match object
+- **Effect**: Match URL is now `/match/ind-eng-test-2026-d3-live`, consistent with competition and team data; avoids confusion when reading match IDs
+

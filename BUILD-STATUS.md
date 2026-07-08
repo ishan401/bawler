@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.34 (deployed)
+**Current version:** v1.0.40 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -228,3 +228,36 @@
 | v1.0.0 | UX overhaul: bottom nav, AI tile labels, Moments redesign, BallGIF hierarchy, countdown cards |
 | v0.9.8 | brightColor() hue-accurate team colours in win-prob |
 | v0.9.0 | Initial prototype with full mocked data |
+
+### Match page — Digest tab
+
+- ✅ **Digest tab** — 4th tab in MatchView (visible when ball data exists for any innings); shows a story-of-the-match through cards newest-first
+- ✅ **Format-adaptive grouping** — T20/T20I/Hundred: 1 card per over; ODI: 1 card per 5 overs; Test with sessions: 1 card per session; Test without sessions: 1 card per 10 overs (auto-derived from timestamps)
+- ✅ **Over-group cards (T20/ODI)** — 3-row compact layout: header (over label + runs/wickets/4s/6s) + narrative (factual 1-liner) + over-summary (punchy 2-line creative text); ball-dot row for T20/T20I showing W/4/6/runs/dot coloured circles
+- ✅ **Session cards (Test)** — one card per session (ICC naming: 1st/2nd/3rd Session); shows session label, innings label, over range, runs/wickets, "Live" badge for the in-progress session
+- ✅ **Day Summary card (Test)** — rich 5–7 line day report after each completed day; session-by-session breakdown table; top bat + top bowl highlights; cyan border distinguishes it from session cards
+- ✅ **Day filter chips (Test)** — horizontal row of "Day 2", "Day 3" etc. chips above cards; default = latest day; match summary card always pinned regardless of selected day; only shown when ≥ 2 days have data
+- ✅ **Innings chips (T20/ODI)** — "1st Innings" / "2nd Innings" chip row; default = latest innings with data; only shown when both innings have ball data
+- ✅ **Post-match summary card** — rich pinned card at top of Digest tab for any match with `match.result`; winner + margin, top batter/bowler highlights, MOM with initials avatar, series status, 6-line auto-narrative; always visible regardless of day/innings filter
+- ✅ **MOM avatar** — Man of Match in summary card shows player photo (via `PLAYERS[slug].photoUrl`) with initials-in-team-colour fallback (same design language as BallGIF PlayerAvatar)
+- ✅ **Shareable cards** — every digest card has a share button; captures card as 2× PNG via `html-to-image`; `navigator.share` on mobile, `<a download>` fallback on desktop
+- ✅ **`deriveTestSessions()`** in `transformers.ts` — auto-detects session boundaries from timestamp gaps so DigestTab works for Test matches even when the API omits session metadata
+
+### Data layer — IND vs ENG Test + AUS vs IND T20I
+
+- ✅ **`ind-eng-test-2026-d3-live`** — 3-innings Test match: IND 450/8 declared (inn 1, no balls); ENG 199/10 (inn 2, 348 balls, Day 2 1st + 2nd Session complete); ENG follow-on 88/4 (inn 3, 164 balls, Day 3 1st Session live)
+- ✅ **`ind-aus-t20i-2026-m2-live`** — AUS 175/8 (inn 1, 120 balls complete); IND 142/3 chasing (inn 2, 98 balls live, Kohli 61*, need 34 off 22)
+- ✅ **`ipl2026-m37-kkrvmi`** (FEATURED_MATCH) — MI 174/9 (inn 1, full scripted ball data); KKR 175/6 won by 4 wkts (inn 2, scripted through Russell's match-winning hit)
+
+---
+
+## Changelog additions (v1.0.35–v1.0.40)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.40** | Fix: match summary card condition (result-based, not status-based); IND vs ENG test match ID corrected |
+| **v1.0.39** | AUS vs IND T20I ball data confirmed restored; platform hard-reverted to pre-pitch-report state (git reset --hard 5333611) |
+| **v1.0.38** | Digest: shareable cards (html-to-image PNG + navigator.share); innings chips (T20/ODI); post-match summary card; MOM avatar with img+initials fallback |
+| **v1.0.37** | Digest: day filter chips row (Test); expanded Day Summary card (5–7 lines) |
+| **v1.0.36** | Digest: Test match session-based cards + Day Stumps summary; TestSession type + deriveTestSessions() transformer; IND vs ENG test 512-ball dataset |
+| **v1.0.35** | Digest tab: initial build — over-by-over cards, compact 3-row layout, creative over-summary, normalizeBall() in transformers |

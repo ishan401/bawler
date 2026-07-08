@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.27)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.40)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.27 mock) — real data integration next.
+**Status:** UI complete (v1.0.40 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -33,7 +33,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 | Route | Description |
 |---|---|
 | `/` | Home — live carousel + past/future match columns, pull-to-refresh, infinite scroll |
-| `/match/[id]` | Match page — full live experience |
+| `/match/[id]` | Match page — full live experience (4 tabs) |
 | `/player/[id]` | Player profile — bio, ICC rankings, per-format stats |
 | `/schedule/[competitionId]` | Schedule for a specific competition |
 | `/schedule/[competitionId]/[teamCode]` | Schedule filtered by team |
@@ -54,15 +54,20 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 1. **ScoreBar** (sticky) — score, chase context, innings info
 2. **MiniInsightsBar** — scrolling insight ticker
-3. **MatchTabs** — Live / Scorecard / Info (swipe or tap, book-page-turn animation)
+3. **MatchTabs** — Live / Scorecard / **Digest** / Info (swipe or tap, book-page-turn animation)
 4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
 5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
-6. **MiniWinProb** — both teams' % visible; tap opens full WinProbChart modal
-7. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
-8. **CommentaryFeed** — ball-by-ball cards with insight overlays
+6. **PartnershipFooter** — live partnership: total runs/balls + per-batter stats, resets on wicket
+7. **MatchupCard** — always-on batter vs bowler H2H (career + live match merged); shareable PNG
+8. **MiniWinProb** — both teams' % visible; tap opens full WinProbChart modal
+9. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
+10. **CommentaryFeed** — ball-by-ball cards with insight overlays
 
-**Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Sticky innings headers.
-**Info tab:** LineupsCard uses `battingTeam`-based innings lookup (not positional array index).
+**Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Sticky innings headers. Partnership velocity sparklines between batting + bowling cards.
+
+**Digest tab:** Story-of-the-match in cards. Format-adaptive: over cards (T20), session cards (Test), ODI blocks. Day filter chips for Test (default: latest day). Innings chips for T20/ODI (default: latest innings). Post-match summary card pinned at top when `match.result` exists. All cards shareable as PNG.
+
+**Info tab:** Pitch report card (surface, sliders, expected score, dew), lineups side-by-side.
 
 ---
 
@@ -95,6 +100,18 @@ Horizontal tab selector across 8 competitions:
 - **`totalBallsForFormat(match)`** — use this everywhere instead of hardcoded 120 for balls/chase math
 - **`franchiseStats` / `franchiseLeague`** — not `iplStats`; every player stores which league their franchise stats came from
 - **`seriesStatus?: string`** on Match — set by data layer for bilateral series; used by LiveCarousel chip
+- **`match.result`** drives the post-match summary card in DigestTab (not `match.status`)
+- **`match.championship`** drives the TABLE button for Test matches (WTC); falls back to `match.competition`
+
+---
+
+## Live match IDs with full ball data
+
+| Match ID | Format | Ball data | Notes |
+|---|---|---|---|
+| `ipl2026-m37-kkrvmi` | T20 (IPL) | 2 full innings (scripted) | FEATURED_MATCH; KKR won by 4 wkts; both innings chips + match summary card |
+| `ind-aus-t20i-2026-m2-live` | T20I | Inn 1: 120 balls (AUS, complete) + Inn 2: 98 balls (IND, live) | Kohli 61* chasing; innings chips; live IND over cards |
+| `ind-eng-test-2026-d3-live` | Test | Inn 2: 348 balls (ENG 1st, complete) + Inn 3: 164 balls (ENG follow-on, live) | Day 2 sessions complete; Day 3 live; day chips; session cards |
 
 ---
 
@@ -103,22 +120,39 @@ Horizontal tab selector across 8 competitions:
 ```
 components/
 ├── Match page
-│   ├── MatchView.tsx          # orchestrates all below; insights prop-driven
+│   ├── MatchView.tsx          # orchestrates all tabs; allBalls flatMap; showDigest flag
 │   ├── ScoreBar.tsx           # sticky score header
-│   ├── BallGIF.tsx            # hero two-clip SVG delivery replay
+│   ├── BallGIF.tsx            # hero two-clip SVG delivery replay; PartnershipFooter
 │   ├── MomentsStrip.tsx       # horizontal key events timeline
 │   ├── MiniWinProb.tsx        # inline sparkline
 │   ├── WinProbChart.tsx       # full-screen modal chart
 │   ├── AIMetrics.tsx          # 4-tile metrics row
 │   ├── CommentaryFeed.tsx     # ball-by-ball cards + insight overlays
-│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS)
+│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS) + partnership sparklines
+│   ├── MatchupCard.tsx        # always-on batter vs bowler H2H; career + live merged
+│   ├── DigestTab.tsx          # story-of-match cards; format-adaptive; day/innings chips; shareable
 │   ├── LineupsCard.tsx        # playing XI (battingTeam-based lookup)
 │   └── PitchReportCard.tsx    # pitch surface + sliders
 ├── Home page
-│   ├── LiveCarousel.tsx       # live match carousel + series status chip
+│   ├── LiveCarousel.tsx       # live match carousel + series status chip + standings sheet
 │   ├── MatchCard.tsx          # Past / Future / Live card variants
 │   ├── SplitTeamBg.tsx        # flag images (national) or gradient (franchise)
 │   └── BottomNav.tsx          # persistent Home / Schedule / Table nav
 └── Player profile
     └── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs
+```
+
+---
+
+## lib/ map
+
+```
+lib/
+├── mockData.ts        # all match, player, standings, pitch report data; PLAYERS; ALL_TEAMS
+├── types.ts           # all TypeScript interfaces (Match, Ball, Innings, TestSession, …)
+├── transformers.ts    # ESPN/Cricbuzz/SportRadar adapters; normalizeBall(); deriveTestSessions()
+├── mockMatchups.ts    # 44 batter vs bowler H2H career records
+├── events.ts          # Moments strip event extraction logic
+├── winProb.ts         # power-curve win probability formula (single source of truth)
+└── outcomeColors.ts   # unified ball outcome colour palette
 ```
