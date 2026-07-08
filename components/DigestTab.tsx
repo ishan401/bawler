@@ -16,6 +16,7 @@
 import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
+import { PLAYERS, slugifyPlayer } from "@/lib/mockData";
 
 // ── share utility ────────────────────────────────────────────────────────────
 
@@ -405,6 +406,7 @@ interface MatchSummaryCard {
   topBat: { name: string; runs: number; balls: number; fours: number; sixes: number; sr: number; teamColor: string } | null;
   topBowl: { name: string; wickets: number; runs: number; economy: number; teamColor: string } | null;
   manOfMatch: string | null;
+  manOfMatchPhotoUrl: string | null;
   manOfMatchColor: string;
   narrative: string[];
   seriesStatus: string | null;
@@ -587,6 +589,11 @@ function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
     inningsScores,
     topBat, topBowl,
     manOfMatch: result.manOfMatch ?? null,
+    manOfMatchPhotoUrl: (() => {
+      if (!result.manOfMatch) return null;
+      const slug = slugifyPlayer(result.manOfMatch);
+      return (PLAYERS[slug] as { photoUrl?: string })?.photoUrl ?? null;
+    })(),
     manOfMatchColor,
     narrative: buildMatchNarrative(match),
     seriesStatus: match.seriesStatus ?? null,
@@ -1025,14 +1032,27 @@ function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
       {card.manOfMatch && (
         <div className="px-3 py-2.5 border-b border-line/30 flex items-center gap-2.5">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black"
+            className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0 text-[10px] font-black"
             style={{
               background: `${card.manOfMatchColor}28`,
               border: `1.5px solid ${card.manOfMatchColor}70`,
               color: card.manOfMatchColor,
             }}
           >
-            {initials(card.manOfMatch)}
+            {card.manOfMatchPhotoUrl ? (
+              <img
+                src={card.manOfMatchPhotoUrl}
+                alt={card.manOfMatch ?? ""}
+                className="w-full h-full object-cover"
+                onError={e => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                  (e.currentTarget.parentElement as HTMLElement).dataset.fallback = "true";
+                }}
+              />
+            ) : null}
+            <span className={card.manOfMatchPhotoUrl ? "hidden" : ""}>
+              {initials(card.manOfMatch)}
+            </span>
           </div>
           <div>
             <p className="text-[8px] font-black uppercase tracking-widest text-amber-400 mb-0.5">Player of the Match</p>
