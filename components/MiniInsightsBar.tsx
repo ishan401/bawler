@@ -46,23 +46,27 @@ function deriveMiniInsights(match: Match, _insights: InsightV2[]): MiniChip[] {
   const live = match.innings[match.innings.length - 1];
   if (!live) return chips;
 
-  // Chips 1 & 2: both not-out batters (striker first)
-  const notOut = live.battingCard.filter(r => !r.out);
-  const striker = notOut.find(r => r.onStrike) ?? notOut[0];
-  const nonStriker = notOut.find(r => r !== striker);
+  // Chips 1 & 2: derive current batters from ball data (not battingCard.out flag —
+  // that includes players who haven't batted yet and would give wrong names)
+  const strikerName = live.balls[live.balls.length - 1]?.batterName;
+  // Non-striker = most recent ball faced by a different batter
+  const nonStrikerName = [...live.balls].reverse().find(b => b.batterName && b.batterName !== strikerName)?.batterName;
 
-  if (striker) {
+  const strikerCard = strikerName ? live.battingCard.find(r => r.playerName === strikerName) : null;
+  const nonStrikerCard = nonStrikerName ? live.battingCard.find(r => r.playerName === nonStrikerName) : null;
+
+  if (strikerCard) {
     chips.push({
-      value: `${striker.runs}(${striker.ballsFaced})`,
-      valueColor: striker.runs >= 50 ? "text-boundary" : "text-text-primary",
-      label: (striker.playerName.split(" ").pop() ?? striker.playerName) + "*",
+      value: `${strikerCard.runs}(${strikerCard.ballsFaced})`,
+      valueColor: strikerCard.runs >= 50 ? "text-boundary" : "text-text-primary",
+      label: (strikerCard.playerName.split(" ").pop() ?? strikerCard.playerName) + "*",
     });
   }
-  if (nonStriker) {
+  if (nonStrikerCard) {
     chips.push({
-      value: `${nonStriker.runs}(${nonStriker.ballsFaced})`,
-      valueColor: nonStriker.runs >= 50 ? "text-boundary" : "text-text-primary",
-      label: nonStriker.playerName.split(" ").pop() ?? nonStriker.playerName,
+      value: `${nonStrikerCard.runs}(${nonStrikerCard.ballsFaced})`,
+      valueColor: nonStrikerCard.runs >= 50 ? "text-boundary" : "text-text-primary",
+      label: nonStrikerCard.playerName.split(" ").pop() ?? nonStrikerCard.playerName,
     });
   }
 
