@@ -7505,7 +7505,8 @@ export const LIVE_INTERNATIONAL: Match[] = [
           { playerId: "sgilchr", playerName: "S Gill",      runs: 28, ballsFaced: 21, fours: 3, sixes: 1, strikeRate: 133.3, out: true,  dismissal: "c Head b Hazlewood" },
           { playerId: "vkohli",   playerName: "V Kohli",    runs: 61, ballsFaced: 42, fours: 6, sixes: 2, strikeRate: 145.2, out: false, dismissal: "not out", onStrike: true },
           { playerId: "siyer",    playerName: "S Iyer",     runs: 11, ballsFaced: 9,  fours: 1, sixes: 0, strikeRate: 122.2, out: true,  dismissal: "lbw b Maxwell" },
-          { playerId: "hpandya",  playerName: "H Pandya",   runs: 11, ballsFaced: 7,  fours: 1, sixes: 1, strikeRate: 157.1, out: false, dismissal: "not out" },
+          { playerId: "hpandya",  playerName: "H Pandya",   runs: 11, ballsFaced: 7,  fours: 1, sixes: 1, strikeRate: 157.1, out: true,  dismissal: "c Inglis b Starc" },
+          { playerId: "rpant",    playerName: "R Pant",      runs: 5,  ballsFaced: 8,  fours: 0, sixes: 0, strikeRate: 62.5,  out: false, dismissal: "not out" },
         ],
         bowlingCard: [
           { playerId: "mstarc",  playerName: "M Starc",      oversBowled: 4,   maidens: 0, runsConceded: 38, wickets: 1, economy: 9.5 },
