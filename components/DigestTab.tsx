@@ -17,6 +17,56 @@ import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 
+// ── share utility ────────────────────────────────────────────────────────────
+
+async function shareCard(cardEl: HTMLElement, label: string) {
+  try {
+    const { toPng } = await import("html-to-image");
+    const dataUrl = await toPng(cardEl, {
+      pixelRatio: 2,
+      backgroundColor: "#070B14",
+      skipFonts: true,
+    });
+    const byteStr = atob(dataUrl.split(",")[1]);
+    const arr = new Uint8Array(byteStr.length);
+    for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
+    const blob = new Blob([arr], { type: "image/png" });
+    const file = new File([blob], `bawler-digest-${label}.png`, { type: "image/png" });
+    const text = `${label} · bawler-gold.vercel.app`;
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: "Bawler Digest", text });
+    } else {
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `bawler-digest-${label}.png`;
+      a.click();
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name !== "AbortError") {
+      console.error("[Bawler] Digest share failed:", err);
+    }
+  }
+}
+
+function ShareButton({ label }: { label: string }) {
+  function handleShare(e: React.MouseEvent<HTMLButtonElement>) {
+    const card = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-digest-card]");
+    if (card) shareCard(card, label);
+  }
+  return (
+    <button
+      onClick={handleShare}
+      className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white/6 active:bg-white/15 transition-colors"
+      aria-label="Share"
+    >
+      <svg className="w-3.5 h-3.5 text-text-dim" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+      </svg>
+    </button>
+  );
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function groupSize(format: MatchFormat): number {
@@ -533,21 +583,13 @@ function BallDot({ ball }: { ball: Ball }) {
   );
 }
 
-function KeyBallChevron() {
-  return (
-    <svg className="w-3 h-3 text-cyan ml-auto shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-function OverGroupCardView({ card, onSelectBall }: { card: OverGroupCard; onSelectBall: (id: string) => void }) {
+function OverGroupCardView({ card }: { card: OverGroupCard }) {
   const kb = card.keyBall;
   const keyLabel = `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}`;
   const showDots = card.gs === 1;
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card overflow-hidden" data-digest-card>
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
@@ -566,25 +608,20 @@ function OverGroupCardView({ card, onSelectBall }: { card: OverGroupCard; onSele
         )}
         <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">{card.narrative}</p>
       </div>
-      <button onClick={() => onSelectBall(card.keyBall.id)}
-        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">Key</span>
-          <span className="text-[10px] font-extrabold text-cyan num">{keyLabel}</span>
-          <KeyBallChevron />
-        </div>
-        <p className="text-[11px] text-text-secondary leading-snug">{card.overSummary}</p>
-      </button>
+      <div className="flex items-start gap-2 px-3 pt-2 pb-2.5 border-t border-line/50">
+        <p className="text-[11px] text-text-secondary leading-snug flex-1">{card.overSummary}</p>
+        <ShareButton label={card.label} />
+      </div>
     </div>
   );
 }
 
-function SessionCardView({ card, onSelectBall }: { card: SessionCard; onSelectBall: (id: string) => void }) {
+function SessionCardView({ card }: { card: SessionCard }) {
   const kb = card.keyBall;
   const keyLabel = `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}`;
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card overflow-hidden" data-digest-card>
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
@@ -603,15 +640,10 @@ function SessionCardView({ card, onSelectBall }: { card: SessionCard; onSelectBa
         <span className="text-text-dim/40 text-[9px]">·</span>
         <p className="text-[10px] text-text-dim leading-snug truncate flex-1 min-w-0">{card.narrative}</p>
       </div>
-      <button onClick={() => onSelectBall(card.keyBall.id)}
-        className="w-full px-3 pt-2 pb-2.5 border-t border-line/50 text-left active:bg-line/40 transition-colors">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim shrink-0">Key</span>
-          <span className="text-[10px] font-extrabold text-cyan num">{keyLabel}</span>
-          <KeyBallChevron />
-        </div>
-        <p className="text-[11px] text-text-secondary leading-snug">{card.overSummary}</p>
-      </button>
+      <div className="flex items-start gap-2 px-3 pt-2 pb-2.5 border-t border-line/50">
+        <p className="text-[11px] text-text-secondary leading-snug flex-1">{card.overSummary}</p>
+        <ShareButton label={card.sessionLabel} />
+      </div>
     </div>
   );
 }
@@ -631,7 +663,7 @@ function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
     .join("  ·  ");
 
   return (
-    <div className="rounded-xl overflow-hidden border border-cyan/20 bg-surface-2/80 backdrop-blur-sm">
+    <div className="rounded-xl overflow-hidden border border-cyan/20 bg-surface-2/80 backdrop-blur-sm" data-digest-card>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 bg-cyan/6 border-b border-cyan/15">
         <div className="flex items-center gap-1">
@@ -647,6 +679,7 @@ function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
         {card.totalWickets > 0 && (
           <span className="text-[12px] font-extrabold num text-wicket ml-1">{card.totalWickets}w</span>
         )}
+        <ShareButton label={`Day ${card.day} Stumps`} />
       </div>
 
       {/* Session breakdown row */}
@@ -711,10 +744,9 @@ function DayChips({
 interface Props {
   match: Match;
   allBalls: Ball[];
-  onSelectBall: (ballId: string) => void;
 }
 
-export default function DigestTab({ match, allBalls, onSelectBall }: Props) {
+export default function DigestTab({ match, allBalls }: Props) {
   const isLive = match.status === "live";
   const isTest = match.format === "Test";
 
@@ -774,8 +806,8 @@ export default function DigestTab({ match, allBalls, onSelectBall }: Props) {
           if (card.kind === "day-summary")
             return <DaySummaryCardView key={card.id} card={card} />;
           if (card.kind === "session")
-            return <SessionCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
-          return <OverGroupCardView key={card.id} card={card} onSelectBall={onSelectBall} />;
+            return <SessionCardView key={card.id} card={card} />;
+          return <OverGroupCardView key={card.id} card={card} />;
         })}
       </div>
     </div>

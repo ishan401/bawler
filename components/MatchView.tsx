@@ -684,7 +684,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           <DigestTab
             match={truncatedMatch}
             allBalls={allBalls}
-            onSelectBall={(id) => { setSelectedBallId(id); goToTab("live"); }}
           />
         )}
         {renderedTab === "info" && <InfoTab match={truncatedMatch} />}
