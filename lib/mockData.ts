@@ -7524,7 +7524,7 @@ export const LIVE_INTERNATIONAL: Match[] = [
     summary: "Kohli 61* hunting the series with India needing 34 off 22 balls.",
   },
   {
-    id: "eng-sa-test-2026-d3-live",
+    id: "ind-eng-test-2026-d3-live",
     format: "Test",
     competition: COMPETITIONS.indEngTest2026,
     championship: COMPETITIONS.wtc2527,

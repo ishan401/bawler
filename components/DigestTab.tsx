@@ -515,7 +515,7 @@ function buildMatchNarrative(match: Match): string[] {
 }
 
 function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
-  if (match.status !== "post-match" || !match.result) return null;
+  if (!match.result) return null;
   const { result, innings, teamA, teamB } = match;
 
   const winnerColor = result.winner === teamA.code ? teamA.primaryColor :
