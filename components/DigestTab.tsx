@@ -75,7 +75,8 @@ function groupSize(format: MatchFormat): number {
   return 1;
 }
 
-function lastName(fullName: string): string {
+function lastName(fullName: string | null | undefined): string {
+  if (!fullName) return "";
   const parts = fullName.trim().split(" ");
   return parts.length >= 2 ? parts[parts.length - 1] : fullName;
 }
@@ -88,7 +89,8 @@ function legalBalls(balls: Ball[]): Ball[] {
   return balls.filter(b => !isExtras(b));
 }
 
-function pickKeyBall(balls: Ball[]): Ball {
+function pickKeyBall(balls: Ball[]): Ball | null {
+  if (!balls.length) return null;
   const wicket = balls.find(b => b.isWicket);
   if (wicket) return wicket;
   const six = balls.find(b => b.isBoundary6);
@@ -99,23 +101,26 @@ function pickKeyBall(balls: Ball[]): Ball {
 }
 
 function dominantBowler(balls: Ball[]): string {
+  if (!balls.length) return "";
   const map = new Map<string, { balls: number; wickets: number }>();
   for (const b of balls) {
-    const e = map.get(b.bowlerName) ?? { balls: 0, wickets: 0 };
+    const name = b.bowlerName || "Unknown";
+    const e = map.get(name) ?? { balls: 0, wickets: 0 };
     e.balls++;
     if (b.isWicket) e.wickets++;
-    map.set(b.bowlerName, e);
+    map.set(name, e);
   }
-  return [...map.entries()].sort(
+  const sorted = [...map.entries()].sort(
     (a, b) => b[1].wickets - a[1].wickets || b[1].balls - a[1].balls
-  )[0][0];
+  );
+  return sorted[0]?.[0] ?? "";
 }
 
 // ── narrative (row 2 — factual, compact) ─────────────────────────────────────
 
 function buildNarrative(
   runs: number, wickets: number, fours: number, sixes: number,
-  bowler: string, keyBall: Ball, format: MatchFormat
+  bowler: string, keyBall: Ball | null, format: MatchFormat
 ): string {
   const span = format === "ODI" ? "block" : format === "Test" ? "session" : "over";
   const big  = format === "ODI" ? 30 : format === "Test" ? 50 : 14;
@@ -127,7 +132,7 @@ function buildNarrative(
     return sixes >= 2 ? `${sixes} sixes, ${fours} fours — carnage` : `Big ${span} — ${runs} runs`;
   if (wickets === 1 && runs >= 10) return `${runs} & a wicket — ${lastName(bowler)}`;
   if (wickets === 1) return `${lastName(bowler)} strikes`;
-  if (sixes >= 2) return `${sixes} sixes — ${lastName(keyBall.batterName)} in flow`;
+  if (sixes >= 2) return `${sixes} sixes — ${lastName(keyBall?.batterName) || 'Batter'} in flow`;
   if (fours >= 3) return `${fours} fours — boundaries flowing`;
   if (runs <= 3 && wickets === 0) return `Tight ${span} — ${runs} conceded`;
   return `${runs} scored`;
@@ -137,10 +142,10 @@ function buildNarrative(
 
 function buildOverSummary(
   runs: number, wickets: number, fours: number, sixes: number,
-  bowlerName: string, keyBall: Ball, variant: number
+  bowlerName: string, keyBall: Ball | null, variant: number
 ): string {
-  const bowler = lastName(bowlerName);
-  const batter = lastName(keyBall.batterName);
+  const bowler = lastName(bowlerName) || "Bowler";
+  const batter = lastName(keyBall?.batterName) || "Batter";
   const v = ((variant % 3) + 3) % 3;
 
   if (runs === 0 && wickets === 0)
@@ -338,7 +343,7 @@ interface OverGroupCard {
   runs: number; wickets: number; fours: number; sixes: number;
   allBalls: Ball[];
   legalDeliveries: Ball[];
-  keyBall: Ball;
+  keyBall: Ball | null;
   bowlerName: string;
   narrative: string;
   overSummary: string;
@@ -355,7 +360,7 @@ interface SessionCard {
   teamColor: string;
   runs: number; wickets: number; fours: number; sixes: number;
   allBalls: Ball[];
-  keyBall: Ball;
+  keyBall: Ball | null;
   bowlerName: string;
   narrative: string;
   overSummary: string;
@@ -585,7 +590,7 @@ function BallDot({ ball }: { ball: Ball }) {
 
 function OverGroupCardView({ card }: { card: OverGroupCard }) {
   const kb = card.keyBall;
-  const keyLabel = `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}`;
+  const keyLabel = kb ? `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}` : "";
   const showDots = card.gs === 1;
 
   return (
@@ -618,7 +623,7 @@ function OverGroupCardView({ card }: { card: OverGroupCard }) {
 
 function SessionCardView({ card }: { card: SessionCard }) {
   const kb = card.keyBall;
-  const keyLabel = `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}`;
+  const keyLabel = kb ? `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}` : "";
 
   return (
     <div className="card overflow-hidden" data-digest-card>
