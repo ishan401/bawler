@@ -1,5 +1,5 @@
 "use client";
-import { memo } from "react";
+import { memo, useState } from "react";
 import type { MatchFormat } from "@/lib/types";
 import { getMatchupStats } from "@/lib/mockMatchups";
 
@@ -18,6 +18,14 @@ interface MatchupCardProps {
   onShare?: () => void;
 }
 
+/**
+ * MatchupCard — collapses to a one-line teaser by default (team-colour dot +
+ * batter + "vs" + team-colour dot + bowler + chevron, ~40px tall) so it costs
+ * almost no space for viewers who don't care about H2H depth. Tapping expands
+ * it in place to the full stat breakdown; tapping again collapses it back.
+ * All data / live-merge / share logic below is unchanged — this is purely a
+ * display-state wrapper around the existing content.
+ */
 function MatchupCard({
   batterName, bowlerName,
   battingTeamColor, bowlingTeamColor,
@@ -26,6 +34,7 @@ function MatchupCard({
   liveMatchFours = 0, liveMatchSixes = 0,
   onShare,
 }: MatchupCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const stats = getMatchupStats(batterName, bowlerName, format);
 
   // Merge career H2H with live match counters so every stat updates in real-time
@@ -45,6 +54,40 @@ function MatchupCard({
     T20: "T20", T20I: "T20I", ODI: "ODI", Test: "Test", Hundred: "100-ball",
   };
 
+  // ── Collapsed teaser ──────────────────────────────────────────────────────
+  if (!expanded) {
+    return (
+      <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
+        <div className="flex items-center gap-1.5 px-3 py-2">
+          <button
+            onClick={() => setExpanded(true)}
+            className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
+            aria-label={`${batterName} vs ${bowlerName} — tap for head-to-head`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
+            <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
+              {batterName}
+            </span>
+            <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
+            <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
+              {bowlerName}
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
+          </button>
+          <span className="text-[9px] text-text-dim shrink-0">tap for H2H</span>
+          <button
+            onClick={() => setExpanded(true)}
+            className="shrink-0 text-text-dim p-0.5"
+            aria-label="Expand matchup card"
+          >
+            <ChevronIcon direction="down" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Expanded — existing full card content, unchanged ────────────────────
   return (
     <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
 
@@ -54,24 +97,23 @@ function MatchupCard({
         <div className="flex-1" style={{ background: bowlingTeamColor }} />
       </div>
 
-      {/* ── Row 1: names + badge + share ── */}
+      {/* ── Row 1: names + badge + share + collapse ── */}
       <div className="flex items-center gap-1.5 px-3 pt-2 pb-1.5">
-        {/* Batter */}
-        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
-        <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
-          {batterName}
-        </span>
-
-        <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
-
-        {/* Bowler */}
-        <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
-          {bowlerName}
-        </span>
-        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
-
-        {/* Spacer */}
-        <span className="flex-1" />
+        <button
+          onClick={() => setExpanded(false)}
+          className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
+          aria-label="Collapse matchup card"
+        >
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
+          <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
+            {batterName}
+          </span>
+          <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
+          <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
+            {bowlerName}
+          </span>
+          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
+        </button>
 
         {/* Preview badge */}
         <span
@@ -91,6 +133,15 @@ function MatchupCard({
             <ShareIcon />
           </button>
         )}
+
+        {/* Collapse */}
+        <button
+          onClick={() => setExpanded(false)}
+          className="shrink-0 text-text-dim p-0.5"
+          aria-label="Collapse matchup card"
+        >
+          <ChevronIcon direction="up" />
+        </button>
       </div>
 
       {hasData ? (
@@ -142,6 +193,17 @@ function CompactStat({ label, value, color }: { label: string; value: number; co
       <span className={`text-[17px] font-extrabold num leading-none ${color}`}>{value}</span>
       <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim">{label}</span>
     </div>
+  );
+}
+
+function ChevronIcon({ direction }: { direction: "up" | "down" }) {
+  return (
+    <svg
+      width="10" height="10" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    >
+      {direction === "down" ? <path d="M6 9l6 6 6-6" /> : <path d="M18 15l-6-6-6 6" />}
+    </svg>
   );
 }
 
