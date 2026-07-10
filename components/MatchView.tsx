@@ -9,7 +9,6 @@ import ScoreBar from "@/components/ScoreBar";
 import MiniInsightsBar from "@/components/MiniInsightsBar";
 import BallGIF from "@/components/BallGIF";
 import WinProbChart from "@/components/WinProbChart";
-import MiniWinProb from "@/components/MiniWinProb";
 import MomentsStrip from "@/components/MomentsStrip";
 import MatchTabs, { type TabKey, type TabBadge } from "@/components/MatchTabs";
 import Scorecard from "@/components/Scorecard";
@@ -37,9 +36,10 @@ const BALL_DWELL_MS = GIF_LOOP_MS * GIF_REPS_PER_BALL; // 24 sec
  * Match page — Sarthak v0.9 layout:
  *   GIF
  *   Moments (always visible, just below GIF)
- *   MiniWinProb (compact chart; tap to expand to full)
- *   AI Metrics (4 condensed tiles)
  *   Commentary (variable-height ball cards)
+ *
+ * Win probability lives as a chip in the sticky MiniInsightsBar (leading
+ * team + %); tapping it opens the same full-screen WinProbChart as before.
  */
 export default function MatchView({ match, insights: insightsProp }: MatchViewProps) {
   const allBalls = useMemo(() => match.innings.flatMap(i => i.balls), [match]);
@@ -524,7 +524,12 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       {/* Sticky header */}
       <div className="sticky top-0 z-30">
         <ScoreBar match={truncatedMatch} />
-        <MiniInsightsBar match={truncatedMatch} insights={visibleInsights} />
+        <MiniInsightsBar
+          match={truncatedMatch}
+          insights={visibleInsights}
+          winProbPoints={winProbPoints}
+          onExpandWinProb={() => setShowProbModal(true)}
+        />
         <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} showDigest={showDigest} />
       </div>
 
@@ -661,11 +666,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   onSelect={handleMomentSelect}
                   onShare={handleMomentShare}
                   format={match.format}
-                />
-                <MiniWinProb
-                  match={truncatedMatch}
-                  points={winProbPoints}
-                  onExpand={() => setShowProbModal(true)}
                 />
                 <div className="pt-1">
                   <div className="flex items-center justify-between mb-2">
