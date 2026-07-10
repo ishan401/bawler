@@ -94,7 +94,20 @@ export default function BallGIF({
               <TypeChip ball={ball} large />
               <SpeedChip ball={ball} />
             </div>
-            <OutcomeBadge ball={ball} />
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Share — big moments only, lives in the info bar, never over the visual itself */}
+              {isBigMoment && onShare && (
+                <button
+                  onClick={() => onShare(ball)}
+                  aria-label="Share this ball"
+                  className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 active:scale-90 transition-transform"
+                  style={{ background: shareAccent.bg, color: "#fff" }}
+                >
+                  <ShareIcon />
+                </button>
+              )}
+              <OutcomeBadge ball={ball} />
+            </div>
           </div>
           <div className="flex items-center gap-1.5 px-3 pb-1.5 text-[9px] font-semibold text-white/55 leading-none truncate">
             <span className="text-white/80 font-bold truncate">{ball.bowlerName}</span>
@@ -102,21 +115,6 @@ export default function BallGIF({
             <span className="text-white/80 font-bold truncate">{ball.batterName}</span>
           </div>
         </div>
-
-        {/* Share button — top-right, big moments only */}
-        {isBigMoment && onShare && (
-          <button
-            onClick={() => onShare(ball)}
-            className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
-            style={{
-              background: shareAccent.bg, color: "#fff",
-              backdropFilter: "blur(8px)",
-              boxShadow: `0 0 18px ${shareAccent.shadow}, 0 2px 8px rgba(0,0,0,0.4)`,
-            }}
-          >
-            <ShareIcon /><span>Share</span>
-          </button>
-        )}
       </div>
 
       {/* ── IMPACT FOOTER ── */}
