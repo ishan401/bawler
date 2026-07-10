@@ -690,7 +690,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         {renderedTab === "table" && <StandingsTab competition={tableComp} />}
 
         <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
-          Bawler v0.9 · all data mocked
+          Bawler v1.0.47 · all data mocked
         </footer>
         </div>
       </main>

@@ -286,6 +286,19 @@ Bilateral international series don't have league tables — they're just X–Y i
 
 ---
 
+## Score display — v1.0.22 to v1.0.23
+
+**SD1 — Projected score only in 1st innings, non-Test**
+Projections in a chase are meaningless (target is fixed) and Test projections span multiple days with weather/declaration variables. Only T20/ODI 1st innings get a projection. The formula uses ball-data CRR × overs remaining + venue par adjustment + wickets-in-hand factor. Falls back to pure formula when no ball data.
+
+**SD2 — CRR labelled with batting team code, not generic "CRR"**
+"MI CRR 7.11" is more scannable than "CRR 7.11" when two teams' scores are both visible. The batting team code makes it unambiguous which team's run rate is shown.
+
+**SD3 — AI metrics row removed entirely**
+The metrics tiles (Momentum, Acceleration, Pressure, Next-wicket impact) were synthetic scores derived from mocked formulas. On real data they would need calibration against historical outcomes. Removed to reduce visual noise and avoid misleading numbers. Replaced by projected score + CRR which are both interpretable without calibration. (`AIMetrics.tsx` and `lib/metrics.ts` were left in the codebase, unreferenced, until the doc audit on 2026-07-10 flagged them as dead code — see cleanup list in BUILD-STATUS.md.)
+
+---
+
 ## Complete cricket app — v1.0.25 to v1.0.26
 
 **CA1 — `franchiseStats` / `franchiseLeague` instead of `iplStats`**
@@ -362,3 +375,34 @@ Tapping the W/4/6 chips on a digest card to reveal who got out / hit the six was
 **DG13 — Card narrative is factual, over-summary is creative**
 Row 2 of each card is a tight factual descriptor ("Two wickets — collapse!", "Bumrah strikes", "Big over — 18 runs"). Row 3 is the punchy cricket-flavour creative line ("Dew is helping the seamers probe the top order" etc.). Keeping them in separate rows maintains scannability: the fan can read row 2 in 0.5 seconds; row 3 rewards a deeper read. Mixing them would blur the information hierarchy.
 
+
+---
+
+## Live UX polish — v1.0.45 to v1.0.47 (2026-07-10)
+
+**LP1 — Speed label removed; colour alone signals pace, everywhere**
+BallGIF/MiniBallGIF's info bar showed a text label ("Fast · 135 KMH") before the speed number, while the commentary feed already conveyed pace via colour alone with no label. This was an inconsistency, not a deliberate choice — the GIF's label violated the platform's own rule that colour is supplementary but sufficient (see Accessibility in DESIGN-SYSTEM.md). Fix: drop the word label in `formatVariation()`/`typeStyle()` across `BallGIF.tsx`, `MiniBallGIF.tsx`, and `DeliveryCard.tsx` so all three surfaces agree.
+
+**LP2 — Moments strip blank-chip bug: `align-items: stretch` default, not missing data**
+The leftmost Moments chip sometimes rendered as an empty coloured block. Root cause was a CSS flex layout bug (children stretched to a taller sibling's height without content to fill it), not a data or "live placeholder" issue as originally suspected. Fixed with `self-start` on the chip. Documented because the initial hypothesis (missing live-chip content) was wrong — worth remembering the actual root cause was layout, not data.
+
+**LP3 — Win-Prob: chip in mini-insights bar, single leading team + %, not both teams**
+Win-Prob was pulled out of its own standalone card (redundant screen real estate below the Moments strip) and folded into the mini-insights bar as a 4th chip, matching the batters/bowler chips already there. Considered widening the chip to show both team codes + % once space was tight, but this was rejected: the whole point of the insights bar is a fixed-height, non-scrolling single row — showing both teams would either force scrolling (rejected outright, defeats the format) or require shrinking other chips below usable width. A single leading-team chip (`IND 89%`) with tap-to-expand to the existing full WinProbChart modal preserves the full detail on demand without compromising the row. No information is lost, just the always-visible view was made leaner.
+
+**LP4 — All mini-insights bar chips get max-width + truncation**
+Once Win-Prob joined batters + bowler in the same row, a long player name or a deep-innings score string could overflow or wrap the row and break the fixed-height bar. Every chip (`MiniChip`) now gets a fixed `max-w-[118px]` with ellipsis truncation — a platform-wide guard rather than a one-off fix, so future chips added to this bar inherit the same safety.
+
+**LP5 — Matchup card collapses to a one-line teaser by default, instead of being cut**
+The always-on batter-vs-bowler card was flagged as a real apprehension: screen space cost vs. value, and a feature that skews toward the "stats-nerd" persona (PRD's tertiary/fantasy-adjacent audience) rather than the primary "always-on cricket fan" who wants context, not depth. The options were cut it entirely, or keep it always-on. Chosen instead: collapse to a ~40px one-line teaser (team-coloured dot + batter vs bowler + chevron) that expands in place on tap. This keeps the feature available for the personas who value it (secondary/tertiary) without imposing its screen cost on the primary persona who doesn't look at it every ball. No data, live-merge logic, or share export changed — purely a display-state wrapper on top of the existing card.
+
+**LP6 — ScoreBar competition badge hidden for bilateral series only**
+The "IND V AUS"-style badge above the score was redundant for bilateral series — the two team names are already the entire competition. It is NOT redundant for leagues/tournaments (e.g. "IPL", "ICC T20 WC") where neither team name implies the competition. Fix is scoped to `match.competition.type !== "bilateral"` rather than removing the badge outright, so the disambiguation value is preserved where it's real.
+
+**LP7 — BallGIF Share button relocated into the info-bar chrome, not removed**
+The Share button (highlight balls only — wicket/4/6) was floating on top of the pitch/field visual itself, at exactly the moment the visual matters most. Rather than removing Share from BallGIF (it's a real, used export flow), it moved into the existing bottom info-bar row next to the outcome badge — same visibility, same "highlight balls only" trigger condition, zero overlap with the visual. Confirmed on a live wicket ball via browser verification.
+
+**LP8 — Dedicated Moments "Live" chip removed; "Back to live" link is the only live-status affordance**
+The Moments strip had a permanent pulsing "Live" chip as its leftmost item, functionally overlapping with the header's existing "Back to live" text link (both let the user return to the live ball). Two controls doing the same job is clutter. The chip was removed; "Back to live" remains as the sole affordance. `isLive`/`onSelect` props stay in use elsewhere (header button, `EventChip`'s `active` state).
+
+**LP9 — Commentary feed per-ball Share removed entirely — reverses CL2**
+CL2 (above) originally justified putting Share on every commentary ball, including dots and non-highlight deliveries, on the theory that users share ordinary balls too (a maiden over, a specific delivery to discuss). That reasoning is explicitly superseded: Share is now removed from `DeliveryCard`'s compact rows and full cards entirely. Share still exists at the BallGIF level (highlight balls, relocated per LP7), the Moments strip (per-event story cards), the Matchup card, and the Digest tab — so no export capability was lost overall, it was consolidated away from "every single ball row" toward "curated moments." `MiniShareIcon()` in `DeliveryCard.tsx` was deleted as dead code alongside the button removal (confirmed no external usages before deleting).

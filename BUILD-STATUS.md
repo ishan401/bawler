@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.40 (deployed)
+**Current version:** v1.0.47 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -70,25 +70,28 @@
 - ✅ **Series schedule bottom sheet** — bilateral series status chip on live cards is now a tappable button; opens BottomSheet with complete series timeline: past matches (result + scorecard scores), live match highlighted in green, upcoming matches with countdown; back-swipe / swipe-down to close
 - ✅ **iOS Safari back-swipe fix** — BottomSheet now pushes a `#modal` URL hash entry so iOS Safari's edge-swipe fires `popstate` correctly; cleanup uses `replaceState` (not `history.back()`) to avoid double-navigation on programmatic close; works correctly on Android, desktop, and iOS PWA
 - ✅ **Partnership velocity spark** — Scorecard tab now shows a Partnerships section between Batting and Bowling; each row has a 72×22px SVG sparkline (team-coloured area + polyline) showing RPO per 3-ball window across that partnership, batter names, and runs(balls); only renders when ball data exists
+- ✅ **ScoreBar competition badge** (v1.0.47) — hidden for bilateral series (redundant with the two team names already shown); still shown for leagues/tournaments where it disambiguates (e.g. "IPL", "ICC T20 WC")
 - ✅ **BallGIF** — two clips (bowler perspective + overhead) 3s each, 4 reps/ball (24s dwell)
 - ✅ **Perspective-correct impact Y** — uses trapezoid width ratio (220/80=2.75) for accurate pitch length display
 - ✅ **Post-pitch bounce arc** — bezier control above impact point; bounce height scales with pitchY (10–55px)
 - ✅ **No SVG filter on animated balls** — feGaussianBlur removed; perf fix; gradient fill preserved
+  - ✅ **Speed label** (v1.0.45) — redundant "Fast"/"Slow" text removed from the info bar; the speed number's colour alone now signals pace, matching the commentary feed convention
+  - ✅ **Share button relocated** (v1.0.46) — moved off the visual (was floating top-right on wicket/4/6 balls) into the info-bar chrome beside the outcome badge; still only shows on highlight balls
   - ✅ Stick figures with name labels; speed + ball type as text
   - ✅ Exaggerated swing (1.8×) + spin (2.2×) for visual punch
   - ✅ Background tint by outcome (unified palette) — no whitish wash (perspective fix)
   - ✅ Cross-fade between clips (280ms); smooth bg transition between balls (600ms)
-- ✅ **Moments strip** — two-zone chips (badge + over top; label + 2-line context bottom); Live chip with pulsing dot
-- ✅ **Matchup card** — always-on batter vs bowler H2H below ball visualizer; format-aware (T20I/ODI/Test); all stats merge career H2H + current match live counters (balls/runs/outs/dots/4s/6s); label-value row format (`matches-N 4s-N 6s-N Avg-N SR-N Dots-N%`); `Watch for:` danger delivery on own row; shareable PNG; updates on every delivery including strike rotation
-- ✅ **MiniWinProb** — both teams' win% large + bold; gradient area fills; split colour bar; brighten() for dark team colours; namespaced SVG IDs (mwp-fa/mwp-fb)
-- ✅ AI metrics tiles — primary value + trend arrow + delta line + plain-English context label
+- ✅ **Moments strip** — two-zone chips (badge + over top; label + 2-line context bottom). Dedicated pulsing "Live" chip was **removed in v1.0.45** — the existing "Back to live" text link already covers that affordance; two live-status indicators was redundant.
+- ✅ **Matchup card** (v1.0.47) — defaults to a collapsed one-line teaser (team-coloured dot + batter vs bowler + chevron, ~40px); tap to expand in place to the full H2H card (unchanged content: format-aware stats, career H2H + live counters, label-value row, danger delivery line, shareable PNG). Collapsing by default trades always-visible depth for screen space — see DECISIONS-LOG.md.
+- ✅ **Win-prob chip** (v1.0.46) — win probability moved out of the standalone MiniWinProb card into a leading-team-code + % chip inside the mini-insights bar; tap to expand the full WinProbChart modal (unchanged). `MiniWinProb.tsx` is no longer rendered anywhere and is now orphaned dead code (see cleanup list below).
+- ~~AI metrics tiles~~ — **retired in v1.0.23** (see DECISIONS-LOG.md SD3); row removed entirely, replaced by projected score + CRR in ScoreBar. `AIMetrics.tsx` + `lib/metrics.ts` are now orphaned dead code (see cleanup list below).
 - ✅ Win-prob chart modal — full-screen, two team lines, hue-accurate via `brightColor()`
 
 - ✅ **SpeedChip** — hidden when `ball.ballSpeedKmh` is null (was showing "0 kmh")
 - ✅ **Format-aware chase metrics** — `totalBallsForFormat(match)` replaces hardcoded 120; correct for T20/ODI/Test
 - ✅ **Insights prop-driven** — `MatchViewProps.insights?: InsightV2[]`; real pages pass `insights={[]}`, mock is default fallback
 - ✅ **truncatedMatch innings fallback** — when no balls exist for innings[1], falls back to real `match.innings[1]` values (ScoreBar no longer shows 0/0)
-- ✅ **Commentary feed** — colour-coded ball outcomes:
+- ✅ **Commentary feed** (share button **removed entirely in v1.0.47** — see DECISIONS-LOG.md, reverses CL2) — colour-coded ball outcomes:
   - Wicket: red `#EF4444`
   - Six: turquoise green `#2DD4BF`
   - Four: cyan `#06B6D4`
@@ -173,11 +176,11 @@
 - [ ] Shareable ball-GIF export — one-tap MP4/GIF for WhatsApp / Twitter
 - [ ] User accounts + favourites
 - [ ] Push notifications for favourited teams
-- [ ] Real domain (off `bawler.vercel.app`)
+- [ ] Real domain (off `bawler-gold.vercel.app`)
 
 ### Nice-to-have
 - [ ] Vitest + RTL tests on `BallGIF`, `DeliveryCard`, `MatchView`
-- [ ] Remove legacy unused components (`ViewSwitcher`, `MomentsCollapsible`, `PressureGauge`, `ProjectedScore`, `DemoControls`, `InsightsPanel`)
+- [ ] Remove legacy unused components (`ViewSwitcher`, `MomentsCollapsible`, `PressureGauge`, `ProjectedScore`, `DemoControls`, `InsightsPanel`, `AIMetrics.tsx` + `lib/metrics.ts` [orphaned since v1.0.23's AI-metrics-row removal, confirmed unreferenced anywhere in the codebase], `MiniWinProb.tsx` [orphaned since v1.0.46 moved win-prob into the mini-insights bar chip])
 - [ ] Service worker for offline-cached last-seen match state
 - [ ] WCAG colour-contrast audit on `text-dim` values
 - [ ] Lighthouse-mobile to 95+ (currently ~88)
@@ -261,3 +264,17 @@
 | **v1.0.37** | Digest: day filter chips row (Test); expanded Day Summary card (5–7 lines) |
 | **v1.0.36** | Digest: Test match session-based cards + Day Stumps summary; TestSession type + deriveTestSessions() transformer; IND vs ENG test 512-ball dataset |
 | **v1.0.35** | Digest tab: initial build — over-by-over cards, compact 3-row layout, creative over-summary, normalizeBall() in transformers |
+
+---
+
+## Changelog additions (v1.0.41–v1.0.47)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.47** | Matchup card collapses to a one-line tap-to-expand teaser by default; commentary feed per-ball Share button removed entirely (`31b6d0d`, `be69b6d`) |
+| **v1.0.46** | Win-Prob moved out of the standalone MiniWinProb card into a tap-to-expand chip in the mini-insights bar; all insight chips gained max-width + truncation; BallGIF Share button relocated off the visual into the info-bar chrome (`232ded5`, `bcc633e`) |
+| **v1.0.45** | Fix: redundant "Fast"/"Slow" pace label removed from BallGIF/MiniBallGIF/commentary speed readout (colour alone signals pace now); fix: blank leftmost Moments-strip chip (flex `align-items: stretch` bug) (`72e729b`) |
+| **v1.0.44** | Fix: `ALL_UPCOMING_MATCHES` + `ALL_PAST_MATCHES` correctly include domestic IPL arrays alongside international |
+| **v1.0.43** | Fix: restore `PLAYERS`, `COMPETITION_STANDINGS`, `slugifyPlayer`, `hasStandings` after a truncation incident |
+| **v1.0.42** | Data: pitch reports added for 10 international venues (SCG, MCG, Lord's, Oval, Headingley, Optus, Gaddafi, Nassau, Gabba, SSC) |
+| **v1.0.41** | Digest: MOM avatar — BallGIF-style initials circle + `<img>` fallback, plug-and-play for real photos (`5333611`) |
