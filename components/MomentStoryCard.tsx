@@ -528,8 +528,6 @@ function formatVariation(ball: Ball): string {
   if (ball.swingDirection === "out") return "Outswinger";
   if (ball.spinDirection === "off") return "Off-spin";
   if (ball.spinDirection === "leg") return "Leg-spin";
-  if (ball.pace === "fast") return "Fast";
-  if (ball.pace === "slow") return "Slow";
   return "Stock";
 }
 

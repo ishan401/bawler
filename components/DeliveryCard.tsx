@@ -197,8 +197,6 @@ function TypePill({ ball }: { ball: Ball }) {
 function typeStyle(ball: Ball): { color: string; dot: string } {
   if (ball.spinDirection && ball.spinDirection !== "none") return { color: "text-six", dot: "#A855F7" };
   if (ball.swingDirection && ball.swingDirection !== "none") return { color: "text-cyan", dot: "#06B6D4" };
-  if (ball.pace === "fast") return { color: "text-text-primary", dot: "#FF6B35" };
-  if (ball.pace === "slow") return { color: "text-six", dot: "#A855F7" };
   return { color: "text-text-primary", dot: "#94A3B8" };
 }
 
@@ -208,8 +206,6 @@ function formatVariation(ball: Ball): string {
   if (ball.swingDirection === "out") return "Outswinger";
   if (ball.spinDirection === "off") return "Off-spin";
   if (ball.spinDirection === "leg") return "Leg-spin";
-  if (ball.pace === "fast") return "Fast";
-  if (ball.pace === "slow") return "Slow";
   return "Stock";
 }
 

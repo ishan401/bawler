@@ -64,7 +64,7 @@ function LiveChip({ active, onClick }: { active: boolean; onClick: () => void })
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 flex flex-col items-center justify-center gap-1 px-3.5 py-2.5 rounded-xl border transition-colors min-w-[56px] ${
+      className={`shrink-0 self-start flex flex-col items-center justify-center gap-1 px-3.5 py-2.5 rounded-xl border transition-colors min-w-[56px] ${
         active
           ? "bg-wicket/15 border-wicket/50 text-wicket"
           : "bg-bg-surface border-line text-text-secondary hover:text-text-primary"
