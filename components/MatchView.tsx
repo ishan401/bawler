@@ -672,7 +672,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     <span className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Live commentary</span>
                     <span className="text-[10px] text-text-secondary">{visibleInsights.length} insights</span>
                   </div>
-                  <CommentaryFeed match={truncatedMatch} insights={visibleInsights} onShare={triggerShare} />
+                  <CommentaryFeed match={truncatedMatch} insights={visibleInsights} />
                 </div>
               </>
             )}

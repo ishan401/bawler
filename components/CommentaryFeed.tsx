@@ -10,7 +10,6 @@ import InlineNote from "./InlineNote";
 interface CommentaryFeedProps {
   match: Match;
   insights: InsightV2[];
-  onShare?: (ball: Ball) => void;
 }
 
 /**
@@ -25,7 +24,7 @@ interface CommentaryFeedProps {
  *   - Inline notes (stats/opinions/predictions) sometimes appear between cards
  *     rather than always inline with a specific ball.
  */
-function CommentaryFeed({ match, insights, onShare }: CommentaryFeedProps) {
+function CommentaryFeed({ match, insights }: CommentaryFeedProps) {
   const items = buildFeed(match, insights);
 
   return (
@@ -37,7 +36,6 @@ function CommentaryFeed({ match, insights, onShare }: CommentaryFeedProps) {
               key={item.ball.id}
               ball={item.ball}
               extraNarrative={item.extraNarrative}
-              onShare={onShare}
               format={match.format}
             />
           );

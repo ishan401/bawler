@@ -10,7 +10,6 @@ import { OUTCOME, outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 interface DeliveryCardProps {
   ball: Ball;
   extraNarrative?: string;
-  onShare?: (ball: Ball) => void;
   format?: MatchFormat;
 }
 
@@ -22,16 +21,16 @@ interface DeliveryCardProps {
  *     ribbon — no mini-gif, no narrative, just the essential info.
  *   - Card bg gradient uses the unified outcome palette.
  */
-export default function DeliveryCard({ ball, extraNarrative, onShare, format = "T20" }: DeliveryCardProps) {
+export default function DeliveryCard({ ball, extraNarrative, format = "T20" }: DeliveryCardProps) {
   const kind = outcomeKindOf(ball);
   const palette = OUTCOME[kind];
   const bgStyle = cardBackgroundFor(kind);
   const isFull = ball.isWicket || ball.isBoundary4 || ball.isBoundary6;
 
   if (!isFull) {
-    return <CompactRow ball={ball} bgStyle={bgStyle} badgeBg={palette.primary} badgeFg={palette.badgeFg} badgeText={palette.badgeText} onShare={onShare} format={format} />;
+    return <CompactRow ball={ball} bgStyle={bgStyle} badgeBg={palette.primary} badgeFg={palette.badgeFg} badgeText={palette.badgeText} format={format} />;
   }
-  return <FullCard ball={ball} extraNarrative={extraNarrative} bgStyle={bgStyle} palette={palette} onShare={onShare} format={format} />;
+  return <FullCard ball={ball} extraNarrative={extraNarrative} bgStyle={bgStyle} palette={palette} format={format} />;
 }
 
 // ============================================================================
@@ -39,14 +38,13 @@ export default function DeliveryCard({ ball, extraNarrative, onShare, format = "
 // ============================================================================
 
 function CompactRow({
-  ball, bgStyle, badgeBg, badgeFg, badgeText, onShare, format = "T20",
+  ball, bgStyle, badgeBg, badgeFg, badgeText, format = "T20",
 }: {
   ball: Ball;
   bgStyle: React.CSSProperties;
   badgeBg: string;
   badgeFg: string;
   badgeText: string;
-  onShare?: (ball: Ball) => void;
   format?: MatchFormat;
 }) {
   return (
@@ -67,15 +65,6 @@ function CompactRow({
       <span className="text-[11px] text-text-secondary truncate flex-1 min-w-0">
         {compactLineFor(ball)}
       </span>
-      {onShare && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onShare(ball); }}
-          className="shrink-0 w-6 h-6 flex items-center justify-center rounded opacity-40 hover:opacity-100 transition-opacity"
-          aria-label="Share this delivery"
-        >
-          <MiniShareIcon />
-        </button>
-      )}
     </article>
   );
 }
@@ -93,13 +82,12 @@ function compactLineFor(ball: Ball): string {
 // ============================================================================
 
 function FullCard({
-  ball, extraNarrative, bgStyle, palette, onShare, format = "T20",
+  ball, extraNarrative, bgStyle, palette, format = "T20",
 }: {
   ball: Ball;
   extraNarrative?: string;
   bgStyle: React.CSSProperties;
   palette: { primary: string; badgeFg: string; badgeText: string };
-  onShare?: (ball: Ball) => void;
   format?: MatchFormat;
 }) {
   return (
@@ -140,15 +128,6 @@ function FullCard({
           <div className="flex items-center gap-3 mt-1.5">
             <SpeedDot ball={ball} large />
             <TypePill ball={ball} />
-            {onShare && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onShare(ball); }}
-                className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider opacity-50 hover:opacity-100 transition-opacity border border-white/10"
-                aria-label="Share this delivery"
-              >
-                <MiniShareIcon /><span>Share</span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -211,11 +190,3 @@ function formatVariation(ball: Ball): string {
 
 function capitalize(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-function MiniShareIcon() {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-    </svg>
-  );
-}
