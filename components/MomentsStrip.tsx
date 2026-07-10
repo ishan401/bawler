@@ -44,7 +44,6 @@ function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format 
         )}
       </div>
       <div className="flex gap-2 overflow-x-auto scrollbar-thin -mx-4 px-4 pb-1.5">
-        <LiveChip active={isLive} onClick={() => onSelect(null)} />
         {sorted.map(event => (
           <EventChip
             key={event.id}
@@ -57,22 +56,6 @@ function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format 
         ))}
       </div>
     </div>
-  );
-}
-
-function LiveChip({ active, onClick }: { active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`shrink-0 self-start flex flex-col items-center justify-center gap-1 px-3.5 py-2.5 rounded-xl border transition-colors min-w-[56px] ${
-        active
-          ? "bg-wicket/15 border-wicket/50 text-wicket"
-          : "bg-bg-surface border-line text-text-secondary hover:text-text-primary"
-      }`}
-    >
-      <span className={`w-2 h-2 rounded-full ${active ? "bg-wicket live-dot" : "bg-text-dim"}`} />
-      <span className="text-[10px] font-extrabold uppercase tracking-widest leading-none">Live</span>
-    </button>
   );
 }
 
