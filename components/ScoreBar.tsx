@@ -88,10 +88,12 @@ function ScoreBar({ match }: ScoreBarProps) {
                 {match.format}
               </span>
             )}
-            <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none"
-              style={{ background: match.competition.logoColor ? `${match.competition.logoColor}22` : "rgba(255,255,255,0.06)", color: match.competition.logoColor ?? "var(--text-dim)", border: `1px solid ${match.competition.logoColor ?? "rgba(255,255,255,0.12)"}44` }}>
-              {match.competition.shortName}
-            </span>
+            {match.competition.type !== "bilateral" && (
+              <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none"
+                style={{ background: match.competition.logoColor ? `${match.competition.logoColor}22` : "rgba(255,255,255,0.06)", color: match.competition.logoColor ?? "var(--text-dim)", border: `1px solid ${match.competition.logoColor ?? "rgba(255,255,255,0.12)"}44` }}>
+                {match.competition.shortName}
+              </span>
+            )}
           </div>
         </div>
       </div>
