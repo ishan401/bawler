@@ -175,6 +175,18 @@
   animation: excitement-pulse 3s ease-in-out infinite;
 }
 
+/* Softer, rounded-corner variant for highlighting a single cell/chip inside
+   a table row (e.g. the at-the-crease batter's name+sparkline) -- unlike
+   .excitement-glow this has no hard outset ring, so it doesn't read as a
+   sharp rectangular selection box on non-card elements. */
+@keyframes cell-glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 229, 255, 0.18), inset 0 0 0 1px rgba(0, 229, 255, 0.18); }
+  50%      { box-shadow: 0 0 18px rgba(0, 229, 255, 0.32), inset 0 0 0 1px rgba(0, 229, 255, 0.32); }
+}
+.cell-glow-pulse {
+  animation: cell-glow-pulse 3s ease-in-out infinite;
+}
+
 /* ============================================================
    Skeleton shimmer
    ============================================================ */

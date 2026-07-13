@@ -429,32 +429,39 @@ function BatterRow({
   const sparklinePoints = buildSparklinePoints(balls);
 
   return (
-    <tr className={`border-t border-line/50 last:border-b-0 ${isLiveBatter ? "excitement-glow" : ""}`}>
+    <tr className={`border-t border-line/50 last:border-b-0 ${isLiveBatter ? "bg-cyan/[0.035]" : ""}`}>
       <td className="py-2 pr-2">
-        <div className="flex items-center gap-1.5">
-          <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
-          {row.onStrike && !row.out && (
-            <span className="text-[9px] font-bold text-cyan tracking-widest">*</span>
+        {/* The glow lives on this inner wrapper, not the <tr>, and is
+            rounded + blur-only (no hard outset ring) -- confining it to
+            just the name/sparkline column reads as "this player's info is
+            glowing" rather than a stark rectangle boxing the whole row,
+            which is what a box-shadow on a plain table row looks like. */}
+        <div className={isLiveBatter ? "cell-glow-pulse -mx-1.5 -my-1 px-1.5 py-1 rounded-lg" : ""}>
+          <div className="flex items-center gap-1.5">
+            <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
+            {row.onStrike && !row.out && (
+              <span className="text-[9px] font-bold text-cyan tracking-widest">*</span>
+            )}
+            {isMotm && (
+              <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
+            )}
+            {isMots && (
+              <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
+            )}
+          </div>
+          {row.out && row.dismissal && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal}</span>
+              <BatterSparkline points={sparklinePoints} live={false} />
+            </div>
           )}
-          {isMotm && (
-            <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
-          )}
-          {isMots && (
-            <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
+          {isLiveBatter && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-cyan font-semibold shrink-0">not out</span>
+              <BatterSparkline points={sparklinePoints} live={true} />
+            </div>
           )}
         </div>
-        {row.out && row.dismissal && (
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal}</span>
-            <BatterSparkline points={sparklinePoints} live={false} />
-          </div>
-        )}
-        {isLiveBatter && (
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-cyan font-semibold shrink-0">not out</span>
-            <BatterSparkline points={sparklinePoints} live={true} />
-          </div>
-        )}
       </td>
       <td className={`py-2 px-1 text-right num font-bold ${isTopScorer ? "text-teal-400" : ""}`}>
         {row.runs}
@@ -495,30 +502,68 @@ function buildSparklinePoints(balls: Ball[]): SparklinePoint[] {
 }
 
 /**
- * Tiny inline sparkline on the dismissal/"not out" line -- same "event dots
- * on a line" pattern as WinProbChart's key-moment markers (glow ring +
- * solid dot), just scaled down to fit a ~20px-tall row. Fours/sixes reuse
- * the app's cyan/six (purple) accent colors. Renders nothing when there's
- * no ball-by-ball data for this batter (yet to bat, or an older match
- * recorded without ball data) -- the dismissal line then looks exactly as
- * it did before this existed.
+ * Down-samples a points array to at most `max` points for a cleaner-looking
+ * line -- a Test knock can rack up 50+ balls-faced points, which reads as
+ * visual noise at ~100x20px. Always keeps the first/last point and every
+ * four/six (so no boundary marker is ever dropped); fills the remainder
+ * with evenly-spaced samples.
+ */
+function downsampleSparkline(points: SparklinePoint[], max = 13): SparklinePoint[] {
+  if (points.length <= max) return points;
+  const keep = new Set<number>([0, points.length - 1]);
+  points.forEach((p, i) => { if (p.isFour || p.isSix) keep.add(i); });
+  const remaining = max - keep.size;
+  if (remaining > 0) {
+    const step = (points.length - 1) / (remaining + 1);
+    for (let i = 1; i <= remaining; i++) keep.add(Math.round(i * step));
+  }
+  return [...keep].sort((a, b) => a - b).map(i => points[i]);
+}
+
+/** Catmull-Rom smoothed path -- same technique as WinProbChart's line, just
+ * a lighter touch (data here is monotonic, so it needs less correction). */
+function smoothPath(pts: { x: number; y: number }[]): string {
+  if (pts.length === 0) return "";
+  if (pts.length < 3) return pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
+}
+
+/**
+ * Tiny inline sparkline on the dismissal/"not out" line -- a smoothed,
+ * down-sampled runs-vs-balls-faced curve with a colored dot marking every
+ * four/six (cyan / six-purple, matching the outcome palette). Renders
+ * nothing when there's no ball-by-ball data for this batter (yet to bat, or
+ * an older match recorded without ball data) -- the dismissal line then
+ * looks exactly as it did before this existed.
  */
 function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boolean }) {
   if (points.length < 2) return null;
+  const sampled = downsampleSparkline(points);
 
   const W = 100;
   const H = 20;
-  const PAD_X = 2;
-  const PAD_Y = 3;
-  const maxX = points[points.length - 1].x || 1;
-  const maxY = Math.max(1, ...points.map(p => p.y));
+  const PAD_X = 3;
+  const PAD_Y = 4;
+  const maxX = sampled[sampled.length - 1].x || 1;
+  const maxY = Math.max(1, ...sampled.map(p => p.y));
   const xToPx = (x: number) => PAD_X + (x / maxX) * (W - PAD_X * 2);
   const yToPx = (y: number) => H - PAD_Y - (y / maxY) * (H - PAD_Y * 2);
+  const px = sampled.map(p => ({ x: xToPx(p.x), y: yToPx(p.y), p }));
 
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${xToPx(p.x).toFixed(1)} ${yToPx(p.y).toFixed(1)}`)
-    .join(" ");
-  const lineColor = live ? "#00E5FF" : "#64748B";
+  const linePath = smoothPath(px);
+  const lineColor = live ? "#00E5FF" : "#94A3B8";
 
   return (
     <svg
@@ -527,19 +572,12 @@ function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boo
       className="flex-1 h-5 min-w-[36px] max-w-[130px]"
       aria-hidden="true"
     >
-      <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5"
-        strokeLinejoin="round" strokeLinecap="round" opacity={live ? 0.95 : 0.65} />
-      {points.map((p, i) => {
+      <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.75"
+        strokeLinejoin="round" strokeLinecap="round" opacity={live ? 1 : 0.75} />
+      {px.map(({ x, y, p }, i) => {
         if (!p.isFour && !p.isSix) return null;
         const color = p.isSix ? "#A855F7" : "#00E5FF";
-        const cx = xToPx(p.x);
-        const cy = yToPx(p.y);
-        return (
-          <g key={i}>
-            <circle cx={cx} cy={cy} r="3.2" fill={color} opacity="0.22" />
-            <circle cx={cx} cy={cy} r="1.5" fill={color} stroke="#0A0E1A" strokeWidth="0.6" />
-          </g>
-        );
+        return <circle key={i} cx={x} cy={y} r="2" fill={color} stroke="#0A0E1A" strokeWidth="0.8" />;
       })}
     </svg>
   );
