@@ -426,7 +426,7 @@ function BatterRow({
     ? "text-text-secondary"
     : "text-text-primary";
 
-  const sparklinePoints = buildSparklinePoints(balls);
+  const sparklinePoints = buildSparklinePoints(balls, row.fours, row.sixes);
 
   return (
     <tr className={`border-t border-line/50 last:border-b-0 ${isLiveBatter ? "bg-cyan/[0.035]" : ""}`}>
@@ -488,15 +488,31 @@ interface SparklinePoint {
  * order. Mirrors lib/events.ts's own batter-tracking logic (isFaced
  * excludes wides; runs accumulate off every ball) so this stays consistent
  * with how milestones/events are derived elsewhere.
+ *
+ * maxFours/maxSixes are the batter's own official 4s/6s column values.
+ * Some mock matches have ball-by-ball data that was authored independently
+ * of (and doesn't reconcile with) the box-score aggregate -- a batter's
+ * balls can carry more isBoundary4/isBoundary6 flags than their card
+ * actually credits them with. The box-score column is the number the user
+ * sees and trusts, so a dot is only kept while under that budget; once
+ * maxFours/maxSixes dots have been placed, later flagged balls still raise
+ * the line (their runs still count) but stop getting marked -- the chart
+ * never shows more boundaries than the row's own 4s/6s say it had.
  */
-function buildSparklinePoints(balls: Ball[]): SparklinePoint[] {
+function buildSparklinePoints(balls: Ball[], maxFours: number, maxSixes: number): SparklinePoint[] {
   const pts: SparklinePoint[] = [{ x: 0, y: 0, isFour: false, isSix: false }];
   let runs = 0;
   let faced = 0;
+  let fourCount = 0;
+  let sixCount = 0;
   for (const b of balls) {
     runs += b.runs;
     if (b.extraType !== "wd") faced++;
-    pts.push({ x: faced, y: runs, isFour: b.isBoundary4, isSix: b.isBoundary6 });
+    const isFour = b.isBoundary4 && fourCount < maxFours;
+    const isSix = b.isBoundary6 && sixCount < maxSixes;
+    if (isFour) fourCount++;
+    if (isSix) sixCount++;
+    pts.push({ x: faced, y: runs, isFour, isSix });
   }
   return pts;
 }
