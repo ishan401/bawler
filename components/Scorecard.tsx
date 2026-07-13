@@ -263,12 +263,16 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   // for the batting-row sparklines. Older/completed matches recorded without
   // ball-by-ball data have innings.balls === [] -- every batter's slice is
   // then empty too, and BatterSparkline quietly renders nothing.
+  // Keyed by batterId (not batterName) -- some older mock matches use a
+  // shorthand playerId ("S Iyer") with a full display playerName ("Shreyas
+  // Iyer"), while ball.batterId is always the same id space as
+  // battingCard[].playerId. Matching on name would silently miss those.
   const ballsByBatter = new Map<string, Ball[]>();
   for (const b of innings.balls) {
-    if (!b.batterName) continue;
-    const arr = ballsByBatter.get(b.batterName);
+    if (!b.batterId) continue;
+    const arr = ballsByBatter.get(b.batterId);
     if (arr) arr.push(b);
-    else ballsByBatter.set(b.batterName, [b]);
+    else ballsByBatter.set(b.batterId, [b]);
   }
 
   return (
@@ -314,7 +318,7 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
               <BatterRow
                 key={row.playerId}
                 row={row}
-                balls={ballsByBatter.get(row.playerName) ?? []}
+                balls={ballsByBatter.get(row.playerId) ?? []}
                 isTopScorer={row.playerId === topScorer?.playerId}
                 isTopSR={row.playerId === topSR?.playerId}
                 motm={match.result?.manOfMatch}
