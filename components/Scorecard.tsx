@@ -263,16 +263,25 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   // for the batting-row sparklines. Older/completed matches recorded without
   // ball-by-ball data have innings.balls === [] -- every batter's slice is
   // then empty too, and BatterSparkline quietly renders nothing.
-  // Keyed by batterId (not batterName) -- some older mock matches use a
-  // shorthand playerId ("S Iyer") with a full display playerName ("Shreyas
-  // Iyer"), while ball.batterId is always the same id space as
-  // battingCard[].playerId. Matching on name would silently miss those.
+  // Match ball-by-ball data to a battingCard row by id OR by name, since
+  // mockData.ts uses inconsistent conventions across matches:
+  //   - some matches: ball.batterId === battingCard.playerId (shorthand ids)
+  //   - others:       ball.batterId is the full display name, which only
+  //                    lines up with battingCard.playerName, while
+  //                    playerId is a separate slug ("zcrwly")
+  // Registering each ball under both its id and name key (deduped) means a
+  // row lookup by either playerId or playerName finds it regardless of
+  // which convention that particular match used.
   const ballsByBatter = new Map<string, Ball[]>();
-  for (const b of innings.balls) {
-    if (!b.batterId) continue;
-    const arr = ballsByBatter.get(b.batterId);
+  const registerBall = (key: string | undefined, b: Ball) => {
+    if (!key) return;
+    const arr = ballsByBatter.get(key);
     if (arr) arr.push(b);
-    else ballsByBatter.set(b.batterId, [b]);
+    else ballsByBatter.set(key, [b]);
+  };
+  for (const b of innings.balls) {
+    registerBall(b.batterId, b);
+    if (b.batterName !== b.batterId) registerBall(b.batterName, b);
   }
 
   return (
@@ -318,7 +327,7 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
               <BatterRow
                 key={row.playerId}
                 row={row}
-                balls={ballsByBatter.get(row.playerId) ?? []}
+                balls={ballsByBatter.get(row.playerId) ?? ballsByBatter.get(row.playerName) ?? []}
                 isTopScorer={row.playerId === topScorer?.playerId}
                 isTopSR={row.playerId === topSR?.playerId}
                 motm={match.result?.manOfMatch}
