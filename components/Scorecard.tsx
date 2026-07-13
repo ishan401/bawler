@@ -121,10 +121,10 @@ export default function Scorecard({ match }: ScorecardProps) {
 }
 
 /**
- * Two equal-width segments, one per team — tap either to switch which
- * team's scorecard is shown below. Active segment is highlighted in that
- * team's colour; always shows both team names regardless of whether both
- * have batted yet.
+ * Small pill chips, one per team — tap either to switch which team's
+ * scorecard is shown below. Sized to match DigestTab's own filter chips
+ * rather than stretching to fill the row. Always shows both team names
+ * regardless of whether both have batted yet.
  */
 function TeamToggle({
   teamA,
@@ -137,23 +137,25 @@ function TeamToggle({
   activeTeamCode: string;
   onSelect: (code: string) => void;
 }) {
+  // Sized to match DigestTab's own filter chips (Day N / Nth Innings) --
+  // small pill, not a full-width block -- per feedback that the earlier
+  // full-width two-block version ate too much vertical space.
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="flex gap-2 pb-1">
       {[teamA, teamB].map(team => {
         const active = team.code === activeTeamCode;
         return (
           <button
             key={team.code}
             onClick={() => onSelect(team.code)}
-            className={`rounded-xl px-3 py-3 flex items-center justify-center gap-2 border transition-colors ${
-              active ? "bg-bg-elevated border-line" : "bg-transparent border-line/40 active:bg-line/20"
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+              active
+                ? "bg-cyan text-bg-base border-cyan"
+                : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
             }`}
-            style={active ? { boxShadow: `inset 0 0 0 1px ${team.primaryColor}55` } : undefined}
           >
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: team.primaryColor }} />
-            <span className={`text-sm font-bold truncate ${active ? "text-text-primary" : "text-text-dim"}`}>
-              {team.shortName}
-            </span>
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: team.primaryColor }} />
+            {team.shortName}
           </button>
         );
       })}
