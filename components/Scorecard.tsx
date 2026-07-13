@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry, Team } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
+import { teamInningsOccurrence } from "@/lib/formatUtils";
 
 interface ScorecardProps {
   match: Match;
@@ -207,12 +208,10 @@ function TestInningsChips({
   activeInningsNum: number;
   onSelect: (num: number) => void;
 }) {
-  const occurrenceSoFar: Record<string, number> = {};
   const items = innings.map(inn => {
-    occurrenceSoFar[inn.battingTeam] = (occurrenceSoFar[inn.battingTeam] ?? 0) + 1;
     const team = ALL_TEAMS[inn.battingTeam];
     const shortName = team?.shortName ?? inn.battingTeam;
-    return { value: inn.number, label: `${shortName} Inn. ${occurrenceSoFar[inn.battingTeam]}` };
+    return { value: inn.number, label: `${shortName} Inn. ${teamInningsOccurrence(innings, inn)}` };
   });
 
   return (
@@ -272,7 +271,9 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
           <h3 className="text-sm font-bold">
             {team?.fullName ?? innings.battingTeam}{" "}
             <span className="text-text-dim font-normal">·</span>{" "}
-            <span className="text-text-secondary font-medium">Innings {innings.number}</span>
+            <span className="text-text-secondary font-medium">
+              Innings {teamInningsOccurrence(match.innings, innings)}
+            </span>
           </h3>
         </div>
         <div className="text-right num">

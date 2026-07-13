@@ -3,7 +3,7 @@
  * Import from here; never duplicate inline.
  */
 
-import type { MatchFormat, Ball } from "./types";
+import type { MatchFormat, Ball, Innings } from "./types";
 
 // ─── Core constants ────────────────────────────────────────────────────────────
 
@@ -172,6 +172,34 @@ export function isInPowerplay(ball: Ball, format: MatchFormat): boolean {
   }
   if (phases.powerplayEndOver === 0) return false;
   return ball.over < phases.powerplayEndOver;
+}
+
+/**
+ * Which innings THIS IS FOR THE BATTING TEAM (1st or 2nd) — not the global
+ * sequence position in match.innings. A team's 2nd Test innings is always
+ * "Innings 2" in cricket terms, never "Innings 3" or "Innings 4" (there is
+ * no such thing as a team's 3rd/4th innings; only the match-wide ball order
+ * reaches that high, once both teams have batted twice).
+ *
+ * For non-Test formats every team bats exactly once, so this always
+ * returns 1 -- it's a safe no-op there.
+ */
+export function teamInningsOccurrence(allInnings: Innings[], target: Innings): number {
+  let count = 0;
+  for (const inn of allInnings) {
+    if (inn.battingTeam === target.battingTeam) {
+      count++;
+      if (inn === target || inn.number === target.number) break;
+    }
+  }
+  return count || 1;
+}
+
+/** "1st"/"2nd"/"3rd"/"4th" for small positive integers (innings/day counts). */
+export function ordinal(n: number): string {
+  const suffixes = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${suffixes[(v - 20) % 10] ?? suffixes[v] ?? suffixes[0]}`;
 }
 
 /** "Over" or "Set" depending on format. */

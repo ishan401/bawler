@@ -16,6 +16,7 @@
 import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
+import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
 import { PLAYERS, slugifyPlayer } from "@/lib/mockData";
 
 // ── share utility ────────────────────────────────────────────────────────────
@@ -524,8 +525,8 @@ function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
                       result.winner === teamB.code ? teamA.primaryColor : "#94A3B8";
 
   const inningsScores = innings.map(inn => ({
-    label: inn.number > 2
-      ? `${inn.battingTeam} (${inn.number === 3 ? "3rd" : "4th"} Inn)`
+    label: teamInningsOccurrence(innings, inn) > 1
+      ? `${inn.battingTeam} (2nd Inn)`
       : inn.battingTeam,
     runs: inn.runs, wickets: inn.wickets, overs: inn.overs,
     declared: inn.declared ?? false,
@@ -630,8 +631,7 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
         : overNums;
     if (completedOverNums.length === 0) continue;
 
-    const ordinals = ["1st", "2nd", "3rd", "4th"];
-    const inningsLabel = inningsCount > 1 ? `${ordinals[inn.number - 1]} Inn` : "";
+    const inningsLabel = inningsCount > 1 ? `${ordinal(teamInningsOccurrence(match.innings, inn))} Inn` : "";
     const teamColor = inn.battingTeam === match.teamA.code
       ? match.teamA.primaryColor : match.teamB.primaryColor;
 
@@ -674,7 +674,6 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
 function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
   const dayMap = new Map<number, SessionEntry[]>();
   const inningsCount = match.innings.length;
-  const ordinals = ["1st", "2nd", "3rd", "4th"];
 
   for (let innIdx = 0; innIdx < inningsCount; innIdx++) {
     const inn: Innings = match.innings[innIdx];
@@ -699,7 +698,7 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
         ? allOverNums.slice(0, -1)
         : allOverNums;
 
-    const inningsLabel = inningsCount > 1 ? `${ordinals[inn.number - 1]} Inn` : "";
+    const inningsLabel = inningsCount > 1 ? `${ordinal(teamInningsOccurrence(match.innings, inn))} Inn` : "";
     const teamColor    = inn.battingTeam === match.teamA.code
       ? match.teamA.primaryColor : match.teamB.primaryColor;
 
