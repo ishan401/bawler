@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import type { Match, Innings, BattingEntry, BowlingEntry, Team } from "@/lib/types";
+import type { Match, Innings, BattingEntry, BowlingEntry, Team, Ball } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 import { teamInningsOccurrence } from "@/lib/formatUtils";
@@ -259,6 +259,18 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
       null as BattingEntry | null
     );
 
+  // Group this innings' ball-by-ball data per batter, in chronological order,
+  // for the batting-row sparklines. Older/completed matches recorded without
+  // ball-by-ball data have innings.balls === [] -- every batter's slice is
+  // then empty too, and BatterSparkline quietly renders nothing.
+  const ballsByBatter = new Map<string, Ball[]>();
+  for (const b of innings.balls) {
+    if (!b.batterName) continue;
+    const arr = ballsByBatter.get(b.batterName);
+    if (arr) arr.push(b);
+    else ballsByBatter.set(b.batterName, [b]);
+  }
+
   return (
     <div className="card">
       {/* Sticky innings header */}
@@ -302,6 +314,7 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
               <BatterRow
                 key={row.playerId}
                 row={row}
+                balls={ballsByBatter.get(row.playerName) ?? []}
                 isTopScorer={row.playerId === topScorer?.playerId}
                 isTopSR={row.playerId === topSR?.playerId}
                 motm={match.result?.manOfMatch}
@@ -373,12 +386,14 @@ function PlayerNameLink({
 
 function BatterRow({
   row,
+  balls,
   isTopScorer,
   isTopSR,
   motm,
   mots,
 }: {
   row: BattingEntry;
+  balls: Ball[];
   isTopScorer: boolean;
   isTopSR: boolean;
   motm?: string;
@@ -386,6 +401,9 @@ function BatterRow({
 }) {
   const isMotm = motm && row.playerName === motm;
   const isMots = mots && row.playerName === mots;
+  // "At the crease right now" -- not dismissed, and has actually faced a
+  // ball (excludes an incoming batter's still-empty placeholder row).
+  const isLiveBatter = !row.out && row.ballsFaced > 0;
 
   const nameColor = isMots
     ? "text-six"
@@ -395,8 +413,10 @@ function BatterRow({
     ? "text-text-secondary"
     : "text-text-primary";
 
+  const sparklinePoints = buildSparklinePoints(balls);
+
   return (
-    <tr className="border-t border-line/50 last:border-b-0">
+    <tr className={`border-t border-line/50 last:border-b-0 ${isLiveBatter ? "excitement-glow" : ""}`}>
       <td className="py-2 pr-2">
         <div className="flex items-center gap-1.5">
           <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
@@ -411,10 +431,16 @@ function BatterRow({
           )}
         </div>
         {row.out && row.dismissal && (
-          <div className="text-[10px] text-text-dim italic mt-0.5">{row.dismissal}</div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal}</span>
+            <BatterSparkline points={sparklinePoints} live={false} />
+          </div>
         )}
-        {!row.out && row.ballsFaced > 0 && (
-          <div className="text-[10px] text-boundary mt-0.5">not out</div>
+        {isLiveBatter && (
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[10px] text-cyan font-semibold shrink-0">not out</span>
+            <BatterSparkline points={sparklinePoints} live={true} />
+          </div>
         )}
       </td>
       <td className={`py-2 px-1 text-right num font-bold ${isTopScorer ? "text-teal-400" : ""}`}>
@@ -427,6 +453,82 @@ function BatterRow({
         {row.strikeRate.toFixed(1)}
       </td>
     </tr>
+  );
+}
+
+interface SparklinePoint {
+  x: number; // cumulative balls faced
+  y: number; // cumulative runs
+  isFour: boolean;
+  isSix: boolean;
+}
+
+/**
+ * Cumulative runs-vs-balls-faced for one batter, in strict chronological
+ * order. Mirrors lib/events.ts's own batter-tracking logic (isFaced
+ * excludes wides; runs accumulate off every ball) so this stays consistent
+ * with how milestones/events are derived elsewhere.
+ */
+function buildSparklinePoints(balls: Ball[]): SparklinePoint[] {
+  const pts: SparklinePoint[] = [{ x: 0, y: 0, isFour: false, isSix: false }];
+  let runs = 0;
+  let faced = 0;
+  for (const b of balls) {
+    runs += b.runs;
+    if (b.extraType !== "wd") faced++;
+    pts.push({ x: faced, y: runs, isFour: b.isBoundary4, isSix: b.isBoundary6 });
+  }
+  return pts;
+}
+
+/**
+ * Tiny inline sparkline on the dismissal/"not out" line -- same "event dots
+ * on a line" pattern as WinProbChart's key-moment markers (glow ring +
+ * solid dot), just scaled down to fit a ~20px-tall row. Fours/sixes reuse
+ * the app's cyan/six (purple) accent colors. Renders nothing when there's
+ * no ball-by-ball data for this batter (yet to bat, or an older match
+ * recorded without ball data) -- the dismissal line then looks exactly as
+ * it did before this existed.
+ */
+function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boolean }) {
+  if (points.length < 2) return null;
+
+  const W = 100;
+  const H = 20;
+  const PAD_X = 2;
+  const PAD_Y = 3;
+  const maxX = points[points.length - 1].x || 1;
+  const maxY = Math.max(1, ...points.map(p => p.y));
+  const xToPx = (x: number) => PAD_X + (x / maxX) * (W - PAD_X * 2);
+  const yToPx = (y: number) => H - PAD_Y - (y / maxY) * (H - PAD_Y * 2);
+
+  const linePath = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${xToPx(p.x).toFixed(1)} ${yToPx(p.y).toFixed(1)}`)
+    .join(" ");
+  const lineColor = live ? "#00E5FF" : "#64748B";
+
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className="flex-1 h-5 min-w-[36px] max-w-[130px]"
+      aria-hidden="true"
+    >
+      <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5"
+        strokeLinejoin="round" strokeLinecap="round" opacity={live ? 0.95 : 0.65} />
+      {points.map((p, i) => {
+        if (!p.isFour && !p.isSix) return null;
+        const color = p.isSix ? "#A855F7" : "#00E5FF";
+        const cx = xToPx(p.x);
+        const cy = yToPx(p.y);
+        return (
+          <g key={i}>
+            <circle cx={cx} cy={cy} r="3.2" fill={color} opacity="0.22" />
+            <circle cx={cx} cy={cy} r="1.5" fill={color} stroke="#0A0E1A" strokeWidth="0.6" />
+          </g>
+        );
+      })}
+    </svg>
   );
 }
 
