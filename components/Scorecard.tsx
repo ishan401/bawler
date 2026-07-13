@@ -237,7 +237,7 @@ function BatterRow({
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
           )}
         </div>
-        {row.dismissal && (
+        {row.out && row.dismissal && (
           <div className="text-[10px] text-text-dim italic mt-0.5">{row.dismissal}</div>
         )}
         {!row.out && row.ballsFaced > 0 && (
