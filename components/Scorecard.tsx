@@ -11,6 +11,7 @@ interface ScorecardProps {
 
 export default function Scorecard({ match }: ScorecardProps) {
   const [selectedTeamCode, setSelectedTeamCode] = useState<string | null>(null);
+  const [selectedInningsNum, setSelectedInningsNum] = useState<number | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
   if (match.innings.length === 0) {
@@ -61,16 +62,40 @@ export default function Scorecard({ match }: ScorecardProps) {
     </div>
   );
 
-  // Test matches can have up to 4 innings (a team bats twice) — the two-team
-  // toggle below assumes exactly one innings per team, so Tests keep the
-  // original stacked-innings layout instead.
+  // Test matches can have up to 4 innings (a team bats twice), so a plain
+  // two-team toggle can't address a specific innings unambiguously. Use one
+  // chip per innings instead, labelled "<Team> Inn. <N>" where N is which
+  // innings this is FOR THAT TEAM (1st or 2nd), not the global innings
+  // number -- e.g. "IND Inn. 1", "ENG Inn. 1", "ENG Inn. 2". Default to
+  // whichever innings is currently in progress (see non-Test comment below
+  // for why match.innings' last entry is always "current").
   if (match.format === "Test") {
+    const latestInningsNum = match.innings[match.innings.length - 1]?.number ?? null;
+    const activeInningsNum = selectedInningsNum ?? latestInningsNum;
+    const activeTestInnings =
+      match.innings.find(i => i.number === activeInningsNum) ?? match.innings[match.innings.length - 1];
+
+    const handleSelectInnings = (num: number) => {
+      setSelectedInningsNum(num);
+      requestAnimationFrame(() => {
+        topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    };
+
     return (
       <div className="space-y-4">
+        <div ref={topRef} />
         {momMosBanners}
-        {match.innings.map((innings, idx) => (
-          <InningsCard key={idx} innings={innings} match={match} />
-        ))}
+
+        <TestInningsChips
+          innings={match.innings}
+          activeInningsNum={activeInningsNum!}
+          onSelect={handleSelectInnings}
+        />
+
+        {activeTestInnings && (
+          <InningsCard key={activeTestInnings.number} innings={activeTestInnings} match={match} />
+        )}
       </div>
     );
   }
@@ -157,6 +182,52 @@ function TeamToggle({
             }`}
           >
             {team.shortName}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Test-only: one chip per innings (up to 4), same compact style as
+ * TeamToggle/DigestTab's chips. Label = "<Team> Inn. <N>" where N counts
+ * how many times THIS team has batted so far, e.g. IND Inn. 1, ENG Inn. 1,
+ * ENG Inn. 2 -- not the global match.innings sequence number, which would
+ * read as an unhelpful "Innings 3" with no indication whose 2nd innings it is.
+ */
+function TestInningsChips({
+  innings,
+  activeInningsNum,
+  onSelect,
+}: {
+  innings: Innings[];
+  activeInningsNum: number;
+  onSelect: (num: number) => void;
+}) {
+  const occurrenceSoFar: Record<string, number> = {};
+  const items = innings.map(inn => {
+    occurrenceSoFar[inn.battingTeam] = (occurrenceSoFar[inn.battingTeam] ?? 0) + 1;
+    const team = ALL_TEAMS[inn.battingTeam];
+    const shortName = team?.shortName ?? inn.battingTeam;
+    return { value: inn.number, label: `${shortName} Inn. ${occurrenceSoFar[inn.battingTeam]}` };
+  });
+
+  return (
+    <div className="flex gap-2 pb-1 overflow-x-auto no-scrollbar">
+      {items.map(item => {
+        const active = item.value === activeInningsNum;
+        return (
+          <button
+            key={item.value}
+            onClick={() => onSelect(item.value)}
+            className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+              active
+                ? "bg-cyan text-bg-base border-cyan"
+                : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
+            }`}
+          >
+            {item.label}
           </button>
         );
       })}
