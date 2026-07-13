@@ -1,15 +1,50 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef } from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
+import FilterChips from "@/components/FilterChips";
 
 interface ScorecardProps {
   match: Match;
 }
 
+/**
+ * Builds one chip per innings, labelled by batting team + (for Test, where a
+ * team can bat twice) which occurrence it is for that team — "IND", "AUS" for
+ * T20/ODI where each team bats once; "IND 1st", "AUS 1st", "IND 2nd" etc for
+ * Test. Order follows match.innings (chronological / global innings number).
+ */
+function buildInningsChipItems(innings: Innings[]) {
+  const occurrenceSoFar: Record<string, number> = {};
+  const totalOccurrences: Record<string, number> = {};
+  for (const inn of innings) {
+    totalOccurrences[inn.battingTeam] = (totalOccurrences[inn.battingTeam] ?? 0) + 1;
+  }
+  return innings.map(inn => {
+    occurrenceSoFar[inn.battingTeam] = (occurrenceSoFar[inn.battingTeam] ?? 0) + 1;
+    const team = ALL_TEAMS[inn.battingTeam];
+    const shortName = team?.shortName ?? inn.battingTeam;
+    const teamBatsTwice = (totalOccurrences[inn.battingTeam] ?? 1) > 1;
+    const label = teamBatsTwice
+      ? `${shortName} ${ordinal(occurrenceSoFar[inn.battingTeam])}`
+      : shortName;
+    return { value: inn.number, label };
+  });
+}
+
+function ordinal(n: number): string {
+  if (n === 1) return "1st";
+  if (n === 2) return "2nd";
+  if (n === 3) return "3rd";
+  return `${n}th`;
+}
+
 export default function Scorecard({ match }: ScorecardProps) {
+  const [selectedInningsNum, setSelectedInningsNum] = useState<number | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+
   if (match.innings.length === 0) {
     const isLive = match.status === "live" || match.status === "toss";
     const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
@@ -41,8 +76,33 @@ export default function Scorecard({ match }: ScorecardProps) {
   const motm = match.result?.manOfMatch;
   const mots = match.result?.manOfTournament;
 
+  // match.innings only contains innings "reached" so far (MatchView's
+  // truncatedMatch grows this list as the live match progresses), so the
+  // last entry is always either the innings currently in progress (live)
+  // or the last innings played (completed) — exactly the "default to
+  // latest" behaviour DigestTab's own chips use.
+  const latestInningsNum = match.innings[match.innings.length - 1]?.number ?? null;
+  const activeInningsNum = selectedInningsNum ?? latestInningsNum;
+  const activeInnings =
+    match.innings.find(i => i.number === activeInningsNum) ?? match.innings[match.innings.length - 1];
+
+  const chipItems = buildInningsChipItems(match.innings);
+
+  const handleSelectInnings = (num: number) => {
+    setSelectedInningsNum(num);
+    // Switching chips swaps which innings renders in place; without this the
+    // page can be left scrolled past the end of a shorter innings card (or
+    // mid-way down a taller one), landing on blank space instead of the
+    // newly-selected innings' header.
+    requestAnimationFrame(() => {
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   return (
     <div className="space-y-4">
+      <div ref={topRef} />
+
       {/* Man of Match / Man of Tournament banners */}
       {(motm || mots) && (
         <div className="flex flex-col gap-1.5">
@@ -61,9 +121,12 @@ export default function Scorecard({ match }: ScorecardProps) {
         </div>
       )}
 
-      {match.innings.map((innings, idx) => (
-        <InningsCard key={idx} innings={innings} match={match} />
-      ))}
+      {/* Innings selector — reuses DigestTab's FilterChips pattern. Applies
+          across T20/ODI (2 chips) and Test (up to 4 chips); hidden entirely
+          when there's only one innings so far (nothing to switch between). */}
+      <FilterChips items={chipItems} active={activeInningsNum!} onSelect={handleSelectInnings} />
+
+      {activeInnings && <InningsCard key={activeInnings.number} innings={activeInnings} match={match} />}
     </div>
   );
 }

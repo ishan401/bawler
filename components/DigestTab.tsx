@@ -17,6 +17,7 @@ import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 import { PLAYERS, slugifyPlayer } from "@/lib/mockData";
+import FilterChips from "@/components/FilterChips";
 
 // ── share utility ────────────────────────────────────────────────────────────
 
@@ -1097,23 +1098,12 @@ function DayChips({
   activeDay: number;
   onSelect: (day: number) => void;
 }) {
-  if (days.length <= 1) return null;
   return (
-    <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
-      {days.map(day => (
-        <button
-          key={day}
-          onClick={() => onSelect(day)}
-          className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-            day === activeDay
-              ? "bg-cyan text-bg-base border-cyan"
-              : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
-          }`}
-        >
-          Day {day}
-        </button>
-      ))}
-    </div>
+    <FilterChips
+      items={days.map(day => ({ value: day, label: `Day ${day}` }))}
+      active={activeDay}
+      onSelect={onSelect}
+    />
   );
 }
 
@@ -1130,23 +1120,12 @@ function InningsChips({
   activeInn: number;
   onSelect: (inn: number) => void;
 }) {
-  if (innings.length <= 1) return null;
   return (
-    <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
-      {innings.map(inn => (
-        <button
-          key={inn}
-          onClick={() => onSelect(inn)}
-          className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
-            inn === activeInn
-              ? "bg-cyan text-bg-base border-cyan"
-              : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
-          }`}
-        >
-          {INN_LABEL[inn] ?? `Innings ${inn}`}
-        </button>
-      ))}
-    </div>
+    <FilterChips
+      items={innings.map(inn => ({ value: inn, label: INN_LABEL[inn] ?? `Innings ${inn}` }))}
+      active={activeInn}
+      onSelect={onSelect}
+    />
   );
 }
 
