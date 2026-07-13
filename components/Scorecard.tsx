@@ -436,7 +436,7 @@ function BatterRow({
             just the name/sparkline column reads as "this player's info is
             glowing" rather than a stark rectangle boxing the whole row,
             which is what a box-shadow on a plain table row looks like. */}
-        <div className={isLiveBatter ? "cell-glow-pulse -mx-1.5 -my-1 px-1.5 py-1 rounded-lg" : ""}>
+        <div className={isLiveBatter ? "excitement-glow -mx-1.5 -my-1 px-1.5 py-1 rounded-lg" : ""}>
           <div className="flex items-center gap-1.5">
             <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
             {row.onStrike && !row.out && (
@@ -563,7 +563,10 @@ function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boo
   const px = sampled.map(p => ({ x: xToPx(p.x), y: yToPx(p.y), p }));
 
   const linePath = smoothPath(px);
-  const lineColor = live ? "#00E5FF" : "#94A3B8";
+  // Bright, high-contrast lines -- the point is to read the trend at a
+  // glance, not to blend into the row. Cyan for the live batter, a near-
+  // white light slate (not a dim mid-gray) for completed innings.
+  const lineColor = live ? "#00E5FF" : "#E2E8F0";
 
   return (
     <svg
@@ -572,12 +575,12 @@ function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boo
       className="flex-1 h-5 min-w-[36px] max-w-[130px]"
       aria-hidden="true"
     >
-      <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.75"
-        strokeLinejoin="round" strokeLinecap="round" opacity={live ? 1 : 0.75} />
+      <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2"
+        strokeLinejoin="round" strokeLinecap="round" opacity={live ? 1 : 0.9} />
       {px.map(({ x, y, p }, i) => {
         if (!p.isFour && !p.isSix) return null;
         const color = p.isSix ? "#A855F7" : "#00E5FF";
-        return <circle key={i} cx={x} cy={y} r="2" fill={color} stroke="#0A0E1A" strokeWidth="0.8" />;
+        return <circle key={i} cx={x} cy={y} r="3.2" fill={color} stroke="#0A0E1A" strokeWidth="1" />;
       })}
     </svg>
   );
