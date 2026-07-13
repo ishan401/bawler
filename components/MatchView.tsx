@@ -519,10 +519,28 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchupShareTarget]);
 
+  // The fixed header's real height varies by format/match-state (Test's
+  // ScoreBar skips the RRR/chase-context row that limited-overs chases show,
+  // ODI/Test show a format badge T20 doesn't, etc.) -- measure it instead of
+  // hardcoding a px value, so any tab that needs to offset a sticky element
+  // below the header (e.g. Scorecard's sticky innings header) stays flush
+  // against it in every format rather than leaving a gap or overlapping.
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(148);
+  useEffect(() => {
+    const el = stickyHeaderRef.current;
+    if (!el) return;
+    const measure = () => setStickyHeaderHeight(el.getBoundingClientRect().height);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [truncatedMatch, tab]);
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ ["--sticky-header-h" as string]: `${stickyHeaderHeight}px` }}>
       {/* Sticky header */}
-      <div className="sticky top-0 z-30">
+      <div ref={stickyHeaderRef} className="sticky top-0 z-30">
         <ScoreBar match={truncatedMatch} />
         <MiniInsightsBar
           match={truncatedMatch}

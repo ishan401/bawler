@@ -263,7 +263,10 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   return (
     <div className="card">
       {/* Sticky innings header */}
-      <div className="sticky top-[148px] z-20 bg-bg-elevated border-b border-line px-4 py-3 flex items-center justify-between rounded-t-2xl">
+      <div
+        className="sticky z-20 bg-bg-elevated border-b border-line px-4 py-3 flex items-center justify-between rounded-t-2xl"
+        style={{ top: "var(--sticky-header-h, 148px)" }}
+      >
         <div className="flex items-center gap-2.5">
           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: team?.primaryColor ?? "#94A3B8" }} />
           <h3 className="text-sm font-bold">
