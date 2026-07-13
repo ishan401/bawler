@@ -83,15 +83,16 @@ export default function Scorecard({ match }: ScorecardProps) {
     };
 
     return (
-      <div className="space-y-4">
-        <div ref={topRef} />
-        {momMosBanners}
+      <div>
+        {momMosBanners && <div className="mb-3">{momMosBanners}</div>}
 
-        <TestInningsChips
-          innings={match.innings}
-          activeInningsNum={activeInningsNum!}
-          onSelect={handleSelectInnings}
-        />
+        <div ref={topRef}>
+          <TestInningsChips
+            innings={match.innings}
+            activeInningsNum={activeInningsNum!}
+            onSelect={handleSelectInnings}
+          />
+        </div>
 
         {activeTestInnings && (
           <InningsCard key={activeTestInnings.number} innings={activeTestInnings} match={match} />
@@ -121,16 +122,17 @@ export default function Scorecard({ match }: ScorecardProps) {
   };
 
   return (
-    <div className="space-y-4">
-      <div ref={topRef} />
-      {momMosBanners}
+    <div>
+      {momMosBanners && <div className="mb-3">{momMosBanners}</div>}
 
-      <TeamToggle
-        teamA={match.teamA}
-        teamB={match.teamB}
-        activeTeamCode={activeTeamCode}
-        onSelect={handleSelectTeam}
-      />
+      <div ref={topRef}>
+        <TeamToggle
+          teamA={match.teamA}
+          teamB={match.teamB}
+          activeTeamCode={activeTeamCode}
+          onSelect={handleSelectTeam}
+        />
+      </div>
 
       {activeInnings ? (
         <InningsCard key={activeInnings.number} innings={activeInnings} match={match} />
@@ -168,7 +170,7 @@ function TeamToggle({
   // Digest's chips (the flex+gap+dot was adding width/height Digest's
   // plain-text chip doesn't have).
   return (
-    <div className="flex gap-2 pb-1">
+    <div className="flex gap-2 pb-3">
       {[teamA, teamB].map(team => {
         const active = team.code === activeTeamCode;
         return (
@@ -214,7 +216,7 @@ function TestInningsChips({
   });
 
   return (
-    <div className="flex gap-2 pb-1 overflow-x-auto no-scrollbar">
+    <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
       {items.map(item => {
         const active = item.value === activeInningsNum;
         return (
