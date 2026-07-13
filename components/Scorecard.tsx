@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import type { Match, Innings, BattingEntry, BowlingEntry } from "@/lib/types";
+import React, { useRef, useState } from "react";
+import type { Match, Innings, BattingEntry, BowlingEntry, Team } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 
@@ -10,6 +10,9 @@ interface ScorecardProps {
 }
 
 export default function Scorecard({ match }: ScorecardProps) {
+  const [selectedTeamCode, setSelectedTeamCode] = useState<string | null>(null);
+  const topRef = useRef<HTMLDivElement>(null);
+
   if (match.innings.length === 0) {
     const isLive = match.status === "live" || match.status === "toss";
     const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
@@ -41,29 +44,119 @@ export default function Scorecard({ match }: ScorecardProps) {
   const motm = match.result?.manOfMatch;
   const mots = match.result?.manOfTournament;
 
-  return (
-    <div className="space-y-4">
-      {/* Man of Match / Man of Tournament banners */}
-      {(motm || mots) && (
-        <div className="flex flex-col gap-1.5">
-          {motm && (
-            <div className="card px-3 py-2 flex items-center gap-2">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Match</span>
-              <span className="text-sm font-extrabold text-yellow-400">{motm}</span>
-            </div>
-          )}
-          {mots && (
-            <div className="card px-3 py-2 flex items-center gap-2">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Series</span>
-              <span className="text-sm font-extrabold text-six">{mots}</span>
-            </div>
-          )}
+  const momMosBanners = (motm || mots) && (
+    <div className="flex flex-col gap-1.5">
+      {motm && (
+        <div className="card px-3 py-2 flex items-center gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Match</span>
+          <span className="text-sm font-extrabold text-yellow-400">{motm}</span>
         </div>
       )}
+      {mots && (
+        <div className="card px-3 py-2 flex items-center gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Series</span>
+          <span className="text-sm font-extrabold text-six">{mots}</span>
+        </div>
+      )}
+    </div>
+  );
 
-      {match.innings.map((innings, idx) => (
-        <InningsCard key={idx} innings={innings} match={match} />
-      ))}
+  // Test matches can have up to 4 innings (a team bats twice) — the two-team
+  // toggle below assumes exactly one innings per team, so Tests keep the
+  // original stacked-innings layout instead.
+  if (match.format === "Test") {
+    return (
+      <div className="space-y-4">
+        {momMosBanners}
+        {match.innings.map((innings, idx) => (
+          <InningsCard key={idx} innings={innings} match={match} />
+        ))}
+      </div>
+    );
+  }
+
+  // Non-Test formats (T20/T20I/ODI/Hundred): each team bats exactly once, so
+  // a simple two-team toggle maps 1:1 onto the two innings. Default to
+  // whichever team is currently batting — match.innings only contains
+  // innings "reached so far" (see MatchView's truncatedMatch), so the last
+  // entry is always the in-progress team for a live match, or the team that
+  // batted last for a completed one.
+  const latestBattingTeam = match.innings[match.innings.length - 1]?.battingTeam ?? match.teamA.code;
+  const activeTeamCode = selectedTeamCode ?? latestBattingTeam;
+  const activeInnings = match.innings.find(i => i.battingTeam === activeTeamCode);
+
+  const handleSelectTeam = (code: string) => {
+    setSelectedTeamCode(code);
+    // Switching teams swaps which innings renders below; without this the
+    // page can stay scrolled past the end of a shorter innings, or mid-way
+    // down a taller one, landing on blank space instead of the new innings.
+    requestAnimationFrame(() => {
+      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div ref={topRef} />
+      {momMosBanners}
+
+      <TeamToggle
+        teamA={match.teamA}
+        teamB={match.teamB}
+        activeTeamCode={activeTeamCode}
+        onSelect={handleSelectTeam}
+      />
+
+      {activeInnings ? (
+        <InningsCard key={activeInnings.number} innings={activeInnings} match={match} />
+      ) : (
+        <div className="card p-6 flex flex-col items-center gap-1.5 text-center">
+          <span className="text-2xl">🏏</span>
+          <p className="text-sm font-bold text-text-primary">Yet to bat</p>
+          <p className="text-xs text-text-secondary">This team hasn't started their innings yet.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Two equal-width segments, one per team — tap either to switch which
+ * team's scorecard is shown below. Active segment is highlighted in that
+ * team's colour; always shows both team names regardless of whether both
+ * have batted yet.
+ */
+function TeamToggle({
+  teamA,
+  teamB,
+  activeTeamCode,
+  onSelect,
+}: {
+  teamA: Team;
+  teamB: Team;
+  activeTeamCode: string;
+  onSelect: (code: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {[teamA, teamB].map(team => {
+        const active = team.code === activeTeamCode;
+        return (
+          <button
+            key={team.code}
+            onClick={() => onSelect(team.code)}
+            className={`rounded-xl px-3 py-3 flex items-center justify-center gap-2 border transition-colors ${
+              active ? "bg-bg-elevated border-line" : "bg-transparent border-line/40 active:bg-line/20"
+            }`}
+            style={active ? { boxShadow: `inset 0 0 0 1px ${team.primaryColor}55` } : undefined}
+          >
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: team.primaryColor }} />
+            <span className={`text-sm font-bold truncate ${active ? "text-text-primary" : "text-text-dim"}`}>
+              {team.shortName}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
