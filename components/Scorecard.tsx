@@ -137,9 +137,11 @@ function TeamToggle({
   activeTeamCode: string;
   onSelect: (code: string) => void;
 }) {
-  // Sized to match DigestTab's own filter chips (Day N / Nth Innings) --
-  // small pill, not a full-width block -- per feedback that the earlier
-  // full-width two-block version ate too much vertical space.
+  // Byte-identical chip markup to DigestTab's own filter chips (Day N /
+  // Nth Innings) -- same classNames, no extra wrapper/dot/gap -- per
+  // feedback that even the shrunk version was still visibly bulkier than
+  // Digest's chips (the flex+gap+dot was adding width/height Digest's
+  // plain-text chip doesn't have).
   return (
     <div className="flex gap-2 pb-1">
       {[teamA, teamB].map(team => {
@@ -148,13 +150,12 @@ function TeamToggle({
           <button
             key={team.code}
             onClick={() => onSelect(team.code)}
-            className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
+            className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
               active
                 ? "bg-cyan text-bg-base border-cyan"
                 : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
             }`}
           >
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: team.primaryColor }} />
             {team.shortName}
           </button>
         );
