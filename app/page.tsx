@@ -15,7 +15,8 @@ import {
   getFollowPrefs,
   onFollowPrefsChanged,
   hasAnyFollow,
-  matchIsFollowed,
+  qualifyMatch,
+  isTier1Match,
   type FollowPrefs,
 } from "@/lib/followPrefs";
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
@@ -57,6 +58,9 @@ function fmtTime(iso: string): string {
 // Spotlight uses a deliberately stricter, concrete-condition bar than the
 // excitement-glow score elsewhere in the app — see lib/spotlight.ts for why.
 const SPOTLIGHT_MAX = 3;
+// Cap on simultaneous live matches shown in the "for you" carousel — same
+// "stay rare" reasoning as SPOTLIGHT_MAX, just for a different slot.
+const FOR_YOU_LIVE_MAX = 3;
 
 type ExpandedCol = null | "past" | "future";
 
@@ -173,24 +177,55 @@ export default function Home() {
   }, []);
   const spotlightIds = useMemo(() => new Set(spotlightMatches.map(s => s.m.id)), [spotlightMatches]);
 
-  // ---- "For you" — live match matching ANY followed selection (nation,
-  // team, tournament, player, or format), else the next upcoming one that
-  // matches. Player-level matching is lineup-based (lib/lineups.ts) — it
-  // only counts a match the player actually featured in, not every match
-  // their team(s) played. ----
-  const forYouMatch = useMemo(() => {
+  // ---- "For you" — union-pool of matches qualifying via ANY followed
+  // nation, team, tournament, format, or player (lib/followPrefs.ts
+  // qualifyMatch). Two-tier priority: Nation/Team/Tournament/Format is
+  // Tier 1; Player alone is Tier 2, used ONLY when Tier 1 is completely
+  // empty — a match qualifying via both stays Tier 1, the demotion only
+  // hits matches that qualify exclusively via a followed player. Within
+  // whichever tier is active, live beats upcoming, excluding the homepage's
+  // single hero live match (top LiveCarousel card) so it isn't repeated.
+  // Bilateral-series nation-redundancy is already suppressed inside
+  // qualifyMatch. Never surfaces past matches — this row is live-or-
+  // upcoming only. ----
+  const forYouSelection = useMemo(() => {
     if (!followsAnything) return null;
-    const live = ALL_LIVE_MATCHES.find(m => matchIsFollowed(m, followPrefs));
-    if (live) return { m: live, isLive: true as const };
+    const pool = [...ALL_LIVE_MATCHES, ...ALL_UPCOMING_MATCHES];
+    const tier1: Match[] = [];
+    const playerOnly: Match[] = [];
+    for (const m of pool) {
+      const q = qualifyMatch(m, followPrefs);
+      if (isTier1Match(q)) tier1.push(m);
+      else if (q.player) playerOnly.push(m);
+    }
+    const active = tier1.length > 0 ? tier1 : playerOnly;
+    if (active.length === 0) return null;
+    const activeIds = new Set(active.map(m => m.id));
+
+    const heroId = byPopularity(ALL_LIVE_MATCHES)[0]?.id;
+    const liveCandidates = byPopularity(ALL_LIVE_MATCHES).filter(m => activeIds.has(m.id) && m.id !== heroId);
+    if (liveCandidates.length > 0) {
+      return { kind: "live" as const, matches: liveCandidates.slice(0, FOR_YOU_LIVE_MAX) };
+    }
     const upcoming = [...ALL_UPCOMING_MATCHES]
-      .filter(m => matchIsFollowed(m, followPrefs))
+      .filter(m => activeIds.has(m.id))
       .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso))[0];
-    return upcoming ? { m: upcoming, isLive: false as const } : null;
+    return upcoming ? { kind: "upcoming" as const, matches: [upcoming] } : null;
   }, [followPrefs, followsAnything]);
 
-  // Same match in both slots → collapse to just the spotlight card + marker,
-  // don't show it twice.
-  const forYouInSpotlight = !!forYouMatch && !forYouMatch.isLive && spotlightIds.has(forYouMatch.m.id);
+  // Spotlight-dedup is a pure display-time filter — matches already shown as
+  // spotlight cards get the "for you" marker there instead of appearing
+  // again in this slot. It does NOT re-trigger the live/upcoming fallback:
+  // if absorbing spotlight empties the row, the row just stays empty (the
+  // marker on the spotlight card already preserves the information).
+  const forYouVisible = useMemo(
+    () => (forYouSelection ? forYouSelection.matches.filter(m => !spotlightIds.has(m.id)) : []),
+    [forYouSelection, spotlightIds]
+  );
+  const forYouSpotlightIds = useMemo(
+    () => new Set(forYouSelection ? forYouSelection.matches.filter(m => spotlightIds.has(m.id)).map(m => m.id) : []),
+    [forYouSelection, spotlightIds]
+  );
 
   return (
     <main
@@ -224,13 +259,28 @@ export default function Home() {
         <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
       </section>
 
-      {/* For you — surfaces a match matching any followed selection (live
-          first, else next upcoming). Hidden when it's the same match as the
-          spotlight card below (that card gets a "for you" marker instead, so
-          the match isn't shown twice). */}
-      {forYouMatch && !forYouInSpotlight && (
+      {/* For you — surfaces match(es) matching any followed selection (live
+          first, else the single soonest upcoming). Multiple simultaneous
+          live qualifiers become a small swipeable set, matching the
+          spotlight carousel's own pattern. Hidden per-match when it's
+          already shown as a spotlight card (that card gets a "for you"
+          marker instead, so nothing is shown twice). */}
+      {forYouVisible.length === 1 && (
         <section className="mt-3 px-3">
-          <ForYouRow match={forYouMatch.m} isLive={forYouMatch.isLive} />
+          <ForYouRow match={forYouVisible[0]} isLive={forYouSelection?.kind === "live"} />
+        </section>
+      )}
+      {forYouVisible.length > 1 && (
+        <section className="mt-3">
+          <div className="px-3">
+            <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
+              {forYouVisible.map(m => (
+                <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
+                  <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} />
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       )}
 
@@ -238,7 +288,7 @@ export default function Home() {
           few sessions, until dismissed. No permanent space: this section
           renders nothing once any of those conditions stop holding. The
           Filter button in the bottom nav is the permanent entry point. */}
-      {!followsAnything && !forYouMatch && showNudge && (
+      {!followsAnything && showNudge && (
         <section className="mt-3 px-3">
           <FollowNudge onDismiss={() => { dismissNudge(); setShowNudge(false); }} />
         </section>
@@ -255,7 +305,7 @@ export default function Home() {
               <SpotlightMatchCard
                 match={spotlightMatches[0].m}
                 isPast={spotlightMatches[0].isPast}
-                forYou={forYouInSpotlight}
+                forYou={forYouSpotlightIds.has(spotlightMatches[0].m.id)}
               />
             </div>
           ) : (
@@ -263,7 +313,7 @@ export default function Home() {
               <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
                 {spotlightMatches.map(({ m, isPast }) => (
                   <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-                    <SpotlightMatchCard match={m} isPast={isPast} forYou={forYouInSpotlight && forYouMatch?.m.id === m.id} />
+                    <SpotlightMatchCard match={m} isPast={isPast} forYou={forYouSpotlightIds.has(m.id)} />
                   </div>
                 ))}
               </div>

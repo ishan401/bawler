@@ -78,34 +78,61 @@ export function hasAnyFollow(prefs: FollowPrefs): boolean {
   return totalFollowCount(prefs) > 0;
 }
 
-/** True if `match` is relevant to ANY of the user's followed selections. */
-export function matchIsFollowed(match: Match, prefs: FollowPrefs): boolean {
-  if (prefs.formats.includes(match.format)) return true;
+function nationOf(code: string, country?: string, type?: string): string | undefined {
+  return country ?? (type === "national" ? code : undefined);
+}
 
-  if (
+/** Per-category breakdown of why (if at all) `match` matches `prefs`. Used
+ * by the "for you" row to distinguish Tier 1 (nation/team/tournament/
+ * format) from Player-only matches — see isTier1Match/isAnyMatch below. */
+export interface MatchQualification {
+  nation: boolean;
+  team: boolean;
+  tournament: boolean;
+  format: boolean;
+  player: boolean;
+}
+
+export function qualifyMatch(match: Match, prefs: FollowPrefs): MatchQualification {
+  const format = prefs.formats.includes(match.format);
+
+  const tournament =
     prefs.tournaments.includes(match.competition.id) ||
-    (match.championship && prefs.tournaments.includes(match.championship.id))
-  ) {
-    return true;
-  }
+    (!!match.championship && prefs.tournaments.includes(match.championship.id));
 
-  if (prefs.teams.includes(match.teamA.code) || prefs.teams.includes(match.teamB.code)) {
-    return true;
-  }
+  const team = prefs.teams.includes(match.teamA.code) || prefs.teams.includes(match.teamB.code);
 
+  let nation = false;
   if (prefs.nations.length > 0) {
-    const nationOf = (code: string, country?: string, type?: string) =>
-      country ?? (type === "national" ? code : undefined);
     const nationA = nationOf(match.teamA.code, match.teamA.country, match.teamA.type);
     const nationB = nationOf(match.teamB.code, match.teamB.country, match.teamB.type);
-    if ((nationA && prefs.nations.includes(nationA)) || (nationB && prefs.nations.includes(nationB))) {
-      return true;
-    }
+    const nationMatches = (nationA && prefs.nations.includes(nationA)) || (nationB && prefs.nations.includes(nationB));
+    // A two-team bilateral series (e.g. "India tour of Australia") IS the
+    // followed nation's whole current storyline — the hero card, series
+    // banner, etc. already foreground it elsewhere on the homepage, so
+    // nation-following doesn't add anything a "for you" row should repeat.
+    // (Team/tournament/format/player follows are unaffected — those are
+    // more deliberate choices and still surface bilateral matches normally.)
+    nation = !!nationMatches && match.competition.type !== "bilateral";
   }
 
-  if (prefs.players.length > 0 && prefs.players.some(pid => isPlayerInMatch(match, pid))) {
-    return true;
-  }
+  const player = prefs.players.length > 0 && prefs.players.some(pid => isPlayerInMatch(match, pid));
 
-  return false;
+  return { nation, team, tournament, format, player };
+}
+
+/** Tier 1 = nation, team, tournament, or format. These outrank Player. */
+export function isTier1Match(q: MatchQualification): boolean {
+  return q.nation || q.team || q.tournament || q.format;
+}
+
+export function isAnyMatch(q: MatchQualification): boolean {
+  return isTier1Match(q) || q.player;
+}
+
+/** True if `match` is relevant to ANY of the user's followed selections
+ * (convenience wrapper — most callers wanting tier awareness should use
+ * qualifyMatch directly, e.g. the "for you" row's pooling logic). */
+export function matchIsFollowed(match: Match, prefs: FollowPrefs): boolean {
+  return isAnyMatch(qualifyMatch(match, prefs));
 }
