@@ -29,19 +29,6 @@ export type FollowCategory = keyof FollowPrefs;
 const STORAGE_KEY = "bawler:followPrefs";
 const CHANGE_EVENT = "bawler:follow-prefs-changed";
 
-// Bump this whenever the ID scheme underlying any category changes (e.g.
-// swapping mock team/tournament/player IDs for a real API's own IDs). A
-// mismatched (or missing) version is treated as "nothing saved" and the
-// stale entry is wiped — otherwise a user's old follows would silently
-// stop matching anything against the new dataset instead of failing
-// loudly, which is a much worse bug to chase down later.
-const SCHEMA_VERSION = 1;
-
-interface StoredFollowPrefs {
-  version: number;
-  prefs: FollowPrefs;
-}
-
 export function emptyFollowPrefs(): FollowPrefs {
   return { nations: [], teams: [], tournaments: [], players: [], formats: [] };
 }
@@ -51,15 +38,8 @@ export function getFollowPrefs(): FollowPrefs {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyFollowPrefs();
-    const parsed = JSON.parse(raw) as Partial<StoredFollowPrefs>;
-    if (parsed.version !== SCHEMA_VERSION || !parsed.prefs) {
-      // Unversioned (pre-v1.0.53) or a future ID-scheme bump — self-clean
-      // rather than resolving IDs against a dataset they were never saved
-      // against.
-      window.localStorage.removeItem(STORAGE_KEY);
-      return emptyFollowPrefs();
-    }
-    return { ...emptyFollowPrefs(), ...parsed.prefs };
+    const parsed = JSON.parse(raw);
+    return { ...emptyFollowPrefs(), ...parsed };
   } catch {
     return emptyFollowPrefs();
   }
@@ -71,8 +51,7 @@ export function getFollowPrefs(): FollowPrefs {
 export function setFollowPrefs(prefs: FollowPrefs): void {
   if (typeof window === "undefined") return;
   try {
-    const payload: StoredFollowPrefs = { version: SCHEMA_VERSION, prefs };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
   } catch {
     // localStorage unavailable — preference just won't persist.
   }
