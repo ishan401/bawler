@@ -327,8 +327,8 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
               <th className="text-left font-semibold py-1.5 pr-2">Batter</th>
               <th className="text-right font-semibold py-1.5 px-1 num">R</th>
               <th className="text-right font-semibold py-1.5 px-1 num">B</th>
-              <th className="text-right font-semibold py-1.5 px-1 num">4s</th>
-              <th className="text-right font-semibold py-1.5 px-1 num">6s</th>
+              <th className="text-right font-semibold py-1.5 px-1 num" style={{ color: "#06B6D4" }}>4s</th>
+              <th className="text-right font-semibold py-1.5 px-1 num" style={{ color: "#A855F7" }}>6s</th>
               <th className="text-right font-semibold py-1.5 pl-1 num">SR</th>
             </tr>
           </thead>
