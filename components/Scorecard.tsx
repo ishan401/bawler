@@ -294,11 +294,21 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
         <div className="flex items-center gap-2.5">
           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: team?.primaryColor ?? "#94A3B8" }} />
           <h3 className="text-sm font-bold">
-            {team?.fullName ?? innings.battingTeam}{" "}
-            <span className="text-text-dim font-normal">·</span>{" "}
-            <span className="text-text-secondary font-medium">
-              Innings {teamInningsOccurrence(match.innings, innings)}
-            </span>
+            {team?.fullName ?? innings.battingTeam}
+            {/* "Innings N" only means anything in Test cricket -- a team
+                bats exactly once in every other format, so there's never
+                a 2nd innings to disambiguate from and the label is just
+                noise. Test keeps it since a team's 2nd innings is real,
+                distinguishing information there. */}
+            {match.format === "Test" && (
+              <>
+                {" "}
+                <span className="text-text-dim font-normal">·</span>{" "}
+                <span className="text-text-secondary font-medium">
+                  Innings {teamInningsOccurrence(match.innings, innings)}
+                </span>
+              </>
+            )}
           </h3>
         </div>
         <div className="text-right num">
