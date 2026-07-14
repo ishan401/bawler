@@ -8,11 +8,20 @@ import { calculateWinProbForMatch, calculateProjectedScore } from "@/lib/winProb
 import { ballsPerSet } from "@/lib/formatUtils";
 
 // ============================================================================
-// Fixed card heights — past + future identical so rows align perfectly
+// Fixed card heights
 // ============================================================================
-export const PAST_CARD_HEIGHT = 148;
-export const FUTURE_CARD_HEIGHT = 148;
-export const LIVE_CARD_HEIGHT = 148;
+// LIVE — hero card, unchanged footprint except taller to fit the win-prob
+// sparkline (was a flat 24px bar, now a two-line chart + dot legend).
+export const LIVE_CARD_HEIGHT = 168;
+// QUIET — ordinary past/upcoming match card (v1.0.49 restraint pass): flat,
+// compact, no gradient/crest/badge. Height is intentionally small since the
+// content is now just team names + one line.
+export const QUIET_CARD_HEIGHT = 60;
+// SPOTLIGHT — the old "full treatment" (gradient bg, crest watermark, glow,
+// highlight badge), now reserved for matches clearing the concrete spotlight
+// bar (lib/spotlight.ts — NOT the excitement score) and rendered full-width
+// above the quiet grid instead of inline in it.
+export const SPOTLIGHT_CARD_HEIGHT = 148;
 
 // ============================================================================
 // Helpers
@@ -77,6 +86,22 @@ function HighlightBadge({ text }: { text?: string }) {
   );
 }
 
+/**
+ * "For you" marker — a small star pill reserved for the spotlight card that
+ * ALSO happens to be the user's followed-team match. Deliberately positioned
+ * top-LEFT (HighlightBadge lives top-right) so the two badges never stack.
+ */
+function ForYouMarker() {
+  return (
+    <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-cyan text-bg text-[8.5px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-full leading-none shadow-md">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 22 12 18.56 5.8 22 7 14.14l-5-4.87 7.1-1.01z" />
+      </svg>
+      For you
+    </div>
+  );
+}
+
 function CompetitionBadge({ match }: { match: Match }) {
   const c = match.competition;
   const fmtLabel = match.format === "Test" ? "Test" : match.format === "ODI" ? "ODI" : null;
@@ -134,15 +159,9 @@ const clamp2: React.CSSProperties = {
   WebkitBoxOrient: "vertical" as const,
   overflow: "hidden",
 };
-// 3 lines, NO ellipsis (future — Sarthak v0.7 — just clip)
-const lines3NoEllipsis: React.CSSProperties = {
-  overflow: "hidden",
-  maxHeight: "3.6em",
-  lineHeight: "1.2em",
-};
 
 // ============================================================================
-// Live card — full width, prominent split win-prob bar
+// Live card — full width, prominent win-prob sparkline
 // ============================================================================
 export function LiveMatchCard({ match }: { match: Match }) {
   const { teamA, teamB, innings } = match;
@@ -210,8 +229,9 @@ export function LiveMatchCard({ match }: { match: Match }) {
           <LiveSide team={teamB} runs={lastInnB?.runs} wickets={lastInnB?.wickets} overs={lastInnB?.overs} batting={teamBBatting} alignRight crr={teamBBatting && liveCRR ? liveCRR : undefined} proj={teamBBatting && projected ? projected.runs : undefined} prevRuns={prevInnB?.runs} prevWickets={prevInnB?.wickets} />
         </div>
 
-        {/* Row 4 — prominent win-prob split bar (highlighted) */}
-        {wp && <WinProbBar teamA={match.teamA} teamB={match.teamB} pctA={wp.pctA} />}
+        {/* Row 4 — live win-prob sparkline (falls back to the split bar when
+            there's no ball-by-ball history to draw a trend from) */}
+        {wp && <LiveWinProbSpark match={match} teamA={match.teamA} teamB={match.teamB} fallbackPctA={wp.pctA} />}
       </div>
     </Link>
   );
@@ -247,6 +267,9 @@ function LiveSide({ team, runs, wickets, overs, batting, alignRight, crr, proj, 
 /**
  * Prominent two-color win-prob bar — Sarthak v0.7 #4.
  * Bar width split proportionally; team code + % rendered inside each side.
+ * Kept as a fallback for the handful of live mock matches that ship a
+ * liveWinProbOverride but no ball-by-ball history (nothing to draw a trend
+ * line from) — see LiveWinProbSpark below.
  */
 function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: number }) {
   const a = Math.max(0.08, Math.min(0.92, pctA)); // floor each side so labels stay readable
@@ -265,6 +288,76 @@ function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: nu
         style={{ width: `${(1 - a) * 100}%`, background: teamB.primaryColor }}
       >
         <span className="text-[10px] font-extrabold text-white drop-shadow num">{pctBpct}% {teamB.shortName}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Live win-prob sparkline — homepage hero card (v1.0.49).
+ * Two mirrored lines (one per team, team's own primaryColor — same
+ * two-team-color convention as WinProbChart/MiniWinProb), each ending in a
+ * small dot at the team's current %. Shows only the RECENT window (last ~20
+ * data points) so it reads as "trend", not the whole match.
+ *
+ * The line is cosmetic/approximate; the end-dot position always uses
+ * `fallbackPctA` (the same value the old static bar showed), which already
+ * accounts for liveWinProbOverride — so the dot is never wrong even when the
+ * drawn trend is a rough approximation.
+ */
+function LiveWinProbSpark({ match, teamA, teamB, fallbackPctA }: { match: Match; teamA: Team; teamB: Team; fallbackPctA: number }) {
+  const allPoints = calculateWinProbForMatch(match);
+
+  // No ball-by-ball history to plot (a couple of mock matches ship only a
+  // fixed override %, no balls[]) — fall back to the static split bar.
+  if (allPoints.length === 0) {
+    return <WinProbBar teamA={teamA} teamB={teamB} pctA={fallbackPctA} />;
+  }
+
+  const RECENT_WINDOW = 20;
+  const tail = allPoints.slice(-RECENT_WINDOW);
+  // Snap the last plotted point to the authoritative current % so the dot
+  // never floats off the end of the line.
+  const pts = tail.map((p, i) => (i === tail.length - 1 ? { ...p, winProbTeamA: fallbackPctA } : p));
+
+  const W = 300, H = 30;
+  const PAD_X = 3, PAD_Y = 5;
+  const innerW = W - PAD_X * 2;
+  const innerH = H - PAD_Y * 2;
+  const xMin = pts[0].overFloat;
+  const xMax = pts[pts.length - 1].overFloat;
+  const span = Math.max(0.5, xMax - xMin);
+  const xOf = (x: number) => PAD_X + ((x - xMin) / span) * innerW;
+  const yOf = (p: number) => PAD_Y + (1 - p) * innerH;
+
+  const colA = teamA.primaryColor;
+  const colB = teamB.primaryColor;
+
+  const lineA = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(p.overFloat).toFixed(1)} ${yOf(p.winProbTeamA).toFixed(1)}`).join(" ");
+  const lineB = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(p.overFloat).toFixed(1)} ${yOf(1 - p.winProbTeamA).toFixed(1)}`).join(" ");
+
+  const xEnd  = xOf(xMax);
+  const dotAY = yOf(fallbackPctA);
+  const dotBY = yOf(1 - fallbackPctA);
+  const pctA  = Math.round(fallbackPctA * 100);
+  const pctB  = 100 - pctA;
+
+  return (
+    <div className="mt-auto rounded-md border border-white/15 bg-black/25 px-1.5 pt-1 pb-0.5">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="none" style={{ height: 26 }}>
+        {/* 50% reference line */}
+        <line x1={PAD_X} y1={yOf(0.5)} x2={W - PAD_X} y2={yOf(0.5)} stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 2" />
+        <path d={lineA} stroke={colA} strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <path d={lineB} stroke={colB} strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        {/* End-of-line current-% dots */}
+        <circle cx={xEnd} cy={dotAY} r="4.5" fill={colA} opacity="0.3" />
+        <circle cx={xEnd} cy={dotAY} r="2.6" fill={colA} stroke="#0A0E1A" strokeWidth="1" />
+        <circle cx={xEnd} cy={dotBY} r="4.5" fill={colB} opacity="0.3" />
+        <circle cx={xEnd} cy={dotBY} r="2.6" fill={colB} stroke="#0A0E1A" strokeWidth="1" />
+      </svg>
+      <div className="flex items-center justify-between mt-0.5 px-0.5">
+        <span className="text-[9px] font-extrabold num drop-shadow" style={{ color: colA }}>{teamA.shortName} {pctA}%</span>
+        <span className="text-[9px] font-extrabold num drop-shadow" style={{ color: colB }}>{pctB}% {teamB.shortName}</span>
       </div>
     </div>
   );
@@ -340,59 +433,199 @@ function liveWinProb(match: Match): { pctA: number } | null {
 }
 
 // ============================================================================
-// Past card — Sarthak v0.7: consistent layout w/ future
+// Quiet side block — shared by both quiet card types. Undefined `isWinner`
+// means "no result yet" (future match) and stays full-brightness, not dimmed.
+// ============================================================================
+function QuietSide({ team, runs, wickets, isWinner, alignRight }: { team: Team; runs?: number; wickets?: number; isWinner?: boolean; alignRight?: boolean }) {
+  const dim = isWinner === false;
+  return (
+    <div className={`flex items-center gap-1.5 min-w-0 ${alignRight ? "flex-row-reverse" : ""}`}>
+      <FlagOrRank team={team} />
+      <div className={`flex flex-col min-w-0 ${alignRight ? "items-end" : "items-start"}`}>
+        <span className={`text-[13px] font-extrabold leading-none truncate ${dim ? "text-text-dim" : "text-text-primary"}`}>
+          {team.shortName}
+        </span>
+        {runs !== undefined && (
+          <span className={`text-[10.5px] num font-bold leading-tight ${dim ? "text-text-dim" : "text-text-secondary"}`}>
+            {runs}/{wickets}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Past card — QUIET (v1.0.49 restraint pass).
+// Flat bg-surface, thin 3px left border in the winning team's color, no
+// gradient / crest watermark / highlight badge. Just team names, score, and
+// one result line. Excitement>=8 matches never reach this component — the
+// homepage routes them to SpotlightMatchCard instead.
 // ============================================================================
 export function PastMatchCard({ match }: { match: Match }) {
   const winnerCode = match.result?.winner;
   const winnerTeam = winnerCode === match.teamA.code ? match.teamA : match.teamB;
-  const highlight = (match.excitement ?? 0) >= 8;
+  const borderColor = winnerTeam?.primaryColor ?? "#1E293B";
 
   return (
     <Link
       href={`/match/${match.id}`}
-      className={`tap-scale relative block rounded-xl overflow-hidden ${highlight ? "excitement-glow" : "border border-line"}`}
-      style={{ height: PAST_CARD_HEIGHT }}
+      className="tap-scale block rounded-xl bg-bg-surface overflow-hidden"
+      style={{ height: QUIET_CARD_HEIGHT, borderLeft: `3px solid ${borderColor}` }}
     >
-      <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="wide" />
+      <div className="h-full pl-2 pr-2.5 py-1.5 flex flex-col justify-center gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <QuietSide team={match.teamA} runs={match.result?.teamARuns} wickets={match.result?.teamAWickets} isWinner={winnerCode === match.teamA.code} />
+          <span className="text-[10px] font-bold text-text-dim shrink-0">vs</span>
+          <QuietSide team={match.teamB} runs={match.result?.teamBRuns} wickets={match.result?.teamBWickets} isWinner={winnerCode === match.teamB.code} alignRight />
+        </div>
+        {match.result && (
+          <div className="text-[9.5px] text-text-secondary text-center truncate leading-none">
+            {winnerCode} won {match.result.margin}
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+// ============================================================================
+// Future card — QUIET (v1.0.49 restraint pass).
+// Same flat treatment as the past card. There's no "leading team" pre-match,
+// so the left border is neutral (line color) rather than team-colored.
+// ============================================================================
+export function FutureMatchCard({ match }: { match: Match }) {
+  return (
+    <Link
+      href={`/match/${match.id}`}
+      className="tap-scale block rounded-xl bg-bg-surface overflow-hidden"
+      style={{ height: QUIET_CARD_HEIGHT, borderLeft: "3px solid #1E293B" }}
+    >
+      <div className="h-full pl-2 pr-2.5 py-1.5 flex flex-col justify-center gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <QuietSide team={match.teamA} />
+          <span className="text-[10px] font-bold text-text-dim shrink-0">vs</span>
+          <QuietSide team={match.teamB} alignRight />
+        </div>
+        <div className="text-[9.5px] text-cyan font-semibold text-center truncate leading-none num">
+          {fmtCountdown(match.startTimeIso)} · {fmtTime(match.startTimeIso)}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// ============================================================================
+// Spotlight card — the SplitTeamBg/crest/glow/badge "full treatment", now
+// reserved for matches clearing the concrete spotlight bar (see
+// lib/spotlight.ts — close finish / milestone / knockout-decider stakes;
+// deliberately NOT the excitement score, which is meaningless noise for
+// generated matches). Handles both past and upcoming matches (pass isPast
+// accordingly). Optionally marked as the user's "for you" match via a small
+// star pill (top-left, never stacked on the top-right HighlightBadge).
+// ============================================================================
+export function SpotlightMatchCard({ match, isPast, forYou }: { match: Match; isPast: boolean; forYou?: boolean }) {
+  if (isPast) {
+    const winnerCode = match.result?.winner;
+    const winnerTeam = winnerCode === match.teamA.code ? match.teamA : match.teamB;
+
+    return (
+      <Link
+        href={`/match/${match.id}`}
+        className="tap-scale relative block rounded-xl overflow-hidden excitement-glow"
+        style={{ height: SPOTLIGHT_CARD_HEIGHT }}
+      >
+        <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="wide" />
+        {forYou && <ForYouMarker />}
+
+        <div className="relative h-full px-2 py-1.5 flex flex-col text-white gap-0.5">
+          <div className="flex items-center justify-between gap-2 min-h-[13px]">
+            <span className="text-[9.5px] num text-white/75 leading-none">{fmtDate(match.startTimeIso)}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <CompetitionBadge match={match} />
+              <HighlightBadge text={match.highlightBadge} />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <SideBlock team={match.teamA} runs={match.result?.teamARuns} wickets={match.result?.teamAWickets} isWinner={winnerCode === match.teamA.code} />
+            <span className="text-sm font-extrabold text-white/35">vs</span>
+            <SideBlock team={match.teamB} runs={match.result?.teamBRuns} wickets={match.result?.teamBWickets} isWinner={winnerCode === match.teamB.code} alignRight />
+          </div>
+
+          {match.result && (
+            <div
+              className="text-center text-[10px] font-extrabold uppercase tracking-widest rounded-md py-0.5 leading-tight"
+              style={{ background: `${winnerTeam.primaryColor}d9`, color: "#FFFFFF" }}
+            >
+              {winnerCode} won {match.result.margin}
+            </div>
+          )}
+
+          <div className="text-[9.5px] text-white/65 truncate leading-tight">
+            {match.venue.name} ({match.venue.city})
+          </div>
+
+          {match.summary && (
+            <p className="text-[10.5px] leading-snug text-white/90" style={clamp2}>
+              {match.summary}
+            </p>
+          )}
+        </div>
+      </Link>
+    );
+  }
+
+  // Upcoming
+  return (
+    <Link
+      href={`/match/${match.id}`}
+      className="tap-scale relative block rounded-xl overflow-hidden excitement-glow"
+      style={{ height: SPOTLIGHT_CARD_HEIGHT }}
+    >
+      <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="narrow" />
+      {forYou && <ForYouMarker />}
 
       <div className="relative h-full px-2 py-1.5 flex flex-col text-white gap-0.5">
-        {/* Row 1: date (left) + competition badge + highlight badge (right) */}
-        <div className="flex items-center justify-between gap-2 min-h-[13px]">
-          <span className="text-[9.5px] num text-white/75 leading-none">{fmtDate(match.startTimeIso)}</span>
+        <div className="flex items-center justify-between gap-1 min-h-[13px]">
+          <span className="text-[9px] num text-white/65 leading-none truncate">
+            {fmtDate(match.startTimeIso).replace(",", "")}
+          </span>
           <div className="flex items-center gap-1 shrink-0">
             <CompetitionBadge match={match} />
             <HighlightBadge text={match.highlightBadge} />
           </div>
         </div>
 
-        {/* Row 2: teams with rank pills on OUTSIDE — CONSISTENT */}
-        <div className="flex items-center justify-between gap-2">
-          <SideBlock team={match.teamA} runs={match.result?.teamARuns} wickets={match.result?.teamAWickets} isWinner={winnerCode === match.teamA.code} />
-          <span className="text-sm font-extrabold text-white/35">vs</span>
-          <SideBlock team={match.teamB} runs={match.result?.teamBRuns} wickets={match.result?.teamBWickets} isWinner={winnerCode === match.teamB.code} alignRight />
+        <div className="flex items-center justify-between gap-1">
+          <SideBlock team={match.teamA} isWinner />
+          <span className="text-[10px] font-extrabold text-white/40">vs</span>
+          <SideBlock team={match.teamB} isWinner alignRight />
         </div>
 
-        {/* Row 3: RESULT BANNER */}
-        {match.result && (
-          <div
-            className="text-center text-[10px] font-extrabold uppercase tracking-widest rounded-md py-0.5 leading-tight"
-            style={{ background: `${winnerTeam.primaryColor}d9`, color: "#FFFFFF" }}
-          >
-            {winnerCode} won {match.result.margin}
-          </div>
-        )}
-
-        {/* Row 4: venue */}
-        <div className="text-[9.5px] text-white/65 truncate leading-tight">
-          {match.venue.name} ({match.venue.city})
-        </div>
-
-        {/* Row 5: summary (2-line clamp) — NO mt-auto so no gap above */}
         {match.summary && (
-          <p className="text-[10.5px] leading-snug text-white/90" style={clamp2}>
+          <p className="text-[9.5px] leading-snug text-white/80 flex-1" style={clamp2}>
             {match.summary}
           </p>
         )}
+
+        <div
+          className="mt-auto rounded-md px-1.5 py-1 flex items-center justify-between gap-1"
+          style={{ background: "rgba(0,0,0,0.35)", borderTop: "1px solid rgba(255,255,255,0.10)" }}
+        >
+          <div className="flex items-center gap-1">
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-white/50 shrink-0">
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 5v3l2 1.5" />
+            </svg>
+            <span className="text-[9px] font-extrabold text-cyan num leading-none">
+              {fmtCountdown(match.startTimeIso)}
+            </span>
+          </div>
+          <span className="text-[8.5px] text-white/50 num truncate leading-none">
+            {fmtTime(match.startTimeIso)} · {match.venue.city}
+          </span>
+        </div>
       </div>
     </Link>
   );
@@ -414,69 +647,5 @@ function SideBlock({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
         )}
       </div>
     </div>
-  );
-}
-
-// ============================================================================
-// Future card — balanced height, countdown timer + venue anchor at bottom
-// ============================================================================
-export function FutureMatchCard({ match }: { match: Match }) {
-  const highlight = (match.excitement ?? 0) >= 8;
-  return (
-    <Link
-      href={`/match/${match.id}`}
-      className={`tap-scale relative block rounded-xl overflow-hidden ${highlight ? "excitement-glow" : "border border-line"}`}
-      style={{ height: FUTURE_CARD_HEIGHT }}
-    >
-      <SplitTeamBg teamA={match.teamA} teamB={match.teamB} variant="narrow" />
-
-      <div className="relative h-full px-2 py-1.5 flex flex-col text-white gap-0.5">
-        {/* Row 1: date (left) + competition badge + highlight badge (right) */}
-        <div className="flex items-center justify-between gap-1 min-h-[13px]">
-          <span className="text-[9px] num text-white/65 leading-none truncate">
-            {fmtDate(match.startTimeIso).replace(",", "")}
-          </span>
-          <div className="flex items-center gap-1 shrink-0">
-            <CompetitionBadge match={match} />
-            <HighlightBadge text={match.highlightBadge} />
-          </div>
-        </div>
-
-        {/* Row 2: teams with rank pills */}
-        <div className="flex items-center justify-between gap-1">
-          <SideBlock team={match.teamA} isWinner />
-          <span className="text-[10px] font-extrabold text-white/40">vs</span>
-          <SideBlock team={match.teamB} isWinner alignRight />
-        </div>
-
-        {/* Row 3: summary (2-line clamp) */}
-        {match.summary && (
-          <p className="text-[9.5px] leading-snug text-white/80 flex-1" style={clamp2}>
-            {match.summary}
-                 </p>
-        )}
-
-        {/* Row 4: bottom anchor — countdown + time + venue */}
-        <div
-          className="mt-auto rounded-md px-1.5 py-1 flex items-center justify-between gap-1"
-          style={{ background: "rgba(0,0,0,0.35)", borderTop: "1px solid rgba(255,255,255,0.10)" }}
-        >
-          {/* Clock countdown */}
-          <div className="flex items-center gap-1">
-            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-white/50 shrink-0">
-              <circle cx="8" cy="8" r="6" />
-              <path d="M8 5v3l2 1.5" />
-            </svg>
-            <span className="text-[9px] font-extrabold text-cyan num leading-none">
-              {fmtCountdown(match.startTimeIso)}
-            </span>
-          </div>
-          {/* Time + venue */}
-          <span className="text-[8.5px] text-white/50 num truncate leading-none">
-            {fmtTime(match.startTimeIso)} · {match.venue.city}
-          </span>
-        </div>
-      </div>
-    </Link>
   );
 }
