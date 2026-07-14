@@ -37,23 +37,29 @@ export default function BottomNav() {
   return (
     <>
       <nav
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex items-stretch"
+        className="fixed bottom-0 left-1/2 z-50 flex items-stretch"
         style={{
           width: "min(430px, 100vw)",
           background: "rgba(10,14,26,0.97)",
           borderTop: "1px solid rgba(255,255,255,0.08)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
-          // Force the GPU compositing layer this backdrop-filter needs to
-          // exist immediately (at style-recalc time), instead of letting
-          // Chrome promote it lazily on first paint. Without this, the very
-          // first tap/click that lands inside a fresh backdrop-filter layer
-          // can hit-test against the layer BEFORE it's actually composited,
-          // which on Chrome can pass the pointer event through to whatever
-          // was underneath pre-promotion -- i.e. it does nothing visible.
-          // Cheap, inert on every other browser, fixes the Filter button
-          // (and anything else in this bar) needing 2-3 taps after load.
-          transform: "translateZ(0)",
+          // Centering (translateX(-50%)) combined with translateZ(0) in ONE
+          // transform -- these must be a single inline `transform` value,
+          // not split between a Tailwind class and inline style, because
+          // inline `style` fully overrides a class's `transform` rather
+          // than merging with it. (An earlier fix here accidentally did
+          // exactly that and knocked the whole bar off-center.)
+          //
+          // translateZ(0) forces the GPU compositing layer this
+          // backdrop-filter needs to exist immediately (at style-recalc
+          // time), instead of letting Chrome promote it lazily on first
+          // paint. Without it, the very first tap/click landing inside a
+          // fresh backdrop-filter layer can hit-test against the
+          // pre-promotion layer and pass through to whatever was
+          // underneath -- i.e. it does nothing visible. Cheap, inert on
+          // every other browser.
+          transform: "translateX(-50%) translateZ(0)",
           willChange: "backdrop-filter, transform",
         }}
       >
