@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.47 (deployed)
+**Current version:** v1.0.48 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -106,7 +106,13 @@
 - ✅ Uses `ALL_TEAMS` (not `TEAMS`) — correctly resolves national team names/colours
 - ✅ Per-innings batting card (R / B / 4s / 6s / SR / dismissal)
 - ✅ Per-innings bowling card (O / M / R / W / Econ)
-- ✅ **Sticky innings header** — team name + innings score sticks below match header while scrolling
+- ✅ **Not-out row fix** — a batter's dismissal line now shows exactly one string (either real dismissal text or "not out"), never both; was rendering a duplicated "not out" on every not-out batter (`ee03f69`)
+- ✅ **Team toggle (T20/ODI/Hundred)** — two compact pill chips (byte-identical styling to DigestTab's own filter chips) switch which team's innings renders below; defaults to whichever team is currently batting (live) or batted last (completed); "Yet to bat" empty state for the other team; Test format unaffected, keeps its own per-innings chips (`4aa8a24`, `ea4043b`, `61092bd`)
+- ✅ **Per-innings chips (Test only)** — one chip per innings labelled `"{Team} Inn. {N}"` where N is which innings this is *for that team* (1st or 2nd), not the global ball-order position; defaults to the innings currently in progress (`03091d8`)
+- ✅ **`teamInningsOccurrence()`** in `lib/formatUtils.ts` — single source of truth for "which innings is this for this team"; used by both the Test chip labels and the innings-card header itself, so a team's 2nd Test innings always reads "Innings 2" everywhere, never "Innings 3"/"Innings 4" (the global `match.innings` array position) (`2a9944d`)
+- ✅ **Sticky innings header** — team name + innings score sticks below the match header while scrolling; offset is now measured live via `ResizeObserver` (`--sticky-header-h` CSS var) instead of a hardcoded px value, so it stays flush under the real header in every format (Test's header is a different height than T20's) (`e910c0d`, `57a0fae`)
+- ✅ **Per-batter sparkline** — cumulative runs-vs-balls-faced mini chart on the dismissal/"not out" line (~20px tall, doesn't add a row); smoothed Catmull-Rom curve; fours marked cyan, sixes marked six-purple, same "event dot on a line" pattern as the win-prob chart; dot count is capped at the batter's own 4s/6s column so it can never show more boundaries than the box score states; renders nothing when there's no ball-by-ball data for that batter (`32444f8`, `ac42d9a`, `8bb153e`, `9456e99`, `bb60664`, `105284a`)
+- ✅ **Not-out glow** — the currently-batting row's name/sparkline gets the same pulsing `excitement-glow` box-shadow used on high-excitement match cards, confined to a small rounded chip around just that cell (not the whole row, which read as a hard rectangle) (`9456e99`, `bb60664`)
 - ✅ Highest scorer: runs in teal per innings
 - ✅ Highest wicket-taker: wickets in red per innings
 - ✅ Highest strike rate (min 6 balls): SR in blue per innings
@@ -159,6 +165,7 @@
 | Per-ball commentary | Pre-written in mock balls | Scraped from Cricbuzz / ESPN |
 | Standings | Hard-coded `STANDINGS` | Real fetch |
 | Pitch reports | Hard-coded per venue | Scraped from pre-match analysis |
+| Ball-by-ball vs box score | Ball arrays in ~4 matches (`ipl2026-m37-kkrvmi`, `ind-aus-t20i-2026-m2-live`, `ind-eng-test-2026-d3-live`, `psl-2026-lah-kar-live`) don't fully reconcile with their own battingCard aggregate stats — some batters' ball data has more/fewer isBoundary4/6-flagged deliveries, runs, or balls faced than their card states (audited: 24 of 53 checked batters mismatched). The new per-batter sparkline caps its boundary dots at the card's own 4s/6s so it never *overcounts*, but can undercount when the ball log is short. | Regenerate ball-by-ball data per innings so every batter's runs/ballsFaced/4s/6s fully reconcile with the card; real API data won't have this problem |
 
 ---
 
@@ -266,6 +273,12 @@
 | **v1.0.35** | Digest tab: initial build — over-by-over cards, compact 3-row layout, creative over-summary, normalizeBall() in transformers |
 
 ---
+
+## Changelog additions (v1.0.48)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.48** | Scorecard: not-out duplicate-text fix; team/innings selector chips (two-team toggle for T20/ODI/Hundred, per-innings chips for Test); per-team innings-number fix (`teamInningsOccurrence`) applied to both Scorecard and Digest; sticky innings header now measures real header height instead of a hardcoded offset; new per-batter sparkline (runs-vs-balls, boundary dots capped at the row's own 4s/6s) with a pulsing glow on the batter currently at the crease (`ee03f69`…`105284a`, 16 commits) |
 
 ## Changelog additions (v1.0.41–v1.0.47)
 

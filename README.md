@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.47)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.48)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.47 mock) — real data integration next.
+**Status:** UI complete (v1.0.48 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -54,7 +54,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 1. **ScoreBar** (sticky) — score, chase context, innings info
 2. **MiniInsightsBar** — scrolling insight ticker
-3. **MatchTabs** — Live / Scorecard / **Digest** / Info (swipe or tap, book-page-turn animation)
+3. **MatchTabs** — Live / Scorecard / **Digest** / Info / Table (Table only when the competition has standings; swipe or tap, book-page-turn animation)
 4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
 5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
 6. **PartnershipFooter** — live partnership: total runs/balls + per-batter stats, resets on wicket
@@ -63,7 +63,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 9. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
 10. **CommentaryFeed** — ball-by-ball cards with insight overlays
 
-**Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Sticky innings headers. Partnership velocity sparklines between batting + bowling cards.
+**Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Team toggle (T20/ODI/Hundred) or per-innings chips (Test) pick which innings shows below, defaulting to whoever's currently batting. Sticky innings header, offset measured live so it stays flush under the real header in any format. Partnership velocity sparklines between batting + bowling cards, plus a per-batter runs-vs-balls sparkline on each dismissal/"not out" line with boundary dots capped at that batter's own 4s/6s.
 
 **Digest tab:** Story-of-the-match in cards. Format-adaptive: over cards (T20), session cards (Test), ODI blocks. Day filter chips for Test (default: latest day). Innings chips for T20/ODI (default: latest innings). Post-match summary card pinned at top when `match.result` exists. All cards shareable as PNG.
 
@@ -128,7 +128,7 @@ components/
 │   ├── WinProbChart.tsx       # full-screen modal chart
 │   ├── AIMetrics.tsx          # 4-tile metrics row
 │   ├── CommentaryFeed.tsx     # ball-by-ball cards + insight overlays
-│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS) + partnership sparklines
+│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS), team/innings toggle, per-batter + partnership sparklines
 │   ├── MatchupCard.tsx        # always-on batter vs bowler H2H; career + live merged
 │   ├── DigestTab.tsx          # story-of-match cards; format-adaptive; day/innings chips; shareable
 │   ├── LineupsCard.tsx        # playing XI (battingTeam-based lookup)
