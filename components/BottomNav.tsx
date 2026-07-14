@@ -44,6 +44,17 @@ export default function BottomNav() {
           borderTop: "1px solid rgba(255,255,255,0.08)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
+          // Force the GPU compositing layer this backdrop-filter needs to
+          // exist immediately (at style-recalc time), instead of letting
+          // Chrome promote it lazily on first paint. Without this, the very
+          // first tap/click that lands inside a fresh backdrop-filter layer
+          // can hit-test against the layer BEFORE it's actually composited,
+          // which on Chrome can pass the pointer event through to whatever
+          // was underneath pre-promotion -- i.e. it does nothing visible.
+          // Cheap, inert on every other browser, fixes the Filter button
+          // (and anything else in this bar) needing 2-3 taps after load.
+          transform: "translateZ(0)",
+          willChange: "backdrop-filter, transform",
         }}
       >
         {TABS.slice(0, 1).map(tab => {
