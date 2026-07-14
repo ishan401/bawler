@@ -255,71 +255,89 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mt-1">
-        <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
-      </section>
+      {/* All of the sections below (live carousel, for-you, spotlight)
+          read match data that\'s computed at module-load time from
+          Date.now() (lib/mockData.ts) — which server prerender and client
+          hydration evaluate at DIFFERENT real-world moments, so the two
+          can genuinely disagree on which matches are live/upcoming/past.
+          Rendering them only after the client has mounted (isBooting also
+          gates the grid below, same reasoning) keeps the server-rendered
+          HTML and the client's first render IDENTICAL (both show the
+          skeleton), so React never has to reconcile a mismatched tree —
+          that reconciliation is what was making the Filter button (and
+          anything else on the page) unresponsive for the first click or
+          two while React quietly repaired itself. */}
+      {isBooting ? (
+        <HeroSkeleton />
+      ) : (
+        <>
+          <section className="mt-1">
+            <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
+          </section>
 
-      {/* For you — surfaces match(es) matching any followed selection (live
-          first, else the single soonest upcoming). Multiple simultaneous
-          live qualifiers become a small swipeable set, matching the
-          spotlight carousel's own pattern. Hidden per-match when it's
-          already shown as a spotlight card (that card gets a "for you"
-          marker instead, so nothing is shown twice). */}
-      {forYouVisible.length === 1 && (
-        <section className="mt-3 px-3">
-          <ForYouRow match={forYouVisible[0]} isLive={forYouSelection?.kind === "live"} />
-        </section>
-      )}
-      {forYouVisible.length > 1 && (
-        <section className="mt-3">
-          <div className="px-3">
-            <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
-              {forYouVisible.map(m => (
-                <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-                  <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Empty-state nudge — only shown pre-first-follow, within the first
-          few sessions, until dismissed. No permanent space: this section
-          renders nothing once any of those conditions stop holding. The
-          Filter button in the bottom nav is the permanent entry point. */}
-      {!followsAnything && showNudge && (
-        <section className="mt-3 px-3">
-          <FollowNudge onDismiss={() => { dismissNudge(); setShowNudge(false); }} />
-        </section>
-      )}
-
-      {/* Spotlight — matches clearing the concrete spotlight bar (see
-          lib/spotlight.ts), standing apart from the quiet grid below. 2+
-          qualifiers → swipeable carousel, capped at 3. */}
-      {spotlightMatches.length > 0 && (
-        <section className="mt-3">
-          <h2 className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-3">Spotlight</h2>
-          {spotlightMatches.length === 1 ? (
-            <div className="px-3">
-              <SpotlightMatchCard
-                match={spotlightMatches[0].m}
-                isPast={spotlightMatches[0].isPast}
-                forYou={forYouSpotlightIds.has(spotlightMatches[0].m.id)}
-              />
-            </div>
-          ) : (
-            <div className="px-3">
-              <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
-                {spotlightMatches.map(({ m, isPast }) => (
-                  <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-                    <SpotlightMatchCard match={m} isPast={isPast} forYou={forYouSpotlightIds.has(m.id)} />
-                  </div>
-                ))}
-              </div>
-            </div>
+          {/* For you — surfaces match(es) matching any followed selection (live
+              first, else the single soonest upcoming). Multiple simultaneous
+              live qualifiers become a small swipeable set, matching the
+              spotlight carousel's own pattern. Hidden per-match when it's
+              already shown as a spotlight card (that card gets a "for you"
+              marker instead, so nothing is shown twice). */}
+          {forYouVisible.length === 1 && (
+            <section className="mt-3 px-3">
+              <ForYouRow match={forYouVisible[0]} isLive={forYouSelection?.kind === "live"} />
+            </section>
           )}
-        </section>
+          {forYouVisible.length > 1 && (
+            <section className="mt-3">
+              <div className="px-3">
+                <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
+                  {forYouVisible.map(m => (
+                    <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
+                      <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Empty-state nudge — only shown pre-first-follow, within the first
+              few sessions, until dismissed. No permanent space: this section
+              renders nothing once any of those conditions stop holding. The
+              Filter button in the bottom nav is the permanent entry point. */}
+          {!followsAnything && showNudge && (
+            <section className="mt-3 px-3">
+              <FollowNudge onDismiss={() => { dismissNudge(); setShowNudge(false); }} />
+            </section>
+          )}
+
+          {/* Spotlight — matches clearing the concrete spotlight bar (see
+              lib/spotlight.ts), standing apart from the quiet grid below. 2+
+              qualifiers → swipeable carousel, capped at 3. */}
+          {spotlightMatches.length > 0 && (
+            <section className="mt-3">
+              <h2 className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-3">Spotlight</h2>
+              {spotlightMatches.length === 1 ? (
+                <div className="px-3">
+                  <SpotlightMatchCard
+                    match={spotlightMatches[0].m}
+                    isPast={spotlightMatches[0].isPast}
+                    forYou={forYouSpotlightIds.has(spotlightMatches[0].m.id)}
+                  />
+                </div>
+              ) : (
+                <div className="px-3">
+                  <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
+                    {spotlightMatches.map(({ m, isPast }) => (
+                      <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
+                        <SpotlightMatchCard match={m} isPast={isPast} forYou={forYouSpotlightIds.has(m.id)} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </>
       )}
 
       {isBooting ? (
@@ -462,6 +480,19 @@ function ColumnHeader({ title, count, expanded, onToggleExpand }: {
         )}
       </button>
     </div>
+  );
+}
+
+// Placeholder for the live-carousel/for-you/spotlight block while isBooting
+// is true — see the long comment above where this is used for why: it keeps
+// the server-rendered HTML and the client's first render pixel-identical
+// (both show this skeleton) so hydration never has to reconcile a mismatched
+// tree of match data computed at different real-world moments.
+function HeroSkeleton() {
+  return (
+    <section className="mt-1 px-3">
+      <div className="skeleton rounded-2xl" style={{ height: 168 }} />
+    </section>
   );
 }
 
