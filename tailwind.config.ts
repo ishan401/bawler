@@ -27,6 +27,9 @@ const config: Config = {
         boundary: { DEFAULT: "#10B981", soft: "#10B98122" },
         wicket: { DEFAULT: "#EF4444", soft: "#EF444422" },
         six: { DEFAULT: "#A855F7", soft: "#A855F722" },
+        // Follow/filter feature accent — deliberately its own color, NOT a
+        // reuse of "six" purple (that's the ball-outcome palette).
+        follow: { DEFAULT: "#7C3AED", soft: "#7C3AED22" },
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

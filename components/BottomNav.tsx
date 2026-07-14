@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import FollowSheet from "./FollowSheet";
 
 const TABS = [
   {
@@ -26,49 +28,97 @@ const TABS = [
       </svg>
     ),
   },
-
 ];
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [filterOpen, setFilterOpen] = useState(false);
 
   return (
-    <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex items-stretch"
-      style={{
-        width: "min(430px, 100vw)",
-        background: "rgba(10,14,26,0.97)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-      }}
-    >
-      {TABS.map(tab => {
-        const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${
-              active ? "text-cyan" : "text-text-dim hover:text-text-secondary"
-            }`}
-          >
-            {tab.icon(active)}
-            <span
-              className="text-[9.5px] font-bold uppercase tracking-widest leading-none"
-              style={{ opacity: active ? 1 : 0.55 }}
+    <>
+      <nav
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex items-stretch"
+        style={{
+          width: "min(430px, 100vw)",
+          background: "rgba(10,14,26,0.97)",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+        }}
+      >
+        {TABS.slice(0, 1).map(tab => {
+          const active = pathname === "/";
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${
+                active ? "text-cyan" : "text-text-dim hover:text-text-secondary"
+              }`}
             >
-              {tab.label}
+              {tab.icon(active)}
+              <span className="text-[9.5px] font-bold uppercase tracking-widest leading-none" style={{ opacity: active ? 1 : 0.55 }}>
+                {tab.label}
+              </span>
+              {active && <span className="absolute bottom-0 rounded-full bg-cyan" style={{ width: 24, height: 2, marginBottom: 0 }} />}
+            </Link>
+          );
+        })}
+
+        {/*
+          Filter trigger — deliberately NOT styled like Home/Schedule. It's an
+          action that opens an overlay sheet, not a destination route, so it
+          reads as a raised circular button popping above the bar (Instagram-
+          "camera button" pattern) rather than a third icon+label tab.
+        */}
+        <div className="flex-1 relative" style={{ zIndex: 1 }}>
+          <button
+            onClick={() => setFilterOpen(true)}
+            aria-label="Filter — follow teams, players, and tournaments"
+            className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 tap-scale"
+            style={{ top: -20 }}
+          >
+            <span
+              className="rounded-full flex items-center justify-center"
+              style={{
+                width: 52,
+                height: 52,
+                background: "#7C3AED",
+                boxShadow: "0 6px 18px rgba(124,58,237,0.55)",
+                border: "4px solid #0A0E1A",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 6h16M8 12h8M11 18h2" />
+              </svg>
             </span>
-            {active && (
-              <span
-                className="absolute bottom-0 rounded-full bg-cyan"
-                style={{ width: 24, height: 2, marginBottom: 0 }}
-              />
-            )}
-          </Link>
-        );
-      })}
-    </nav>
+            <span className="text-[9px] font-bold uppercase tracking-widest leading-none" style={{ color: "#7C3AED" }}>
+              Filter
+            </span>
+          </button>
+        </div>
+
+        {TABS.slice(1).map(tab => {
+          const active = pathname.startsWith(tab.href);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${
+                active ? "text-cyan" : "text-text-dim hover:text-text-secondary"
+              }`}
+            >
+              {tab.icon(active)}
+              <span className="text-[9.5px] font-bold uppercase tracking-widest leading-none" style={{ opacity: active ? 1 : 0.55 }}>
+                {tab.label}
+              </span>
+              {active && <span className="absolute bottom-0 rounded-full bg-cyan" style={{ width: 24, height: 2, marginBottom: 0 }} />}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <FollowSheet open={filterOpen} onClose={() => setFilterOpen(false)} />
+    </>
   );
 }

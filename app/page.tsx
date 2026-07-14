@@ -5,13 +5,20 @@ import {
   ALL_LIVE_MATCHES,
   ALL_PAST_MATCHES,
   ALL_UPCOMING_MATCHES,
-  ALL_TEAMS,
 } from "@/lib/mockData";
 import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator";
 import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
 import { PastMatchCard, FutureMatchCard, SpotlightMatchCard } from "@/components/MatchCard";
-import { getFollowedTeamCode, setFollowedTeamCode, DEFAULT_FOLLOWED_TEAM, FOLLOWABLE_TEAMS } from "@/lib/followedTeam";
+import {
+  emptyFollowPrefs,
+  getFollowPrefs,
+  onFollowPrefsChanged,
+  hasAnyFollow,
+  matchIsFollowed,
+  type FollowPrefs,
+} from "@/lib/followPrefs";
+import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
 import { isSpotlightMatch } from "@/lib/spotlight";
 
 // ── Popularity sort ──────────────────────────────────────────────────────────
@@ -125,15 +132,26 @@ export default function Home() {
   const pastBasis = expanded === "past" ? "basis-full" : expanded === "future" ? "hidden" : "basis-[63%]";
   const futureBasis = expanded === "future" ? "basis-full" : expanded === "past" ? "hidden" : "basis-[37%]";
 
-  // ---- Followed team (for the "For you" row) ----
-  const [followedTeam, setFollowedTeam] = useState<string>(DEFAULT_FOLLOWED_TEAM);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  useEffect(() => { setFollowedTeam(getFollowedTeamCode()); }, []);
-  const changeFollowedTeam = useCallback((code: string) => {
-    setFollowedTeam(code);
-    setFollowedTeamCode(code);
-    setPickerOpen(false);
+  // ---- Follow preferences (drive the "for you" row) — real multi-category
+  // selections from the Filter sheet now, not a single placeholder team.
+  // BottomNav's FollowSheet is a SIBLING component (mounted in layout.tsx,
+  // not a child of this page), so prefs changes arrive via a DOM event
+  // rather than props. ----
+  const [followPrefs, setFollowPrefsState] = useState<FollowPrefs>(emptyFollowPrefs());
+  useEffect(() => {
+    setFollowPrefsState(getFollowPrefs());
+    const unsubscribe = onFollowPrefsChanged(() => setFollowPrefsState(getFollowPrefs()));
+    return unsubscribe;
   }, []);
+
+  // ---- Empty-state nudge — only while nothing's ever been followed, not
+  // dismissed, and still within the first few Home visits. ----
+  const [showNudge, setShowNudge] = useState(false);
+  useEffect(() => {
+    const visitCount = registerHomeVisit();
+    setShowNudge(visitCount <= NUDGE_MAX_SESSIONS && !isNudgeDismissed());
+  }, []);
+  const followsAnything = hasAnyFollow(followPrefs);
 
   // ---- Spotlight — excitement>=8 matches, pulled OUT of the quiet grid and
   // rendered full-width (or as a capped 3-card carousel) above it. Sourced
@@ -155,15 +173,20 @@ export default function Home() {
   }, []);
   const spotlightIds = useMemo(() => new Set(spotlightMatches.map(s => s.m.id)), [spotlightMatches]);
 
-  // ---- "For you" — followed team's live match, else their next upcoming fixture ----
+  // ---- "For you" — live match matching ANY followed selection (nation,
+  // team, tournament, player, or format), else the next upcoming one that
+  // matches. Player-level matching is lineup-based (lib/lineups.ts) — it
+  // only counts a match the player actually featured in, not every match
+  // their team(s) played. ----
   const forYouMatch = useMemo(() => {
-    const live = ALL_LIVE_MATCHES.find(m => m.teamA.code === followedTeam || m.teamB.code === followedTeam);
+    if (!followsAnything) return null;
+    const live = ALL_LIVE_MATCHES.find(m => matchIsFollowed(m, followPrefs));
     if (live) return { m: live, isLive: true as const };
     const upcoming = [...ALL_UPCOMING_MATCHES]
-      .filter(m => m.teamA.code === followedTeam || m.teamB.code === followedTeam)
+      .filter(m => matchIsFollowed(m, followPrefs))
       .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso))[0];
     return upcoming ? { m: upcoming, isLive: false as const } : null;
-  }, [followedTeam]);
+  }, [followPrefs, followsAnything]);
 
   // Same match in both slots → collapse to just the spotlight card + marker,
   // don't show it twice.
@@ -201,19 +224,23 @@ export default function Home() {
         <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
       </section>
 
-      {/* For you — surfaces the followed team's live match, else next fixture.
-          Hidden when it's the same match as the spotlight card below (that
-          card gets a "for you" marker instead, so the match isn't shown twice). */}
+      {/* For you — surfaces a match matching any followed selection (live
+          first, else next upcoming). Hidden when it's the same match as the
+          spotlight card below (that card gets a "for you" marker instead, so
+          the match isn't shown twice). */}
       {forYouMatch && !forYouInSpotlight && (
         <section className="mt-3 px-3">
-          <ForYouRow
-            match={forYouMatch.m}
-            isLive={forYouMatch.isLive}
-            followedTeam={followedTeam}
-            pickerOpen={pickerOpen}
-            onTogglePicker={() => setPickerOpen(o => !o)}
-            onChangeTeam={changeFollowedTeam}
-          />
+          <ForYouRow match={forYouMatch.m} isLive={forYouMatch.isLive} />
+        </section>
+      )}
+
+      {/* Empty-state nudge — only shown pre-first-follow, within the first
+          few sessions, until dismissed. No permanent space: this section
+          renders nothing once any of those conditions stop holding. The
+          Filter button in the bottom nav is the permanent entry point. */}
+      {!followsAnything && !forYouMatch && showNudge && (
+        <section className="mt-3 px-3">
+          <FollowNudge onDismiss={() => { dismissNudge(); setShowNudge(false); }} />
         </section>
       )}
 
@@ -288,52 +315,22 @@ export default function Home() {
  * grid. Tapping the label opens an inline team picker (no account system
  * yet, so this is a simple localStorage-backed preference, default India).
  */
-function ForYouRow({ match, isLive, followedTeam, pickerOpen, onTogglePicker, onChangeTeam }: {
-  match: Match;
-  isLive: boolean;
-  followedTeam: string;
-  pickerOpen: boolean;
-  onTogglePicker: () => void;
-  onChangeTeam: (code: string) => void;
-}) {
-  const teamLabel = ALL_TEAMS[followedTeam]?.shortName ?? followedTeam;
+function ForYouRow({ match, isLive }: { match: Match; isLive: boolean }) {
   return (
     <div className="card px-3 py-2.5">
       <div className="flex items-center justify-between mb-1.5">
-        <button
-          onClick={onTogglePicker}
-          className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-cyan"
-        >
+        <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7C3AED" }}>
           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 22 12 18.56 5.8 22 7 14.14l-5-4.87 7.1-1.01z" />
           </svg>
-          For you · {teamLabel}
-          <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className={`transition-transform ${pickerOpen ? "rotate-180" : ""}`}>
-            <path d="M3 5L8 11L13 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-        </button>
+          For you
+        </span>
         {isLive && (
           <span className="text-[9px] font-extrabold text-wicket uppercase tracking-widest flex items-center gap-1">
             <span className="live-dot w-1.5 h-1.5 rounded-full bg-wicket inline-block" />Live
           </span>
         )}
       </div>
-
-      {pickerOpen && (
-        <div className="flex flex-wrap gap-1.5 mb-2 pb-2 border-b border-line">
-          {FOLLOWABLE_TEAMS.map(code => (
-            <button
-              key={code}
-              onClick={() => onChangeTeam(code)}
-              className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest transition-colors ${
-                code === followedTeam ? "bg-cyan text-bg" : "bg-bg-elevated text-text-secondary hover:text-text-primary"
-              }`}
-            >
-              {ALL_TEAMS[code]?.shortName ?? code}
-            </button>
-          ))}
-        </div>
-      )}
 
       <a href={`/match/${match.id}`} className="tap-scale flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -349,6 +346,44 @@ function ForYouRow({ match, isLive, followedTeam, pickerOpen, onTogglePicker, on
       <div className="mt-1 text-[10px] text-text-dim text-center truncate">
         {isLive ? (match.liveStatusOverride ?? "Live now") : `${fmtCountdown(match.startTimeIso)} · ${fmtTime(match.startTimeIso)}`}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Empty-state nudge (v1.0.52) — invites a first-time user to the Filter
+ * sheet. Only ever rendered while nothing's been followed yet, within the
+ * first NUDGE_MAX_SESSIONS Home visits, and not dismissed (see page-level
+ * gating above) — this component itself just renders the card + dismiss.
+ */
+function FollowNudge({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div className="card px-3 py-3 flex items-start gap-2.5" style={{ borderColor: "#7C3AED44" }}>
+      <span
+        className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+        style={{ background: "#7C3AED22" }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="#7C3AED">
+          <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 22 12 18.56 5.8 22 7 14.14l-5-4.87 7.1-1.01z" />
+        </svg>
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-text-primary leading-snug">
+          Follow a team, player, or tournament
+        </p>
+        <p className="text-[11px] text-text-dim leading-snug mt-0.5">
+          Tap <span className="font-bold" style={{ color: "#7C3AED" }}>Filter</span> below to get a "for you" row with the matches you care about.
+        </p>
+      </div>
+      <button
+        onClick={onDismiss}
+        aria-label="Dismiss"
+        className="text-text-dim hover:text-text-secondary p-0.5 shrink-0"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      </button>
     </div>
   );
 }

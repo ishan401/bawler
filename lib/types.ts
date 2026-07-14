@@ -94,6 +94,16 @@ export interface Match {
   phase?: string;          // "group" | "super-8" | "qualifier" | "semifinal" | "final"
   championship?: Competition; // overarching championship this match contributes to (e.g. WTC for Test matches)
   seriesStatus?: string;     // one-line bilateral series summary e.g. "IND lead 2-1 · 5-match T20I series"
+  // Confirmed playing XI for this SPECIFIC match, as player IDs (PLAYERS
+  // registry keys in mockData.ts) — NOT the same as a team's full squad
+  // roster. A real API populates this directly; lib/lineups.ts derives a
+  // stand-in for mock matches where it's absent. This is what lets the
+  // "follow a player" filter match only games that player actually
+  // featured in, not every match their team(s) played.
+  lineups?: {
+    teamA: string[];
+    teamB: string[];
+  };
 }
 
 export interface Innings {
