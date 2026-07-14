@@ -294,11 +294,17 @@ function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: nu
 }
 
 /**
- * Live win-prob sparkline — homepage hero card (v1.0.49).
+ * Live win-prob sparkline — homepage hero card (v1.0.49, fixed v1.0.50).
  * Two mirrored lines (one per team, team's own primaryColor — same
  * two-team-color convention as WinProbChart/MiniWinProb), each ending in a
- * small dot at the team's current %. Shows only the RECENT window (last ~20
- * data points) so it reads as "trend", not the whole match.
+ * small dot at the team's current %. Pulls from calculateWinProbForMatch —
+ * the SAME source WinProbChart's full-screen modal uses — downsampled across
+ * the WHOLE match so real swings survive at the tiny inline size. (v1.0.49
+ * originally sliced only the last ~20 raw balls, which reads as a flat line
+ * whenever the recent few overs happen to be stable even in a match that
+ * swung wildly earlier — fixed to downsample the full trend instead.)
+ * Deliberately has no 50% gridline, unlike WinProbChart — see inline comment
+ * at the line's render site.
  *
  * The line is cosmetic/approximate; the end-dot position always uses
  * `fallbackPctA` (the same value the old static bar showed), which already
@@ -314,11 +320,24 @@ function LiveWinProbSpark({ match, teamA, teamB, fallbackPctA }: { match: Match;
     return <WinProbBar teamA={teamA} teamB={teamB} pctA={fallbackPctA} />;
   }
 
-  const RECENT_WINDOW = 20;
-  const tail = allPoints.slice(-RECENT_WINDOW);
+  // Downsample the WHOLE match (same source calculateWinProbForMatch feeds
+  // the full-screen WinProbChart) rather than slicing only the last N raw
+  // balls — a tail-slice of ~20 balls is just the last ~3 overs, which reads
+  // as flat even in a match that swung wildly earlier. Condensing the full
+  // trend to a fixed point count keeps the shape (all the real swings)
+  // while fitting the tiny inline size.
+  const DOWNSAMPLE_TARGET = 30;
+  let pts = allPoints;
+  if (allPoints.length > DOWNSAMPLE_TARGET) {
+    const step = Math.max(1, Math.floor(allPoints.length / DOWNSAMPLE_TARGET));
+    const sampled: typeof allPoints = [];
+    for (let i = 0; i < allPoints.length; i += step) sampled.push(allPoints[i]);
+    if (sampled[sampled.length - 1] !== allPoints[allPoints.length - 1]) sampled.push(allPoints[allPoints.length - 1]);
+    pts = sampled;
+  }
   // Snap the last plotted point to the authoritative current % so the dot
   // never floats off the end of the line.
-  const pts = tail.map((p, i) => (i === tail.length - 1 ? { ...p, winProbTeamA: fallbackPctA } : p));
+  pts = pts.map((p, i) => (i === pts.length - 1 ? { ...p, winProbTeamA: fallbackPctA } : p));
 
   const W = 300, H = 30;
   const PAD_X = 3, PAD_Y = 5;
@@ -345,8 +364,10 @@ function LiveWinProbSpark({ match, teamA, teamB, fallbackPctA }: { match: Match;
   return (
     <div className="mt-auto rounded-md border border-white/15 bg-black/25 px-1.5 pt-1 pb-0.5">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full block" preserveAspectRatio="none" style={{ height: 26 }}>
-        {/* 50% reference line */}
-        <line x1={PAD_X} y1={yOf(0.5)} x2={W - PAD_X} y2={yOf(0.5)} stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 2" />
+        {/* No 50% reference gridline here on purpose — unlike the full-screen
+            WinProbChart modal, this teaser already prints both percentages
+            as text right below the chart, so the line is redundant clutter
+            at this size. Leave WinProbChart.tsx's own gridline untouched. */}
         <path d={lineA} stroke={colA} strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
         <path d={lineB} stroke={colB} strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
         {/* End-of-line current-% dots */}
