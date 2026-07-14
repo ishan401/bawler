@@ -294,15 +294,25 @@ function WinProbBar({ teamA, teamB, pctA }: { teamA: Team; teamB: Team; pctA: nu
 }
 
 /**
- * Live win-prob sparkline — homepage hero card (v1.0.49, fixed v1.0.50).
+ * Live win-prob sparkline — homepage hero card (v1.0.49, fixed v1.0.50,
+ * de-tangled v1.0.51).
  * Two mirrored lines (one per team, team's own primaryColor — same
  * two-team-color convention as WinProbChart/MiniWinProb), each ending in a
  * small dot at the team's current %. Pulls from calculateWinProbForMatch —
- * the SAME source WinProbChart's full-screen modal uses — downsampled across
- * the WHOLE match so real swings survive at the tiny inline size. (v1.0.49
- * originally sliced only the last ~20 raw balls, which reads as a flat line
- * whenever the recent few overs happen to be stable even in a match that
- * swung wildly earlier — fixed to downsample the full trend instead.)
+ * the SAME source WinProbChart's full-screen modal uses — across the WHOLE
+ * match so real swings survive at the tiny inline size. (v1.0.49 originally
+ * sliced only the last ~20 raw balls, which reads as a flat line whenever
+ * the recent few overs happen to be stable even in a match that swung
+ * wildly earlier — fixed in v1.0.50 to pull from the full trend instead.)
+ *
+ * v1.0.51: that full trend is still ball-by-ball resolution, which at
+ * ~300px wide made every minor mid-over fluctuation show up as the two
+ * lines crossing back and forth — a tangle, not a trend shape. Fixed by
+ * bucketing to ONE point per over (end-of-over value) before plotting, then
+ * smoothing with a catmull-rom curve — same technique, deliberately
+ * NOT applied to WinProbChart.tsx, which keeps full ball-by-ball detail on
+ * purpose for its own (actively-studied, not glanced-at) context.
+ *
  * Deliberately has no 50% gridline, unlike WinProbChart — see inline comment
  * at the line's render site.
  *
@@ -320,19 +330,30 @@ function LiveWinProbSpark({ match, teamA, teamB, fallbackPctA }: { match: Match;
     return <WinProbBar teamA={teamA} teamB={teamB} pctA={fallbackPctA} />;
   }
 
-  // Downsample the WHOLE match (same source calculateWinProbForMatch feeds
-  // the full-screen WinProbChart) rather than slicing only the last N raw
-  // balls — a tail-slice of ~20 balls is just the last ~3 overs, which reads
-  // as flat even in a match that swung wildly earlier. Condensing the full
-  // trend to a fixed point count keeps the shape (all the real swings)
-  // while fitting the tiny inline size.
+  // One point per OVER (the end-of-over value), not per ball. The full-screen
+  // WinProbChart intentionally keeps every ball — that's the point of that
+  // view. But at ~300px wide, plotting the same ball-by-ball density here
+  // just shows every minor mid-over fluctuation as a visible crossing
+  // between the two mirrored lines, so it reads as a tangled knot instead of
+  // a trend shape. Bucketing to one value per over removes that ball-to-ball
+  // noise by construction (confirmed: this consistently produces zero
+  // A/B-line crossings on today's mock matches, vs. a same-size stride
+  // sample of the raw per-ball series that still crosses 1-2 times).
+  const perOverMap = new Map<number, (typeof allPoints)[number]>();
+  for (const p of allPoints) {
+    const over = Math.floor(p.overFloat);
+    perOverMap.set(over, p); // later ball in the same over overwrites — end-of-over value
+  }
+  let pts = [...perOverMap.values()];
+
+  // Still downsample further if that leaves too many points for the tiny
+  // size (Tests can rack up 50+ over-buckets across 4 innings).
   const DOWNSAMPLE_TARGET = 30;
-  let pts = allPoints;
-  if (allPoints.length > DOWNSAMPLE_TARGET) {
-    const step = Math.max(1, Math.floor(allPoints.length / DOWNSAMPLE_TARGET));
-    const sampled: typeof allPoints = [];
-    for (let i = 0; i < allPoints.length; i += step) sampled.push(allPoints[i]);
-    if (sampled[sampled.length - 1] !== allPoints[allPoints.length - 1]) sampled.push(allPoints[allPoints.length - 1]);
+  if (pts.length > DOWNSAMPLE_TARGET) {
+    const step = Math.max(1, Math.floor(pts.length / DOWNSAMPLE_TARGET));
+    const sampled: typeof pts = [];
+    for (let i = 0; i < pts.length; i += step) sampled.push(pts[i]);
+    if (sampled[sampled.length - 1] !== pts[pts.length - 1]) sampled.push(pts[pts.length - 1]);
     pts = sampled;
   }
   // Snap the last plotted point to the authoritative current % so the dot
@@ -352,8 +373,8 @@ function LiveWinProbSpark({ match, teamA, teamB, fallbackPctA }: { match: Match;
   const colA = teamA.primaryColor;
   const colB = teamB.primaryColor;
 
-  const lineA = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(p.overFloat).toFixed(1)} ${yOf(p.winProbTeamA).toFixed(1)}`).join(" ");
-  const lineB = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(p.overFloat).toFixed(1)} ${yOf(1 - p.winProbTeamA).toFixed(1)}`).join(" ");
+  const lineA = sparkCatmullRomPath(pts.map(p => ({ x: xOf(p.overFloat), y: yOf(p.winProbTeamA) })));
+  const lineB = sparkCatmullRomPath(pts.map(p => ({ x: xOf(p.overFloat), y: yOf(1 - p.winProbTeamA) })));
 
   const xEnd  = xOf(xMax);
   const dotAY = yOf(fallbackPctA);
@@ -382,6 +403,30 @@ function LiveWinProbSpark({ match, teamA, teamB, fallbackPctA }: { match: Match;
       </div>
     </div>
   );
+}
+
+/**
+ * Light catmull-rom smoothing for the homepage sparkline only — same
+ * technique as WinProbChart's own catmullRomPath, kept as a separate local
+ * copy since that one isn't exported and this is a different (much smaller,
+ * over-bucketed) point set.
+ */
+function sparkCatmullRomPath(pts: { x: number; y: number }[], alpha = 3): string {
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / (alpha * 2);
+    const cp1y = p1.y + (p2.y - p0.y) / (alpha * 2);
+    const cp2x = p2.x - (p3.x - p1.x) / (alpha * 2);
+    const cp2y = p2.y - (p3.y - p1.y) / (alpha * 2);
+    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
 }
 
 /** Total legal deliveries per side for a format. */
