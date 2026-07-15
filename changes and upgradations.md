@@ -3,6 +3,93 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.65] 2026-07-15
+
+### Fix: stray full-width gray scrollbar bar on swipe carousels
+
+#### Fixed — native scrollbar thumb replaced with a contained dot indicator (`components/LiveCarousel.tsx`, `app/page.tsx`)
+- Reported: a thin light-gray horizontal bar below hero/Spotlight cards, rendered at a fixed/full width instead of scoped to its card — overflowing past the card's rounded corners edge-to-edge on device
+- Root cause: `LiveCarousel.tsx` never actually rendered a custom indicator element. The mark was `.scrollbar-thin::-webkit-scrollbar-thumb` (`background: #1E293B`) — the native webkit scrollbar on the carousel's horizontal scroll container, which is intentionally wider than any single card (a negative-margin trick so drag/swipe scrolling reaches edge-to-edge). The thumb tracked that wider container, not any one card
+- Confirmed exactly 3 places share this `overflow-x-auto scrollbar-thin ... -mx-3 px-3` pattern: `LiveCarousel.tsx` (hero), and two inlined carousels in `app/page.tsx` ("for you", Spotlight) — no other screen (schedule, tournament, match detail) uses it
+
+#### Added — `components/CarouselDots.tsx` (new file)
+- Shared indicator: small 5-6px dots, one per item, muted gray inactive / accent-colored active
+- Renders nothing at all when there are fewer than 2 items — no bar, no leftover single dot
+
+#### Added — `lib/useCarouselIndex.ts` (new file)
+- Extracted `LiveCarousel`'s own pre-existing inline scroll-position → active-index logic into a shared hook, since "for you" and Spotlight's carousels needed the same index for their own dots but never tracked one before
+
+#### Updated — `.no-scrollbar` utility added (`app/globals.css`)
+- Hides the native scrollbar entirely; applied only to the 3 carousel containers above. `.scrollbar-thin` itself is untouched, so unrelated scroll strips (Moments strip, mini-insights bar, table page tabs, FollowSheet's list, InsightFeed, WinProbChart) keep their existing behavior
+
+#### Verified
+- Live at mobile width: hero and Spotlight (both 2+ items) show small cyan dots — dot cluster measured at 61px wide, centered within a 406px card, nowhere near the rounded edges
+- "For you" (1 item) renders no scroll container and no indicator element at all (confirmed via `document.querySelectorAll('.no-scrollbar').length === 2` on a page with 1-item "for you")
+
+---
+
+## [1.0.64] 2026-07-15
+
+### Filter sheet confirm button relabeled "Follow" → "Update"
+
+#### Updated — button label + handler rename (`components/FollowSheet.tsx`)
+- Reported: the button always read "Follow" regardless of whether the pending draft change was an addition or a removal — confirming an unfollow by tapping a button labeled "Follow" is a semantic mismatch
+- Renamed the button (and `handleFollow` → `handleUpdate`) to "Update" — reads correctly for additions, removals, or both; running count kept as-is (`Update (N)`)
+- No change to the commit mechanic: nothing in the draft state takes effect until this button is tapped; closing via × (or backdrop/back-swipe) still discards unsaved changes
+
+#### Verified
+- Live: added a new nation (count → "UPDATE (2)"), removed an existing one (button still read "UPDATE (1)", no "Follow" mismatch), confirmed × discarded both pending changes (storage unchanged), then confirmed tapping Update actually committed a removal (storage updated to reflect it)
+
+---
+
+## [1.0.63] 2026-07-15
+
+### Phantom-selection bug in Filter sheet
+
+#### Fixed — `sanitizeFollowPrefs()` added, wired into every read (`lib/followPrefs.ts`)
+- Reported: Filter sheet header/badge showed "1 selected" with no checkbox anywhere actually checked; "for you" still showed content as if a real follow existed
+- Root cause: v1.0.57's Team-category scoping fix (CO1) correctly changed `FollowSheet.tsx`'s `buildOptions("teams")` to exclude national-team codes going forward, but did nothing for an ID already sitting in a user's stored `FollowPrefs.teams` from before that fix shipped (e.g. a national code like `"AUS"`) — that ID stayed counted by `totalFollowCount()` and honored by `qualifyMatch()`, with no checkbox able to ever show it as checked or clear it
+- Confirmed both `app/page.tsx`'s `followPrefs` state (drives "for you") and `FollowSheet.tsx`'s `draft` state (drives checkboxes/badges) read from the same `getFollowPrefs()` function — fixed there, once, so both symptoms are guaranteed to agree
+- `sanitizeFollowPrefs()` filters every category against the exact valid-ID sets each category's `buildOptions()` renders from (teams: `ALL_TEAMS` minus national; nations: `NATIONAL_TEAMS`; tournaments: `COMPETITIONS`; players: `PLAYERS`; formats: the fixed `MatchFormat` list); `getFollowPrefs()` self-heals localStorage immediately (re-writes the cleaned value) if sanitizing drops anything stale
+
+#### Verified
+- Seeded a stale `teams: ["AUS"]` entry directly in localStorage, reloaded — storage auto-repaired to empty, header/badges read 0, no phantom match shown
+- Followed a real team (CSK) — count became 1, only CSK showed checked, "for you" correctly updated to a real CSK match with a matching border color
+
+---
+
+## [1.0.62] 2026-07-15
+
+### Explicit homepage hero-match selection rule
+
+#### Added — `lib/heroSelection.ts`'s `selectHeroMatch()` (new file)
+- Replaces the previous ad hoc `byPopularity()` sort (hardcoded per-competition/per-team point constants, where e.g. IPL could outrank an international bilateral series purely because its constant was set higher) with an explicit, fully deterministic 3-tier rule
+- Tier 1 — prominence (`matchProminenceTier()`): competition-type hierarchy (international tournament > bilateral series > domestic league) with a marquee-stage bump (final/semifinal/qualifier/decider, via `match.phase`, `highlightBadge`, or `seriesStatus`) that can push any tier up one notch
+- Tier 2 — live stakes (`liveMilestoneScore()`): breaks ties within a tier using the same methodology as Spotlight's "milestone" pillar (`lib/spotlight.ts`), adapted to the match's current in-progress state rather than a final result
+- Tier 3 — live runway (`estimatedLiveRunway()`): format capacity (`lib/formatUtils.ts`'s `totalBallsFor()`) × innings plausibly remaining, then most-recently-started as the last resort — never random
+- Global, single, non-personalized selection — takes only the live-matches array, no `FollowPrefs`; "for you" (`lib/followPrefs.ts`) is structurally separate and continues to simply exclude whatever hero this rule selects
+- `LiveCarousel`'s matches array is reordered so the new hero always leads the swipeable strip; the rest of the strip keeps its existing popularity order
+
+#### Verified
+- Constructed `npx tsx` scenarios: ordinary bilateral match correctly outranks ordinary league match (tier 1); two tied-tier bilateral matches resolve to whichever has an in-progress century (tier 2); a tied-tier, tied-stakes Test vs T20I resolves to the Test via runway (tier 3)
+- Against the live mock dataset directly: current hero (AUS vs IND) correctly selected because it's flagged `"Series decider"` (`highlightBadge`), legitimately outranking the ordinary IND vs ENG Test and every ordinary IPL/PSL match live alongside it — an unstaged, real-data confirmation
+- "For you" still correctly excludes whatever the hero rule selects
+
+---
+
+## [1.0.61] 2026-07-15
+
+### "For you" card aligned with Spotlight's visual language
+
+#### Updated — corner radius, padding rhythm, restructured JSX (`app/page.tsx`)
+- Corner radius: "for you" used the generic `.card` class's `1rem` radius; Spotlight (and the Past/Coming Up grid) use `rounded-xl` (`0.75rem`). Overrode via inline `borderRadius: "0.75rem"` — guaranteed to win over the class regardless of Tailwind's compiled source order (same lesson as the nav-bar transform regression, HR4)
+- Padding rhythm: replaced `px-3 py-2.5` edges + ad-hoc `mb-1.5`/`mt-1` margins with Spotlight's own exact layout — `px-2 py-1.5` edges, one uniform `flex-col gap-0.5` governing spacing between the label row, team row, and footer text
+- Label typography: "FOR YOU" (`text-[10px] font-bold uppercase tracking-widest`) already matched Spotlight's own section label on size/weight/letter-spacing — confirmed via `getComputedStyle`, no change needed. Color intentionally stays different (violet vs `text-dim`), per spec
+- Explicitly untouched: each card's height (Spotlight keeps its fixed height; "for you" stays auto-height, ends up modestly shorter with tighter padding — never pinned to a specific height), background treatment (Spotlight's gradient/glow vs "for you"'s flat quiet card), and all content. Live/Spotlight/grid cards elsewhere untouched — scoped entirely to `ForYouRow`
+
+#### Verified
+- Live: both cards compute to `border-radius: 12px`; padding/gap rhythm matches; labels already matched; Spotlight remains visibly taller/louder, "for you" stays compact
+
 ---
 
 ## [1.0.60] 2026-07-15
