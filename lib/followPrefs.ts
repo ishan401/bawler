@@ -1,5 +1,5 @@
 import type { Match, MatchFormat } from "./types";
-import { isPlayerInMatch } from "./lineups";
+import { isPlayerInMatch, getMatchLineup } from "./lineups";
 
 // ============================================================================
 // Follow preferences — v1.0.52
@@ -135,4 +135,38 @@ export function isAnyMatch(q: MatchQualification): boolean {
  * qualifyMatch directly, e.g. the "for you" row's pooling logic). */
 export function matchIsFollowed(match: Match, prefs: FollowPrefs): boolean {
   return isAnyMatch(qualifyMatch(match, prefs));
+}
+
+/**
+ * Which side of `match` (teamA or teamB) is the one actually satisfying
+ * `prefs` -- used only by the homepage "for you" card (v1.0.56) so it can
+ * always put the followed team on the left, with its color dot, instead of
+ * leaving team order at the mercy of whatever convention (home team first,
+ * alphabetical, etc.) the match data happens to use. Returns null when
+ * nothing pins the match to a specific side (e.g. it only qualified via a
+ * followed tournament or format) -- callers should leave team order
+ * untouched in that case.
+ *
+ * Checked in the same team > nation > player priority that qualifyMatch
+ * itself effectively uses for Tier 1 vs Tier 2, since a team/nation-level
+ * follow is the more specific, more likely-intended signal when a match
+ * happens to satisfy more than one category at once.
+ */
+export function followedMatchSide(match: Match, prefs: FollowPrefs): "A" | "B" | null {
+  if (prefs.teams.includes(match.teamA.code)) return "A";
+  if (prefs.teams.includes(match.teamB.code)) return "B";
+
+  if (prefs.nations.length > 0) {
+    const nationA = nationOf(match.teamA.code, match.teamA.country, match.teamA.type);
+    const nationB = nationOf(match.teamB.code, match.teamB.country, match.teamB.type);
+    if (nationA && prefs.nations.includes(nationA)) return "A";
+    if (nationB && prefs.nations.includes(nationB)) return "B";
+  }
+
+  if (prefs.players.length > 0) {
+    if (prefs.players.some(pid => getMatchLineup(match, match.teamA).includes(pid))) return "A";
+    if (prefs.players.some(pid => getMatchLineup(match, match.teamB).includes(pid))) return "B";
+  }
+
+  return null;
 }

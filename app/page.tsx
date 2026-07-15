@@ -17,6 +17,7 @@ import {
   hasAnyFollow,
   qualifyMatch,
   isTier1Match,
+  followedMatchSide,
   type FollowPrefs,
 } from "@/lib/followPrefs";
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
@@ -325,7 +326,7 @@ export default function Home() {
               marker instead, so nothing is shown twice). */}
           {forYouVisible.length === 1 && (
             <section className="mt-3 px-3">
-              <ForYouRow match={forYouVisible[0]} isLive={forYouSelection?.kind === "live"} />
+              <ForYouRow match={forYouVisible[0]} isLive={forYouSelection?.kind === "live"} followPrefs={followPrefs} />
             </section>
           )}
           {forYouVisible.length > 1 && (
@@ -342,7 +343,7 @@ export default function Home() {
                 >
                   {forYouVisible.map(m => (
                     <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-                      <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} />
+                      <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} followPrefs={followPrefs} />
                     </div>
                   ))}
                 </div>
@@ -441,7 +442,18 @@ export default function Home() {
  * grid. Tapping the label opens an inline team picker (no account system
  * yet, so this is a simple localStorage-backed preference, default India).
  */
-function ForYouRow({ match, isLive }: { match: Match; isLive: boolean }) {
+function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boolean; followPrefs: FollowPrefs }) {
+  // v1.0.56 -- this card only (Live/Spotlight/grid keep their own existing
+  // team-order conventions): always put the followed team on the left, so
+  // its color dot and name never end up disconnected from each other by
+  // sitting on opposite sides. followedMatchSide returns null for matches
+  // that only qualified via a followed tournament/format (nothing pins
+  // those to a specific side), in which case teamA/teamB order is left as
+  // the data already provides it.
+  const side = followedMatchSide(match, followPrefs);
+  const leftTeam = side === "B" ? match.teamB : match.teamA;
+  const rightTeam = side === "B" ? match.teamA : match.teamB;
+
   return (
     <div className="card px-3 py-2.5">
       <div className="flex items-center justify-between mb-1.5">
@@ -460,13 +472,13 @@ function ForYouRow({ match, isLive }: { match: Match; isLive: boolean }) {
 
       <a href={`/match/${match.id}`} className="tap-scale flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: match.teamA.primaryColor }} />
-          <span className="text-base font-extrabold truncate">{match.teamA.shortName}</span>
+          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: leftTeam.primaryColor }} />
+          <span className="text-base font-extrabold truncate">{leftTeam.shortName}</span>
         </div>
         <span className="text-[10px] font-bold text-text-dim shrink-0">vs</span>
         <div className="flex items-center gap-2 min-w-0 flex-row-reverse">
-          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: match.teamB.primaryColor }} />
-          <span className="text-base font-extrabold truncate">{match.teamB.shortName}</span>
+          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: rightTeam.primaryColor }} />
+          <span className="text-base font-extrabold truncate">{rightTeam.shortName}</span>
         </div>
       </a>
       <div className="mt-1 text-[10px] text-text-dim text-center truncate">
