@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.48 (deployed)
+**Current version:** v1.0.55 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -32,6 +32,22 @@
 
 - ✅ **Series status chip** — one-line bilateral series summary (e.g. "AUS lead 1-0 · 5-match T20I series") below live bilateral international cards; uses `match.seriesStatus` field
 - ✅ **International flag backgrounds** — national match cards show country flag images (flagcdn.com) with desaturation filter; franchise matches keep dual-colour gradient
+- ✅ **Live win-prob sparkline on the hero card** (v1.0.49, fixed v1.0.50, de-tangled v1.0.51) — replaces the old static win-prob bar; reuses `calculateWinProbForMatch()` (same source as the full-screen `WinProbChart` modal), bucketed to one point per over + Catmull-Rom smoothed for a clean sparkline shape at small size; no 50% gridline (scoped to this component only — the full-screen modal keeps its own); falls back to the old static bar for the 2 mock matches with no ball data
+- ✅ **Quiet cards for ordinary matches, full "spotlight" for the rare few** (v1.0.49) — `PastMatchCard`/`FutureMatchCard` are now a flat 60px row (team names + thin winner-colour border, no gradient/crest/badge); matches clearing the spotlight bar (`lib/spotlight.ts` — close finish, individual milestone, or genuine knockout/decider stakes; not the old `excitement` score) get the full card treatment pulled out above the grid, single or as a capped 3-card carousel
+- ✅ **"For you" row** — surfaces a match matching any followed nation/team/tournament/player/format (v1.0.52 Filter feature), pooled by union across categories with Tier-1 (nation/team/tournament/format) outranking Player-only as a last resort, live beating upcoming within the active tier while excluding the homepage's own hero live match, and a small swipeable carousel when 2+ live matches qualify at once (v1.0.53 tiered rewrite); a match shown here that's *also* a spotlight match gets a `★ FOR YOU` marker on the spotlight card instead of a second copy
+- ✅ **Filter / personalization sheet** — see the Personalization section immediately below
+
+### Personalization (Filter / For You) — v1.0.52, v1.0.53
+
+- ✅ **Bottom nav Filter trigger** — raised circular violet (`#7C3AED`, deliberately distinct from the existing ball-outcome purple) button between Home and Schedule, Instagram-style "camera button" pattern rather than a third icon+label tab, since it opens an overlay rather than navigating
+- ✅ **`FollowSheet`** — two-column bottom sheet ("Follow your cricket"): left rail = 5 categories (Nation/Team/Tournament/Player/Format) with per-category selected-count badges; right pane = search + multi-select list; nothing persists until the full-width "Follow (N)" button is tapped — backdrop tap / × / back-swipe discards in-progress edits
+- ✅ **`BottomSheet`** extracted to a shared component (`components/BottomSheet.tsx`) from its original `LiveCarousel.tsx`-only implementation, gaining an optional `footer` slot for the Follow sheet's pinned button; all 3 existing `LiveCarousel` call sites unaffected
+- ✅ **ID-based matching, never display-name matching** — nations by `Team.country`, teams by `Team.code`, tournaments by `Competition.id`, players by `PLAYERS` registry slug, formats by the `MatchFormat` literal
+- ✅ **Per-match player lineups** (`lib/lineups.ts`) — `Match.lineups?: { teamA: string[]; teamB: string[] }` checked first (real-API-ready); falls back to a deterministic seeded-hash presence check against the `PLAYERS` registry when a match has no explicit lineup, so a player who represents both a national side and a franchise doesn't get credited with every match either team plays — only ones they're actually confirmed/likely to have featured in
+- ✅ **`qualifyMatch()`** (`lib/followPrefs.ts`) — per-category breakdown (`{ nation, team, tournament, format, player }`) rather than a single boolean; nation-following is suppressed for two-team bilateral series specifically (already covered by the hero card + series-status chip elsewhere on the homepage), scoped only to the nation category
+- ✅ **Tiered union "for you" selection** (v1.0.53) — pools matches by union (not intersection) across every followed category; Tier 1 (nation/team/tournament/format) always outranks Tier 2 (player-only), used only when Tier 1 is completely empty; live beats upcoming within the active tier, excluding the homepage's own hero live match (which re-triggers fallback to upcoming rather than showing nothing); 2+ simultaneous live qualifiers render as a small swipeable carousel (capped at 3), reusing the exact spotlight carousel markup
+- ✅ **Empty-state nudge** (`lib/followNudge.ts`) — dismissible invite to try Filter, shown only pre-first-follow and only within the first 3 Home visits; permanently gone once dismissed or once anything is followed
+- ⚠️ **localStorage schema-version guard was shipped then explicitly reverted** — see DECISIONS-LOG.md LS1. `getFollowPrefs`/`setFollowPrefs` currently use the raw, unversioned JSON shape on purpose. Do not reintroduce a version wrapper without being asked again.
 
 ### Schedule page (`/schedule`)
 
@@ -291,3 +307,17 @@
 | **v1.0.43** | Fix: restore `PLAYERS`, `COMPETITION_STANDINGS`, `slugifyPlayer`, `hasStandings` after a truncation incident |
 | **v1.0.42** | Data: pitch reports added for 10 international venues (SCG, MCG, Lord's, Oval, Headingley, Optus, Gaddafi, Nassau, Gabba, SSC) |
 | **v1.0.41** | Digest: MOM avatar — BallGIF-style initials circle + `<img>` fallback, plug-and-play for real photos (`5333611`) |
+
+## Changelog additions (v1.0.49–v1.0.55)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.55** | Fix: bottom nav's `backdrop-filter` forced to promote its GPU compositing layer immediately (`transform: translateZ(0)`) instead of lazily on first paint — addresses Filter button needing 2-3 Chrome clicks; caught + fixed a same-day regression where this broke nav centering (inline `transform` silently overrode Tailwind's `-translate-x-1/2`) (`079f06e`, `0ef4e4f`) |
+| **v1.0.54** | Fix: homepage hydration mismatch — `LiveCarousel`/for-you/spotlight now gated behind the same client-mount flag as the Past/Future grid, since match data computed from `Date.now()` at module-load time can genuinely differ between static server prerender and client hydration (`9c270c1`) |
+| **v1.0.53** | "For you" rewritten to a tiered union match-selection: pools by union across all followed categories, Tier 1 (nation/team/tournament/format) outranks Tier 2 (player-only) as a last resort, live beats upcoming excluding the hero card, swipeable carousel for 2+ simultaneous live qualifiers (`fb4c5d6`) |
+| — | localStorage `SCHEMA_VERSION` guard shipped, then explicitly reverted per user request — see DECISIONS-LOG.md LS1 (`abb41d3`, `f1c407c`) |
+| **v1.0.52** | Filter / personalization: bottom-nav trigger, two-column `FollowSheet` (Nation/Team/Tournament/Player/Format), ID-based matching, per-match player lineups (`lib/lineups.ts`), shared `BottomSheet` extraction, "for you" row wired to real follows, empty-state nudge (`f85feea`) |
+| **v1.0.51** | Homepage sparkline de-tangled: per-over bucketing (one point per over, end-of-over value) + Catmull-Rom smoothing, replacing raw ball-by-ball density that produced 1-2 line crossings per match at sparkline scale (`3d4cc7e`) |
+| **v1.0.50** | Homepage sparkline fix: uses full match win-prob trend instead of last ~20 balls (was reading as flat despite real 1%-79% swings); homepage-only gridline removed, full-screen `WinProbChart` modal untouched (`90e6083`) |
+| **v1.0.49** | Homepage redesign: live win-prob sparkline replaces static bar on hero card; quiet flat cards for ordinary matches vs. full "spotlight" treatment for matches clearing concrete close-finish/milestone/stakes conditions (`lib/spotlight.ts`, not the old `excitement` score); "for you" row v1 (single followed team); spotlight/for-you dedupe via marker (`1b857eb`) |
+| — | Scorecard: dropped redundant "Innings 1" label for single-innings formats; 4s/6s batting-table header labels coloured cyan/purple to match their column values — shipped just before the homepage redesign above, no dedicated version bump (`7be7a25`, `d9d0962`) |

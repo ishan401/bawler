@@ -5,6 +5,199 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.55] 2026-07-15
+
+### Filter button click reliability — bottom nav backdrop-filter fix + centering regression
+
+#### Fixed — GPU layer promotion for bottom nav `backdrop-filter` (`components/BottomNav.tsx`)
+- User reported the Filter button (raised circular trigger) needed 2–3 Chrome clicks before the `FollowSheet` opened, while Home/Schedule links and match cards responded on the first click every time
+- Root cause (known Chrome/Chromium behavior): elements using `backdrop-filter` are promoted to their own GPU compositing layer lazily, on first paint, rather than immediately at style-recalc time; a pointer event landing inside that region before the layer is actually composited can hit-test against the pre-promotion state and pass through rather than being captured
+- Added `transform: translateZ(0)` + `willChange: "backdrop-filter, transform"` to the nav's inline style to force the compositing layer to exist immediately
+- Cheap, inert on browsers/engines that don't need it
+
+#### Fixed — same-day regression: nav knocked off-center by the fix above
+- The nav's `className` already carried Tailwind's `-translate-x-1/2` (`transform: translateX(-50%)`) for horizontal centering
+- Adding a second `transform: "translateZ(0)"` via inline `style` did not merge with the class — inline `style` fully overrides a class's `transform` property rather than combining with it, so the centering transform was silently discarded and the whole bar shifted right, off-center from the phone-frame content column above it
+- Caught immediately from a user screenshot post-deploy
+- Fixed by combining both into one inline `transform` value: `"translateX(-50%) translateZ(0)"`, dropping the now-redundant `-translate-x-1/2` class, with an inline comment flagging the trap (centering + GPU-layer transforms must be one composed string, never split between a class and inline style)
+
+#### Investigation notes
+- Root-cause certainty for the original click-reliability report (v1.0.56's hydration fix vs. this backdrop-filter fix) was never fully confirmed — browser automation used to reproduce the bug repeatedly gave inconsistent results, later traced to the automation tool's own coordinate/ref caching going stale after the browser viewport shifted mid-session, not the app itself
+- Both fixes (v1.0.56, v1.0.57) are legitimate, independently-justified improvements (a real SSR/CSR data mismatch, and a real documented Chrome compositing quirk) shipped on that basis
+
+---
+
+## [1.0.54] 2026-07-15
+
+### Homepage hydration mismatch fix
+
+#### Fixed — `LiveCarousel`/for-you/spotlight gated behind client-mount flag (`app/page.tsx`)
+- `lib/mockData.ts` computes every match's `startTimeIso` (and therefore live/upcoming/past bucketing) from `Date.now()` evaluated once at module-load time, not per-render
+- Because `/` is statically prerendered at build time, the server-rendered HTML is frozen to whatever `Date.now()` was at that build, while the client re-evaluates the same module fresh at hydration time — often hours apart on a long-lived static deployment
+- That mismatch meant the server-rendered tree and the client's first render could genuinely disagree on which matches were live, forcing React to reconcile a large mismatched subtree immediately after load; clicks landing during that reconciliation window (e.g. the new Filter button) could be dropped
+- Fix: wrapped the `LiveCarousel`/for-you/spotlight block in the same `isBooting` flag that already gates the Past/Future grid below it — `isBooting` starts `true` identically on server and client and only flips `false` inside a client-only `useEffect`, so the server HTML and the client's first render are now pixel-identical (both show a skeleton), leaving hydration nothing to reconcile
+- Added `HeroSkeleton()` (reuses the existing `.skeleton` pulse style) to cover the ~350ms boot window so nothing looks visually broken while it settles
+- No data-shape or selection-logic changes — purely a rendering-order fix
+
+---
+
+## [1.0.53] 2026-07-15
+
+### "For you" row: tiered union match-selection rewrite
+
+#### Changed — `qualifyMatch()` returns a per-category breakdown (`lib/followPrefs.ts`)
+- Replaces the single-boolean `matchIsFollowed()` as the driver of "for you" selection (kept as a convenience wrapper, no longer used directly by the homepage)
+- Returns `{ nation, team, tournament, format, player }` so Tier 1 (nation/team/tournament/format) vs. Tier 2 (player-only) can be distinguished explicitly
+- `isTier1Match(q)` / `isAnyMatch(q)` helpers added
+
+#### Changed — `forYouSelection` algorithm (`app/page.tsx`)
+- **Union pooling**: a match qualifies for "for you" if it matches ANY followed nation, team, tournament, format, or player — not the intersection of all of them
+- **Two-tier priority**: Tier 1 (nation/team/tournament/format) always outranks Tier 2 (player-only); Player-only matches are used strictly as a last resort when Tier 1 is completely empty, never as a scoring weight. A match qualifying via both stays Tier 1 — the demotion only hits matches that qualify exclusively via a followed player
+- **Live beats upcoming** within whichever tier is active, excluding the homepage's own hero live match (`byPopularity(ALL_LIVE_MATCHES)[0]`) — critically, excluding the hero match DOES re-trigger the live→upcoming fallback (if the followed team's only live match is the hero, "for you" falls through to their next upcoming match) rather than showing nothing
+- **Multi-live carousel**: 2+ simultaneous live qualifiers (excluding hero) render as a small swipeable carousel, capped at `FOR_YOU_LIVE_MAX = 3`, reusing the exact spotlight carousel JSX pattern rather than inventing new UI
+- **No live qualifier** → single soonest-upcoming match across the active tier's pool
+- **Spotlight-dedup** is a pure display-time filter (`forYouSpotlightIds`) — matches already shown as spotlight cards get the `★ FOR YOU` marker there instead of a second copy in the "for you" row; unlike hero-dedup, this does NOT re-trigger the selection algorithm to backfill a replacement — if absorbing spotlight matches empties the row, it just stays empty
+- Scope reminder: strictly live-or-upcoming; a "for you" history/past tab remains a separate, undecided feature
+
+#### Verified
+- Constructed test scenarios against live mock data via `npx tsx` scripts: union across two Tier-1 categories (team+team, tournament+team) picks the soonest upcoming match regardless of source category; player-only follow surfaces its soonest match only when Tier 1 is completely empty, and any Tier-1 follow suppresses the player pool entirely even if a player match would be sooner; two simultaneous live matches from different team follows render as a 2-item carousel; following the hero match's own team correctly falls back to that team's next upcoming match instead of showing nothing; following only a nation whose sole matches are bilateral correctly yields `null`
+- Re-verified live on `bawler-gold.vercel.app` via browser automation for the carousel and hero-fallback cases
+
+---
+
+## [—] localStorage schema-version guard — shipped, then reverted (2026-07-15)
+
+#### Added, then reverted — `SCHEMA_VERSION` wrapper on `getFollowPrefs`/`setFollowPrefs` (`lib/followPrefs.ts`)
+- Proposed and approved as a cheap defensive improvement: wrap the stored JSON in `{ version, prefs }` so a future `FollowPrefs` shape change could detect and discard incompatible old data instead of crashing on it
+- Built, deployed, and confirmed working exactly as designed — correctly wiped a pre-existing unversioned `bawler:followPrefs` entry left over from testing
+- That correct-but-surprising behavior (a previously-set follow silently disappearing) prompted an explicit revert request: "bring our platform to previous version, prior to fix the localstorage"
+- Reverted via `git revert` (commit `f1c407c` reverting `abb41d3`), confirmed byte-identical to the pre-fix state
+- **Current production behavior: `getFollowPrefs`/`setFollowPrefs` use the raw, unversioned JSON shape on purpose.** Do not reintroduce a schema-version wrapper without being asked again — see DECISIONS-LOG.md "LS1"
+
+---
+
+## [1.0.52] 2026-07-15
+
+### Filter / personalization: follow-selection sheet
+
+#### Added — `lib/followPrefs.ts`
+- `FollowPrefs { nations, teams, tournaments, players, formats }` — every category matched by stable registry ID, never display name (nations → `Team.country`, teams → `Team.code`, tournaments → `Competition.id`, players → `PLAYERS` slug, formats → `MatchFormat` literal)
+- `getFollowPrefs()` / `setFollowPrefs()` — localStorage-backed, raw JSON shape
+- `onFollowPrefsChanged()` — subscribes to a `window` `CustomEvent` (`bawler:follow-prefs-changed`), since `BottomNav` (owns `FollowSheet`) and `app/page.tsx` (owns "for you") are sibling components under the root layout, not parent/child
+- `matchIsFollowed()` — single-boolean convenience wrapper (superseded as the "for you" driver in v1.0.55, kept for other callers)
+
+#### Added — `lib/lineups.ts`
+- `getMatchLineup(match, team)` / `isPlayerInMatch(match, playerId)`
+- Checks `Match.lineups?: { teamA: string[]; teamB: string[] }` first (real-API-ready field added to `lib/types.ts`)
+- Falls back to a deterministic seeded-hash presence check (`seededChance(`${match.id}:${playerId}`, 0.72)`) against the `PLAYERS` registry's `teamCode`/`franchiseCode` when a match has no explicit lineup
+- Verified uniform distribution (72.0/2000 samples below threshold) and stress-tested with a player who represents both a national side and an IPL franchise (Jasprit Bumrah: 5/9 of his team's matches correctly include him, 4 correctly excluded) — confirms a player isn't credited with every match their team plays, only ones they actually featured in
+
+#### Added — `lib/followNudge.ts`
+- `registerHomeVisit()`, `isNudgeDismissed()`, `dismissNudge()`, `NUDGE_MAX_SESSIONS = 3`
+- Empty-state nudge shown only pre-first-follow, within the first 3 Home visits, dismissible permanently
+
+#### Added — `components/BottomSheet.tsx`
+- Extracted from `LiveCarousel.tsx`'s existing swipe-to-dismiss/body-scroll-lock/back-button-closes-it implementation
+- Added optional `footer?: React.ReactNode` prop (pinned below scrollable content) for the Follow sheet's full-width confirm button
+- Backward compatible — `LiveCarousel`'s 3 existing usages unaffected
+
+#### Added — `components/FollowSheet.tsx`
+- Two-column bottom sheet: left rail = 5 categories (Nation/Team/Tournament/Player/Format) with per-category selected-count badges; right pane = search input + scrollable multi-select list
+- `buildOptions(category)` sources options from `NATIONAL_TEAMS`/`ALL_TEAMS`/`COMPETITIONS`/`PLAYERS`/format literals
+- Draft state re-initialized from `getFollowPrefs()` every time the sheet opens; `setFollowPrefs()` (actual persistence) only runs when "Follow" is tapped — backdrop tap / × / back-swipe discards in-progress edits
+
+#### Added — `components/BottomNav.tsx` Filter trigger
+- Raised circular 52px button (violet `#7C3AED`, 4px dark border ring) positioned between Home and Schedule, deliberately styled unlike the icon+label tabs since it opens an overlay rather than navigating
+- Local `filterOpen` state; renders `<FollowSheet open={filterOpen} onClose={...} />`
+
+#### Added — `tailwind.config.ts`
+- `follow: { DEFAULT: "#7C3AED", soft: "#7C3AED22" }` — new dedicated violet, deliberately distinct from the existing "six" ball-outcome purple (`#A855F7`)
+
+#### Changed — `lib/types.ts`
+- `Match.lineups?: { teamA: string[]; teamB: string[] }` — optional field for confirmed playing XI
+
+#### Removed — `lib/followedTeam.ts`
+- Deleted; fully superseded by the multi-category `lib/followPrefs.ts`
+
+#### Data
+- Mock data audit found the Team registry (72 entries) and Competition registry (14 entries) already exceeded the "15–20 teams / a few tournaments" stress-test target — the real gap was per-match player lineups, addressed by `lib/lineups.ts` above rather than re-authoring teams/competitions
+
+---
+
+## [1.0.51] 2026-07-14
+
+### Homepage sparkline de-tangling
+
+#### Fixed — `LiveWinProbSpark` per-over bucketing + Catmull-Rom smoothing (`components/MatchCard.tsx`)
+- After the v1.0.51 full-match-trend fix, the two win-prob lines still crossed back and forth repeatedly, reading as a tangled knot rather than a clean trend
+- Root cause: plotting the same ball-by-ball density (218+ raw points for a full Test) the full-screen `WinProbChart` uses, crammed into a ~300px-wide sparkline — every minor mid-over fluctuation in real data showed up as a visible crossing
+- A stride-based downsample (every Nth raw point) was tried and measured first — still produced 1–2 crossings per T20 match tested
+- Fix: bucket the full `calculateWinProbForMatch()` output to exactly one point per over (`Map<number, WinProbPoint>` keyed by `Math.floor(overFloat)`, keeping the end-of-over value), then stride-downsample further only if still above `DOWNSAMPLE_TARGET = 30` points (Tests with 50+ overs); snap the last point's value to the authoritative current % so the end-dot never floats off; render via new local `sparkCatmullRomPath` helper
+- Verified via `npx tsx` script: 0 crossings on tested matches after the rewrite vs. 1–2 under the old stride-sample approach; confirmed live via `segCounts: [20, 20]` (21 points matching 21 real overs)
+
+---
+
+## [1.0.50] 2026-07-14
+
+### Homepage sparkline data + gridline fixes
+
+#### Fixed — sparkline used full match win-prob trend instead of last ~20 balls (`components/MatchCard.tsx`)
+- The hero card's new live sparkline (v1.0.50) rendered as nearly flat lines despite real, dramatic win-prob swings existing in the underlying data (verified full match range 1%–79% on `ind-aus-t20i-2026-m2-live`)
+- Root cause: slicing only the last ~20 raw ball-by-ball points (≈3 overs) instead of the whole `calculateWinProbForMatch()` output — a small recent window of an otherwise dramatic match naturally shows little movement
+- Fixed by downsampling the entire match's win-prob series instead of a recent slice
+
+#### Fixed — homepage-only 50% gridline removed; full-screen modal untouched
+- The sparkline inherited a dashed 50% reference gridline from being visually modeled on `WinProbChart.tsx`'s full-screen chart, but added clutter without adding readability at ~300px × ~50px card size
+- Removed specifically from `LiveWinProbSpark` in `MatchCard.tsx`; `WinProbChart.tsx`'s own gridline is deliberately untouched — a user who taps in to study the full chart is in a different context than someone glancing at a home card
+- Verified live via screenshot + DOM query (`numGridLines: 0` on homepage vs. the "50" dashed line still present in the full modal)
+
+---
+
+## [1.0.49] 2026-07-14
+
+### Homepage redesign: live sparkline, quiet/spotlight cards, for-you row
+
+#### Added — `LiveWinProbSpark` on the hero live card (`components/MatchCard.tsx`)
+- Replaces the old static single-snapshot `WinProbBar` with a live sparkline computed from `calculateWinProbForMatch(match)` — the same function `WinProbChart.tsx`'s full-screen modal already uses, so the two views can never disagree
+- Falls back to the old `WinProbBar` for the 2 mock matches that ship only a `liveWinProbOverride` with an empty `balls[]` (no ball data → no trend to draw)
+- Two mirrored lines (`lineA`/`lineB = 1 - winProbTeamA`), each team's own `primaryColor`; end-of-line glow + solid dots; last point snapped to the authoritative current % so the end-dot never floats off; percentage labels below in team colours
+
+#### Added — `lib/spotlight.ts`
+- `isSpotlightMatch(match): boolean` — three concrete OR'd conditions instead of reusing the existing `match.excitement` score
+- Rejected `excitement >= 8` after audit: static mock entries' `excitement` is a hand-typed editorial literal with no formula; `lib/matchGenerator.ts`'s infinite-scroll-generated matches compute it as `3 + Math.floor(seededRandom(idx) * 8)` — pure pseudo-random, ~43% of generated matches clear `>= 8` by chance, far too common for a "rare" spotlight feature
+- `hasCloseFinish` — margin regex parse: ≤6 runs or ≤1 wicket, or summary text matches last-ball/last-over/super-over/tie
+- `hasMilestone` — century in a limited-overs innings, 150+ in a Test innings (raised from a bare century after a "tighten further" pass — Test centuries are common and unremarkable at the original threshold), a 5-wicket haul, or "hat-trick"/"record" in the summary text
+- `hasContextStakes` — badge/phase/series-status text matching decider/final/playoff/qualifier/semi/champion; deliberately excludes generic "rivalry"/"table-topper" language (dropped in a second tightening pass — recurs every season, stops reading as genuinely high-stakes)
+- Final tuning: 4/23 static past+upcoming matches qualify (~17%), 0 upcoming currently qualify, 0% of generated matches can ever qualify (no batting/bowling card detail or stakes badges to check)
+
+#### Changed — `PastMatchCard`/`FutureMatchCard` → quiet flat cards (`components/MatchCard.tsx`)
+- `bg-bg-surface`, 3px left border (winner's colour for past, neutral `#1E293B` for future), no gradient/crest/badge, `QUIET_CARD_HEIGHT = 60`
+- `SpotlightMatchCard({ match, isPast, forYou })` retains the full SplitTeamBg/crest/glow/badge treatment (`SPOTLIGHT_CARD_HEIGHT = 148`) for matches passing `isSpotlightMatch()`, plus an optional `ForYouMarker` top-left star pill
+
+#### Added — "for you" row v1 (single followed team)
+- `forYouMatch` — live match matching the (then single-team) followed preference, else soonest upcoming match matching it
+- `forYouInSpotlight` — collapses the separate "for you" row when the same match is also a spotlight match, passing `forYou` into `SpotlightMatchCard` instead of rendering it twice
+- Superseded by the tiered multi-category rewrite in v1.0.55 once the full Filter feature (v1.0.53) replaced the single-team placeholder
+
+#### Added
+- `SPOTLIGHT_MAX = 3` constant — spotlight carousel capped at 3 cards, same "stay rare" reasoning as the concrete-conditions bar itself
+
+---
+
+## [—] 2026-07-14 (folded into v1.0.48, no dedicated version bump)
+
+### Scorecard polish: innings label + header colour
+
+#### Fixed — redundant "Innings 1" label dropped for single-innings formats
+- T20/T20I/ODI/Hundred showed "Innings 1" in the innings-card header even though a team only ever bats once in those formats — the label carried zero information
+- Label is now omitted entirely outside Test, where it remains meaningful ("1st Innings"/"2nd Innings")
+
+#### Changed — 4s/6s batting-table header labels coloured cyan/purple
+- Header text for the "4s"/"6s" columns now matches the colour already used for the per-batter values in those columns (cyan for 4s, purple for 6s — the platform's established boundary palette), instead of plain grey
+- Verified live on both T20I and Test matches
+
+---
+
 ## [1.0.34] 2026-07-07
 
 ### Partnership velocity spark — Scorecard tab

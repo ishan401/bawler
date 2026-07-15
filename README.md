@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.48)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.55)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.48 mock) — real data integration next.
+**Status:** UI complete (v1.0.55 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -43,10 +43,25 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 ## Home page
 
-- **LiveCarousel** — snap-scroll carousel of live matches with win-prob split bar
+- **LiveCarousel** — snap-scroll carousel of live matches; hero card's win-prob bar is now a live per-over sparkline (`LiveWinProbSpark`, same `calculateWinProbForMatch()` source as the full-screen modal, Catmull-Rom smoothed)
 - **Series status chip** — one-line bilateral series summary below bilateral international cards; TABLE button for competition matches
 - **SplitTeamBg** — national matches: flag images (flagcdn.com); franchise matches: dual-colour gradient
+- **Quiet cards vs. Spotlight** — ordinary past/future matches render as a flat 60px row (no gradient/crest/badge); matches clearing `lib/spotlight.ts`'s concrete bar (close finish / individual milestone / genuine knockout stakes — not a generic excitement score) get the full card treatment, pulled out above the grid as a single card or a capped 3-card carousel
+- **"For you" row** — surfaces match(es) matching any followed nation/team/tournament/player/format (see Personalization below); tiered union selection, live-first with a soonest-upcoming fallback, small carousel when 2+ live matches qualify at once
+- **Filter** — bottom-nav trigger opens the follow-selection sheet; see Personalization below
 - Infinite scroll, pull-to-refresh, shimmer loading skeleton, tap feedback on all cards
+- The live carousel / for-you / spotlight block is gated behind a client-mount flag (same one that gates the Past/Future grid) so the server-rendered HTML and the client's first render always match — match "liveness" is computed from `Date.now()` at module-load time, which otherwise drifts between server prerender and client hydration
+
+---
+
+## Personalization (Filter / "For you")
+
+- **Bottom nav Filter button** — raised circular violet (`#7C3AED`) trigger between Home and Schedule; opens `FollowSheet`, a two-column bottom sheet (category rail: Nation/Team/Tournament/Player/Format; search + multi-select list), nothing persists until "Follow" is tapped
+- **`lib/followPrefs.ts`** — `FollowPrefs` stores IDs only, never display names: nations by `Team.country`, teams by `Team.code`, tournaments by `Competition.id`, players by `PLAYERS` slug, formats by the `MatchFormat` literal. `qualifyMatch(match, prefs)` returns a per-category breakdown; `isTier1Match()`/`isAnyMatch()` distinguish Tier 1 (nation/team/tournament/format) from Tier 2 (player-only, last-resort). Nation-following is suppressed for two-team bilateral series specifically (already covered elsewhere on the homepage) — team/tournament/format/player follows are unaffected.
+- **`lib/lineups.ts`** — `isPlayerInMatch(match, playerId)` checks `Match.lineups` first (real-API-ready), else a deterministic seeded-hash presence check against the `PLAYERS` registry — so a player on both a national side and a franchise doesn't get credited with every match either team plays
+- **`lib/followNudge.ts`** — empty-state nudge shown only pre-first-follow, within the first 3 Home visits
+- Cross-sibling sync: `BottomNav` (owns `FollowSheet`) and `app/page.tsx` (owns the "for you" row) are siblings, not parent/child — prefs changes propagate via a `window` `CustomEvent`, not props or a state library
+- **⚠️ No localStorage schema-version guard** — one was built, deployed, and then explicitly reverted per request (see DECISIONS-LOG.md, "LS1"). Don't reintroduce it without being asked again.
 
 ---
 
@@ -135,9 +150,11 @@ components/
 │   └── PitchReportCard.tsx    # pitch surface + sliders
 ├── Home page
 │   ├── LiveCarousel.tsx       # live match carousel + series status chip + standings sheet
-│   ├── MatchCard.tsx          # Past / Future / Live card variants
+│   ├── MatchCard.tsx          # PastMatchCard/FutureMatchCard (quiet), SpotlightMatchCard (full treatment + forYou marker), LiveWinProbSpark (hero sparkline)
 │   ├── SplitTeamBg.tsx        # flag images (national) or gradient (franchise)
-│   └── BottomNav.tsx          # persistent Home / Schedule / Table nav
+│   ├── BottomSheet.tsx        # shared swipe-to-dismiss sheet (extracted from LiveCarousel); optional footer slot
+│   ├── FollowSheet.tsx        # Filter feature: two-column category + search/multi-select sheet
+│   └── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
 └── Player profile
     └── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs
 ```
@@ -154,5 +171,9 @@ lib/
 ├── mockMatchups.ts    # 44 batter vs bowler H2H career records
 ├── events.ts          # Moments strip event extraction logic
 ├── winProb.ts         # power-curve win probability formula (single source of truth)
-└── outcomeColors.ts   # unified ball outcome colour palette
+├── outcomeColors.ts   # unified ball outcome colour palette
+├── spotlight.ts        # isSpotlightMatch() — concrete close-finish/milestone/stakes bar for homepage spotlight
+├── lineups.ts          # getMatchLineup()/isPlayerInMatch() — per-match XI, real-data-ready + seeded fallback
+├── followPrefs.ts      # FollowPrefs model, qualifyMatch()/isTier1Match(), localStorage persistence + change event
+└── followNudge.ts      # empty-state Filter nudge (first-N-sessions, dismissible)
 ```
