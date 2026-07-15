@@ -455,38 +455,52 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
   const rightTeam = side === "B" ? match.teamA : match.teamB;
 
   return (
+    // Shared visual language with SpotlightMatchCard (v1.0.61) -- same corner
+    // radius (rounded-xl, overriding `.card`'s own 1rem via inline style so
+    // the override wins regardless of Tailwind's compiled class order), same
+    // edge padding + internal gap rhythm (px-2 py-1.5, flex-col gap-0.5), and
+    // the "FOR YOU" label already shared Spotlight's own section-label
+    // typography (text-[10px] font-bold uppercase tracking-widest) before
+    // this change -- only the color differs (violet here, text-dim there),
+    // deliberately, per spec. Height and background treatment are untouched:
+    // this card stays auto-height and flat/quiet, Spotlight stays its own
+    // fixed taller height with its gradient/glow -- structure matches,
+    // sizing doesn't.
+    //
     // 3px left border in the followed team's color -- same "colored side
     // accent" convention PastMatchCard/FutureMatchCard already use (winner's
     // color there, followed team's color here). Always leftTeam's color, so
     // border + dot + name are one consistent unit on the same side.
-    <div className="card px-3 py-2.5" style={{ borderLeft: `3px solid ${leftTeam.primaryColor}` }}>
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7C3AED" }}>
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 22 12 18.56 5.8 22 7 14.14l-5-4.87 7.1-1.01z" />
-          </svg>
-          For you
-        </span>
-        {isLive && (
-          <span className="text-[9px] font-extrabold text-wicket uppercase tracking-widest flex items-center gap-1">
-            <span className="live-dot w-1.5 h-1.5 rounded-full bg-wicket inline-block" />Live
+    <div className="card overflow-hidden" style={{ borderLeft: `3px solid ${leftTeam.primaryColor}`, borderRadius: "0.75rem" }}>
+      <div className="px-2 py-1.5 flex flex-col gap-0.5">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7C3AED" }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 22 12 18.56 5.8 22 7 14.14l-5-4.87 7.1-1.01z" />
+            </svg>
+            For you
           </span>
-        )}
-      </div>
+          {isLive && (
+            <span className="text-[9px] font-extrabold text-wicket uppercase tracking-widest flex items-center gap-1">
+              <span className="live-dot w-1.5 h-1.5 rounded-full bg-wicket inline-block" />Live
+            </span>
+          )}
+        </div>
 
-      <a href={`/match/${match.id}`} className="tap-scale flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: leftTeam.primaryColor }} />
-          <span className="text-base font-extrabold truncate">{leftTeam.shortName}</span>
+        <a href={`/match/${match.id}`} className="tap-scale flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: leftTeam.primaryColor }} />
+            <span className="text-base font-extrabold truncate">{leftTeam.shortName}</span>
+          </div>
+          <span className="text-[10px] font-bold text-text-dim shrink-0">vs</span>
+          <div className="flex items-center gap-2 min-w-0 flex-row-reverse">
+            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: rightTeam.primaryColor }} />
+            <span className="text-base font-extrabold truncate">{rightTeam.shortName}</span>
+          </div>
+        </a>
+        <div className="text-[10px] text-text-dim text-center truncate">
+          {isLive ? (match.liveStatusOverride ?? "Live now") : `${fmtCountdown(match.startTimeIso)} · ${fmtTime(match.startTimeIso)}`}
         </div>
-        <span className="text-[10px] font-bold text-text-dim shrink-0">vs</span>
-        <div className="flex items-center gap-2 min-w-0 flex-row-reverse">
-          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: rightTeam.primaryColor }} />
-          <span className="text-base font-extrabold truncate">{rightTeam.shortName}</span>
-        </div>
-      </a>
-      <div className="mt-1 text-[10px] text-text-dim text-center truncate">
-        {isLive ? (match.liveStatusOverride ?? "Live now") : `${fmtCountdown(match.startTimeIso)} · ${fmtTime(match.startTimeIso)}`}
       </div>
     </div>
   );
