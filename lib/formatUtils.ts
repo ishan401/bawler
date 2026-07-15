@@ -206,3 +206,20 @@ export function ordinal(n: number): string {
 export function setLabel(format: MatchFormat): string {
   return format === "Hundred" ? "Set" : "Over";
 }
+
+/**
+ * Team score display string, honoring the standard cricket "all out"
+ * convention: when a team is bowled out, the wicket count is dropped
+ * entirely -- "187", never "187/10" and never a dangling "187/". The same
+ * applies whenever a wicket count simply isn't available (undefined/null),
+ * which is the actual root cause this guards against: some completed-match
+ * summaries were missing their wickets field, and a plain
+ * `${runs}/${wickets}` interpolation there produced a bare trailing slash.
+ * Every other count (0-9) renders normally, including "runs/0" for an
+ * opening stand that hasn't lost a wicket -- 0 is a real, displayable
+ * value, not an absent one.
+ */
+export function formatScore(runs: number, wickets?: number | null): string {
+  if (wickets == null || wickets >= 10) return `${runs}`;
+  return `${runs}/${wickets}`;
+}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Match, Team } from "@/lib/types";
 import SplitTeamBg from "./SplitTeamBg";
 import { calculateWinProbForMatch, calculateProjectedScore } from "@/lib/winProb";
-import { ballsPerSet } from "@/lib/formatUtils";
+import { ballsPerSet, formatScore } from "@/lib/formatUtils";
 
 // ============================================================================
 // Fixed card heights
@@ -513,7 +513,7 @@ function QuietSide({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
         </span>
         {runs !== undefined && (
           <span className={`text-[10.5px] num font-bold leading-tight ${dim ? "text-text-dim" : "text-text-secondary"}`}>
-            {runs}/{wickets}
+            {formatScore(runs, wickets)}
           </span>
         )}
       </div>
@@ -708,7 +708,7 @@ function SideBlock({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
         </span>
         {runs !== undefined && (
           <span className={`text-[10.5px] num font-bold ${isWinner ? "text-white" : "text-white/60"} leading-tight`}>
-            {runs}/{wickets}
+            {formatScore(runs, wickets)}
           </span>
         )}
       </div>
