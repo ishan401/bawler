@@ -527,10 +527,25 @@ function QuietSide({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
 // gradient / crest watermark / highlight badge. Just team names, score, and
 // one result line. Excitement>=8 matches never reach this component — the
 // homepage routes them to SpotlightMatchCard instead.
+//
+// Border color rule (v1.0.57 — this card and FutureMatchCard only; Live
+// hero, Spotlight, and "for you" each have their own separate treatment
+// and are untouched by this rule): a completed match ALWAYS colors the
+// border with the actual winning team's primaryColor, matched by explicit
+// team-code equality against BOTH teamA and teamB — never a silent
+// ternary fallback to "whichever one didn't match", which is what let an
+// unmatched/missing winner code silently borrow the wrong side's color.
+// If winnerCode doesn't equal either team's code (shouldn't happen for a
+// real completed match, but this is the deliberate safety net), the
+// border falls back to the same neutral line color FutureMatchCard uses
+// for a match with no result yet — never an arbitrary team color.
 // ============================================================================
 export function PastMatchCard({ match }: { match: Match }) {
   const winnerCode = match.result?.winner;
-  const winnerTeam = winnerCode === match.teamA.code ? match.teamA : match.teamB;
+  const winnerTeam =
+    winnerCode === match.teamA.code ? match.teamA :
+    winnerCode === match.teamB.code ? match.teamB :
+    undefined;
   const borderColor = winnerTeam?.primaryColor ?? "#1E293B";
 
   return (
@@ -557,8 +572,13 @@ export function PastMatchCard({ match }: { match: Match }) {
 
 // ============================================================================
 // Future card — QUIET (v1.0.49 restraint pass).
-// Same flat treatment as the past card. There's no "leading team" pre-match,
-// so the left border is neutral (line color) rather than team-colored.
+// Same flat treatment as the past card. There's no "leading team" pre-match
+// (this grid never shows a live, in-progress match — every card here is
+// either a settled result or a fixture that hasn't started), so picking
+// either team's color would be arbitrary. Border stays neutral (line
+// color, "#1E293B" — same fallback PastMatchCard uses when a result is
+// ever ambiguous) rather than favoring one side, consistent with the rule
+// above: only an actual winner earns the colored border.
 // ============================================================================
 export function FutureMatchCard({ match }: { match: Match }) {
   return (
