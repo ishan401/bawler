@@ -66,6 +66,17 @@
     background: #1E293B;
     border-radius: 2px;
   }
+  /* Snap-x card carousels (hero, "for you", Spotlight) hide the native
+     scrollbar entirely -- v1.0.65. Those carousels now show their own
+     contained dot indicator (CarouselDots) instead of a full-width
+     scrollbar thumb that stretched past each card's rounded corners. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Ball-replay keyframes — these drive the SVG ball-GIF component */

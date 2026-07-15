@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import type { Match, Competition } from "@/lib/types";
 import { LiveMatchCard } from "./MatchCard";
 import BottomSheet from "./BottomSheet";
 import MiniStandings from "./MiniStandings";
 import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES, ALL_TEAMS } from "@/lib/mockData";
+import { useCarouselIndex } from "@/lib/useCarouselIndex";
+import CarouselDots from "./CarouselDots";
 
 interface LiveCarouselProps {
   matches: Match[];
@@ -346,7 +348,6 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
 }
 
 export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) {
-  const [activeIdx, setActiveIdx] = useState(0);
   const [view, setView] = useState<"none" | "standings" | "team-schedule" | "series">("none");
 
   // seriesPool: all matches the series-schedule sheet can filter from.
@@ -391,22 +392,10 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
     dragState.current.moved = 0;
   };
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      // Use first child width + gap to calculate which card is snapped
-      const firstCard = el.firstElementChild as HTMLElement | null;
-      if (!firstCard) return;
-      const cardW = firstCard.getBoundingClientRect().width;
-      const gap = 12; // gap-3 = 12px
-      const step = cardW + gap;
-      const idx = Math.round(el.scrollLeft / step);
-      setActiveIdx(Math.max(0, Math.min(idx, matches.length - 1)));
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [matches.length]);
+  // Shared with the "for you" and Spotlight carousels -- see
+  // lib/useCarouselIndex.ts. Replaces this component's own former inline
+  // scroll-position effect.
+  const activeIdx = useCarouselIndex(scrollRef, matches.length);
 
   const activeMatch = matches[activeIdx];
   // For TABLE button: use championship (e.g. WTC for Test matches) when it has standings,
@@ -472,13 +461,20 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
           onMouseUp={endDrag}
           onMouseLeave={endDrag}
           onClickCapture={onDragClickCapture}
-          className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+          className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
         >
           {matches.map(m => (
             <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
               <LiveMatchCard match={m} />
             </div>
           ))}
+        </div>
+
+        {/* Contained position indicator -- v1.0.65. Only rendered with
+            2+ matches (CarouselDots itself no-ops below that), replacing
+            the old full-width native scrollbar. */}
+        <div className="mt-2">
+          <CarouselDots count={matches.length} activeIndex={activeIdx} activeColor="#00E5FF" />
         </div>
 
         {(activeComp || activeMatch?.seriesStatus) && (

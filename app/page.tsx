@@ -23,6 +23,8 @@ import {
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
 import { isSpotlightMatch } from "@/lib/spotlight";
 import { selectHeroMatch } from "@/lib/heroSelection";
+import { useCarouselIndex } from "@/lib/useCarouselIndex";
+import CarouselDots from "@/components/CarouselDots";
 
 // ── Popularity sort ──────────────────────────────────────────────────────────
 const COMP_POP: Record<string, number> = {
@@ -284,6 +286,11 @@ export default function Home() {
   // (spotlight, for-you) -- see useDragToScroll's own comment for why.
   const forYouDrag = useDragToScroll();
   const spotlightDrag = useDragToScroll();
+  // Shared with LiveCarousel's own dot indicator -- see
+  // lib/useCarouselIndex.ts. Each hook no-ops safely while its carousel
+  // has 0-1 items (forYouVisible.length / spotlightMatches.length).
+  const forYouActiveIdx = useCarouselIndex(forYouDrag.ref, forYouVisible.length);
+  const spotlightActiveIdx = useCarouselIndex(spotlightDrag.ref, spotlightMatches.length);
 
   return (
     <main
@@ -354,13 +361,19 @@ export default function Home() {
                   onMouseUp={forYouDrag.onMouseUp}
                   onMouseLeave={forYouDrag.onMouseLeave}
                   onClickCapture={forYouDrag.onClickCapture}
-                  className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+                  className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                 >
                   {forYouVisible.map(m => (
                     <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
                       <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} followPrefs={followPrefs} />
                     </div>
                   ))}
+                </div>
+                {/* Contained position indicator -- v1.0.65, replaces the
+                    old full-width native scrollbar. "For you" accent
+                    (violet) to match its own label/border color. */}
+                <div className="mt-2">
+                  <CarouselDots count={forYouVisible.length} activeIndex={forYouActiveIdx} activeColor="#7C3AED" />
                 </div>
               </div>
             </section>
@@ -399,13 +412,19 @@ export default function Home() {
                     onMouseUp={spotlightDrag.onMouseUp}
                     onMouseLeave={spotlightDrag.onMouseLeave}
                     onClickCapture={spotlightDrag.onClickCapture}
-                    className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+                    className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
                   >
                     {spotlightMatches.map(({ m, isPast }) => (
                       <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
                         <SpotlightMatchCard match={m} isPast={isPast} forYou={forYouSpotlightIds.has(m.id)} />
                       </div>
                     ))}
+                  </div>
+                  {/* Contained position indicator -- v1.0.65, replaces
+                      the old full-width native scrollbar. Cyan to match
+                      Spotlight's own excitement-glow accent. */}
+                  <div className="mt-2">
+                    <CarouselDots count={spotlightMatches.length} activeIndex={spotlightActiveIdx} activeColor="#00E5FF" />
                   </div>
                 </div>
               )}
