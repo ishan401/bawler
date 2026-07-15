@@ -22,6 +22,7 @@ import {
 } from "@/lib/followPrefs";
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
 import { isSpotlightMatch } from "@/lib/spotlight";
+import { selectHeroMatch } from "@/lib/heroSelection";
 
 // ── Popularity sort ──────────────────────────────────────────────────────────
 const COMP_POP: Record<string, number> = {
@@ -226,6 +227,17 @@ export default function Home() {
   // Bilateral-series nation-redundancy is already suppressed inside
   // qualifyMatch. Never surfaces past matches — this row is live-or-
   // upcoming only. ----
+  // Live carousel order: hero (lib/heroSelection.ts's single global pick)
+  // always leads, since it's the card shown by default without swiping;
+  // every other live match follows in the existing popularity order. Only
+  // the hero position is governed by the new rule -- ranking the rest of
+  // the swipeable strip isn't what was asked for here.
+  const liveCarouselMatches = useMemo(() => {
+    const hero = selectHeroMatch(ALL_LIVE_MATCHES);
+    if (!hero) return byPopularity(ALL_LIVE_MATCHES);
+    return [hero, ...byPopularity(ALL_LIVE_MATCHES.filter(m => m.id !== hero.id))];
+  }, []);
+
   const forYouSelection = useMemo(() => {
     if (!followsAnything) return null;
     const pool = [...ALL_LIVE_MATCHES, ...ALL_UPCOMING_MATCHES];
@@ -240,7 +252,10 @@ export default function Home() {
     if (active.length === 0) return null;
     const activeIds = new Set(active.map(m => m.id));
 
-    const heroId = byPopularity(ALL_LIVE_MATCHES)[0]?.id;
+    // Hero is a single GLOBAL selection (lib/heroSelection.ts) -- the same
+    // for every visitor regardless of what they follow, never personalized.
+    // "for you" pools separately and simply excludes whatever hero claims.
+    const heroId = selectHeroMatch(ALL_LIVE_MATCHES)?.id;
     const liveCandidates = byPopularity(ALL_LIVE_MATCHES).filter(m => activeIds.has(m.id) && m.id !== heroId);
     if (liveCandidates.length > 0) {
       return { kind: "live" as const, matches: liveCandidates.slice(0, FOR_YOU_LIVE_MAX) };
@@ -315,7 +330,7 @@ export default function Home() {
       ) : (
         <>
           <section className="mt-1">
-            <LiveCarousel matches={byPopularity(ALL_LIVE_MATCHES)} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
+            <LiveCarousel matches={liveCarouselMatches} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
           </section>
 
           {/* For you — surfaces match(es) matching any followed selection (live
