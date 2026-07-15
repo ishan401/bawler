@@ -53,13 +53,18 @@ function buildOptions(category: FollowCategory): Option[] {
         .map(t => ({ id: t.country ?? t.code, label: t.fullName, color: t.primaryColor, flagIso: FLAG_ISO[t.code] }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "teams":
+      // Scoped to franchise/league teams only. National teams are
+      // deliberately excluded here -- Nation is already the dedicated
+      // place to follow a country, so listing e.g. Australia under both
+      // Nation and Team ("National team") was pure duplication, not an
+      // intentional second path to the same entity.
       return Object.values(ALL_TEAMS)
+        .filter(t => t.type !== "national")
         .map(t => ({
           id: t.code,
           label: t.fullName,
-          sublabel: t.type === "national" ? "National team" : "Franchise",
+          sublabel: "Franchise",
           color: t.primaryColor,
-          flagIso: t.type === "national" ? FLAG_ISO[t.code] : undefined,
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "tournaments":
