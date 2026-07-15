@@ -361,6 +361,36 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
   const [openTeamCode, setOpenTeamCode] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Mouse click-drag scroll -- native overflow-x already scrolls via touch
+  // swipe and trackpad/wheel, but a plain mouse click-drag does nothing on
+  // a bare overflow div (no built-in click-to-pan in CSS/HTML). Without
+  // this, a desktop mouse user can only ever see the first live match.
+  // Reuses scrollRef directly so the existing scroll listener above (which
+  // derives activeIdx) stays in sync automatically. Guards click-through:
+  // a real drag (>6px movement) swallows the click that would otherwise
+  // navigate the card on mouseup.
+  const dragState = useRef({ down: false, startX: 0, startScroll: 0, moved: 0 });
+  const onDragMouseDown = (e: React.MouseEvent) => {
+    if (!scrollRef.current) return;
+    dragState.current = { down: true, startX: e.clientX, startScroll: scrollRef.current.scrollLeft, moved: 0 };
+  };
+  const onDragMouseMove = (e: React.MouseEvent) => {
+    const s = dragState.current;
+    if (!s.down || !scrollRef.current) return;
+    e.preventDefault();
+    const dx = e.clientX - s.startX;
+    s.moved = Math.max(s.moved, Math.abs(dx));
+    scrollRef.current.scrollLeft = s.startScroll - dx;
+  };
+  const endDrag = () => { dragState.current.down = false; };
+  const onDragClickCapture = (e: React.MouseEvent) => {
+    if (dragState.current.moved > 6) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    dragState.current.moved = 0;
+  };
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -435,7 +465,15 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
   return (
     <>
       <div className="px-3">
-        <div ref={scrollRef} className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
+        <div
+          ref={scrollRef}
+          onMouseDown={onDragMouseDown}
+          onMouseMove={onDragMouseMove}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          onClickCapture={onDragClickCapture}
+          className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+        >
           {matches.map(m => (
             <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
               <LiveMatchCard match={m} />

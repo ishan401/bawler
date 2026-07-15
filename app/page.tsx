@@ -55,6 +55,43 @@ function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+// Mouse click-drag scroll for the snap-x carousels (spotlight, for-you).
+// Native `overflow-x-auto` already scrolls fine via touch swipe and via
+// trackpad/wheel, but a plain mouse click-and-drag does nothing on a bare
+// overflow div -- there's no built-in click-drag-to-pan behavior in CSS/
+// HTML, only touch has that. On desktop, without a trackpad, that made a
+// 2+ card carousel look exactly like a single static card with no visible
+// second item and no way to reach it. This adds that missing interaction.
+// Guards against click-through: a real drag (>6px total movement) swallows
+// the click that would otherwise fire on mouseup and navigate the card.
+function useDragToScroll<T extends HTMLDivElement>() {
+  const ref = useRef<T>(null);
+  const state = useRef({ down: false, startX: 0, startScroll: 0, moved: 0 });
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!ref.current) return;
+    state.current = { down: true, startX: e.clientX, startScroll: ref.current.scrollLeft, moved: 0 };
+  }, []);
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    const s = state.current;
+    if (!s.down || !ref.current) return;
+    e.preventDefault();
+    const dx = e.clientX - s.startX;
+    s.moved = Math.max(s.moved, Math.abs(dx));
+    ref.current.scrollLeft = s.startScroll - dx;
+  }, []);
+  const endDrag = useCallback(() => { state.current.down = false; }, []);
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (state.current.moved > 6) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    state.current.moved = 0;
+  }, []);
+
+  return { ref, onMouseDown, onMouseMove, onMouseUp: endDrag, onMouseLeave: endDrag, onClickCapture };
+}
+
 // Spotlight uses a deliberately stricter, concrete-condition bar than the
 // excitement-glow score elsewhere in the app — see lib/spotlight.ts for why.
 const SPOTLIGHT_MAX = 3;
@@ -227,6 +264,11 @@ export default function Home() {
     [forYouSelection, spotlightIds]
   );
 
+  // Mouse drag-to-scroll for the two carousels that can hold 2+ cards here
+  // (spotlight, for-you) -- see useDragToScroll's own comment for why.
+  const forYouDrag = useDragToScroll();
+  const spotlightDrag = useDragToScroll();
+
   return (
     <main
       className="min-h-screen pb-24"
@@ -289,7 +331,15 @@ export default function Home() {
           {forYouVisible.length > 1 && (
             <section className="mt-3">
               <div className="px-3">
-                <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
+                <div
+                  ref={forYouDrag.ref}
+                  onMouseDown={forYouDrag.onMouseDown}
+                  onMouseMove={forYouDrag.onMouseMove}
+                  onMouseUp={forYouDrag.onMouseUp}
+                  onMouseLeave={forYouDrag.onMouseLeave}
+                  onClickCapture={forYouDrag.onClickCapture}
+                  className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+                >
                   {forYouVisible.map(m => (
                     <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
                       <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} />
@@ -326,7 +376,15 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="px-3">
-                  <div className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3">
+                  <div
+                    ref={spotlightDrag.ref}
+                    onMouseDown={spotlightDrag.onMouseDown}
+                    onMouseMove={spotlightDrag.onMouseMove}
+                    onMouseUp={spotlightDrag.onMouseUp}
+                    onMouseLeave={spotlightDrag.onMouseLeave}
+                    onClickCapture={spotlightDrag.onClickCapture}
+                    className="flex gap-3 overflow-x-auto scrollbar-thin snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
+                  >
                     {spotlightMatches.map(({ m, isPast }) => (
                       <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
                         <SpotlightMatchCard match={m} isPast={isPast} forYou={forYouSpotlightIds.has(m.id)} />
