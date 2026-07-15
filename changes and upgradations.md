@@ -5,6 +5,96 @@ Format: `[version] YYYY-MM-DD — description`
 
 ---
 
+## [1.0.60] 2026-07-15
+
+### Past/Coming Up grid border-color rule hardened
+
+#### Fixed — `PastMatchCard` winner-color lookup no longer silently defaults to teamB (`components/MatchCard.tsx`)
+- Reported: some completed-match cards' left border didn't match the actual winning team's color (e.g. an AUS vs IND card allegedly showing blue despite AUS winning)
+- Audited every completed match then live in the deployed grid against real team colors (RCB/CSK, AUS/IND, LSG/PBKS, KKR/RR, AUS/NZ, DC/SRH, MI/CSK, AUS/ENG) — all already correctly showed the winning team's real `primaryColor`; every upcoming card was already consistently neutral (`#1E293B`), never favoring a side
+- However, the winner resolution was a plain two-way ternary — `winnerCode === match.teamA.code ? match.teamA : match.teamB` — which silently defaults to `teamB` for ANY non-match against `teamA`, including an undefined/missing winner code or one matching neither team's code. No match in the current dataset happened to exercise that path, but it's exactly the failure mode described (a border not really tied to a confirmed winner)
+- Replaced with an explicit dual equality check against both `teamA.code` and `teamB.code`, falling back to `undefined` (then the same neutral `#1E293B` `FutureMatchCard` uses) if neither matches — never an arbitrary team color
+- Documented the two-case rule directly in both `PastMatchCard` and `FutureMatchCard`: completed = winning team's real color, matched explicitly by code; no result yet = neutral, never a pre-picked side
+- Scope: `PastMatchCard`/`FutureMatchCard` only — Live hero, Spotlight, and For You (which already always uses the followed team's color) are a separate grid entirely and were not touched
+
+---
+
+## [1.0.59] 2026-07-15
+
+### Dangling-slash bug on all-out scores
+
+#### Fixed — `formatScore()` added as the single source of truth for team score display (`lib/formatUtils.ts`)
+- Reported: several completed-match cards showed a bare trailing slash ("AUS 187/", "IND 164/") instead of a score, while other cards in the same grid correctly showed a wicket count ("182/7")
+- Root cause #1 (display logic): `QuietSide`/`SideBlock` (`components/MatchCard.tsx`) blindly interpolated `` `${runs}/${wickets}` `` — an undefined wickets value produced a dangling slash with nothing after it
+- Added `formatScore(runs, wickets)`: drops the wicket count entirely — standard cricket "all out" convention, "187" never "187/10" — whenever wickets is `undefined`, `null`, or `>= 10`; renders normally otherwise, including "runs/0" for an opening stand (0 is a real value, not an absent one)
+- Both `QuietSide` and `SideBlock` now call `formatScore()` instead of interpolating directly
+- Audited every other score-rendering site (Scorecard, MatchView, ScoreBar, LiveCarousel, MomentStoryCard, DigestTab) — all read wickets from `innings[]` directly, which was never missing data, so none needed a change. `OverSummary.tsx`'s own runs/wickets display is a per-over recap (not a team total) with its own correct zero-wickets handling for that different context — left untouched
+
+#### Fixed — 5 mock `match.result` objects were missing `teamAWickets`/`teamBWickets` outright (`lib/mockData.ts`)
+- Root cause #2 (data gap, independent of the display-logic bug above): `ind-aus-t20i-2026-m1`, `t20wc-2026-ind-pak`, `ct-2025-aus-nz-final`, `ashes-2526-3rd-test`, and `bbl-2526-scorchers-sixers` all had a `result` summary object that simply omitted the wickets fields, even though the correct values were already present a few lines up in each match's own `innings[]` entries
+- Backfilled all 5 from their own innings data (187/6 + 164/9, 152/4 + 149/10, 312/7 + 269/10, 512/8 + 210/10, 177/6 + 169/10) — not invented values
+- Confirmed via regex scan that no other `match.result` object in the file is missing either wickets field
+
+#### Verified
+- Live post-deploy: AUS 187/6, IND 164/9, AUS 312/7, and NZ 269 (genuinely all out — correctly shows no wicket count at all) all render cleanly; a non-all-out score elsewhere (CSK 183/6) unaffected
+
+---
+
+## [1.0.58] 2026-07-15
+
+### "For you" card: followed team always left, with a matching colored border
+
+#### Added — `followedMatchSide(match, prefs)` (`lib/followPrefs.ts`)
+- Reported: the followed team's color dot was always correctly next to its own name, but the pair of them could land on the right side of the "for you" card if the match data's `teamA`/`teamB` order (home-team-first, alphabetical, whatever convention a given match uses) happened to put the followed team second
+- Resolves which specific side (A or B) actually satisfies the user's prefs, checked in team > nation > player priority (mirrors `qualifyMatch`'s own Tier-1 specificity ordering)
+- Returns `null` for matches that only qualified via a followed tournament/format — those don't pin to a specific side, so team order is deliberately left untouched rather than guessed
+
+#### Changed — `ForYouRow` renders `leftTeam`/`rightTeam` instead of `teamA`/`teamB` directly (`app/page.tsx`)
+- Takes `followPrefs` as a new prop, derives `leftTeam`/`rightTeam` from `followedMatchSide()`
+- Scoped to this one card only — Live, Spotlight, and the Past/Coming Up grid all keep rendering `teamA`/`teamB` exactly as before
+
+#### Added — 3px colored left border, always `leftTeam`'s color
+- The card had color dots but no border accent, unlike `PastMatchCard`/`FutureMatchCard` elsewhere on the homepage, which already use a 3px colored left border as a standing convention
+- Since `leftTeam` is now always the followed team, the border, the dot, and the name are one consistent unit on one consistent side
+
+#### Verified
+- Followed KKR (normally `teamB` in the live MI vs KKR match) — confirmed live it now renders first/left with its purple dot and a matching purple left border, MI second/right
+- Confirmed a differently-followed team (CSK) shows CSK's own color as the border on a different live match, and closing/reopening the sheet doesn't affect it
+
+---
+
+## [1.0.57] 2026-07-15
+
+### Filter sheet: Team category no longer duplicates Nation
+
+#### Fixed — `buildOptions("teams")` scoped to franchise/league teams only (`components/FollowSheet.tsx`)
+- Reported: national teams (e.g. Australia) appeared twice — once under Nation, again under Team labeled "National team" — accidental data overlap, not intentional flexibility, since Nation is already the dedicated place to follow a country
+- Root cause: the Team category was built from `ALL_TEAMS`, a merge of `{...TEAMS, ...NATIONAL_TEAMS, ...LEAGUE_TEAMS}` — every national team leaked in a second time
+- Filtered to `type !== "national"`, scoping Team to franchise/league teams exclusively (RCB, CSK, Adelaide Strikers, LA Knight Riders, etc.); Nation is untouched, still built from `NATIONAL_TEAMS` only
+- Removed the now-dead national-team conditionals (`sublabel`/`flagIso` branches) since every remaining Team entry is a franchise
+
+#### Verified
+- Audited the other three categories (Tournament, Player, Format) for the same class of bug by diffing `fullName` sets across `NATIONAL_TEAMS`, `TEAMS`+`LEAGUE_TEAMS`, and `COMPETITIONS` — no overlapping entity names found; Player is keyed by individual id, Format is a fixed short list, neither has cross-category collision risk
+- Live post-deploy: Team category shows only franchise entries, no "National team" label anywhere, no Australia/India/etc. leaking in
+
+---
+
+## [1.0.56] 2026-07-15
+
+### Filter nav button restyled to match Home/Schedule
+
+#### Changed — plain flat icon+label tab instead of a raised circular button (`components/BottomNav.tsx`)
+- Filter was visually the most dominant of the three bottom-nav destinations despite being the least frequently used, and despite opening an overlay rather than switching to a persistent screen the way Home/Schedule do
+- Replaced the 52px raised circular violet-filled "camera button" (Instagram-style) with the identical `flex-1` icon+label layout Home/Schedule use — same 20px stroke icon, same 9.5px uppercase label, no elevation/shadow/circular fill
+- Color is now the only differentiator: neutral gray (`text-text-dim`, same as an inactive Home/Schedule icon) by default, Violet 600 (`#7C3AED`, the existing `follow` Tailwind token — same accent already used for selections inside the sheet) only while `FollowSheet` is open, reverting to neutral the instant it closes
+- Signals "currently active" without implying a persistent destination tab
+
+#### Verified
+- Live post-deploy: default state matches Home/Schedule exactly (flat, neutral gray, same size); class correctly switches to the violet token while the sheet is open in the DOM
+- Noted caveat: the Filter sheet is a near-full-height overlay that visually covers the entire nav bar while open, so the violet state — while correct in code — isn't currently visible on screen in this layout; flagged rather than silently expanded in scope
+
+---
+
 ## [1.0.55] 2026-07-15
 
 ### Filter button click reliability — bottom nav backdrop-filter fix + centering regression
