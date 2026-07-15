@@ -1,5 +1,6 @@
 import type { Match, MatchFormat } from "./types";
 import { isPlayerInMatch, getMatchLineup } from "./lineups";
+import { NATIONAL_TEAMS, ALL_TEAMS, COMPETITIONS, PLAYERS } from "./mockData";
 
 // ============================================================================
 // Follow preferences — v1.0.52
@@ -33,13 +34,91 @@ export function emptyFollowPrefs(): FollowPrefs {
   return { nations: [], teams: [], tournaments: [], players: [], formats: [] };
 }
 
+// ----------------------------------------------------------------------------
+// Sanitization — v1.0.63
+// ----------------------------------------------------------------------------
+// A stored FollowPrefs entry is only ever meaningful if it can still be
+// rendered and checked in the Filter sheet. Category-scoping rules (like
+// CO1, v1.0.57, which removed national teams from the Team category) can
+// retroactively invalidate a previously-stored ID -- e.g. a "teams" array
+// containing a national code like "AUS" after Team became franchise-only.
+// Left unchecked, that ID keeps being counted by totalFollowCount() and
+// honored by qualifyMatch(), while no checkbox anywhere can ever show it
+// as checked (since it no longer appears in the rendered options) or
+// un-check it. That split is exactly the "phantom selection" bug: a count
+// with no corresponding checked item.
+//
+// The fix: every read of stored prefs is filtered against the SAME valid-ID
+// sets the Filter sheet itself renders from, so a stored ID only survives
+// if it is genuinely renderable/checkable right now. This guarantees the
+// counter/badges and the checkbox state can never disagree, because both
+// are ultimately derived from this one sanitized value.
+function validNationIds(): Set<string> {
+  return new Set(Object.values(NATIONAL_TEAMS).map(t => t.country ?? t.code));
+}
+function validTeamIds(): Set<string> {
+  // Matches FollowSheet's buildOptions("teams") scoping exactly: franchise
+  // teams only, national teams excluded (they live under "nations" instead).
+  return new Set(
+    Object.values(ALL_TEAMS).filter(t => t.type !== "national").map(t => t.code)
+  );
+}
+function validTournamentIds(): Set<string> {
+  return new Set(Object.values(COMPETITIONS).map(c => c.id));
+}
+function validPlayerIds(): Set<string> {
+  return new Set(Object.keys(PLAYERS));
+}
+const VALID_FORMATS = new Set<MatchFormat>(["T20", "T20I", "ODI", "Test", "Hundred"]);
+
+export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
+  const nations = validNationIds();
+  const teams = validTeamIds();
+  const tournaments = validTournamentIds();
+  const players = validPlayerIds();
+  return {
+    nations: prefs.nations.filter(id => nations.has(id)),
+    teams: prefs.teams.filter(id => teams.has(id)),
+    tournaments: prefs.tournaments.filter(id => tournaments.has(id)),
+    players: prefs.players.filter(id => players.has(id)),
+    formats: prefs.formats.filter(f => VALID_FORMATS.has(f)),
+  };
+}
+
+function prefsEqual(a: FollowPrefs, b: FollowPrefs): boolean {
+  return (
+    a.nations.length === b.nations.length &&
+    a.teams.length === b.teams.length &&
+    a.tournaments.length === b.tournaments.length &&
+    a.players.length === b.players.length &&
+    a.formats.length === b.formats.length &&
+    a.nations.every(id => b.nations.includes(id)) &&
+    a.teams.every(id => b.teams.includes(id)) &&
+    a.tournaments.every(id => b.tournaments.includes(id)) &&
+    a.players.every(id => b.players.includes(id)) &&
+    a.formats.every(f => b.formats.includes(f))
+  );
+}
+
 export function getFollowPrefs(): FollowPrefs {
   if (typeof window === "undefined") return emptyFollowPrefs();
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyFollowPrefs();
     const parsed = JSON.parse(raw);
-    return { ...emptyFollowPrefs(), ...parsed };
+    const merged = { ...emptyFollowPrefs(), ...parsed };
+    const clean = sanitizeFollowPrefs(merged);
+    // Self-heal: if sanitizing dropped anything stale, persist the clean
+    // value immediately so storage is repaired on first read, not just
+    // masked on screen until the next explicit follow/unfollow.
+    if (!prefsEqual(merged, clean)) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+      } catch {
+        // localStorage unavailable — repaired value just won't persist.
+      }
+    }
+    return clean;
   } catch {
     return emptyFollowPrefs();
   }
