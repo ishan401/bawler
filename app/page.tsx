@@ -455,7 +455,11 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
   const rightTeam = side === "B" ? match.teamA : match.teamB;
 
   return (
-    <div className="card px-3 py-2.5">
+    // 3px left border in the followed team's color -- same "colored side
+    // accent" convention PastMatchCard/FutureMatchCard already use (winner's
+    // color there, followed team's color here). Always leftTeam's color, so
+    // border + dot + name are one consistent unit on the same side.
+    <div className="card px-3 py-2.5" style={{ borderLeft: `3px solid ${leftTeam.primaryColor}` }}>
       <div className="flex items-center justify-between mb-1.5">
         <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#7C3AED" }}>
           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
