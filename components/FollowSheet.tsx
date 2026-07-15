@@ -158,7 +158,11 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
     });
   }
 
-  function handleFollow() {
+  // Named for what the button now says, not what it used to say -- see
+  // the button below (v1.0.64): the commit mechanic is unchanged, only
+  // the label changed, since a saved change here can just as easily be
+  // a removal as an addition.
+  function handleUpdate() {
     setFollowPrefs(draft);
     onClose();
   }
@@ -172,11 +176,17 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
       onClose={onClose}
       footer={
         <button
-          onClick={handleFollow}
+          onClick={handleUpdate}
           className="w-full py-3.5 text-sm font-extrabold uppercase tracking-widest text-white"
           style={{ background: "#7C3AED" }}
         >
-          Follow{totalSelected > 0 ? ` (${totalSelected})` : ""}
+          {/* "Update" rather than "Follow" -- this button commits
+              additions AND removals, so a label that only reads
+              correctly for adding is a semantic mismatch when the
+              pending change is an unfollow. Count is kept as a neutral
+              "how many total selections after this save" indicator,
+              not framed as "how many things you're following now". */}
+          Update{totalSelected > 0 ? ` (${totalSelected})` : ""}
         </button>
       }
     >
