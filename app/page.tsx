@@ -443,7 +443,7 @@ export default function Home() {
  * yet, so this is a simple localStorage-backed preference, default India).
  */
 function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boolean; followPrefs: FollowPrefs }) {
-  // v1.0.56 -- this card only (Live/Spotlight/grid keep their own existing
+  // v1.0.58 -- this card only (Live/Spotlight/grid keep their own existing
   // team-order conventions): always put the followed team on the left, so
   // its color dot and name never end up disconnected from each other by
   // sitting on opposite sides. followedMatchSide returns null for matches

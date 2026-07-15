@@ -528,7 +528,7 @@ function QuietSide({ team, runs, wickets, isWinner, alignRight }: { team: Team; 
 // one result line. Excitement>=8 matches never reach this component — the
 // homepage routes them to SpotlightMatchCard instead.
 //
-// Border color rule (v1.0.57 — this card and FutureMatchCard only; Live
+// Border color rule (v1.0.60 — this card and FutureMatchCard only; Live
 // hero, Spotlight, and "for you" each have their own separate treatment
 // and are untouched by this rule): a completed match ALWAYS colors the
 // border with the actual winning team's primaryColor, matched by explicit

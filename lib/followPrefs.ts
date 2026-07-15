@@ -139,7 +139,7 @@ export function matchIsFollowed(match: Match, prefs: FollowPrefs): boolean {
 
 /**
  * Which side of `match` (teamA or teamB) is the one actually satisfying
- * `prefs` -- used only by the homepage "for you" card (v1.0.56) so it can
+ * `prefs` -- used only by the homepage "for you" card (v1.0.58) so it can
  * always put the followed team on the left, with its color dot, instead of
  * leaving team order at the mercy of whatever convention (home team first,
  * alphabetical, etc.) the match data happens to use. Returns null when
