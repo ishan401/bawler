@@ -79,7 +79,10 @@ function tintFg(tint?: AIMetric["tint"]): string {
 
 function trendOf(trend?: AIMetric["trend"], tint?: AIMetric["tint"]): { icon: string; color: string } | null {
   if (!trend || trend === "flat") return null;
-  const color = tint ? tintFg(tint) : trend === "up" ? "text-cyan" : "text-wicket";
+  // No specific outcome-tint on this metric -- falling back to a generic
+  // up/down trend color, not a wicket outcome, so this is the "negative
+  // trend" token, not "wicket" (v1.0.67 cleanup).
+  const color = tint ? tintFg(tint) : trend === "up" ? "text-cyan" : "text-negative";
   return { icon: trend === "up" ? "↑" : "↓", color };
 }
 export default memo(AIMetrics);

@@ -515,8 +515,8 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
             For you
           </span>
           {isLive && (
-            <span className="text-[9px] font-extrabold text-wicket uppercase tracking-widest flex items-center gap-1">
-              <span className="live-dot w-1.5 h-1.5 rounded-full bg-wicket inline-block" />Live
+            <span className="text-[9px] font-extrabold text-live uppercase tracking-widest flex items-center gap-1">
+              <span className="live-dot w-1.5 h-1.5 rounded-full bg-live inline-block" />Live
             </span>
           )}
         </div>

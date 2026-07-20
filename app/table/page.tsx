@@ -135,7 +135,7 @@ function StandingsTable({ standings }: { standings: CompetitionStandings }) {
             <span className="text-right text-sm num text-text-secondary">{row.lost}</span>
             {showDrawn && <span className="text-right text-sm num text-text-secondary">{row.drawn ?? 0}</span>}
             {showNRR && (
-              <span className={`text-right text-xs num ${nrr >= 0 ? "text-boundary" : "text-wicket"}`}>
+              <span className={`text-right text-xs num ${nrr >= 0 ? "text-boundary" : "text-negative"}`}>
                 {nrr > 0 ? "+" : ""}{nrr.toFixed(2)}
               </span>
             )}

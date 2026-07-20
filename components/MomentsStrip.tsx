@@ -23,7 +23,10 @@ const KIND_STYLES: Record<MatchEvent["kind"], { color: string; bg: string; borde
   overthrow:        { color: "text-orange",           bg: "bg-orange/10",    border: "border-orange/40",    chip: "↗",  chipBg: "bg-orange text-bg" },
   "drs-review":     { color: "text-cyan",            bg: "bg-cyan/10",      border: "border-cyan/40",      chip: "D",  chipBg: "bg-cyan text-bg" },
   "hat-trick-ball": { color: "text-wicket",          bg: "bg-wicket/20",    border: "border-wicket/60",    chip: "🎯", chipBg: "bg-wicket text-white" },
-  "five-for":       { color: "text-six",             bg: "bg-six/10",       border: "border-six/40",       chip: "5W", chipBg: "bg-six text-white" },
+  // A 5-wicket bowling haul -- a special/premium recognition moment, not a
+  // six-run outcome, even though it happened to borrow the "six" purple
+  // before this token cleanup (v1.0.67).
+  "five-for":       { color: "text-special",          bg: "bg-special/10",   border: "border-special/40",   chip: "5W", chipBg: "bg-special text-white" },
 };
 
 function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format }: MomentsStripProps) {
@@ -38,7 +41,7 @@ function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format 
             onClick={() => onSelect(null)}
             className="text-[10px] font-bold uppercase tracking-widest text-cyan flex items-center gap-1"
           >
-            <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-wicket" />
+            <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-live" />
             Back to live
           </button>
         )}

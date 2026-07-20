@@ -110,7 +110,7 @@ function MatchRow({ match, teamCode, status }: { match: Match; teamCode: string;
       className="card flex items-start gap-3 px-3 py-3 active:scale-[0.99] transition-transform">
       {/* Result indicator */}
       {status === "past" && (
-        <div className={`w-1 self-stretch rounded-full shrink-0 ${won ? "bg-boundary" : lost ? "bg-wicket" : "bg-text-dim"}`} />
+        <div className={`w-1 self-stretch rounded-full shrink-0 ${won ? "bg-boundary" : lost ? "bg-negative" : "bg-text-dim"}`} />
       )}
 
       <div className="flex-1 min-w-0">
@@ -118,8 +118,8 @@ function MatchRow({ match, teamCode, status }: { match: Match; teamCode: string;
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-bold">vs {opp.shortName}</span>
           {status === "live" && (
-            <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest text-red-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />Live
+            <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest text-live">
+              <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse" />Live
             </span>
           )}
           <span className="text-[9px] text-text-dim">{match.matchNumber}</span>
@@ -128,7 +128,7 @@ function MatchRow({ match, teamCode, status }: { match: Match; teamCode: string;
         {/* Summary / status / result */}
         {status === "past" && match.result && (
           <p className="text-[10px] text-text-secondary mt-0.5 leading-snug">
-            <span className={`font-bold ${won ? "text-boundary" : "text-wicket"}`}>
+            <span className={`font-bold ${won ? "text-boundary" : "text-negative"}`}>
               {won ? "Won" : lost ? "Lost" : "Tied"}
             </span>
             {match.result.margin ? ` · ${match.result.margin}` : ""}

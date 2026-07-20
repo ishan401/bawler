@@ -88,7 +88,7 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
           return (
             <div
               key={m.id}
-              className={`px-4 py-3 ${isLive ? "bg-wicket/5 border-l-2 border-wicket" : ""}`}
+              className={`px-4 py-3 ${isLive ? "bg-live/5 border-l-2 border-live" : ""}`}
             >
               {/* Date + competition round */}
               <div className="flex items-center justify-between mb-1">
@@ -96,8 +96,8 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
                   {fmtDate(m.startTimeIso)} · {m.matchNumber ?? ""}
                 </span>
                 {isLive && (
-                  <span className="text-[9px] font-extrabold text-wicket uppercase tracking-widest flex items-center gap-1">
-                    <span className="live-dot w-1 h-1 rounded-full bg-wicket inline-block" />Live
+                  <span className="text-[9px] font-extrabold text-live uppercase tracking-widest flex items-center gap-1">
+                    <span className="live-dot w-1 h-1 rounded-full bg-live inline-block" />Live
                   </span>
                 )}
               </div>
@@ -118,7 +118,7 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
               {/* Result or time */}
               {isPast && (
                 <div className="mt-1 flex items-start gap-2">
-                  <span className={`text-[10px] font-extrabold shrink-0 ${resultLine.startsWith("Won") ? "text-boundary" : resultLine.startsWith("Lost") ? "text-wicket" : "text-text-dim"}`}>
+                  <span className={`text-[10px] font-extrabold shrink-0 ${resultLine.startsWith("Won") ? "text-boundary" : resultLine.startsWith("Lost") ? "text-negative" : "text-text-dim"}`}>
                     {resultLine}
                   </span>
                   {m.summary && (
@@ -127,7 +127,7 @@ function TeamScheduleSheet({ competition, teamCode, onClose, onBack }: {
                 </div>
               )}
               {isLive && m.liveStatusOverride && (
-                <p className="mt-1 text-[10px] text-wicket font-bold">{m.liveStatusOverride}</p>
+                <p className="mt-1 text-[10px] text-live font-bold">{m.liveStatusOverride}</p>
               )}
               {isUpcoming && (
                 <p className="mt-1 text-[10px] text-text-dim">{fmtTime(m.startTimeIso)} · {m.venue.city}</p>
@@ -209,7 +209,7 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
               className={[
                 "rounded-xl border px-4 py-3 flex flex-col gap-1",
                 isLive
-                  ? "bg-six/10 border-six/40"
+                  ? "bg-live/10 border-live/40"
                   : isPast
                   ? "bg-bg-elevated border-line"
                   : "bg-bg-card border-line/60",
@@ -221,8 +221,8 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
                   {m.matchNumber ?? "Match"}
                 </span>
                 {isLive && (
-                  <span className="flex items-center gap-1 text-[9px] font-black text-six uppercase tracking-widest">
-                    <span className="w-1.5 h-1.5 rounded-full bg-six animate-pulse" />
+                  <span className="flex items-center gap-1 text-[9px] font-black text-live uppercase tracking-widest">
+                    <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse" />
                     LIVE
                   </span>
                 )}
@@ -270,7 +270,7 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
                       ) : null;
                     })()}
                     {winner === m.teamA.code && (
-                      <span className="text-[9px] font-black text-six bg-six/10 px-1.5 py-0.5 rounded-full">WON</span>
+                      <span className="text-[9px] font-black text-boundary bg-boundary/10 px-1.5 py-0.5 rounded-full">WON</span>
                     )}
                   </div>
                   {/* Team B */}
@@ -306,7 +306,7 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
                       ) : null;
                     })()}
                     {winner === m.teamB.code && (
-                      <span className="text-[9px] font-black text-six bg-six/10 px-1.5 py-0.5 rounded-full">WON</span>
+                      <span className="text-[9px] font-black text-boundary bg-boundary/10 px-1.5 py-0.5 rounded-full">WON</span>
                     )}
                   </div>
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Ball } from "@/lib/types";
+import { SPIN } from "@/lib/tokens";
 
 interface MiniBallGIFProps {
   ball: Ball;
@@ -108,7 +109,7 @@ export default function MiniBallGIF({ ball }: MiniBallGIFProps) {
       {/* Post-pitch trajectory */}
       <path
         d={`M ${impactX} ${impactY} Q ${postPitchControlX} ${postPitchControlY} ${batterArrivalX} ${batterArrivalY}`}
-        stroke={ball.spinDirection !== "none" ? "#A855F7" : "#00E5FF"}
+        stroke={ball.spinDirection !== "none" ? SPIN : "#00E5FF"}
         strokeWidth="1.1"
         strokeDasharray="1.5 2"
         fill="none"

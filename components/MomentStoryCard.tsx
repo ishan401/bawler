@@ -3,6 +3,7 @@
 import type { Ball, Match, WinProbPoint } from "@/lib/types";
 import { totalBallsForFormat } from "@/lib/winProb";
 import { ballLabel, absoluteBallNumber, totalBallsFor } from "@/lib/formatUtils";
+import { SPIN } from "@/lib/tokens";
 
 interface MomentStoryCardProps {
   ball: Ball;
@@ -363,7 +364,7 @@ function StoryCinematicPitch({ ball }: { ball: Ball }) {
   const shotEndX = CX + Math.sin(shotAngleRad) * shotLen;
   const shotEndY = PITCH_BOT_Y + 10 + Math.max(0, -Math.cos(shotAngleRad)) * shotLen * 0.6;
 
-  const postColor = spinBase !== 0 ? "#A855F7" : "#00E5FF";
+  const postColor = spinBase !== 0 ? SPIN : "#00E5FF";
   const isDot = !ball.runs && !ball.isWicket && !ball.extras;
   const noShot = isDot || ball.shotType === "left" || Math.abs(ball.pitchX ?? 0) > 0.8;
 
@@ -532,7 +533,7 @@ function formatVariation(ball: Ball): string {
 }
 
 function getVariationColor(ball: Ball): string {
-  if (ball.spinDirection && ball.spinDirection !== "none") return "#A855F7";
+  if (ball.spinDirection && ball.spinDirection !== "none") return SPIN;
   if (ball.swingDirection && ball.swingDirection !== "none") return "#06B6D4";
   return "rgba(255,255,255,0.7)";
 }

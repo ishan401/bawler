@@ -52,7 +52,21 @@ export const OUTCOME: Record<OutcomeKind, OutcomePalette> = {
   two:    { primary: "#64748B", badgeFg: "#FFFFFF", tint: "#475569", badgeText: "2" }, // same as dot/single
   three:  { primary: "#EC4899", badgeFg: "#FFFFFF", tint: "#DB2777", badgeText: "3" }, // pink
   four:   { primary: "#06B6D4", badgeFg: "#0A0E1A", tint: "#0EA5E9", badgeText: "4" },
-  six:    { primary: "#2DD4BF", badgeFg: "#0A0E1A", tint: "#2DD4BF", badgeText: "6" }, // turquoise green
+  // v1.0.67: was turquoise (#2DD4BF), the one place in the app that
+  // rendered a six-ball outcome in a color other than purple (#A855F7).
+  // Audited every six/spin rendering site: BallGIF (hero visual, 5 raw-hex
+  // usages), MiniBallGIF, MomentStoryCard, WinProbChart's event dots,
+  // Scorecard, OverSummary, DigestTab, MomentsStrip, MatchTabs, MatchupCard,
+  // and PitchReportCard's spin slider all already use #A855F7 -- turquoise
+  // only ever reached the screen via this OUTCOME map, through DeliveryCard's
+  // FullCard badge. That badge sits directly next to a MiniBallGIF thumbnail
+  // (same ball, same card) that was already rendering purple, so a live six
+  // ball card was visibly showing two different colors for one outcome.
+  // Standardized on purple -- the color actually used almost everywhere --
+  // rather than picking one arbitrarily. badgeFg switched to white to match
+  // BallGIF's own established fg convention for a purple-filled badge
+  // (`else if (ball.isBoundary6) { bg = "#A855F7"; fg = "#FFFFFF" }`).
+  six:    { primary: "#A855F7", badgeFg: "#FFFFFF", tint: "#A855F7", badgeText: "6" }, // purple, matches Tailwind's `six` token
   extra:  { primary: "#94A3B8", badgeFg: "#0A0E1A", tint: "#94A3B8", badgeText: "+" },
 };
 

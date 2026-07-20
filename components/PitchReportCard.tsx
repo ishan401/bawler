@@ -1,4 +1,5 @@
 import type { PitchReport, Venue } from "@/lib/types";
+import { SPIN } from "@/lib/tokens";
 
 interface PitchReportCardProps {
   pitch: PitchReport;
@@ -38,7 +39,7 @@ export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) 
         {/* Sliders */}
         <div className="space-y-3">
           <Slider label="Pace-friendly" value={pitch.paceFriendly} color="#00E5FF" />
-          <Slider label="Spin-friendly" value={pitch.spinFriendly} color="#A855F7" />
+          <Slider label="Spin-friendly" value={pitch.spinFriendly} color={SPIN} />
           <Slider label="Bounce consistency" value={pitch.bounceConsistency} color="#10B981" />
         </div>
 

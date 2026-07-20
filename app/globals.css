@@ -5,10 +5,15 @@
 @layer base {
   html {
     color-scheme: dark;
-    background: #000000;
+    /* v1.0.67: was a hardcoded #000000, bypassing the token system
+       entirely -- bg.deep (#03060F) is the token this was always meant
+       to be. Near-imperceptible shift (RGB 0,0,0 -> 3,6,15), confirmed
+       with the user before changing since the two values don't match
+       exactly. */
+    background: #03060F;
   }
   body {
-    background-color: #000000;
+    background-color: #03060F;
     @apply text-text-primary font-sans antialiased;
     font-feature-settings: "tnum" 1, "cv11" 1;
   }

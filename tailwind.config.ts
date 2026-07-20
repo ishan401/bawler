@@ -30,6 +30,18 @@ const config: Config = {
         // Follow/filter feature accent — deliberately its own color, NOT a
         // reuse of "six" purple (that's the ball-outcome palette).
         follow: { DEFAULT: "#7C3AED", soft: "#7C3AED22" },
+
+        // v1.0.67 — dedicated tokens for meanings that were previously
+        // borrowing "wicket" or "six" (per-ball outcome colors) for
+        // something unrelated to either ball outcome. Same hex values as
+        // before (no visual change), just named for what they actually
+        // mean now, so a future change to the real wicket/six ball-outcome
+        // color doesn't silently also change these unrelated things.
+        live:     { DEFAULT: "#EF4444" }, // live-match indicator (dot, "LIVE" text, live-row highlight) — was borrowing "wicket"
+        negative: { DEFAULT: "#EF4444" }, // behind/lost/declining trend signal, pairs with "boundary" as its positive counterpart — was borrowing "wicket"
+        special:  { DEFAULT: "#A855F7" }, // special/premium recognition (Man of Series, "Never dismissed", a bowler's five-for) — was borrowing "six"
+        spin:     { DEFAULT: "#A855F7" }, // ball spin-direction / delivery-type indicator — was borrowing "six"
+        slowPace: { DEFAULT: "#A855F7" }, // slowest tier of BallGIF's speed-readout color scale — was borrowing "six"
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

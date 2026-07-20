@@ -6,6 +6,7 @@ import type { Ball, MatchFormat } from "@/lib/types";
 import { ballLabel } from "@/lib/formatUtils";
 import MiniBallGIF from "./MiniBallGIF";
 import { OUTCOME, outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
+import { SPIN } from "@/lib/tokens";
 
 interface DeliveryCardProps {
   ball: Ball;
@@ -149,11 +150,13 @@ function FullCard({
 
 function SpeedDot({ ball, large }: { ball: Ball; large?: boolean }) {
   const speed = ball.ballSpeedKmh ?? 0;
+  // Slowest tier of this speed gradient -- not a six-run outcome
+  // (v1.0.67 cleanup; matches BallGIF's identical speed-tier pattern).
   const color =
     speed >= 145 ? "text-cyan"
     : speed >= 135 ? "text-text-primary"
     : speed >= 115 ? "text-orange"
-    : "text-six";
+    : "text-slowPace";
   return (
     <span className={`flex items-baseline gap-0.5 num ${large ? "text-[13px]" : "text-[11px]"} font-bold ${color} shrink-0`}>
       {speed}
@@ -174,7 +177,8 @@ function TypePill({ ball }: { ball: Ball }) {
 }
 
 function typeStyle(ball: Ball): { color: string; dot: string } {
-  if (ball.spinDirection && ball.spinDirection !== "none") return { color: "text-six", dot: "#A855F7" };
+  // Spin delivery-type indicator -- not a six-run outcome (v1.0.67).
+  if (ball.spinDirection && ball.spinDirection !== "none") return { color: "text-spin", dot: SPIN };
   if (ball.swingDirection && ball.swingDirection !== "none") return { color: "text-cyan", dot: "#06B6D4" };
   return { color: "text-text-primary", dot: "#94A3B8" };
 }

@@ -79,7 +79,7 @@ function ScoreBar({ match }: ScoreBarProps) {
 
         <div className="flex flex-col items-end gap-0.5">
           <div className="text-[10px] uppercase tracking-widest text-text-dim flex items-center gap-1.5">
-            {isLive && <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-wicket" />}
+            {isLive && <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-live" />}
             {isLive ? "LIVE" : isPost ? "FINAL" : "PRE"}
           </div>
           <div className="flex items-center gap-1">

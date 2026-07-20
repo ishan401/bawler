@@ -14,7 +14,7 @@ export default function ProjectedScore({ projected, target }: ProjectedScoreProp
       <div className="flex items-baseline gap-2 mb-1">
         <span className="text-3xl font-extrabold num text-text-primary">{projected.runs}</span>
         {target !== undefined && diff !== null && (
-          <span className={`text-sm font-semibold num ${diff > 0 ? "text-boundary" : diff < 0 ? "text-wicket" : "text-text-secondary"}`}>
+          <span className={`text-sm font-semibold num ${diff > 0 ? "text-boundary" : diff < 0 ? "text-negative" : "text-text-secondary"}`}>
             {diff > 0 ? "+" : ""}{diff}
           </span>
         )}

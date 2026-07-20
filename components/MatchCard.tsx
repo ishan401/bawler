@@ -220,8 +220,8 @@ export function LiveMatchCard({ match }: { match: Match }) {
       <div className="relative h-full px-2.5 py-2 flex flex-col text-white">
         {/* Row 1 — Live badge (left) + competition badge + venue (right) */}
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-wicket flex items-center gap-1.5 leading-none">
-            <span className="live-dot w-1.5 h-1.5 rounded-full bg-wicket inline-block" />
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-live flex items-center gap-1.5 leading-none">
+            <span className="live-dot w-1.5 h-1.5 rounded-full bg-live inline-block" />
             Live
           </span>
           <div className="flex items-center gap-1.5">

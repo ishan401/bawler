@@ -87,7 +87,7 @@ function StandingsTab({ competition }: Props) {
                 <span className="text-right text-sm num text-text-secondary">{row.drawn ?? 0}</span>
               )}
               {showNrr && (
-                <span className={`text-right text-xs num ${(row.netRunRate ?? 0) >= 0 ? "text-boundary" : "text-wicket"}`}>
+                <span className={`text-right text-xs num ${(row.netRunRate ?? 0) >= 0 ? "text-boundary" : "text-negative"}`}>
                   {(row.netRunRate ?? 0) > 0 ? "+" : ""}{(row.netRunRate ?? 0).toFixed(2)}
                 </span>
               )}

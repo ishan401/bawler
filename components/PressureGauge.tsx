@@ -36,7 +36,7 @@ export default function PressureGauge({ level, trend }: PressureGaugeProps) {
 function TrendIcon({ trend }: { trend: "rising" | "falling" | "steady" }) {
   if (trend === "rising") {
     return (
-      <span className="text-wicket text-xs font-semibold flex items-center gap-0.5">
+      <span className="text-negative text-xs font-semibold flex items-center gap-0.5">
         <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
           <path d="M2 8L6 4L10 8" stroke="currentColor" strokeWidth="2" />
         </svg>

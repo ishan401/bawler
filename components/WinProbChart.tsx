@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { Match, WinProbPoint, MatchEvent } from "@/lib/types";
+import { SPECIAL } from "@/lib/tokens";
 
 interface WinProbChartProps {
   match: Match;
@@ -379,7 +380,7 @@ function eventColor(kind: MatchEvent["kind"]): string {
     case "overthrow":       return "#FF6B35";
     case "drs-review":      return "#00E5FF";
     case "hat-trick-ball":  return "#EF4444";
-    case "five-for":        return "#A855F7";
+    case "five-for":        return SPECIAL; // bowling milestone, not a six-run outcome (v1.0.67)
     default:               return "#94A3B8";
   }
 }

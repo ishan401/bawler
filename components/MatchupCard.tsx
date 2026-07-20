@@ -154,7 +154,10 @@ function MatchupCard({
             <CompactStat
               label={totalOuts === 1 ? "OUT" : "OUTS"}
               value={totalOuts}
-              color={totalOuts === 0 ? "text-six" : totalOuts >= 3 ? "text-wicket" : "text-orange"}
+              // 0 outs is a "never dismissed" achievement, not a six-run
+              // outcome -- special/premium recognition token (v1.0.67).
+              // >=3 outs stays "wicket": that's a real dismissal count.
+              color={totalOuts === 0 ? "text-special" : totalOuts >= 3 ? "text-wicket" : "text-orange"}
             />
           </div>
 
@@ -167,7 +170,7 @@ function MatchupCard({
             <span>SR-<span className="text-text-secondary font-bold num">{sr}</span></span>
             <span>Dots-<span className="text-text-secondary font-bold num">{dotPct}%</span></span>
             {totalOuts === 0 && hasData && (
-              <span className="text-six font-semibold">Never dismissed</span>
+              <span className="text-special font-semibold">Never dismissed</span>
             )}
           </div>
 

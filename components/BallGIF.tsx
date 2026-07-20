@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
+import { SPIN } from "@/lib/tokens";
 
 interface PartnershipBatter { name: string; runs: number; balls: number; fours: number; sixes: number; }
 interface PartnershipInfo { batters: PartnershipBatter[]; totalRuns: number; totalBalls: number; totalFours: number; totalSixes: number; }
@@ -305,7 +306,7 @@ function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; 
       <text x={CX-74} y={PITCH_BOT_Y+56} textAnchor="start" fill="#F8FAFC" fontSize="14" fontWeight="700" fontFamily="Inter, sans-serif">{ball.batterName}</text>
       <text x={CX-74} y={PITCH_BOT_Y+72} textAnchor="start" fill="#94A3B8" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Batter</text>
       <use href="#pre-B" stroke="#FF6B35" strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.5"/>
-      <use href="#post-B" stroke={ball.spinDirection!=="none"?"#A855F7":"#00E5FF"} strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.55"/>
+      <use href="#post-B" stroke={ball.spinDirection!=="none"?SPIN:"#00E5FF"} strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.55"/>
       <circle cx={impactX} cy={impactY} r="9" fill="#FF6B35" opacity="0.4"/>
       <circle cx={impactX} cy={impactY} r="4" fill="#FFE9A0"/>
       <circle r="4" fill="#000" opacity="0.5"><animateMotion dur={`${prePitchMs}ms`} repeatCount="indefinite" path={`M ${releaseX} ${releaseY+8} L ${impactX} ${impactY}`}/></circle>
@@ -361,13 +362,13 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
 function SpeedChip({ ball }: { ball: Ball }) {
   const speed = ball.ballSpeedKmh;
   if (!speed) return null;
-  const color = speed>=140?"text-cyan":speed>=130?"text-text-primary":speed>=110?"text-orange":"text-six";
+  const color = speed>=140?"text-cyan":speed>=130?"text-text-primary":speed>=110?"text-orange":"text-slowPace";
   return <div className="flex items-baseline gap-0.5 leading-none"><span className={`text-xs font-extrabold num ${color}`}>{speed}</span><span className="text-[8px] font-semibold uppercase tracking-widest text-text-dim">kmh</span></div>;
 }
 
 function TypeChip({ ball, large }: { ball: Ball; large?: boolean }) {
   const variation = formatVariation(ball);
-  const color = ball.spinDirection&&ball.spinDirection!=="none"?"text-six":ball.swingDirection&&ball.swingDirection!=="none"?"text-cyan":"text-text-primary";
+  const color = ball.spinDirection&&ball.spinDirection!=="none"?"text-spin":ball.swingDirection&&ball.swingDirection!=="none"?"text-cyan":"text-text-primary";
   return <span className={`font-extrabold leading-tight ${color} ${large?"text-sm":"text-xs"}`}>{variation}</span>;
 }
 

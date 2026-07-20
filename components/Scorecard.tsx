@@ -57,7 +57,7 @@ export default function Scorecard({ match }: ScorecardProps) {
       {mots && (
         <div className="card px-3 py-2 flex items-center gap-2">
           <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Series</span>
-          <span className="text-sm font-extrabold text-six">{mots}</span>
+          <span className="text-sm font-extrabold text-special">{mots}</span>
         </div>
       )}
     </div>
@@ -429,7 +429,7 @@ function BatterRow({
   const isLiveBatter = !row.out && row.ballsFaced > 0;
 
   const nameColor = isMots
-    ? "text-six"
+    ? "text-special"
     : isMotm
     ? "text-yellow-400"
     : row.out
@@ -456,7 +456,7 @@ function BatterRow({
               <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
             )}
             {isMots && (
-              <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
+              <span className="text-[8px] font-extrabold uppercase tracking-widest text-special bg-special/10 px-1 py-0.5 rounded leading-none">MOS</span>
             )}
           </div>
           {row.out && row.dismissal && (
@@ -627,7 +627,7 @@ function BowlerRow({
   const isMots = mots && row.playerName === mots;
 
   const nameColor = isMots
-    ? "text-six"
+    ? "text-special"
     : isMotm
     ? "text-yellow-400"
     : "text-text-primary";
@@ -641,7 +641,7 @@ function BowlerRow({
             <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
           )}
           {isMots && (
-            <span className="text-[8px] font-extrabold uppercase tracking-widest text-six bg-six/10 px-1 py-0.5 rounded leading-none">MOS</span>
+            <span className="text-[8px] font-extrabold uppercase tracking-widest text-special bg-special/10 px-1 py-0.5 rounded leading-none">MOS</span>
           )}
         </div>
       </td>
