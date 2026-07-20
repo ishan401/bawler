@@ -3,7 +3,18 @@
 > **Dev-facing only. Not shipped, not linked from the app, not user content.**
 > This is the single source of truth for color/spacing/layout decisions, consolidated from what's *actually* in the live codebase as of this writing (not reconstructed from memory or intent). Every value below was pulled directly from `tailwind.config.ts`, `app/globals.css`, `lib/mockData.ts`, `lib/outcomeColors.ts`, and the component files that consume them — re-run the greps/scripts noted inline if this drifts.
 >
-> **Read this before adding any new color, border, or card type to the homepage or match cards.** Check a new value against what's here first. This doc exists because color collisions and inconsistent treatment have shipped before without a place to check against (see "Known inconsistencies" below — some already exist in production and are flagged rather than hidden).
+> **Read this before adding any new color, border, or card type to the homepage or match cards.** Check a new value against what's here first. This doc exists because color collisions and inconsistent treatment have shipped before without a place to check against (see "Known inconsistencies" directly below — some already exist in production and are flagged rather than hidden).
+
+**Contents:** [Known inconsistencies](#known-inconsistencies-currently-open-not-yet-fixed) · [1. Surfaces](#1-surface--background-layers) · [2. Text](#2-text-tokens) · [3. Accents](#3-brand--status-accents) · [4. Ball-outcome vs. Filter violet](#4-ball-outcome-palette-vs-filter-violet--different-systems-do-not-cross-wire) · [5. Team roster](#5-team-color-roster-all-72-currently-in-libmockdatats) · [6. Card tiers](#6-card-tier-system) · [7. Spacing](#7-spacing--sizing-conventions) · [Checklist](#before-you-add-a-new-color-border-or-card-type)
+
+---
+
+## Known inconsistencies (currently open, not yet fixed)
+
+- **CSK / AUS near-identical gold** (`#FDB913` vs `#FFB81C`, RGB distance 9.3 — see §5) — two teams that can appear on the same table/schedule screen render as effectively the same color on a small dot or border. Flagged, not fixed; no decision yet on which one (if either) should move.
+- **`bg.deep` (`#03060F`) is defined but unused** (§1) — not broken, just dead until something actually needs a layer deeper than `bg.surface`/`bg.elevated`.
+
+Most other inconsistencies this doc originally flagged (page-background hardcoding, the `wicket`/`six` dual-purpose tokens, the six-ball turquoise/purple mismatch) have since been resolved — each resolution is called out inline in its own section (search this file for "Resolved") rather than removed from the record, so the reasoning stays visible. If you find a new one, add it to this list rather than quietly working around it.
 
 ---
 
