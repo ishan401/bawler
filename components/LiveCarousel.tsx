@@ -490,7 +490,7 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
         </div>
 
         {(activeComp || activeMatch?.seriesStatus) && (
-          <div className="mt-2 flex items-center gap-2 flex-nowrap">
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
             {/* League / WTC table button — only when standings exist */}
             {activeComp && (
               <button
@@ -508,20 +508,22 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
               </button>
             )}
             {/* Series status chip — clickable, opens full series schedule.
-                v1.0.71: gets priority for the row's remaining space (pill
-                stays fixed) -- padding/gap tightened and the purely
-                decorative trailing chevron dropped (border/hover-color
-                already signal tappability without it) so the real
-                seriesStatus strings in the current dataset (measured up to
-                ~179px at this size, see DESIGN-SYSTEM.md §7) render in full
-                with room to spare, rather than the ~167px that was left
-                over after the table pill went fixed-width. `truncate` stays
-                on as a genuine last-resort safety net for a future
-                much-longer series description, not the everyday path. */}
+                v1.0.72: font size, padding, gap, and both icons are fixed --
+                identical to every other homepage chip -- regardless of
+                available space. This chip never auto-shrinks to fit; the
+                row (flex-wrap, above) is the pressure-release valve instead.
+                When the pill's fixed 176px leaves less room than this
+                chip's full-size natural width (the real case for the
+                current Test-match seriesStatus string), the chip wraps to
+                its own line below the pill rather than shrinking type size
+                or truncating -- see DESIGN-SYSTEM.md §7. `truncate` +
+                `min-w-0` stay on only as a genuine last-resort for a
+                future, materially longer description that wouldn't read
+                well even on its own full-width line. */}
             {activeMatch?.seriesStatus && (
               <button
                 onClick={() => setView("series")}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-bg-elevated border border-line text-[9.5px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none min-w-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none min-w-0"
               >
                 <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="shrink-0">
                   <line x1="4" y1="13" x2="4" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
@@ -531,6 +533,9 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
                   <path d="M5.5 8 C5.5 5 10.5 5 10.5 8" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
                 </svg>
                 <span className="truncate">{activeMatch.seriesStatus}</span>
+                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="text-cyan opacity-60 shrink-0">
+                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </button>
             )}
           </div>
