@@ -247,7 +247,10 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   const topWicketTaker = innings.bowlingCard.reduce(
     (best, row) => {
       if (row.wickets > (best?.wickets ?? -1)) return row;
-      if (row.wickets === (best?.wickets ?? -1) && row.runsConceded < (best?.runsConceded ?? Infinity)) return row;
+      // Tiebreak: among bowlers tied on wickets, lowest economy wins -- not
+      // lowest raw runsConceded, which unfairly favors whoever bowled fewer
+      // overs regardless of rate (v1.0.69 fix).
+      if (row.wickets === (best?.wickets ?? -1) && row.economy < (best?.economy ?? Infinity)) return row;
       return best;
     },
     null as BowlingEntry | null

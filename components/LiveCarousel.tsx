@@ -511,17 +511,17 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
             {activeMatch?.seriesStatus && (
               <button
                 onClick={() => setView("series")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none min-w-0"
               >
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="shrink-0">
                   <line x1="4" y1="13" x2="4" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="8" y1="13" x2="8" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="12" y1="13" x2="12" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                   <path d="M5.5 8 C5.5 5 10.5 5 10.5 8" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
                 </svg>
-                {activeMatch.seriesStatus}
-                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="text-cyan opacity-60">
+                <span className="truncate">{activeMatch.seriesStatus}</span>
+                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="text-cyan opacity-60 shrink-0">
                   <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
