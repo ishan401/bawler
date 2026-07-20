@@ -21,7 +21,15 @@ export const QUIET_CARD_HEIGHT = 60;
 // highlight badge), now reserved for matches clearing the concrete spotlight
 // bar (lib/spotlight.ts — NOT the excitement score) and rendered full-width
 // above the quiet grid instead of inline in it.
-export const SPOTLIGHT_CARD_HEIGHT = 148;
+// v1.0.66: was 148 -- a fixed height, so merging the venue into the story
+// line (below) trimmed the CONTENT by a line without touching this
+// constant, leaving ~50-60px of dead space at the bottom of every card
+// rather than actually closing the height gap with the single-line "for
+// you" card above it. Reduced to fit the new, shorter content (measured
+// live: ~89-103px including a 2-line-wrap case for a longer merged
+// sentence) with a small buffer, for both the past- and upcoming-match
+// branches, which share this one constant.
+export const SPOTLIGHT_CARD_HEIGHT = 116;
 
 // ============================================================================
 // Helpers
