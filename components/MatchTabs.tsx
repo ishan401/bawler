@@ -19,7 +19,14 @@ interface MatchTabsProps {
 function MatchTabs({ active, onChange, badge, showTable, showDigest }: MatchTabsProps) {
   const TABS: { key: TabKey; label: string }[] = [
     { key: "live", label: "Live" },
-    { key: "scorecard", label: "Scorecard" },
+    // Label shortened to "Score" (v1.0.79) -- at equal tab width (needed
+    // to fix the uneven-width bug in v1.0.78), "Scorecard" doesn't fit
+    // even at zero letter-spacing (measured ~75px vs. the ~56px available
+    // inside an 80px-wide tab), so it was truncating to "SCOR...". "Score"
+    // fits comfortably (~47px) at the tab bar's normal tracking-widest.
+    // The tab's `key` stays "scorecard" -- this only changes the visible
+    // label, not the tab identity or the Scorecard component itself.
+    { key: "scorecard", label: "Score" },
     ...(showDigest ? [{ key: "digest" as TabKey, label: "Digest" }] : []),
     { key: "info", label: "Info" },
     ...(showTable ? [{ key: "table" as TabKey, label: "Table" }] : []),
