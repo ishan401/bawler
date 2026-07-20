@@ -5,6 +5,7 @@ import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/typ
 import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
 import { ballsPerSet, absoluteBallNumber, inningsProgressLabel, situationLabel } from "@/lib/formatUtils";
 import { extractMatchEvents } from "@/lib/events";
+import { APP_VERSION_LABEL } from "@/lib/version";
 import ScoreBar from "@/components/ScoreBar";
 import MiniInsightsBar from "@/components/MiniInsightsBar";
 import BallGIF from "@/components/BallGIF";
@@ -708,7 +709,11 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         {renderedTab === "table" && <StandingsTab competition={tableComp} />}
 
         <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
-          Bawler v1.0.65 · all data mocked
+          {/* Sourced from lib/version.ts (package.json's "version" field) --
+              never hardcode a version literal here again. See lib/version.ts
+              for why (v1.0.65 was hardcoded and never updated across 17
+              subsequent releases until a user caught it in v1.0.82). */}
+          Bawler {APP_VERSION_LABEL} · all data mocked
         </footer>
         </div>
       </main>
