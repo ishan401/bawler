@@ -1407,6 +1407,17 @@ export default function DigestTab({ match, allBalls }: Props) {
   // every already-shown card on every tick instead of just the new one(s).
   // Reset whenever the match itself changes so an old match's cache can
   // never leak into a different match's digest.
+  //
+  // ASSUMPTION (documented in DECISIONS-LOG.md, "Real-data architecture",
+  // RD8): this assumes a real feed is append-only and never retroactively
+  // edits a ball that's already part of a "complete" cached card (e.g. a
+  // DRS overturn changing a dismissal after the fact). This cache is a
+  // plain in-memory ref -- never written to localStorage/sessionStorage/any
+  // server store -- so it cannot survive a page reload, and it doesn't
+  // even survive navigating off this tab and back (both fully unmount this
+  // component, which re-creates the cache from empty). If that assumption
+  // is ever wrong, a stale card would show for at most as long as the user
+  // keeps this exact tab mounted, never longer.
   const cacheRef = useRef<DigestCardCache>(new Map());
   const cacheMatchIdRef = useRef<string | null>(null);
   if (cacheMatchIdRef.current !== match.id) {
