@@ -648,15 +648,20 @@ export function SpotlightMatchCard({ match, isPast, forYou }: { match: Match; is
             </div>
           )}
 
-          <div className="text-[9.5px] text-white/65 truncate leading-tight">
-            {match.venue.name} ({match.venue.city})
-          </div>
-
-          {match.summary && (
-            <p className="text-[10.5px] leading-snug text-white/90" style={clamp2}>
-              {match.summary}
-            </p>
-          )}
+          {/* Single merged context line (v1.0.66) -- venue used to render
+              as its own standalone line above this one, stacking two lines
+              of context and making this card noticeably taller than the
+              single-line "for you" card above it on the homepage. Venue is
+              now folded into the story line itself (city only, not the
+              full venue name -- "...vs Surya's 78, Ahmedabad." rather than
+              a second clause repeating "Narendra Modi Stadium"), so there's
+              exactly one context line, same as before this fix existed at
+              all for matches with no summary. */}
+          <p className="text-[10.5px] leading-snug text-white/90" style={clamp2}>
+            {match.summary
+              ? `${match.summary.replace(/\.+\s*$/, "")}, ${match.venue.city}.`
+              : `${match.venue.city}.`}
+          </p>
         </div>
       </Link>
     );
