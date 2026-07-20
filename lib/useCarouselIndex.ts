@@ -44,23 +44,32 @@ export function useCarouselIndex(
     // ref) doesn't exist yet (see the isBooting comment in app/page.tsx).
     // That first run found `ref.current` null, returned early with no
     // listener and no cleanup -- confirmed live via the fiber's effect
-    // record (`hasDestroy: false`). 350ms later the skeleton swaps to real
-    // content and the ref attaches, but `itemCount` never changed across
-    // that swap, so the effect never got a second chance to attach its
-    // listener -- the dot stayed on index 0 regardless of swiping, forever.
+    // record. 350ms later the skeleton swaps to real content and the ref
+    // attaches, but `itemCount` never changed across that swap, so the
+    // effect never got a second chance to attach its listener -- the dot
+    // stayed on index 0 regardless of swiping, forever.
+    //
     // Fixed by polling for `ref.current` instead of assuming it's already
-    // there on the first run -- resolves in one frame when it already is
-    // (LiveCarousel's case, unchanged), keeps checking each frame when it
-    // isn't (Spotlight/"for you"'s case) until it shows up. Capped so a
+    // there on the first run -- resolves immediately when it already is
+    // (LiveCarousel's case, unchanged), keeps checking when it isn't
+    // (Spotlight/"for you"'s case) until it shows up. Deliberately
+    // setTimeout, not requestAnimationFrame: this is a one-time "has the
+    // node mounted yet" check, not a per-frame animation, and rAF is fully
+    // suspended (not just throttled) on a backgrounded/hidden tab -- if
+    // `isBooting`'s flip happens to land while the tab is hidden (confirmed
+    // this exact scenario live via document.hidden while testing), an
+    // rAF-based retry would never fire at all and this bug would just
+    // resurface under that specific timing. setTimeout keeps running
+    // (throttled, not stopped) regardless of visibility. Capped so a
     // carousel that will never have 2+ items (nothing to attach to, ever)
     // doesn't poll forever.
     let tries = 0;
-    const MAX_TRIES = 120; // ~2s at 60fps -- generous vs. the ~350ms isBooting gap
+    const MAX_TRIES = 100; // ~5s at the 50ms interval below -- generous vs. the ~350ms isBooting gap
     const tryAttach = () => {
       const el = ref.current;
       if (!el) {
         tries++;
-        if (tries < MAX_TRIES) rafId = requestAnimationFrame(tryAttach);
+        if (tries < MAX_TRIES) rafId = window.setTimeout(tryAttach, 50);
         return;
       }
       attachedEl = el;
@@ -70,7 +79,7 @@ export function useCarouselIndex(
     tryAttach();
 
     return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (rafId !== null) window.clearTimeout(rafId);
       if (attachedEl) attachedEl.removeEventListener("scroll", onScroll);
     };
   }, [ref, itemCount]);
