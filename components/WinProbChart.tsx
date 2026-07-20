@@ -284,10 +284,32 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
             );
           })}
 
-          {/* Now marker */}
+          {/* Now marker.
+              v1.0.73: the dashed guideline, glow ring, and dot were always
+              already exactly on `nx` (confirmed via direct SVG coordinate
+              inspection -- line x1/x2, circle cx, and the main path's own
+              rendered endpoint all land on the identical value, since they
+              share this same `nx`/`ny` computed from the same `last` point
+              used everywhere else on this chart). The reported "marker is
+              ~20px off the NOW line" traced to the *label*, not the line:
+              it was deliberately offset to nx+7..nx+33 (text centered at
+              nx+20) so the label box wouldn't cover the dot when win% is
+              near an extreme and the dot sits close to PAD.top -- but that
+              made the readable "NOW" text itself sit 20px from the actual
+              line, which is exactly what a coordinate check against the
+              label (rather than the dashed guideline) would measure.
+              Fixed by moving the label above the whole plot area instead
+              (same row as the "2ND INN" divider tag below), centered on
+              the same `nx` as the line/dot -- it can never overlap the dot
+              regardless of the dot's y, and it's honestly centered on the
+              line rather than floating beside it. Clamped so the label
+              itself never spills past the chart's left/right edges when
+              `nx` is near either end. */}
           {last.overFloat >= xMin && last.overFloat <= xMax && (() => {
             const nx = xToPx(last.overFloat);
             const ny = yToPx(last.winProbTeamA);
+            const labelW = 26;
+            const labelCx = Math.min(W - PAD.right - labelW / 2, Math.max(PAD.left + labelW / 2, nx));
             return (
               <g>
                 <line x1={nx} y1={PAD.top} x2={nx} y2={PAD.top + innerH}
@@ -296,9 +318,15 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
                 <circle cx={nx} cy={ny} r="9" fill={teamA.primaryColor} opacity="0.2" />
                 <circle cx={nx} cy={ny} r="5.5" fill={teamA.primaryColor} stroke="#0A0E1A" strokeWidth="1.5" />
                 <circle cx={nx} cy={ny} r="2" fill="#FFFFFF" />
-                {/* NOW label */}
-                <rect x={nx + 7} y={PAD.top + 4} width="26" height="13" rx="3" fill="#0F172A" />
-                <text x={nx + 20} y={PAD.top + 14} fill="#94A3B8" fontSize="8" fontWeight="700"
+                {/* NOW label — centered on nx, above the plot area (only
+                    visible if clamping actually moved it off nx, i.e. near
+                    a chart edge) */}
+                {labelCx !== nx && (
+                  <line x1={nx} y1={PAD.top - 4} x2={labelCx} y2={PAD.top - 4}
+                    stroke="#94A3B8" strokeWidth="1" opacity="0.5" />
+                )}
+                <rect x={labelCx - labelW / 2} y={PAD.top - 18} width={labelW} height="13" rx="3" fill="#0F172A" />
+                <text x={labelCx} y={PAD.top - 8} fill="#94A3B8" fontSize="8" fontWeight="700"
                   textAnchor="middle" letterSpacing="1">NOW</text>
               </g>
             );
