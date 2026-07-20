@@ -490,7 +490,7 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
         </div>
 
         {(activeComp || activeMatch?.seriesStatus) && (
-          <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <div className="mt-2 flex items-center gap-2 flex-nowrap">
             {/* League / WTC table button — only when standings exist */}
             {activeComp && (
               <button
