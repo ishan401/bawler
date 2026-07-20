@@ -3,6 +3,299 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.85] 2026-07-20
+
+### Docs: full sync covering everything shipped since the last sync (v1.0.71–v1.0.84)
+
+#### Updated — `DECISIONS-LOG.md`
+- New sections: series-chip/table-pill saga (TC1–TC4, v1.0.71–v1.0.74), dot-indicator + hero badge + tab-width fixes (DI1–DI2, HB1, TW1, v1.0.75–v1.0.79), real-data readiness fixes (RR1–RR6, v1.0.80), Digest tab overhaul (DG1–DG8, v1.0.81–v1.0.82), version-footer root-cause fix (VF1–VF3, v1.0.83)
+
+#### Updated — `BUILD-STATUS.md`
+- Current-version bumped to v1.0.85; new v1.0.71–v1.0.79 and v1.0.80–v1.0.84 changelog tables; Digest tab section rewritten for the performance/structure/narrative/visual overhaul; Tech/infra section gained validation-layer, win-prob null-safety, and version-enforcement bullets
+
+#### Updated — `README.md`
+- Version header + status line bumped v1.0.74 → v1.0.85; Digest tab description updated for the overhaul; Key data rules gained `normalizeMatch()` and `getPlayerShortName()` entries
+
+#### Updated — `DESIGN-SYSTEM.md`
+- Added a cross-reference note under §6 pointing to `DigestTab.tsx`'s notable/routine boolean-gate treatment as a reuse of the same Spotlight philosophy off the homepage
+
+#### Verified
+- `git status --short` / `git diff --stat` confirmed only doc files (plus the version bump) changed before committing — no code touched in this pass
+- `tsc --noEmit` and `npm run build` clean
+
+---
+
+## [1.0.84] 2026-07-20
+
+### Docs: document Digest cache's append-only assumption
+
+#### Updated — `DECISIONS-LOG.md`, `components/DigestTab.tsx`
+- Added RD8 to the "Real-data architecture" table: the `DigestCardCache` (v1.0.81) assumes real feeds are append-only, with no invalidation path for a backfilled correction to a past ball (e.g. a DRS overturn or scoring correction)
+- Explains the consequence if that assumption is ever wrong (stale card until the tab unmounts/remounts — reload, or navigate off Digest and back) and confirms the cache is plain in-memory (`useRef`), never written to `localStorage`/`sessionStorage`/any server store
+- Added a cross-referencing comment at the `cacheRef` declaration in `DigestTab.tsx` pointing to RD8
+- No code behavior change — documentation only
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean, including the `prebuild` version-check gate
+
+---
+
+## [1.0.83] 2026-07-20
+
+### Fix from root: stale footer version + structural guard against recurrence
+
+#### Fixed — `components/MatchView.tsx` footer showed hardcoded "Bawler v1.0.65" despite 17 subsequent releases
+- Root cause: the footer string was a literal, written once and never updated again — a hard refresh could never fix it because the deployed code itself, not a cache, was wrong
+- New `lib/version.ts` derives `APP_VERSION`/`APP_VERSION_LABEL` directly from `package.json`'s `"version"` field; footer now renders `{APP_VERSION_LABEL}` instead of a literal
+
+#### Added — `scripts/version-check.ts`, wired as an npm `"prebuild"` hook
+- Confirms `lib/version.ts`'s derived values match `package.json`
+- Walks `app/`, `components/`, `lib/` for any other file with a hardcoded `Bawler vX.Y.Z` pattern outside an explicit allowlist (`lib/version.ts` only)
+- Runs automatically as part of `npm run build` — the same command Vercel's deploy pipeline invokes — so a reintroduced hardcoded version literal fails the build outright instead of silently shipping
+
+#### Added — `package.json`
+- `tsx` added to `devDependencies`; new `"prebuild"` and `"version-check"` npm scripts; `package-lock.json` regenerated and kept in sync
+
+#### Verified
+- Deliberately reintroduced the original bug twice — once against `version-check.ts` standalone, once against the full `npm run build` pipeline — confirmed both fail with a clear error, then reverted
+- Live: footer correctly shows the current version after deploy
+
+---
+
+## [1.0.82] 2026-07-20
+
+### Fix: real repeat-phrase bug found live in v1.0.81's Digest narrative variety
+
+#### Fixed — `components/DigestTab.tsx`
+- Live testing on the deployed v1.0.81 site showed Day 2's two bowling-dominated sessions (5 wkts/116 runs, then 6 wkts/32 runs) both closing with "...Brutal and brilliant." despite the new anti-repeat logic
+- Root cause: `pickUnusedPhrase(variants, used: Set<string>)` tracked usage by comparing the fully-rendered string (numbers already interpolated) — different embedded numbers meant the two sessions' strings never matched, so the `Set` never registered a repeat and kept returning the same variant-0 template for both
+- `digest-check.ts`'s local test had used identical stats across all 3 test sessions, which produced identical rendered strings and made the buggy check accidentally "pass" locally — masking the defect entirely until live verification
+- Replaced the whole mechanism with `pickPhrase(variants, seed)` — deterministic slot-index selection, seeded off each session's own ordinal position within the day (`slotIndex + e.sess.day`) — guarantees distinct variants regardless of what numbers get interpolated
+
+#### Updated — `scripts/digest-check.ts`
+- Strengthened to use deliberately different stats per test session (previously identical), plus a fixed-phrase-marker check (`["Brutal and brilliant.", "on its own.", "had no answers."]` each used ≤1 time within a day) so this exact failure mode can't be masked again
+
+#### Verified
+- Live on the deployed site: Day 2's two bowling-dominated sessions now render distinct closing lines
+- `digest-check.ts` passes with the strengthened, non-identical test data
+
+---
+
+## [1.0.81] 2026-07-20
+
+### Digest tab overhaul: performance, structure, narrative quality, visual hierarchy
+
+#### Added — `scripts/digest-benchmark.ts`
+- Synthetic 4-innings, 5-day, ~2190-ball Test generator; measures total/avg/p50/p90/p99/max recompute time and object-identity stability across ticks, with and without caching
+- Benchmarked before deciding scope: raw recompute cost was never the bottleneck (avg ~1.7ms, max ~7ms even near a full match) — the real cost was React re-render triggered by every card getting a brand-new object reference on every live tick
+
+#### Added — `DigestCardCache` (`components/DigestTab.tsx`)
+- `Map<string, DigestCardData>` held in a `useRef`, reset when `match.id` changes
+- Populates a card only once its underlying data can never change again — a Test session/day marked `isComplete`, or an over-group chunk that's provably complete by construction (`completedOverNums` already excludes any partial trailing over)
+- All 4 card view components (`OverGroupCardView`, `SessionCardView`, `DaySummaryCardView`, `MatchSummaryCardView`) converted to `React.memo`
+- Re-benchmarked after: object-identity stability across ticks went from 0% to ~95%
+- Depends on an explicit append-only assumption about the underlying feed (documented later as RD8, v1.0.84)
+
+#### Fixed — day/session card duplication (`buildTestSessionCards()`, `components/DigestTab.tsx`)
+- While a day is still in progress, individual session cards render as each session completes (unchanged, already correct)
+- Once a day fully ends, those session cards are now replaced by a single consolidated `DaySummaryCard` describing however many sessions were actually played (2 on a weather-shortened day, 3 normally) — no more lingering duplicate session cards alongside the day card
+
+#### Added — narrative variety (`pickUnusedPhrase`, `buildSessionLine()`, `components/DigestTab.tsx`)
+- Day-report session lines bucketed by what actually happened before picking a phrase: weather-shortened / bowling-collapse / strong-bowling / dominant-batting / steady-batting / stalemate / swing / competitive, checked in that priority order — rather than one generic dramatic closer regardless of context
+- Phrase bank expanded to 3 variants per bucket; usage tracked within a day summary so two sessions shouldn't repeat the same line (later found to have a real gap — see v1.0.82)
+
+#### Added — visual hierarchy: `isNotableOverGroup`/`isNotableSession`/`isNotableDay` (`components/DigestTab.tsx`)
+- Each clears on one explicit, concrete condition (e.g. an 11-wicket day) — the same boolean-gate philosophy already used by `lib/spotlight.ts` for homepage Spotlight, not a composite/accumulated score
+- Notable cards get a subtle amber accent border (plus the existing pulsing `excitement-glow` if also live) instead of a loud badge; routine cards stay visually quiet
+- `DaySummaryCardView` also swaps header background/label color via full literal Tailwind class strings selected by ternary — a template-interpolated class name (e.g. `` `border-${accent}/20` ``) is invisible to Tailwind's build-time JIT scanner and would have silently shipped with no visible accent; caught by reasoning through the build pipeline before it ever deployed
+
+#### Updated — T20/ODI over-group cards (`buildOverGroupCards()`, `components/DigestTab.tsx`)
+- Same cache-by-id treatment (safe unconditionally, since every produced over chunk is provably complete) and same `isNotable` boolean-gate visual treatment as the Test session/day cards — variety and notable-vs-routine distinction aren't Test-only
+
+#### Added — `lib/narrativeThresholds.ts` (runtime-overridable thresholds, carried over from v1.0.80)
+- `buildNarrative`/`buildOverSummary`/`buildDayReport` now take threshold params defaulting via `getNarrativeThresholds()`
+
+#### Verified
+- Live on the deployed site: multi-day Test shows exactly one consolidated card per completed day, including a weather-shortened 2-session day; an in-progress day still shows session cards as they finish
+- Live: a dramatic day (11-wicket collapse) visually distinguishable from a routine day via the amber accent
+- Benchmark results reported for a full 5-day/~2190-ball synthetic Test, not just a short match
+- Investigated a suspicious hydration warning (#418/#423) found on deploy; root-caused to a pre-existing, unrelated `MatchView.tsx` tab-restoration pattern via fetching and grepping the deployed JS bundle — confirmed not caused by this change (homepage unaffected, Digest isn't mounted there by default)
+
+---
+
+## [1.0.80] 2026-07-20
+
+### Real-data readiness: validation layer, name resolution, session detection, thresholds, win-prob null-safety
+
+#### Added — `lib/dataValidation.ts`
+- `normalizeMatch(raw, opts?)` validates Match/Innings/Ball/Team/Venue/Competition shapes with hand-rolled type guards, collecting every issue into `errors` (blocking) and `warnings` (non-blocking, e.g. missing `innings[0].runs`) rather than failing on the first problem
+- Never throws; logs via `console.error`/`console.warn` with a `[Bawler:DataValidation]` prefix
+- Wired into `lib/matchGenerator.ts`: both `generatePastMatches`/`generateFutureMatches` now filter their generated output through `normalizeMatch(...).ok`
+
+#### Added — `getPlayerShortName()` (`lib/mockData.ts`)
+- Looks up each player's own registry `shortName` field instead of algorithmically splitting the full name string, which broke on multi-part surnames (Sri Lankan compound names, "de Silva"-style surnames)
+- Falls back to the unmodified full name (never a guessed split) when a player isn't in the local registry — a slightly-longer label is a safer failure mode than a confidently wrong short name
+- `DigestTab.tsx`'s `lastName()` rewritten to delegate to it
+
+#### Fixed — `deriveTestSessions()` (`lib/transformers.ts`)
+- Replaced single `SESSION_BREAK_MS` with a `SESSION_BREAK_MIN_MS`(20min)–`SESSION_BREAK_MAX_MS`(75min) window: a gap inside it (and not a day boundary, and not already covered by an explicit `KnownStoppage`) is a genuine session break; a gap outside it is an irregular stoppage that merges into the current session instead of advancing the session index
+- Day-boundary detection made unconditional on calendar date rather than gap-dependent — fixes a previously-defined-but-unused `DAY_BREAK_MS` constant that the old logic never actually checked
+- New `KnownStoppage` interface + `isWithinKnownStoppage()` for explicit stoppage metadata when available
+
+#### Added — `lib/narrativeThresholds.ts`
+- `getNarrativeThresholds()` merges a `localStorage`-persisted partial override over `DEFAULT_NARRATIVE_THRESHOLDS`, SSR-safe; `setNarrativeThresholdOverride()`/`clearNarrativeThresholdOverride()` manage it
+- Lets narrative calibration against real match statistics be retuned without a full redeploy
+
+#### Fixed — `lib/winProb.ts`
+- `target!` non-null assertion in the chase-innings branch replaced with `if (target === null) { continue; }` — skips the point instead of computing a fake NaN-derived percentage
+- `calculatePressureGauge` guards `firstInningsRuns` before computing `target = firstInningsRuns + 1`, returning `null` rather than computing off a fabricated value
+
+#### Added — `scripts/edge-case-check.ts`
+- Constructs a multi-part surname, a rain-delay-sized gap, and a null/zero first-innings-runs state — deliberately not reusing the mock generator's own "nice" data shapes
+
+#### Verified
+- All edge-case checks pass, including confirming the validation layer's warning log fires as expected
+- `tsc --noEmit` and `npm run build` clean
+
+---
+
+## [1.0.79] 2026-07-20
+
+### Fix: shorten Scorecard tab label to fit equal-width tabs cleanly
+
+#### Fixed — `components/MatchTabs.tsx`
+- v1.0.78's `min-w-0` fix exposed that "Scorecard" doesn't fit inside an equal-width ~80px tab even at zero letter-spacing (measured ~75px needed vs ~56px available) — was rendering as "SCOR…"
+- Measured `tracking-widest`/`-wide`/`-normal` first; none closed the ~19px gap
+- Shortened the visible label to "Score" (~47px, comfortable margin at the tab bar's normal `tracking-widest`); tab `key` stays `"scorecard"` — only the label changed, not the tab's identity or the Scorecard component it opens
+
+#### Verified
+- Live: all 5 tabs render at equal width with no truncation
+
+---
+
+## [1.0.78] 2026-07-20
+
+### Fix: uneven match-page tab widths (add min-w-0)
+
+#### Fixed — `components/MatchTabs.tsx`
+- Tabs use `flex-1` (grow/shrink/basis:0%) intending equal widths, but a button's default `min-width: auto` made flexbox fall back to each button's own content width as a floor
+- "Scorecard" (longest label, uppercase + `tracking-widest`) couldn't shrink below its own text width — measured ~110px vs ~71–75px for Live/Digest/Info/Table
+- Added `min-w-0` so `flex-basis: 0%` can actually take effect across all tabs; added `truncate` as a safety net
+
+#### Verified
+- Live: confirmed the `truncate` safety net fired ("SCOR…") — addressed in the v1.0.79 follow-up above
+
+---
+
+## [1.0.77] 2026-07-20
+
+### Fix: hero card badge — drop redundant team-matchup text
+
+#### Fixed — `components/MatchCard.tsx` (`CompetitionBadge`)
+- Hero card's badge showed "IND V AUS · Sydney" — pure duplication of the two teams already shown as the card's main content
+- Root cause: `CompetitionBadge` renders `match.competition.shortName` verbatim; for bilateral series without a named identity, `shortName` literally IS the two teams restated ("IND v AUS", "IND v ENG") — confirmed in `lib/mockData.ts`'s `COMPETITIONS` map. Named series (Ashes) and every league (IPL, WTC) don't have this problem
+- Fix scoped to the exact redundant case: when `competition.type === "bilateral"` AND `shortName` matches `"{teamA.code} v {teamB.code}"` in either order, swap the badge to the match format (T20I/ODI/Test/T20/Hundred) instead — genuine info not shown elsewhere on the card. Every other case renders unchanged
+- Shared component used by hero, Spotlight, and past/future cards alike — Spotlight's badge corrected for free
+
+#### Verified
+- Live: hero card now shows format instead of restated team names; Ashes/IPL/WTC badges unaffected
+
+---
+
+## [1.0.76] 2026-07-20
+
+### Fix: switch dot-indicator retry from rAF to setTimeout
+
+#### Fixed — `lib/useCarouselIndex.ts`
+- v1.0.75's fix (poll for `ref.current` via `requestAnimationFrame`) is correct in principle but `rAF` is fully suspended — not just throttled — while a tab is hidden/backgrounded
+- Confirmed live: if `isBooting`'s ~350ms flip happens to land during that window, the rAF retry never fires and the same "dot stuck at index 0" symptom resurfaces from a different cause
+- Switched to `setTimeout(50ms)`, which keeps running (at worst throttled) regardless of tab visibility — a one-time "has the node mounted yet" check never actually needed rAF specifically
+
+#### Verified
+- Live: dots correctly track swipe position after a background-tab scenario
+
+---
+
+## [1.0.75] 2026-07-20
+
+### Fix: Spotlight/"for you" dot indicator stuck at index 0
+
+#### Fixed — `lib/useCarouselIndex.ts`
+- Root cause confirmed via direct React fiber inspection: the effect's deps are `[ref, itemCount]`; `ref` is a referentially-stable `useRef`, so once the effect has run once it only re-runs if `itemCount` itself changes
+- Spotlight/"for you"'s calls live in `Home()`'s own hook list and run unconditionally on every render — including the very first `isBooting=true` render, which shows a skeleton instead of the real carousel markup. On that first run `ref.current` was `null`, so the effect returned early with no listener attached (confirmed live: the committed effect's `destroy` was `undefined`)
+- ~350ms later the real carousel mounts, but `itemCount` never changed across that swap, so React's dependency check never gave the effect a second chance — the dot stayed on index 0 regardless of swiping, permanently
+- Fixed inside `useCarouselIndex` only (no call-site changes needed): poll for `ref.current` via `requestAnimationFrame` instead of assuming it's already attached; resolves in one frame when it already is (LiveCarousel's case, unchanged), keeps checking otherwise; capped at ~2s of retries
+
+#### Verified
+- Live: Spotlight and "for you" dots now correctly track swipe position (superseded in one edge case by v1.0.76 above)
+
+---
+
+## [1.0.74] 2026-07-20
+
+### Revert table pill + series chip to content-hugging (undo v1.0.68–v1.0.72)
+
+#### Fixed — `components/LiveCarousel.tsx`, full revert per feedback
+- The v1.0.68 fixed-width table pill (176px) cascaded into a chain of follow-on regressions: series chip truncation (v1.0.69 attempt) → font-shrink to compensate (v1.0.71) → row wrapping to two lines (v1.0.70) → that wrap regressing a second time once the font-shrink reverted (v1.0.72)
+- The original content-hugging behavior never had any of these problems, so reverted the whole thread rather than continuing to patch it
+- Restored the exact pre-v1.0.68 pill (content-hugging width, no `TABLE_PILL_WIDTH` constant) and the exact pre-v1.0.69 series chip (`text-[11px]`, `px-3 py-1.5`, `gap-1.5`, both icons, no `truncate`/`min-w-0`); container stays `flex-wrap`, unchanged from the original
+
+#### Updated — `DESIGN-SYSTEM.md` §7
+- Replaced the fixed-width-pill and shrink-resistant-chip bullets (describing the now-reverted v1.0.68–v1.0.72 behavior) with one bullet describing the restored content-hugging pattern, plus an explicit note against re-fixing the pill's width without solving the whole row's layout at once
+
+#### Verified
+- Live: pill and chip both content-hug again; no truncation, no two-row wrap, at every real `seriesStatus` string length currently in the mock data
+
+---
+
+## [1.0.73] 2026-07-20
+
+### Fix: win-prob modal NOW-label offset from its own guideline
+
+#### Fixed — `components/WinProbChart.tsx`
+- Reported: current-point marker sits ~20px left of the "NOW" line
+- Direct SVG coordinate inspection (live) found the dashed guideline, marker dot, and the trend line's own rendered endpoint were all already exactly on the same `nx`/`ny` — no data-reference mismatch between the dot and the line
+- The actual offset was the "NOW" text label itself: deliberately placed at `nx+7..nx+33` (centered at `nx+20`) so the label box wouldn't cover the dot near a chart edge — a real ~20px gap between the label's text and the true line
+- Fixed by moving the label above the entire plot area (same row as the "2ND INN" divider tag), centered on the same `nx` as the line/dot, clamped so it can't spill past either chart edge
+
+#### Verified
+- Live, ENG vs IND Test: label now sits directly above the true `nx` regardless of the dot's y-position near either chart extreme
+
+---
+
+## [1.0.72] 2026-07-20
+
+### Revert font-shrink on series chip, use wrap as the valve
+
+#### Fixed — `components/LiveCarousel.tsx`, reverted per feedback
+- v1.0.71 shrank the series chip's type size (11px → 9.5px) plus padding/gap/icons to squeeze the full `seriesStatus` text into the leftover space next to the fixed table pill — reverted: font size (and padding/gap/icons) must stay fixed, identical to every other homepage chip, never auto-shrunk to solve a space problem
+- Restored the chip's standard chrome (`text-[11px]`, `px-3 py-1.5`, `gap-1.5`, both icons); switched the row container back to `flex-wrap` — now the intended overflow valve: when the pill's fixed width leaves less room than the chip's full-size natural width, the chip wraps to its own full-width line below the pill at full size, rather than shrinking or truncating
+- `truncate`/`min-w-0` remain only as a last resort for a future materially longer description
+
+#### Updated — `DESIGN-SYSTEM.md` §7
+- Describes the final approach and explicitly rules out shrinking this chip's type size again
+
+#### Verified
+- Live: chip renders at full size; wraps to its own row for the current Test match's longer `seriesStatus` string rather than truncating
+
+---
+
+## [1.0.71] 2026-07-20
+
+### Fix: series chip truncation next to fixed table pill
+
+#### Fixed — `components/LiveCarousel.tsx`
+- Series chip's leftover space after the pill's fixed 176px + row gap (~167px available) was narrower than real `seriesStatus` strings in `mockData.ts` (168–179px at 11px), so `truncate` was firing on the everyday case
+- Fixed by trimming the chip's own chrome, not the pill: dropped the decorative trailing chevron, tightened padding (`px-3`→`px-2.5`) and icon-text gap (`gap-1.5`→`gap-1`), reduced label size to `text-[9.5px]` (pill's 11px untouched)
+- `truncate` + `min-w-0` stay on as a last-resort safety net for a future much longer string, not the normal path
+
+#### Updated — `DESIGN-SYSTEM.md` §7
+
+#### Verified
+- Live: longest current string ("Series level 0-0 · 5-match T20I series", 179px) now clears the ~187px available with ~8px margin (later found insufficient for the Test match's longer string — see v1.0.72)
+
+---
+
 ## [1.0.70] 2026-07-20
 
 ### Actually fix the table-pill/series-chip row-wrap regression: flex-wrap → flex-nowrap

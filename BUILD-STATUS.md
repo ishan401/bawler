@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.70 (deployed)
+**Current version:** v1.0.85 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -173,6 +173,9 @@
 - ✅ Static-prerendered match pages via `generateStaticParams`
 - ✅ No external chart library — hand-written SVG throughout
 - ✅ BottomNav outside phone-frame in layout — never clipped by `overflow: clip`
+- ✅ **Data validation/adapter layer (`lib/dataValidation.ts`, v1.0.80)** — `normalizeMatch()` validates Match/Innings/Ball/Team/Venue/Competition shapes at the data boundary, collecting errors (blocking) and warnings (non-blocking) rather than letting malformed data flow silently into narrative/win-prob functions; never throws. Wired into `lib/matchGenerator.ts` as the template call site for a future real API adapter
+- ✅ **Win-prob null-safety (`lib/winProb.ts`, v1.0.80)** — `target!` non-null assertion in the chase-innings branch replaced with a real null check that skips the point (fewer chart points) instead of computing a fake NaN-derived percentage; `calculatePressureGauge` given the same guard on `firstInningsRuns`
+- ✅ **Single-source-of-truth app version (`lib/version.ts`, v1.0.83)** — `APP_VERSION`/`APP_VERSION_LABEL` derive from `package.json`'s `"version"` field; `scripts/version-check.ts` runs as an npm `"prebuild"` hook (so it's part of `npm run build`, the same command Vercel runs) and fails the build outright if a hardcoded `Bawler vX.Y.Z` literal ever reappears anywhere outside `lib/version.ts` — fixes a real bug where the match-page footer stayed hardcoded at "v1.0.65" across 17 releases (see DECISIONS-LOG.md VF1–VF3)
 
 ---
 
@@ -268,14 +271,19 @@
 - ✅ **Digest tab** — 4th tab in MatchView (visible when ball data exists for any innings); shows a story-of-the-match through cards newest-first
 - ✅ **Format-adaptive grouping** — T20/T20I/Hundred: 1 card per over; ODI: 1 card per 5 overs; Test with sessions: 1 card per session; Test without sessions: 1 card per 10 overs (auto-derived from timestamps)
 - ✅ **Over-group cards (T20/ODI)** — 3-row compact layout: header (over label + runs/wickets/4s/6s) + narrative (factual 1-liner) + over-summary (punchy 2-line creative text); ball-dot row for T20/T20I showing W/4/6/runs/dot coloured circles
-- ✅ **Session cards (Test)** — one card per session (ICC naming: 1st/2nd/3rd Session); shows session label, innings label, over range, runs/wickets, "Live" badge for the in-progress session
-- ✅ **Day Summary card (Test)** — rich 5–7 line day report after each completed day; session-by-session breakdown table; top bat + top bowl highlights; cyan border distinguishes it from session cards
+- ✅ **Session cards (Test)** — one card per session (ICC naming: 1st/2nd/3rd Session); shows session label, innings label, over range, runs/wickets, "Live" badge for the in-progress session. Only shown while that day is still in progress — a completed day's individual session cards are replaced by its consolidated Day Summary card instead (v1.0.81, no more day/session duplication)
+- ✅ **Day Summary card (Test)** — rich 5–7 line day report after each completed day; session-by-session breakdown table; top bat + top bowl highlights; consolidates however many sessions the day actually had (2 on a weather-shortened day, 3 normally) into one card instead of leaving the individual session cards visible alongside it (v1.0.81)
+- ✅ **Digest narrative variety (v1.0.81, fixed for real v1.0.82)** — day-report session lines are now bucketed by what actually happened (weather-shortened / bowling-collapse / strong-bowling / dominant-batting / steady-batting / stalemate / swing / competitive) before picking a phrase, with an expanded 3-variant bank per bucket, selected via a deterministic per-session slot seed (`pickPhrase`) rather than a rendered-string "already used" check — the earlier string-comparison approach could repeat the same template with different numbers baked in (shipped and caught live in v1.0.81, fixed v1.0.82); see DECISIONS-LOG.md DG4/DG7
+- ✅ **Digest visual hierarchy (v1.0.81)** — `isNotableOverGroup`/`isNotableSession`/`isNotableDay` (`components/DigestTab.tsx`) each clear on one explicit, concrete condition (e.g. an 11-wicket day), the same boolean-gate philosophy as `lib/spotlight.ts`; notable cards get a subtle amber accent border (plus the existing pulsing glow if also live) instead of a loud badge, applied to over-group, session, and day-summary cards alike, for both the Test and T20/ODI card families
+- ✅ **Digest render-performance caching (v1.0.81)** — benchmarked first (`scripts/digest-benchmark.ts`, synthetic 5-day/~2190-ball Test): raw recompute cost was never the bottleneck (avg ~1.7ms/tick even near full-match); the real cost was React re-render from every card getting a new object reference on every live tick. Fixed with a `DigestCardCache` (`useRef<Map>`) that reuses the exact same object for any card whose underlying data can never change again (a completed session/day, or a provably-complete over chunk), plus `React.memo` on each card view — measured object-identity stability across ticks went from 0% to ~95%. Depends on an explicit append-only assumption about the underlying feed — see DECISIONS-LOG.md "Real-data architecture" RD8
 - ✅ **Day filter chips (Test)** — horizontal row of "Day 2", "Day 3" etc. chips above cards; default = latest day; match summary card always pinned regardless of selected day; only shown when ≥ 2 days have data
 - ✅ **Innings chips (T20/ODI)** — "1st Innings" / "2nd Innings" chip row; default = latest innings with data; only shown when both innings have ball data
 - ✅ **Post-match summary card** — rich pinned card at top of Digest tab for any match with `match.result`; winner + margin, top batter/bowler highlights, MOM with initials avatar, series status, 6-line auto-narrative; always visible regardless of day/innings filter
 - ✅ **MOM avatar** — Man of Match in summary card shows player photo (via `PLAYERS[slug].photoUrl`) with initials-in-team-colour fallback (same design language as BallGIF PlayerAvatar)
 - ✅ **Shareable cards** — every digest card has a share button; captures card as 2× PNG via `html-to-image`; `navigator.share` on mobile, `<a download>` fallback on desktop
-- ✅ **`deriveTestSessions()`** in `transformers.ts` — auto-detects session boundaries from timestamp gaps so DigestTab works for Test matches even when the API omits session metadata
+- ✅ **`deriveTestSessions()`** in `transformers.ts` — auto-detects session boundaries from timestamp gaps so DigestTab works for Test matches even when the API omits session metadata. Now distinguishes a genuine session break from a rain/bad-light stoppage via a min/max gap window (`SESSION_BREAK_MIN_MS`–`SESSION_BREAK_MAX_MS`) plus optional explicit `KnownStoppage` metadata (v1.0.80) — a long weather delay merges into the current session instead of being misread as a session boundary; day-boundary detection is now unconditional on calendar date rather than gap-dependent
+- ✅ **Player short-name resolution (`getPlayerShortName()`, v1.0.80)** — `DigestTab`'s `lastName()` now looks up each player's own registry `shortName` field instead of algorithmically splitting the full name string, which broke on multi-part surnames (Sri Lankan compound names, "de Silva"-style surnames); falls back to the full unmodified name (never a guessed split) for a player not yet in the local registry
+- ✅ **Runtime-overridable narrative thresholds (`lib/narrativeThresholds.ts`, v1.0.80)** — day-report/over-summary/narrative thresholds read a `localStorage`-persisted override merged over hardcoded defaults, so recalibrating against real match statistics doesn't require a full redeploy
 
 ### Data layer — IND vs ENG Test + AUS vs IND T20I
 
@@ -359,3 +367,33 @@
 | **v1.0.68** | Tournament-table shortcut pill (`WTC TABLE`/`IPL TABLE`/etc.) given a fixed `176px` width instead of content-hugging, so it no longer visibly resizes per tournament (`abc84a8`) |
 | **v1.0.69** | Fix attempt: `min-w-0` + `truncate` on the series-status chip to stop a two-row wrap regression introduced by v1.0.68's wider table pill — did not actually hold, see v1.0.70; also fixed a real bug: bowling tiebreak now compares `economy` instead of raw `runsConceded` (`2868ce3`) |
 | **v1.0.70** | Actual row-wrap fix: switched the shared row container from `flex-wrap` to `flex-nowrap` — `flex-wrap` breaks lines off each item's un-shrunk size, so v1.0.69's shrink/truncate additions never got a chance to apply (`ef112ee`) |
+
+## Changelog additions (v1.0.71–v1.0.79)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.71** | Series-status chip shrunk its own chrome (smaller type, tighter padding/gap, dropped chevron) to fit next to the fixed table pill (`4420415`) |
+| **v1.0.72** | Reverted v1.0.71's font-shrink per feedback — chip type size must stay fixed; `flex-wrap` made the intended overflow valve instead (`a81c105`) |
+| **v1.0.73** | Fix: win-prob modal "NOW" label was floating ~20px off its own guideline — dot/line/guideline were already pixel-exact; moved the label above the plot area, centered on the same x-coordinate (`4864150`) |
+| **v1.0.74** | Full revert of the v1.0.68–v1.0.72 table-pill/series-chip thread back to original content-hugging behavior, after the fixed-width pill cascaded into 4 follow-on regressions (`5d08edc`) |
+| **v1.0.75** | Fix: Spotlight/"for you" swipe-carousel dots stuck permanently at index 0 — `useCarouselIndex`'s mount-detection effect never got a second chance to attach after the real carousel replaced the boot skeleton; fixed with an `rAF` poll for `ref.current` (`8076663`) |
+| **v1.0.76** | Fix: v1.0.75's `rAF` retry is fully suspended on a backgrounded tab — switched to `setTimeout(50ms)` (`125e362`) |
+| **v1.0.77** | Fix: hero/Spotlight competition badge dropped redundant "IND V AUS"-style team-matchup text for bilateral series with no named identity, showing the match format instead (`a0eeabc`) |
+| **v1.0.78** | Fix: uneven match-page tab widths — added `min-w-0` so `flex-1`'s equal-width intent actually takes effect (`ae470a3`) |
+| **v1.0.79** | Follow-up: "Scorecard" didn't fit at the now-equal tab width even with `truncate` — shortened the visible label to "Score" (tab `key` unchanged) (`1252161`) |
+
+## Changelog additions (v1.0.80–v1.0.84)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.80** | Real-data readiness: `lib/dataValidation.ts` validation/adapter layer, `getPlayerShortName()` replaces name-split heuristic, `deriveTestSessions()` rain-delay vs. session-break window, runtime-overridable narrative thresholds, `target!` null-safety in `winProb.ts` — verified with constructed edge-case data (`dd6745f`) |
+| **v1.0.81** | Digest tab overhaul: benchmarked-then-fixed render performance (cache + `React.memo`, ~0%→~95% object-identity stability), day/session card structural dedup, expanded/conditional narrative phrasing, notable-vs-routine visual hierarchy — applied to both Test and T20/ODI card families (`ce7fe5f`) |
+| **v1.0.82** | Fix: real repeat-phrase bug found live in v1.0.81 — rendered-string "already used" tracking missed same-template-different-numbers repeats; replaced with deterministic slot-seeded phrase selection (`cbb0b91`) |
+| **v1.0.83** | Fix from root: match-page footer hardcoded at "Bawler v1.0.65" across 17 releases — `lib/version.ts` now derives from `package.json`, `scripts/version-check.ts` wired as a `prebuild` hook so a reintroduced hardcoded literal fails `npm run build` outright (`c84cf02`) |
+| **v1.0.84** | Docs: documented the Digest cache's append-only assumption (DECISIONS-LOG.md RD8) — no code behavior change (`bbc2e54`) |
+
+## Changelog additions (v1.0.85)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.85** | Docs: full sync of BUILD-STATUS.md, DECISIONS-LOG.md, changes and upgradations.md, README.md, and DESIGN-SYSTEM.md covering everything shipped v1.0.71–v1.0.84 (chip/pill saga + revert, dot-indicator fix, hero badge, tab widths, real-data readiness fixes, Digest overhaul, version-bug fix) — no code changes |

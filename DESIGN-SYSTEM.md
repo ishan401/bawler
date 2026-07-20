@@ -203,6 +203,8 @@ Four visually distinct tiers exist on the homepage, in descending order of visua
 
 **The one universal rule across all four:** color on a card always means something specific and decided (a real winner, a real personal follow, a real spotlight-worthy match) — never an arbitrary/default pick. A card with no real signal to show stays neutral or flat rather than borrowing a color that isn't earned.
 
+**Off-homepage reuse of the same philosophy (not a 5th tier of this table):** `DigestTab.tsx`'s `isNotableOverGroup`/`isNotableSession`/`isNotableDay` (match-page Digest tab, v1.0.81) apply the identical boolean-gate rule — one explicit, concrete condition (e.g. an 11-wicket day), never a composite/accumulated score — to distinguish a dramatic day/session/over-group from a routine one. Notable cards get a subtle amber accent border instead of a loud badge; this table only tracks the homepage's own four tiers, but any new "notable vs. routine" surface elsewhere should follow this same gate pattern rather than inventing a scoring system. See DECISIONS-LOG.md DG5/DG6 for the full reasoning.
+
 ## 7. Spacing / sizing conventions
 
 Pulled from the actual homepage card components, for matching a new card without reinventing the rhythm:
