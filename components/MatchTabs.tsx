@@ -34,7 +34,7 @@ function MatchTabs({ active, onChange, badge, showTable, showDigest }: MatchTabs
             <button
               key={tab.key}
               onClick={() => onChange(tab.key)}
-              className={`flex-1 px-3 py-3 text-xs font-bold uppercase tracking-widest relative transition-colors ${
+              className={`flex-1 min-w-0 px-3 py-3 text-xs font-bold uppercase tracking-widest relative transition-colors text-center truncate ${
                 isActive ? "text-cyan" : "text-text-dim hover:text-text-secondary"
               }`}
             >
