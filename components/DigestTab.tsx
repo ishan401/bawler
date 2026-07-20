@@ -250,34 +250,35 @@ interface SessionEntry {
 }
 
 /**
- * Pick the first variant not yet used THIS call, so repeated buckets within
- * the same day-report (e.g. two bowling-dominated sessions) don't close on
- * an identical line. Falls back to the first variant if every option in
- * this bucket has already been used -- with 3 variants per bucket and at
- * most 3 sessions/day, that fallback should never actually trigger; it's a
- * safety net, not the expected path.
+ * Pick a variant by SLOT, not by checking the rendered text for repeats --
+ * two sessions landing in the same bucket almost always have different
+ * runs/wickets baked into the phrase text (e.g. "116 runs... 5 wickets" vs
+ * "32 runs... 6 wickets"), so comparing full rendered strings would treat
+ * them as "different" and never actually detect the repeat. `seed` is
+ * offset by the day number so which variant lands in "slot 0" also varies
+ * day-to-day, not just session-to-session within one day.
  */
-function pickUnusedPhrase(variants: string[], used: Set<string>): string {
-  for (const v of variants) {
-    if (!used.has(v)) {
-      used.add(v);
-      return v;
-    }
-  }
-  return variants[0];
+function pickPhrase(variants: string[], seed: number): string {
+  const idx = ((seed % variants.length) + variants.length) % variants.length;
+  return variants[idx];
 }
 
 /**
  * Per-session line for the Day Stumps report. Picks a context (rain-
  * shortened / bowling collapse / batting dominance / grinding stalemate /
  * momentum swing / competitive) from what actually happened in THIS
- * session, then a phrase variant within that context not already used
- * elsewhere in the same day's report.
+ * session, then a phrase variant within that context. `slotIndex` is this
+ * session's position within the day (0 = first session played, 1 =
+ * second, ...) -- since it's unique per session within a day, and every
+ * bucket below has exactly as many variants as a day can have sessions
+ * (3), using it as the variant seed GUARANTEES two sessions in the same
+ * day never land on the same variant of the same bucket, without needing
+ * to compare rendered text at all.
  */
 function buildSessionLine(
   e: SessionEntry,
   t: NarrativeThresholds["dayReport"],
-  used: Set<string>
+  slotIndex: number
 ): string {
   const SESS_LABELS: Record<string, string> = { first: "1st Session", second: "2nd Session", third: "3rd Session" };
   const sessName = SESS_LABELS[e.sess.session] ?? e.sess.session;
@@ -295,60 +296,60 @@ function buildSessionLine(
   // complete, so a low over count reliably means lost time, not "still in
   // progress" -- buildDayReport only runs for fully-ended days.)
   if (e.card.oversInSession < t.shortenedSessionMaxOvers) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `Interruptions cut this one short — only ${e.card.oversInSession} overs possible, for ${r} runs and ${wordWkts} in the time available.`,
       `A session reduced by the conditions — with just ${e.card.oversInSession} overs bowled, ${r} runs and ${wordWkts} tell only part of the story.`,
       `Play was repeatedly held up here — ${e.card.oversInSession} overs were all that fit in, yielding ${r} runs and ${wordWkts}.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
 
   if (w >= t.sessionDominantBowlingWickets) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `Only ${r} runs came in a session dominated by ${bl}, who took ${w} wickets in a spell that dismantled the innings. Brutal and brilliant.`,
       `${bl} ran through the innings — ${w} wickets for ${r} runs, the kind of session that decides a Test match on its own.`,
       `A complete bowling takeover: ${w} wickets, ${r} runs conceded, ${bl} doing most of the damage. The batting side had no answers.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
   if (w >= t.sessionStrongBowlingWickets) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `${r} runs, ${w} wickets — ${bl} led a sustained bowling effort that put the batting side firmly on the back foot.`,
       `${bl} and the attack chipped away all session — ${w} wickets for ${r} runs, steady pressure rather than one dramatic burst.`,
       `A grinding session for the batting side: ${w} wickets down for ${r}, with ${bl} the pick of the bowlers.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
   if (w === 0 && r >= t.sessionDominantBattingRuns) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `A dominant batting session — ${r} runs without a single wicket lost. The bowlers toiled, the batters accumulated, and the scoreboard ticked over freely.`,
       `${r} runs, no wickets down — batting of the highest order. The bowling attack had no answer all session.`,
       `The batting side cut loose — ${r} runs added and not a wicket to show for the bowlers' efforts.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
   if (w === 0 && r >= t.sessionSteadyBattingRuns) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `A steady ${r} runs with the wickets intact. Controlled rather than expansive, but the batting side will take it — no alarms, plenty of runs.`,
       `${r} added, none lost — unspectacular but exactly the kind of session a batting side wants at this stage.`,
       `Solid, unhurried progress: ${r} runs, all ten wickets still standing at the other end.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
   if (w === 0) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `Just ${r} runs, no wickets. A grinding, cautious session — the bowlers were tight, the batters were patient, and neither side truly dominated.`,
       `A genuine stalemate — ${r} runs, no wickets, both sides content to wait the other out.`,
       `Little to separate the sides here: ${r} runs added, nothing given away by either the bat or the ball.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
   if (r <= t.sessionSwingMaxRuns && w >= t.sessionSwingMinWickets) {
-    return prefix + pickUnusedPhrase([
+    return prefix + pickPhrase([
       `A session that swung the match — ${w} wickets for only ${r} runs. The batting side lost their way, and ${bl} made them pay.`,
       `The momentum flipped here: ${r} runs, ${w} wickets, and suddenly a different side looks on top.`,
       `${w} wickets for ${r} runs — a session that will be remembered as the turning point of this Test.`,
-    ], used);
+    ], slotIndex + e.sess.day);
   }
-  return prefix + pickUnusedPhrase([
+  return prefix + pickPhrase([
     `${r} runs, ${wordWkts} — a competitive session where both sides had their moments and no one could fully take charge.`,
     `An even session: ${r} runs, ${wordWkts}, honours roughly shared between bat and ball.`,
     `Nothing decisive either way — ${r} runs added for ${wordWkts} lost, the match ticking along.`,
-  ], used);
+  ], slotIndex + e.sess.day);
 }
 
 function buildDayReport(
@@ -403,14 +404,12 @@ function buildDayReport(
   }
 
   // ── Lines 2-4: Per session ───────────────────────────────────────────────
-  // usedSessionPhrases is scoped to THIS buildDayReport call only -- it makes
-  // sure two sessions in the SAME day summary never close on the identical
-  // line, even if they land in the same bucket (e.g. two bowling-dominated
-  // sessions in one day). See buildSessionLine/pickUnusedPhrase below.
-  const usedSessionPhrases = new Set<string>();
-  for (const e of entries) {
-    lines.push(buildSessionLine(e, t, usedSessionPhrases));
-  }
+  // Each session's position in `entries` (already sorted first/second/third)
+  // is passed as its variant slot -- see buildSessionLine/pickPhrase for why
+  // that's used instead of checking rendered text for repeats.
+  entries.forEach((e, slotIndex) => {
+    lines.push(buildSessionLine(e, t, slotIndex));
+  });
 
   // ── Line 5: Star bowler ──────────────────────────────────────────────────
   if (topBowlerWkts >= t.starBowlerWickets) {

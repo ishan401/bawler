@@ -197,10 +197,17 @@ console.log("\n--- 2. Narrative variety within a single day's report ---");
 
 // A day where ALL THREE sessions land in the SAME bucket (dominant bowling,
 // w>=5) -- the exact scenario that used to repeat "Brutal and brilliant"
-// verbatim across sessions.
+// verbatim across sessions. Deliberately DIFFERENT wicket/run counts per
+// session (6/5/7 wickets, differing run rates) -- this is what actually
+// exposed the real bug live: comparing fully-RENDERED strings (with the
+// session's own runs/wickets baked in) never treated two same-bucket
+// sessions as "the same phrase" because the embedded numbers differed, so
+// the old Set-based dedup never triggered. Regression coverage for that
+// exact failure mode, not just the same-stats case that accidentally
+// passed before the fix.
 const vd1s1 = buildSession(1, 1, 30, 6, 0.1, MATCH_START, "vd1s1");
-const vd1s2 = buildSession(1, 31, 30, 6, 0.1, vd1s1.endMs + 40 * 60 * 1000, "vd1s2");
-const vd1s3 = buildSession(1, 61, 30, 6, 0.1, vd1s2.endMs + 20 * 60 * 1000, "vd1s3");
+const vd1s2 = buildSession(1, 31, 30, 5, 0.15, vd1s1.endMs + 40 * 60 * 1000, "vd1s2");
+const vd1s3 = buildSession(1, 61, 30, 7, 0.08, vd1s2.endMs + 20 * 60 * 1000, "vd1s3");
 const vDay2Start = MATCH_START + 1 * DAY_MS;
 const vd2s1 = buildSession(1, 91, 10, 1, 0.1, vDay2Start, "vd2s1"); // live tail so day 1 completes
 
@@ -215,9 +222,27 @@ if (varietyDay1) {
   const sessionLines = varietyDay1.report.slice(1, 4);
   const uniqueLines = new Set(sessionLines);
   check(
-    "all 3 same-bucket sessions produced 3 DIFFERENT closing lines",
+    "all 3 same-bucket sessions produced 3 DIFFERENT closing lines (exact text)",
     uniqueLines.size === sessionLines.length,
     `lines: ${JSON.stringify(sessionLines)}`
+  );
+
+  // A weaker full-string check alone isn't a strong enough regression guard
+  // for the bug that actually shipped: each variant in the "dominant
+  // bowling" bucket has runs/wickets interpolated INTO the sentence, so
+  // even picking the SAME variant (e.g. variant 0) for all 3 sessions would
+  // still produce 3 textually-different lines whenever the sessions have
+  // different run/wicket counts -- which they do here on purpose. What
+  // actually broke live was all 3 sessions landing on variant 0's fixed,
+  // non-interpolated closing phrase "Brutal and brilliant." regardless of
+  // the numbers. Check directly for each variant's unique fixed marker so
+  // "always picks the same variant" can't hide behind different numbers.
+  const variantMarkers = ["Brutal and brilliant.", "on its own.", "had no answers."];
+  const markerHits = variantMarkers.map(m => sessionLines.filter(l => l.includes(m)).length);
+  check(
+    "each dominant-bowling phrase VARIANT (not just each rendered string) is used at most once across the 3 sessions",
+    markerHits.every(count => count <= 1),
+    `marker hit counts ${JSON.stringify(variantMarkers)} -> ${JSON.stringify(markerHits)}; lines: ${JSON.stringify(sessionLines)}`
   );
 }
 
