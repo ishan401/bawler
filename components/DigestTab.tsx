@@ -13,12 +13,49 @@
  * Default view = latest day with data.
  */
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
 import { PLAYERS, slugifyPlayer, getPlayerShortName } from "@/lib/mockData";
 import { NarrativeThresholds, getNarrativeThresholds } from "@/lib/narrativeThresholds";
+
+// ============================================================================
+// Notable-vs-routine drama gates
+// ============================================================================
+// Mirrors lib/spotlight.ts's philosophy: clearing ONE explicit, concrete
+// condition, not accumulating points toward a composite "excitement" score.
+// Reuses the SAME NarrativeThresholds values already driving the narrative
+// copy (single source of truth) rather than introducing a second, separate
+// set of tuning numbers. The gate only decides whether a card gets a subtle
+// accent (see the *CardView components below) — never a badge/emoji, and
+// never louder than what Spotlight itself uses elsewhere on the platform.
+// ============================================================================
+
+function isNotableOverGroup(runs: number, wickets: number, t: NarrativeThresholds["overSummary"]): boolean {
+  return wickets >= t.wicketsCollapse || runs >= t.runsHugeOver;
+}
+
+function isNotableSession(runs: number, wickets: number, t: NarrativeThresholds["dayReport"]): boolean {
+  return wickets >= t.sessionDominantBowlingWickets || runs >= t.sessionDominantBattingRuns;
+}
+
+function isNotableDay(totalRuns: number, totalWickets: number, totalFours: number, totalSixes: number, t: NarrativeThresholds["dayReport"]): boolean {
+  return (
+    totalWickets >= t.bowlerMasterclassWickets ||
+    totalWickets === 0 ||
+    totalFours + totalSixes >= t.boundaryHeavyCount
+  );
+}
+
+// Cache of already-finalized cards, keyed by card id, shared across
+// recomputations of the SAME match (see the useRef in the DigestTab
+// component below). Completed sessions/days/over-chunks never change once
+// built, so a cache hit skips re-processing that card's balls and
+// re-generating its narrative entirely on the next live tick — only new or
+// still-in-progress cards get (re)computed. See buildTestSessionCards /
+// buildOverGroupCards for how entries are read and written.
+export type DigestCardCache = Map<string, DigestCardData>;
 
 // ── share utility ────────────────────────────────────────────────────────────
 
@@ -212,6 +249,108 @@ interface SessionEntry {
   card: SessionCard;
 }
 
+/**
+ * Pick the first variant not yet used THIS call, so repeated buckets within
+ * the same day-report (e.g. two bowling-dominated sessions) don't close on
+ * an identical line. Falls back to the first variant if every option in
+ * this bucket has already been used -- with 3 variants per bucket and at
+ * most 3 sessions/day, that fallback should never actually trigger; it's a
+ * safety net, not the expected path.
+ */
+function pickUnusedPhrase(variants: string[], used: Set<string>): string {
+  for (const v of variants) {
+    if (!used.has(v)) {
+      used.add(v);
+      return v;
+    }
+  }
+  return variants[0];
+}
+
+/**
+ * Per-session line for the Day Stumps report. Picks a context (rain-
+ * shortened / bowling collapse / batting dominance / grinding stalemate /
+ * momentum swing / competitive) from what actually happened in THIS
+ * session, then a phrase variant within that context not already used
+ * elsewhere in the same day's report.
+ */
+function buildSessionLine(
+  e: SessionEntry,
+  t: NarrativeThresholds["dayReport"],
+  used: Set<string>
+): string {
+  const SESS_LABELS: Record<string, string> = { first: "1st Session", second: "2nd Session", third: "3rd Session" };
+  const sessName = SESS_LABELS[e.sess.session] ?? e.sess.session;
+  const r = e.card.runs;
+  const w = e.card.wickets;
+  const bl = lastName(e.card.bowlerName);
+  const range = e.card.overRange;
+  const prefix = `${sessName} (${range}): `;
+  const wordWkts = `${w} wicket${w !== 1 ? "s" : ""}`;
+
+  // Weather/bad-light-shortened session takes priority over the run/wicket
+  // buckets below -- a handful of overs shouldn't be described as "tight"
+  // or "cautious" cricket, it should be described as what it actually was:
+  // interrupted play. (This session is only ever passed in here once it's
+  // complete, so a low over count reliably means lost time, not "still in
+  // progress" -- buildDayReport only runs for fully-ended days.)
+  if (e.card.oversInSession < t.shortenedSessionMaxOvers) {
+    return prefix + pickUnusedPhrase([
+      `Interruptions cut this one short — only ${e.card.oversInSession} overs possible, for ${r} runs and ${wordWkts} in the time available.`,
+      `A session reduced by the conditions — with just ${e.card.oversInSession} overs bowled, ${r} runs and ${wordWkts} tell only part of the story.`,
+      `Play was repeatedly held up here — ${e.card.oversInSession} overs were all that fit in, yielding ${r} runs and ${wordWkts}.`,
+    ], used);
+  }
+
+  if (w >= t.sessionDominantBowlingWickets) {
+    return prefix + pickUnusedPhrase([
+      `Only ${r} runs came in a session dominated by ${bl}, who took ${w} wickets in a spell that dismantled the innings. Brutal and brilliant.`,
+      `${bl} ran through the innings — ${w} wickets for ${r} runs, the kind of session that decides a Test match on its own.`,
+      `A complete bowling takeover: ${w} wickets, ${r} runs conceded, ${bl} doing most of the damage. The batting side had no answers.`,
+    ], used);
+  }
+  if (w >= t.sessionStrongBowlingWickets) {
+    return prefix + pickUnusedPhrase([
+      `${r} runs, ${w} wickets — ${bl} led a sustained bowling effort that put the batting side firmly on the back foot.`,
+      `${bl} and the attack chipped away all session — ${w} wickets for ${r} runs, steady pressure rather than one dramatic burst.`,
+      `A grinding session for the batting side: ${w} wickets down for ${r}, with ${bl} the pick of the bowlers.`,
+    ], used);
+  }
+  if (w === 0 && r >= t.sessionDominantBattingRuns) {
+    return prefix + pickUnusedPhrase([
+      `A dominant batting session — ${r} runs without a single wicket lost. The bowlers toiled, the batters accumulated, and the scoreboard ticked over freely.`,
+      `${r} runs, no wickets down — batting of the highest order. The bowling attack had no answer all session.`,
+      `The batting side cut loose — ${r} runs added and not a wicket to show for the bowlers' efforts.`,
+    ], used);
+  }
+  if (w === 0 && r >= t.sessionSteadyBattingRuns) {
+    return prefix + pickUnusedPhrase([
+      `A steady ${r} runs with the wickets intact. Controlled rather than expansive, but the batting side will take it — no alarms, plenty of runs.`,
+      `${r} added, none lost — unspectacular but exactly the kind of session a batting side wants at this stage.`,
+      `Solid, unhurried progress: ${r} runs, all ten wickets still standing at the other end.`,
+    ], used);
+  }
+  if (w === 0) {
+    return prefix + pickUnusedPhrase([
+      `Just ${r} runs, no wickets. A grinding, cautious session — the bowlers were tight, the batters were patient, and neither side truly dominated.`,
+      `A genuine stalemate — ${r} runs, no wickets, both sides content to wait the other out.`,
+      `Little to separate the sides here: ${r} runs added, nothing given away by either the bat or the ball.`,
+    ], used);
+  }
+  if (r <= t.sessionSwingMaxRuns && w >= t.sessionSwingMinWickets) {
+    return prefix + pickUnusedPhrase([
+      `A session that swung the match — ${w} wickets for only ${r} runs. The batting side lost their way, and ${bl} made them pay.`,
+      `The momentum flipped here: ${r} runs, ${w} wickets, and suddenly a different side looks on top.`,
+      `${w} wickets for ${r} runs — a session that will be remembered as the turning point of this Test.`,
+    ], used);
+  }
+  return prefix + pickUnusedPhrase([
+    `${r} runs, ${wordWkts} — a competitive session where both sides had their moments and no one could fully take charge.`,
+    `An even session: ${r} runs, ${wordWkts}, honours roughly shared between bat and ball.`,
+    `Nothing decisive either way — ${r} runs added for ${wordWkts} lost, the match ticking along.`,
+  ], used);
+}
+
 function buildDayReport(
   day: number,
   entries: SessionEntry[],
@@ -264,29 +403,13 @@ function buildDayReport(
   }
 
   // ── Lines 2-4: Per session ───────────────────────────────────────────────
+  // usedSessionPhrases is scoped to THIS buildDayReport call only -- it makes
+  // sure two sessions in the SAME day summary never close on the identical
+  // line, even if they land in the same bucket (e.g. two bowling-dominated
+  // sessions in one day). See buildSessionLine/pickUnusedPhrase below.
+  const usedSessionPhrases = new Set<string>();
   for (const e of entries) {
-    const SESS_LABELS: Record<string, string> = { first: "1st Session", second: "2nd Session", third: "3rd Session" };
-    const sessName = SESS_LABELS[e.sess.session] ?? e.sess.session;
-    const r = e.card.runs;
-    const w = e.card.wickets;
-    const bl = lastName(e.card.bowlerName);
-    const range = e.card.overRange;
-
-    if (w >= t.sessionDominantBowlingWickets) {
-      lines.push(`${sessName} (${range}): Only ${r} runs came in a session dominated by ${bl}, who took ${w} wickets in a spell that dismantled the innings. Brutal and brilliant.`);
-    } else if (w >= t.sessionStrongBowlingWickets) {
-      lines.push(`${sessName} (${range}): ${r} runs, ${w} wickets — ${bl} led a sustained bowling effort that put the batting side firmly on the back foot.`);
-    } else if (w === 0 && r >= t.sessionDominantBattingRuns) {
-      lines.push(`${sessName} (${range}): A dominant batting session — ${r} runs without a single wicket lost. The bowlers toiled, the batters accumulated, and the scoreboard ticked over freely.`);
-    } else if (w === 0 && r >= t.sessionSteadyBattingRuns) {
-      lines.push(`${sessName} (${range}): A steady ${r} runs with the wickets intact. Controlled rather than expansive, but the batting side will take it — no alarms, plenty of runs.`);
-    } else if (w === 0) {
-      lines.push(`${sessName} (${range}): Just ${r} runs, no wickets. A cautious session — the bowlers were tight, the batters were patient, and neither side truly dominated.`);
-    } else if (r <= t.sessionSwingMaxRuns && w >= t.sessionSwingMinWickets) {
-      lines.push(`${sessName} (${range}): A session that swung the match — ${w} wickets for only ${r} runs. The batting side lost their way, and ${bl} made them pay.`);
-    } else {
-      lines.push(`${sessName} (${range}): ${r} runs, ${w} wicket${w !== 1 ? "s" : ""} — a competitive session where both sides had their moments and no one could fully take charge.`);
-    }
+    lines.push(buildSessionLine(e, t, usedSessionPhrases));
   }
 
   // ── Line 5: Star bowler ──────────────────────────────────────────────────
@@ -351,7 +474,7 @@ function buildDayReport(
 
 // ── card data types ───────────────────────────────────────────────────────────
 
-interface OverGroupCard {
+export interface OverGroupCard {
   kind: "over-group";
   id: string;
   inningsNumber: number;
@@ -366,9 +489,11 @@ interface OverGroupCard {
   narrative: string;
   overSummary: string;
   gs: number;
+  /** Clears an explicit drama bar (see isNotableOverGroup) — subtle visual accent, not a badge. */
+  isNotable: boolean;
 }
 
-interface SessionCard {
+export interface SessionCard {
   kind: "session";
   id: string;
   day: number;              // which day this session belongs to
@@ -383,9 +508,13 @@ interface SessionCard {
   narrative: string;
   overSummary: string;
   isLiveSession: boolean;
+  /** Overs actually bowled in this session — used to detect a weather/bad-light-shortened session. */
+  oversInSession: number;
+  /** Clears an explicit drama bar (see isNotableSession) — subtle visual accent, not a badge. */
+  isNotable: boolean;
 }
 
-interface DaySummaryCard {
+export interface DaySummaryCard {
   kind: "day-summary";
   id: string;
   day: number;
@@ -393,9 +522,11 @@ interface DaySummaryCard {
   totalRuns: number;
   totalWickets: number;
   report: string[];         // 5-7 line match report
+  /** Clears an explicit drama bar (see isNotableDay) — subtle visual accent, not a badge. */
+  isNotable: boolean;
 }
 
-interface MatchSummaryCard {
+export interface MatchSummaryCard {
   kind: "match-summary";
   id: string;
   format: MatchFormat;
@@ -422,7 +553,7 @@ interface MatchSummaryCard {
   excitement: number;
 }
 
-type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard;
+export type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard;
 
 // ── over-group builder (T20 / ODI / Test fallback) ────────────────────────────
 
@@ -610,7 +741,11 @@ function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
   };
 }
 
-function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): OverGroupCard[] {
+export function buildOverGroupCards(
+  match: Match, allBalls: Ball[], isLive: boolean,
+  cache?: DigestCardCache,
+  t: NarrativeThresholds = getNarrativeThresholds()
+): OverGroupCard[] {
   const gs = groupSize(match.format);
   const result: OverGroupCard[] = [];
   const inningsCount = match.innings.length;
@@ -652,6 +787,17 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
       if (chunkOvers.length === 0) continue;
       if (gs > 1 && lastOver < chunkStart + gs - 1) continue;
 
+      // Every over in `completedOverNums` (other than a possible partial
+      // trailing over, already excluded above) is fully bowled and will
+      // never change again -- so every card this loop produces is final
+      // the moment it's built. Safe to cache unconditionally by id.
+      const id = `inn${inn.number}-over${chunkStart}`;
+      const cached = cache?.get(id);
+      if (cached && cached.kind === "over-group") {
+        result.push(cached);
+        continue;
+      }
+
       const chunkBalls = chunkOvers.flatMap(n => byOver.get(n) ?? []);
       if (chunkBalls.length === 0) continue;
 
@@ -664,14 +810,17 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
       const legal      = legalBalls(chunkBalls);
       const label = gs === 1 ? `Over ${chunkStart}` : `Overs ${chunkStart}–${Math.min(chunkEnd, lastOver)}`;
 
-      result.push({
-        kind: "over-group", id: `inn${inn.number}-over${chunkStart}`,
+      const card: OverGroupCard = {
+        kind: "over-group", id,
         inningsNumber: inn.number, label, inningsLabel, teamColor, runs, wickets, fours, sixes,
         allBalls: chunkBalls, legalDeliveries: legal, keyBall, bowlerName,
-        narrative: buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, match.format),
-        overSummary: buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, chunkStart),
+        narrative: buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, match.format, t.narrative),
+        overSummary: buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, chunkStart, t.overSummary),
         gs,
-      });
+        isNotable: isNotableOverGroup(runs, wickets, t.overSummary),
+      };
+      cache?.set(id, card);
+      result.push(card);
     }
   }
   return result.reverse();
@@ -679,7 +828,11 @@ function buildOverGroupCards(match: Match, allBalls: Ball[], isLive: boolean): O
 
 // ── session-based builder (Test) ──────────────────────────────────────────────
 
-function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
+export function buildTestSessionCards(
+  match: Match, allBalls: Ball[], isLive: boolean,
+  cache?: DigestCardCache,
+  t: NarrativeThresholds = getNarrativeThresholds()
+): DigestCardData[] {
   const dayMap = new Map<number, SessionEntry[]>();
   const inningsCount = match.innings.length;
 
@@ -723,6 +876,20 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
       );
       if (sessOvers.length === 0) continue;
 
+      const id = `sess-inn${inn.number}-day${sess.day}-${sess.session}`;
+      const cachedCard = cache?.get(id);
+      // A session, once complete, never changes again -- reuse the cached
+      // card verbatim (same object reference) instead of re-filtering its
+      // balls and regenerating its narrative on every subsequent tick.
+      // Still-live sessions are never cached (they keep growing) and always
+      // recomputed below.
+      if (cachedCard && cachedCard.kind === "session" && sess.isComplete) {
+        const dayEntries = dayMap.get(sess.day) ?? [];
+        dayEntries.push({ sess, card: cachedCard });
+        dayMap.set(sess.day, dayEntries);
+        continue;
+      }
+
       const sessBalls = sessOvers.flatMap(n => byOver.get(n) ?? []);
       if (sessBalls.length === 0) continue;
 
@@ -738,16 +905,19 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
 
       const card: SessionCard = {
         kind: "session",
-        id: `sess-inn${inn.number}-day${sess.day}-${sess.session}`,
+        id,
         day: sess.day,
         sessionLabel: sess.label,
         overRange: `Overs ${firstOver}–${lastOver}`,
         inningsLabel, teamColor, runs, wickets, fours, sixes,
         allBalls: sessBalls, keyBall, bowlerName,
-        narrative:    buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, "Test"),
-        overSummary:  buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, sess.day * 3 + sessIdx),
+        narrative:    buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, "Test", t.narrative),
+        overSummary:  buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, sess.day * 3 + sessIdx, t.overSummary),
         isLiveSession: !sess.isComplete,
+        oversInSession: sessOvers.length,
+        isNotable: isNotableSession(runs, wickets, t.dayReport),
       };
+      if (sess.isComplete) cache?.set(id, card);
 
       const dayEntries = dayMap.get(sess.day) ?? [];
       dayEntries.push({ sess, card });
@@ -764,27 +934,49 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
     const order = ["first", "second", "third"];
     entries.sort((a, b) => order.indexOf(a.sess.session) - order.indexOf(b.sess.session));
 
-    for (const { card } of entries) result.push(card);
-
     const allComplete = entries.every(e => e.sess.isComplete);
-    if (allComplete) {
-      const totalRuns    = entries.reduce((s, e) => s + e.card.runs, 0);
-      const totalWickets = entries.reduce((s, e) => s + e.card.wickets, 0);
 
-      const daySummary: DaySummaryCard = {
-        kind: "day-summary", id: `day-summary-${day}`, day,
-        sessionRows: entries.map(e => ({
-          label: e.sess.label,
-          inningsLabel: e.card.inningsLabel,
-          runs: e.card.runs,
-          wickets: e.card.wickets,
-          teamColor: e.card.teamColor,
-        })),
-        totalRuns, totalWickets,
-        report: buildDayReport(day, entries, false),
-      };
-      result.push(daySummary);
+    if (!allComplete) {
+      // Day still in progress -- show each session as it completes. There's
+      // no day-summary yet because the day itself hasn't ended.
+      for (const { card } of entries) result.push(card);
+      continue;
     }
+
+    // Day has fully ended (stumps) -- collapse the individual session cards
+    // into ONE consolidated day-summary card instead of showing both. This
+    // applies no matter how many sessions the day actually had (2 on a
+    // weather-shortened day, 3 normally) -- `entries` already only contains
+    // whatever sessions genuinely got balls bowled.
+    const daySummaryId = `day-summary-${day}`;
+    const cachedDaySummary = cache?.get(daySummaryId);
+    if (cachedDaySummary && cachedDaySummary.kind === "day-summary") {
+      // A completed day never un-completes -- reuse the cached summary
+      // verbatim rather than re-deriving totals and regenerating the report.
+      result.push(cachedDaySummary);
+      continue;
+    }
+
+    const totalRuns    = entries.reduce((s, e) => s + e.card.runs, 0);
+    const totalWickets = entries.reduce((s, e) => s + e.card.wickets, 0);
+    const totalFours   = entries.reduce((s, e) => s + e.card.fours, 0);
+    const totalSixes   = entries.reduce((s, e) => s + e.card.sixes, 0);
+
+    const daySummary: DaySummaryCard = {
+      kind: "day-summary", id: daySummaryId, day,
+      sessionRows: entries.map(e => ({
+        label: e.sess.label,
+        inningsLabel: e.card.inningsLabel,
+        runs: e.card.runs,
+        wickets: e.card.wickets,
+        teamColor: e.card.teamColor,
+      })),
+      totalRuns, totalWickets,
+      report: buildDayReport(day, entries, false, t.dayReport),
+      isNotable: isNotableDay(totalRuns, totalWickets, totalFours, totalSixes, t.dayReport),
+    };
+    cache?.set(daySummaryId, daySummary);
+    result.push(daySummary);
   }
 
   return result.reverse(); // newest-first
@@ -792,14 +984,23 @@ function buildTestSessionCards(match: Match, allBalls: Ball[], isLive: boolean):
 
 // ── top-level builder ─────────────────────────────────────────────────────────
 
-function buildCards(match: Match, allBalls: Ball[], isLive: boolean): DigestCardData[] {
+export function buildCards(
+  match: Match, allBalls: Ball[], isLive: boolean,
+  cache?: DigestCardCache
+): DigestCardData[] {
+  // Fetched once per buildCards() call (not once per card) so every card
+  // built in this pass judges "notable" and phrasing against the exact same
+  // threshold snapshot, and so a localStorage-backed override only gets
+  // read once per recompute rather than once per card.
+  const t = getNarrativeThresholds();
+
   let cards: DigestCardData[] = [];
   if (match.format === "Test") {
-    const sessionCards = buildTestSessionCards(match, allBalls, isLive);
+    const sessionCards = buildTestSessionCards(match, allBalls, isLive, cache, t);
     if (sessionCards.length > 0) cards = sessionCards;
-    else cards = buildOverGroupCards(match, allBalls, isLive);
+    else cards = buildOverGroupCards(match, allBalls, isLive, cache, t);
   } else {
-    cards = buildOverGroupCards(match, allBalls, isLive);
+    cards = buildOverGroupCards(match, allBalls, isLive, cache, t);
   }
   // Prepend match summary card (pinned at top, post-match only)
   const summary = buildMatchSummaryCard(match);
@@ -822,13 +1023,16 @@ function BallDot({ ball }: { ball: Ball }) {
   );
 }
 
-function OverGroupCardView({ card }: { card: OverGroupCard }) {
+const OverGroupCardView = React.memo(function OverGroupCardView({ card }: { card: OverGroupCard }) {
   const kb = card.keyBall;
   const keyLabel = kb ? `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}` : "";
   const showDots = card.gs === 1;
 
+  // Notable gets a quiet accent border -- same "clears one explicit bar"
+  // restraint Spotlight uses elsewhere, not a badge or animation. Routine
+  // overs/blocks (the overwhelming majority) stay exactly as before.
   return (
-    <div className="card overflow-hidden" data-digest-card>
+    <div className={`card overflow-hidden ${card.isNotable ? "border-amber-400/40" : ""}`} data-digest-card>
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
@@ -853,14 +1057,26 @@ function OverGroupCardView({ card }: { card: OverGroupCard }) {
       </div>
     </div>
   );
-}
+});
 
-function SessionCardView({ card }: { card: SessionCard }) {
+const SessionCardView = React.memo(function SessionCardView({ card }: { card: SessionCard }) {
   const kb = card.keyBall;
   const keyLabel = kb ? `${kb.over}.${kb.ballInOver + 1}${kb.isWicket ? " · OUT" : kb.isBoundary6 ? " · SIX" : kb.isBoundary4 ? " · FOUR" : ""}` : "";
 
+  // A notable session gets the same quiet amber accent as an over-group
+  // card. If it's ALSO the live, still-unfolding session, add the existing
+  // excitement-glow pulse (same treatment Scorecard.tsx gives the current
+  // on-strike batter) -- "something dramatic is happening right now," not
+  // just "this was a big one." A completed notable session never pulses;
+  // that's reserved for genuinely live state, matching the rest of the app.
+  const notableClass = card.isNotable
+    ? card.isLiveSession
+      ? "border-amber-400/40 excitement-glow"
+      : "border-amber-400/40"
+    : "";
+
   return (
-    <div className="card overflow-hidden" data-digest-card>
+    <div className={`card overflow-hidden ${notableClass}`} data-digest-card>
       <div className="flex items-center gap-1.5 px-3 py-2">
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: card.teamColor }} />
         {card.inningsLabel && <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">{card.inningsLabel}</span>}
@@ -885,9 +1101,9 @@ function SessionCardView({ card }: { card: SessionCard }) {
       </div>
     </div>
   );
-}
+});
 
-function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
+const DaySummaryCardView = React.memo(function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
   // Detect duplicate session names (two innings in same session slot)
   const labelCounts = card.sessionRows.reduce(
     (acc, r) => { acc[r.label] = (acc[r.label] ?? 0) + 1; return acc; },
@@ -901,16 +1117,31 @@ function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
     })
     .join("  ·  ");
 
+  // Notable days (bowler-dominated, wicketless, or boundary-heavy -- see
+  // isNotableDay) get the accent swapped from the platform's default cyan
+  // to a quiet amber, so scanning down a full 5-day Test's cards, the days
+  // that actually mattered stand out at a glance. Same layout, same sizes,
+  // same information -- just a different, quieter hue. Routine days keep
+  // the standard cyan treatment unchanged.
+  //
+  // Full literal class strings on purpose (not `` `border-${x}/20` ``) --
+  // Tailwind's build-time scanner matches literal strings in source, it
+  // can't evaluate a template interpolation, so an interpolated color name
+  // would silently never get generated into the shipped CSS.
+  const cardBorderClass = card.isNotable ? "border-amber-400/20" : "border-cyan/20";
+  const headerBgClass    = card.isNotable ? "bg-amber-400/6 border-b border-amber-400/15" : "bg-cyan/6 border-b border-cyan/15";
+  const labelColorClass  = card.isNotable ? "text-amber-400" : "text-cyan";
+
   return (
-    <div className="rounded-xl overflow-hidden border border-cyan/20 bg-surface-2/80 backdrop-blur-sm" data-digest-card>
+    <div className={`rounded-xl overflow-hidden border ${cardBorderClass} bg-surface-2/80 backdrop-blur-sm`} data-digest-card>
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-cyan/6 border-b border-cyan/15">
+      <div className={`flex items-center gap-2 px-3 py-2.5 ${headerBgClass}`}>
         <div className="flex items-center gap-1">
           {card.sessionRows.slice(0, 3).map((r, i) => (
             <span key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: r.teamColor }} />
           ))}
         </div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-cyan">
+        <span className={`text-[10px] font-black uppercase tracking-widest ${labelColorClass}`}>
           Day {card.day} · Stumps
         </span>
         <div className="flex-1" />
@@ -935,7 +1166,7 @@ function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
               i === 0
                 ? "text-[12px] font-semibold text-text-primary"
                 : i === card.report.length - 1
-                ? "text-[11px] text-cyan/80 italic"
+                ? card.isNotable ? "text-[11px] text-amber-400/80 italic" : "text-[11px] text-cyan/80 italic"
                 : "text-[11px] text-text-secondary"
             }`}
           >
@@ -945,11 +1176,11 @@ function DaySummaryCardView({ card }: { card: DaySummaryCard }) {
       </div>
     </div>
   );
-}
+});
 
 // ── MatchSummaryCardView ─────────────────────────────────────────────────────
 
-function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
+const MatchSummaryCardView = React.memo(function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
   const isSpecial = card.excitement >= 8;
 
   return (
@@ -1091,7 +1322,7 @@ function MatchSummaryCardView({ card }: { card: MatchSummaryCard }) {
       </div>
     </div>
   );
-}
+});
 
 // ── Day filter chips ─────────────────────────────────────────────────────────
 
@@ -1168,8 +1399,24 @@ export default function DigestTab({ match, allBalls }: Props) {
   const isLive = match.status === "live";
   const isTest = match.format === "Test";
 
+  // Cache of already-finalized cards (completed sessions/days/over-chunks),
+  // persisted across renders via a ref so it survives useMemo re-running
+  // when `allBalls` gets a new array reference on every live tick. Without
+  // this, buildCards would still be CORRECT (it always was) but would
+  // rebuild brand-new objects for cards whose underlying data hasn't
+  // changed at all, which in turn forces React to re-render/reconcile
+  // every already-shown card on every tick instead of just the new one(s).
+  // Reset whenever the match itself changes so an old match's cache can
+  // never leak into a different match's digest.
+  const cacheRef = useRef<DigestCardCache>(new Map());
+  const cacheMatchIdRef = useRef<string | null>(null);
+  if (cacheMatchIdRef.current !== match.id) {
+    cacheRef.current = new Map();
+    cacheMatchIdRef.current = match.id;
+  }
+
   const cards = useMemo(
-    () => buildCards(match, allBalls, isLive),
+    () => buildCards(match, allBalls, isLive, cacheRef.current),
     [match, allBalls, isLive]
   );
 

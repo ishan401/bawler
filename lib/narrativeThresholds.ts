@@ -84,6 +84,8 @@ export interface NarrativeThresholds {
     boundaryHeavyCount: number;
     /** Day wickets for the "scales have tilted sharply" match-context line. */
     matchTiltedWickets: number;
+    /** Overs bowled below this, in a COMPLETE session, reads as weather/bad-light-shortened rather than genuinely "tight" cricket. */
+    shortenedSessionMaxOvers: number;
   };
 }
 
@@ -121,6 +123,7 @@ export const DEFAULT_NARRATIVE_THRESHOLDS: NarrativeThresholds = {
     goodBowlerWickets: 2,
     boundaryHeavyCount: 12,
     matchTiltedWickets: 8,
+    shortenedSessionMaxOvers: 18,
   },
 };
 
