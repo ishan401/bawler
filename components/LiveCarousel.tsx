@@ -10,6 +10,18 @@ import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES, ALL_TEAMS } f
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
 import CarouselDots from "./CarouselDots";
 
+// Fixed footprint for the tournament-table shortcut pill below the hero
+// card -- v1.0.68. Was content-hugging (width = icon + label), so it
+// subtly resized per tournament ("IPL TABLE" narrower than "CHAMP. TR.
+// TABLE") even though only one ever shows at a time, in the same slot.
+// Sized against the longest current label -- "Champ. Tr. Table" measures
+// ~163px with this exact icon/padding/font -- plus a comfortable buffer.
+// If a future tournament's shortName is long enough to need more than
+// this without truncating, that's a real signal to come back and widen
+// it deliberately, not silently truncate or let it grow per-label again.
+// See DESIGN-SYSTEM.md §7 for the full label-width audit.
+const TABLE_PILL_WIDTH = 176;
+
 interface LiveCarouselProps {
   matches: Match[];
   nextMatch?: Match;
@@ -483,15 +495,16 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
             {activeComp && (
               <button
                 onClick={() => setView("standings")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale shrink-0"
+                style={{ width: TABLE_PILL_WIDTH }}
               >
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" className="shrink-0">
                   <rect x="0.5" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                   <rect x="7" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                   <rect x="0.5" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                   <rect x="7" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                 </svg>
-                {activeComp.shortName} Table
+                <span className="whitespace-nowrap">{activeComp.shortName} Table</span>
               </button>
             )}
             {/* Series status chip — clickable, opens full series schedule */}
