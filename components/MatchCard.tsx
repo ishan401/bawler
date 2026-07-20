@@ -112,6 +112,37 @@ function ForYouMarker() {
 
 function CompetitionBadge({ match }: { match: Match }) {
   const c = match.competition;
+
+  // A bilateral series' `shortName` is sometimes a genuine identity (e.g.
+  // "Ashes") and sometimes just the two teams restated (e.g. "IND v AUS",
+  // "ENG v SA") -- the latter is pure duplication on any card that already
+  // shows both teams as its main content (names, flags, scores). Detect
+  // that specific pattern -- not "any bilateral series" -- so a real named
+  // series still gets its own badge. v1.0.77.
+  const teamMatchupPattern = new RegExp(
+    `^\\s*${match.teamA.code}\\s*v\\s*${match.teamB.code}\\s*$|^\\s*${match.teamB.code}\\s*v\\s*${match.teamA.code}\\s*$`,
+    "i"
+  );
+  const shortNameIsJustTeamMatchup = c.type === "bilateral" && teamMatchupPattern.test(c.shortName);
+
+  const fmtTagLabel: Record<Match["format"], string> = {
+    Test: "Test", ODI: "ODI", T20I: "T20I", T20: "T20", Hundred: "Hundred",
+  };
+
+  if (shortNameIsJustTeamMatchup) {
+    // No real tournament identity to show here -- fall back to the format
+    // (T20I/ODI/Test/etc.), which is genuine info not shown elsewhere on
+    // the card, instead of restating the two teams a second time.
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none"
+          style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)" }}>
+          {fmtTagLabel[match.format]}
+        </span>
+      </div>
+    );
+  }
+
   const fmtLabel = match.format === "Test" ? "Test" : match.format === "ODI" ? "ODI" : null;
   return (
     <div className="flex items-center gap-1">
