@@ -1290,18 +1290,55 @@ export const SPORTRADAR_TEAM_ID_MAP: Record<string, string> = {
 //       inn.sessions = deriveTestSessions(inn.balls, match.startTimeIso, isLive);
 //     }
 //
-//   If explicit session events ARE available from your API, build the sessions
-//   array directly from that data — skip this function.
+//   If explicit session/stoppage events ARE available from your API, either
+//   build the sessions array directly from that data (skip this function),
+//   or pass them as `knownStoppages` below so the real signal overrides the
+//   timestamp-gap heuristic wherever the two would disagree.
 //
-// Gap thresholds:
-//   > 60 min  → day break (end of play)
-//   20–60 min → session break (lunch or tea)
-//   < 20 min  → normal play gap (drinks, over change, etc.) — ignored
+// Gap thresholds (same calendar day):
+//   20–75 min  → genuine session break (lunch or tea) — starts a new session
+//   > 75 min   → irregular stoppage (rain / bad light / other delay) — play
+//                resumes but it's still the SAME session, just interrupted;
+//                does not advance the session index or split into a new
+//                session the way a real lunch/tea break does
+//   < 20 min   → normal play gap (drinks, over change, etc.) — ignored
+//   any gap that crosses a calendar day (UTC) → always a new day, regardless
+//                of gap length
+//
+// WHY THIS MATTERS: a naive "any gap over ~20 min = new session" rule
+// mistakes a multi-hour rain delay for a lunch/tea break, which both
+// mislabels the resumed play (e.g. calling it "2nd Session" when it's
+// really an interrupted "1st Session") and can exhaust the 3-session/day
+// cycle early, throwing off every session label for the rest of that day.
+// Genuine lunch/tea breaks have a tight, predictable duration; weather and
+// bad-light stoppages routinely run far longer and unpredictably — that
+// duration gap is what SESSION_BREAK_MAX_MS distinguishes on.
 // ============================================================================
 
 
-const DAY_BREAK_MS    = 60 * 60 * 1000;  // > 60 min  = new day
-const SESSION_BREAK_MS = 20 * 60 * 1000; // 20–60 min = session break (lunch/tea)
+const SESSION_BREAK_MIN_MS = 20 * 60 * 1000; // 20 min  — below this, ignore (drinks/over change)
+const SESSION_BREAK_MAX_MS = 75 * 60 * 1000; // 75 min  — above this, treat as a weather/light
+                                              // stoppage within the same session, not a real
+                                              // lunch/tea break (generous upper bound for a
+                                              // slightly-extended tea break before we call it
+                                              // "irregular")
+
+/** A known, API-confirmed stoppage window — always trusted over the gap heuristic. */
+export interface KnownStoppage {
+  startIso: string;
+  endIso: string;
+}
+
+function isWithinKnownStoppage(fromIso: string, toIso: string, knownStoppages: KnownStoppage[]): boolean {
+  const from = new Date(fromIso).getTime();
+  const to = new Date(toIso).getTime();
+  return knownStoppages.some(s => {
+    const sStart = new Date(s.startIso).getTime();
+    const sEnd = new Date(s.endIso).getTime();
+    // The gap between two balls overlaps a known stoppage window
+    return from <= sEnd && to >= sStart;
+  });
+}
 
 /**
  * Derive Test match session metadata from ball timestamps.
@@ -1311,11 +1348,17 @@ const SESSION_BREAK_MS = 20 * 60 * 1000; // 20–60 min = session break (lunch/t
  *                      to compute the day number (Day 1 = match start date).
  * @param isLastInnLive Set true when this is the live innings still in
  *                      progress; marks the last session as isComplete: false.
+ * @param knownStoppages Optional explicit stoppage windows from the API (rain
+ *                      delays, bad light, etc.). When a gap between two balls
+ *                      overlaps one of these, it's always treated as an
+ *                      in-session stoppage — never inferred as a session
+ *                      break — regardless of how long the gap is.
  */
 export function deriveTestSessions(
   balls: Ball[],
   matchStartIso: string,
-  isLastInnLive = false
+  isLastInnLive = false,
+  knownStoppages: KnownStoppage[] = []
 ): TestSession[] {
   // Only balls with timestamps are usable
   const withTs = balls.filter(b => b.timestampIso);
@@ -1330,20 +1373,41 @@ export function deriveTestSessions(
   const matchStartDate = new Date(matchStartIso);
   matchStartDate.setUTCHours(0, 0, 0, 0);
 
+  function utcDateKey(iso: string): number {
+    const d = new Date(iso);
+    d.setUTCHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
   // ── Step 1: split balls into session groups at significant gaps ──────────
+  // A new group starts when EITHER: the calendar day changed (always, no
+  // matter the gap size — covers multi-day rain washouts cleanly), OR the
+  // gap falls within the genuine lunch/tea window. A gap longer than that
+  // window, on the same day, is treated as a mid-session weather/light
+  // stoppage: play merges back into the CURRENT group rather than starting
+  // a new session.
   const groups: Ball[][] = [];
   let current: Ball[] = [sorted[0]];
 
   for (let i = 1; i < sorted.length; i++) {
-    const gap =
-      new Date(sorted[i].timestampIso!).getTime() -
-      new Date(sorted[i - 1].timestampIso!).getTime();
+    const prevIso = sorted[i - 1].timestampIso!;
+    const curIso = sorted[i].timestampIso!;
+    const gap = new Date(curIso).getTime() - new Date(prevIso).getTime();
+    const dayChanged = utcDateKey(curIso) !== utcDateKey(prevIso);
+    const knownStoppage = knownStoppages.length > 0 && isWithinKnownStoppage(prevIso, curIso, knownStoppages);
 
-    if (gap >= SESSION_BREAK_MS) {
-      // Either a session break or a day break — either way, new group
+    const isGenuineSessionBreak =
+      !knownStoppage &&
+      !dayChanged &&
+      gap >= SESSION_BREAK_MIN_MS &&
+      gap <= SESSION_BREAK_MAX_MS;
+
+    if (dayChanged || isGenuineSessionBreak) {
       groups.push(current);
       current = [];
     }
+    // else: either a normal gap, or a same-day irregular/known stoppage —
+    // keep accumulating into the current session group uninterrupted.
     current.push(sorted[i]);
   }
   groups.push(current);

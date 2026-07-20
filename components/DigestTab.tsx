@@ -17,7 +17,8 @@ import React, { useMemo, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
-import { PLAYERS, slugifyPlayer } from "@/lib/mockData";
+import { PLAYERS, slugifyPlayer, getPlayerShortName } from "@/lib/mockData";
+import { NarrativeThresholds, getNarrativeThresholds } from "@/lib/narrativeThresholds";
 
 // ── share utility ────────────────────────────────────────────────────────────
 
@@ -84,10 +85,14 @@ function initials(name: string | null | undefined): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+// Real-data readiness fix: this used to split the full name on spaces and
+// take the last token, which breaks on real multi-part surnames ("de Silva",
+// "van der Dussen"). It now delegates to the PLAYERS registry's explicit
+// `shortName` field (see getPlayerShortName in lib/mockData.ts) and falls
+// back to the untouched full name — never a guessed split — when a player
+// isn't in the local registry.
 function lastName(fullName: string | null | undefined): string {
-  if (!fullName) return "";
-  const parts = fullName.trim().split(" ");
-  return parts.length >= 2 ? parts[parts.length - 1] : fullName;
+  return getPlayerShortName(fullName);
 }
 
 function isExtras(b: Ball): boolean {
@@ -129,21 +134,22 @@ function dominantBowler(balls: Ball[]): string {
 
 function buildNarrative(
   runs: number, wickets: number, fours: number, sixes: number,
-  bowler: string, keyBall: Ball | null, format: MatchFormat
+  bowler: string, keyBall: Ball | null, format: MatchFormat,
+  t: NarrativeThresholds["narrative"] = getNarrativeThresholds().narrative
 ): string {
   const span = format === "ODI" ? "block" : format === "Test" ? "session" : "over";
-  const big  = format === "ODI" ? 30 : format === "Test" ? 50 : 14;
+  const big  = format === "ODI" ? t.bigOverRunsODI : format === "Test" ? t.bigOverRunsTest : t.bigOverRunsDefault;
 
   if (runs === 0 && wickets === 0) return `${lastName(bowler)} maiden`;
-  if (wickets >= 3) return `${wickets} wickets — collapse!`;
+  if (wickets >= t.wicketsCollapse) return `${wickets} wickets — collapse!`;
   if (wickets === 2) return `Two wickets, ${runs} conceded`;
   if (runs >= big)
-    return sixes >= 2 ? `${sixes} sixes, ${fours} fours — carnage` : `Big ${span} — ${runs} runs`;
-  if (wickets === 1 && runs >= 10) return `${runs} & a wicket — ${lastName(bowler)}`;
+    return sixes >= t.sixesInFlow ? `${sixes} sixes, ${fours} fours — carnage` : `Big ${span} — ${runs} runs`;
+  if (wickets === 1 && runs >= t.runsWithWicketNotable) return `${runs} & a wicket — ${lastName(bowler)}`;
   if (wickets === 1) return `${lastName(bowler)} strikes`;
-  if (sixes >= 2) return `${sixes} sixes — ${lastName(keyBall?.batterName) || 'Batter'} in flow`;
-  if (fours >= 3) return `${fours} fours — boundaries flowing`;
-  if (runs <= 3 && wickets === 0) return `Tight ${span} — ${runs} conceded`;
+  if (sixes >= t.sixesInFlow) return `${sixes} sixes — ${lastName(keyBall?.batterName) || 'Batter'} in flow`;
+  if (fours >= t.foursFlowing) return `${fours} fours — boundaries flowing`;
+  if (runs <= t.tightOverRuns && wickets === 0) return `Tight ${span} — ${runs} conceded`;
   return `${runs} scored`;
 }
 
@@ -151,7 +157,8 @@ function buildNarrative(
 
 function buildOverSummary(
   runs: number, wickets: number, fours: number, sixes: number,
-  bowlerName: string, keyBall: Ball | null, variant: number
+  bowlerName: string, keyBall: Ball | null, variant: number,
+  t: NarrativeThresholds["overSummary"] = getNarrativeThresholds().overSummary
 ): string {
   const bowler = lastName(bowlerName) || "Bowler";
   const batter = lastName(keyBall?.batterName) || "Batter";
@@ -161,27 +168,27 @@ function buildOverSummary(
     return [`${bowler} was unplayable — six balls, not a run to spare.`,
             `A maiden under pressure. ${bowler} made every delivery count.`,
             `Dots all the way. The kind of over that wins matches quietly.`][v];
-  if (wickets >= 3)
+  if (wickets >= t.wicketsCollapse)
     return [`Three gone — the innings buckled without warning.`,
             `${bowler} went through the lineup. Chaos in the middle.`,
             `A collapse that no batting card can explain. Drama, pure and simple.`][v];
-  if (wickets >= 2)
+  if (wickets >= t.wicketsSwing)
     return [`Two wickets in quick succession — the game just tilted.`,
             `${bowler} made it look inevitable. Both batters had no answer.`,
             `A partnership ended, another began — the pressure just ratcheted up.`][v];
-  if (runs >= 18)
+  if (runs >= t.runsHugeOver)
     return [`${batter} was in another zone entirely — ${runs} off the over, relentless.`,
             `The bowling had no plan. ${batter} had every shot in the book.`,
             `${runs} runs. The crowd barely sat down. This is why you watch cricket.`][v];
-  if (runs >= 14)
+  if (runs >= t.runsBigOver)
     return [`${batter} seized the moment — ${runs} and the momentum swings.`,
             `A statement over. ${bowler} will want to forget this one.`,
             `${runs} runs and the game's balance tipped in an instant.`][v];
-  if (sixes >= 2)
+  if (sixes >= t.sixesInFlow)
     return [`${batter} cleared the ropes twice. ${bowler} had no answers.`,
             `Two sixes — pick a length, they said. ${batter} didn't care either way.`,
             `The big hits arrived on cue. The crowd erupted, and rightly so.`][v];
-  if (fours >= 3)
+  if (fours >= t.foursFlowing)
     return [`Boundaries everywhere — ${batter} was in cruise control.`,
             `Three fours: elegant, ruthless, clinical. ${bowler} had no room to hide.`,
             `The scoreboard ticked quickly. ${batter} made it all look effortless.`][v];
@@ -189,7 +196,7 @@ function buildOverSummary(
     return [`One wicket — and the mood in the middle changed instantly.`,
             `${bowler} got the big one. This is where the match could turn.`,
             `${batter} walks back. The questions start. The pressure is real now.`][v];
-  if (runs <= 4)
+  if (runs <= t.tightOverRuns)
     return [`${runs} runs off the over. ${bowler} gave nothing away, nothing at all.`,
             `Tight, disciplined, relentless — ${bowler}'s kind of over.`,
             `${runs} off six balls. May as well have been a maiden. Pressure applied.`][v];
@@ -208,7 +215,8 @@ interface SessionEntry {
 function buildDayReport(
   day: number,
   entries: SessionEntry[],
-  isCurrentDay: boolean
+  isCurrentDay: boolean,
+  t: NarrativeThresholds["dayReport"] = getNarrativeThresholds().dayReport
 ): string[] {
   const lines: string[] = [];
   const totalRuns    = entries.reduce((s, e) => s + e.card.runs, 0);
@@ -229,19 +237,19 @@ function buildDayReport(
   const v = day % 3;
 
   // ── Line 1: Day overview ─────────────────────────────────────────────────
-  if (totalWickets >= 10) {
+  if (totalWickets >= t.bowlerMasterclassWickets) {
     lines.push([
       `Day ${day} was a bowler's masterclass — ${totalWickets} wickets fell for ${totalRuns} runs across a dramatic day's play.`,
       `Wickets, drama, and relentless pressure defined Day ${day}: ${totalWickets} down, ${totalRuns} scored. A day the batting side would rather forget.`,
       `${totalWickets} wickets and ${totalRuns} runs summed up a Day ${day} that belonged entirely to the bowlers.`,
     ][v]);
-  } else if (totalWickets <= 2) {
+  } else if (totalWickets <= t.battersParadiseMaxWickets) {
     lines.push([
       `Day ${day} was a batter's paradise — ${totalRuns} runs flowed with barely a scare, as the bowling attacks toiled without reward.`,
       `The bowlers had a long and thankless Day ${day}: ${totalRuns} scored, only ${totalWickets} wickets conceded. A commanding display of batting.`,
       `${totalRuns} runs and just ${totalWickets} wicket${totalWickets !== 1 ? "s" : ""} lost on Day ${day} — the kind of day that changes the shape of a Test match.`,
     ][v]);
-  } else if (totalWickets >= 6) {
+  } else if (totalWickets >= t.daySwungWickets) {
     lines.push([
       `Day ${day} swung decisively: ${totalRuns} runs, ${totalWickets} wickets — the bowling side seized the initiative and held on to it.`,
       `An eventful Day ${day} with ${totalWickets} wickets and ${totalRuns} runs. The balance tilted, and the bowling side were the ones smiling at stumps.`,
@@ -264,17 +272,17 @@ function buildDayReport(
     const bl = lastName(e.card.bowlerName);
     const range = e.card.overRange;
 
-    if (w >= 5) {
+    if (w >= t.sessionDominantBowlingWickets) {
       lines.push(`${sessName} (${range}): Only ${r} runs came in a session dominated by ${bl}, who took ${w} wickets in a spell that dismantled the innings. Brutal and brilliant.`);
-    } else if (w >= 3) {
+    } else if (w >= t.sessionStrongBowlingWickets) {
       lines.push(`${sessName} (${range}): ${r} runs, ${w} wickets — ${bl} led a sustained bowling effort that put the batting side firmly on the back foot.`);
-    } else if (w === 0 && r >= 70) {
+    } else if (w === 0 && r >= t.sessionDominantBattingRuns) {
       lines.push(`${sessName} (${range}): A dominant batting session — ${r} runs without a single wicket lost. The bowlers toiled, the batters accumulated, and the scoreboard ticked over freely.`);
-    } else if (w === 0 && r >= 40) {
+    } else if (w === 0 && r >= t.sessionSteadyBattingRuns) {
       lines.push(`${sessName} (${range}): A steady ${r} runs with the wickets intact. Controlled rather than expansive, but the batting side will take it — no alarms, plenty of runs.`);
     } else if (w === 0) {
       lines.push(`${sessName} (${range}): Just ${r} runs, no wickets. A cautious session — the bowlers were tight, the batters were patient, and neither side truly dominated.`);
-    } else if (r <= 35 && w >= 2) {
+    } else if (r <= t.sessionSwingMaxRuns && w >= t.sessionSwingMinWickets) {
       lines.push(`${sessName} (${range}): A session that swung the match — ${w} wickets for only ${r} runs. The batting side lost their way, and ${bl} made them pay.`);
     } else {
       lines.push(`${sessName} (${range}): ${r} runs, ${w} wicket${w !== 1 ? "s" : ""} — a competitive session where both sides had their moments and no one could fully take charge.`);
@@ -282,19 +290,19 @@ function buildDayReport(
   }
 
   // ── Line 5: Star bowler ──────────────────────────────────────────────────
-  if (topBowlerWkts >= 4) {
+  if (topBowlerWkts >= t.starBowlerWickets) {
     lines.push([
       `${topBowler} was the story of the day — ${topBowlerWkts} wickets, each one a piece of high-quality bowling that the batter could do little about. A performance that will be remembered.`,
       `The standout individual: ${topBowler} with ${topBowlerWkts} wickets. Relentless, accurate, and utterly unplayable at times. A spell that shifted the entire match.`,
       `${topBowler} put his name all over this day. ${topBowlerWkts} wickets and a performance that reminded everyone why he's among the best in the world right now.`,
     ][v]);
-  } else if (topBowlerWkts >= 2) {
+  } else if (topBowlerWkts >= t.goodBowlerWickets) {
     lines.push([
       `${topBowler} was the pick of the bowlers with ${topBowlerWkts} wickets — combining consistency, movement, and the odd delivery that was simply too good.`,
       `If one bowler stood out, it was ${topBowler}: ${topBowlerWkts} wickets and a performance that showed exactly why he's trusted in Test conditions.`,
       `${topBowler} led the attack with ${topBowlerWkts} wickets, bowling with the kind of discipline that forces mistakes even from well-set batters.`,
     ][v]);
-  } else if (totalFours + totalSixes >= 12) {
+  } else if (totalFours + totalSixes >= t.boundaryHeavyCount) {
     lines.push([
       `The batting side found the boundary freely — ${totalFours} fours and ${totalSixes} sixes over the course of the day. Shot-making of the highest order.`,
       `${totalFours} fours and ${totalSixes} sixes scored on the day. The boundary count tells its own story — this was batting with intent.`,
@@ -309,7 +317,7 @@ function buildDayReport(
       `Still live and still moving. This is Test cricket at its most gripping — nothing is decided, everything matters.`,
       `The match is in the balance right now. The next session — or even the next wicket — could be the one that decides it.`,
     ][v]);
-  } else if (totalWickets >= 8) {
+  } else if (totalWickets >= t.matchTiltedWickets) {
     lines.push([
       `With ${totalWickets} wickets on the day, the scales have tilted sharply. The side that batted will need to dig deep to stay in this contest.`,
       `${totalWickets} wickets in a day leaves very little room for error. The bowling side have put themselves in a commanding position heading into tomorrow.`,

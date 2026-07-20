@@ -25,6 +25,12 @@ export function totalBallsForFormat(match: Match): number {
 export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
   const points: WinProbPoint[] = [];
   const totalBalls = totalBallsForFormat(match);
+  // `target` is only meaningful once the 1st innings has a real runs total.
+  // `match.innings[0]?.runs` can legitimately be null/undefined/0 while data
+  // is still arriving — this must NEVER be force-asserted non-null (that
+  // silently produces NaN win-probabilities that still render a fake-looking
+  // percentage). Chase-innings points are skipped entirely until `target`
+  // is actually known — see the `target === null` guard below.
   const target = match.innings[0]?.runs ? match.innings[0].runs + 1 : null;
   const venuePar = match.venue.parScore ?? (match.format === "ODI" ? 270 : match.format === "Test" ? 320 : 170);
   const battingFirstWinPct = match.venue.battingFirstWinPct ?? 0.5;
@@ -60,7 +66,17 @@ export function calculateWinProbForMatch(match: Match): WinProbPoint[] {
         wpTeamA = battingFirstWinPct * (1 - 0.6) + baseProb * 0.6;
       } else {
         // Team B chasing target
-        const need = target! - cumulativeRuns;
+        if (target === null) {
+          // 1st innings total isn't known yet (runs missing/zero/not yet
+          // populated) — there is nothing valid to compute a chase win
+          // probability against. Skip this ball's point entirely rather
+          // than computing a meaningless NaN that would still render as a
+          // plausible-looking percentage. Once `target` becomes available
+          // (it's computed once, above, before this loop), subsequent
+          // balls resume producing points normally.
+          continue;
+        }
+        const need = target - cumulativeRuns;
         const wicketsLeft = 10 - cumulativeWickets;
         if (need <= 0) {
           wpTeamA = 0; // team A loses, chase done
@@ -180,7 +196,12 @@ export function calculatePressureGauge(match: Match): { level: number; trend: "r
   const totalBalls2 = totalBalls;
   const i2 = match.innings.find(i => i.number === 2 && i.balls.length > 0);
   if (!i2) return null;
-  const target = match.innings[0].runs + 1;
+  // Same target-availability risk as calculateWinProbForMatch above: don't
+  // assume innings[0] exists or has a populated `runs` — hide the pressure
+  // gauge rather than computing it from an undefined/zero target.
+  const firstInningsRuns = match.innings[0]?.runs;
+  if (!firstInningsRuns) return null;
+  const target = firstInningsRuns + 1;
   const cumulativeRuns = i2.balls.reduce((s, b) => s + b.runs + b.extras, 0);
   const cumulativeWickets = i2.balls.filter(b => b.isWicket).length;
   const ballsBowled = i2.balls.length;

@@ -1,5 +1,6 @@
 import { COMPETITIONS, TEAMS, VENUES } from "./mockData";
 import type { Match, Team, Venue } from "./types";
+import { normalizeMatch } from "./dataValidation";
 
 const PAST_SUMMARIES = [
   "Late-order partnership flipped a stalled chase.",
@@ -44,7 +45,7 @@ function seededRandom(seed: number): number {
  */
 export function generatePastMatches(earliestIso: string, batchSize: number): Match[] {
   const earliestMs = new Date(earliestIso).getTime();
-  return Array.from({ length: batchSize }, (_, i) => {
+  const generated: Match[] = Array.from({ length: batchSize }, (_, i) => {
     const idx = (Math.floor(earliestMs / 1000) % 1000) + i + 1;
     const dayOffset = (i + 1) * 18 + 6; // hours back from earliestMs
     const startMs = earliestMs - dayOffset * 3600 * 1000;
@@ -85,6 +86,10 @@ export function generatePastMatches(earliestIso: string, batchSize: number): Mat
       highlightBadge: excitement >= 9 ? "Instant classic" : excitement >= 8 ? "Sharp finish" : undefined,
     };
   });
+  // Run every generated match through the same validation/adapter boundary a
+  // real API response would go through (see lib/dataValidation.ts) — this is
+  // the template call site for wiring in a genuine live-data fetch later.
+  return generated.filter((m): m is Match => normalizeMatch(m, { source: "matchGenerator.generatePastMatches" }).ok);
 }
 
 /**
@@ -92,7 +97,7 @@ export function generatePastMatches(earliestIso: string, batchSize: number): Mat
  */
 export function generateFutureMatches(latestIso: string, batchSize: number): Match[] {
   const latestMs = new Date(latestIso).getTime();
-  return Array.from({ length: batchSize }, (_, i) => {
+  const generated: Match[] = Array.from({ length: batchSize }, (_, i) => {
     const idx = (Math.floor(latestMs / 1000) % 1000) + i + 1;
     const dayOffset = (i + 1) * 22 + 6; // hours forward
     const startMs = latestMs + dayOffset * 3600 * 1000;
@@ -117,4 +122,5 @@ export function generateFutureMatches(latestIso: string, batchSize: number): Mat
       highlightBadge: excitement >= 9 ? "Must watch" : excitement >= 8 ? "High stakes" : undefined,
     };
   });
+  return generated.filter((m): m is Match => normalizeMatch(m, { source: "matchGenerator.generateFutureMatches" }).ok);
 }
