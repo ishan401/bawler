@@ -10,18 +10,6 @@ import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES, ALL_TEAMS } f
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
 import CarouselDots from "./CarouselDots";
 
-// Fixed footprint for the tournament-table shortcut pill below the hero
-// card -- v1.0.68. Was content-hugging (width = icon + label), so it
-// subtly resized per tournament ("IPL TABLE" narrower than "CHAMP. TR.
-// TABLE") even though only one ever shows at a time, in the same slot.
-// Sized against the longest current label -- "Champ. Tr. Table" measures
-// ~163px with this exact icon/padding/font -- plus a comfortable buffer.
-// If a future tournament's shortName is long enough to need more than
-// this without truncating, that's a real signal to come back and widen
-// it deliberately, not silently truncate or let it grow per-label again.
-// See DESIGN-SYSTEM.md §7 for the full label-width audit.
-const TABLE_PILL_WIDTH = 176;
-
 interface LiveCarouselProps {
   matches: Match[];
   nextMatch?: Match;
@@ -491,49 +479,42 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
 
         {(activeComp || activeMatch?.seriesStatus) && (
           <div className="mt-2 flex items-center gap-2 flex-wrap">
-            {/* League / WTC table button — only when standings exist */}
+            {/* League / WTC table button — only when standings exist.
+                Content-hugging by design (reverted v1.0.68-v1.0.72's
+                fixed-width experiment in v1.0.74 -- see DECISIONS-LOG.md):
+                sized to its own label, sits inline with the series chip
+                below when there's room, wraps to its own row otherwise.
+                No fixed width, no truncation, no font-size tricks on
+                either element. */}
             {activeComp && (
               <button
                 onClick={() => setView("standings")}
-                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale shrink-0"
-                style={{ width: TABLE_PILL_WIDTH }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary transition-colors tap-scale"
               >
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" className="shrink-0">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
                   <rect x="0.5" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                   <rect x="7" y="0.5" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                   <rect x="0.5" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                   <rect x="7" y="7" width="3.5" height="3.5" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
                 </svg>
-                <span className="whitespace-nowrap">{activeComp.shortName} Table</span>
+                {activeComp.shortName} Table
               </button>
             )}
-            {/* Series status chip — clickable, opens full series schedule.
-                v1.0.72: font size, padding, gap, and both icons are fixed --
-                identical to every other homepage chip -- regardless of
-                available space. This chip never auto-shrinks to fit; the
-                row (flex-wrap, above) is the pressure-release valve instead.
-                When the pill's fixed 176px leaves less room than this
-                chip's full-size natural width (the real case for the
-                current Test-match seriesStatus string), the chip wraps to
-                its own line below the pill rather than shrinking type size
-                or truncating -- see DESIGN-SYSTEM.md §7. `truncate` +
-                `min-w-0` stay on only as a genuine last-resort for a
-                future, materially longer description that wouldn't read
-                well even on its own full-width line. */}
+            {/* Series status chip — clickable, opens full series schedule */}
             {activeMatch?.seriesStatus && (
               <button
                 onClick={() => setView("series")}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none min-w-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-line text-[11px] font-bold text-text-secondary hover:text-text-primary hover:border-cyan/40 transition-colors tap-scale leading-none"
               >
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
                   <line x1="4" y1="13" x2="4" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="8" y1="13" x2="8" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="12" y1="13" x2="12" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
                   <line x1="2.5" y1="8" x2="13.5" y2="8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                   <path d="M5.5 8 C5.5 5 10.5 5 10.5 8" stroke="currentColor" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
                 </svg>
-                <span className="truncate">{activeMatch.seriesStatus}</span>
-                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="text-cyan opacity-60 shrink-0">
+                {activeMatch.seriesStatus}
+                <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="text-cyan opacity-60">
                   <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
