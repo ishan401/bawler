@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.70)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.74)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.70 mock) — real data integration next.
+**Status:** UI complete (v1.0.74 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -74,15 +74,14 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 ## Match page (top to bottom on mobile)
 
 1. **ScoreBar** (sticky) — score, chase context, innings info
-2. **MiniInsightsBar** — scrolling insight ticker
+2. **MiniInsightsBar** — scrolling insight ticker; win probability lives here as one chip (leading team + %, tap opens the full-screen `WinProbChart` modal) — there's no separate always-visible win-prob element on this page. (`components/MiniWinProb.tsx` exists in the tree but isn't rendered anywhere — dead code, not this chip.)
 3. **MatchTabs** — Live / Scorecard / **Digest** / Info / Table (Table only when the competition has standings; swipe or tap, book-page-turn animation)
 4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
 5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
 6. **PartnershipFooter** — live partnership: total runs/balls + per-batter stats, resets on wicket
 7. **MatchupCard** — always-on batter vs bowler H2H (career + live match merged); shareable PNG
-8. **MiniWinProb** — both teams' % visible; tap opens full WinProbChart modal
-9. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
-10. **CommentaryFeed** — ball-by-ball cards with insight overlays
+8. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
+9. **CommentaryFeed** — ball-by-ball cards with insight overlays
 
 **Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Team toggle (T20/ODI/Hundred) or per-innings chips (Test) pick which innings shows below, defaulting to whoever's currently batting. Sticky innings header, offset measured live so it stays flush under the real header in any format. Partnership velocity sparklines between batting + bowling cards, plus a per-batter runs-vs-balls sparkline on each dismissal/"not out" line with boundary dots capped at that batter's own 4s/6s.
 
@@ -145,7 +144,7 @@ components/
 │   ├── ScoreBar.tsx           # sticky score header
 │   ├── BallGIF.tsx            # hero two-clip SVG delivery replay; PartnershipFooter
 │   ├── MomentsStrip.tsx       # horizontal key events timeline
-│   ├── MiniWinProb.tsx        # inline sparkline
+│   ├── MiniWinProb.tsx        # NOT RENDERED ANYWHERE -- dead code; the real win-prob chip lives in MiniInsightsBar, see "Match page" above
 │   ├── WinProbChart.tsx       # full-screen modal chart
 │   ├── AIMetrics.tsx          # 4-tile metrics row
 │   ├── CommentaryFeed.tsx     # ball-by-ball cards + insight overlays
