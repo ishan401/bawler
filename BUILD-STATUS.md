@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.65 (deployed)
+**Current version:** v1.0.70 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -349,3 +349,13 @@
 | **v1.0.63** | Fix: phantom-selection bug in Filter sheet — `sanitizeFollowPrefs()` added to `getFollowPrefs()`, filtering stored prefs against the exact valid-ID sets the sheet renders from, self-healing localStorage on read; fixes a real regression from v1.0.57's Team-category scoping fix (`89350ab`) |
 | **v1.0.62** | New explicit, deterministic 3-tier homepage hero-match selection rule (`lib/heroSelection.ts`) — prominence tier, then live-stakes tiebreak, then live-runway tiebreak — replacing an ad hoc popularity sort; global/non-personalized, "for you" continues to exclude whatever it selects (`eb6bd8b`) |
 | **v1.0.61** | "For you" card restructured to share Spotlight's visual language — `0.75rem` corner radius, `px-2 py-1.5` + `flex-col gap-0.5` padding rhythm; height, background, and content untouched on both cards (`61a0ec6`) |
+
+## Changelog additions (v1.0.66–v1.0.70)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.66** | Merged Spotlight past-match card's standalone venue line into its story line to close the height gap with "for you"; live measurement afterward showed the merge alone left dead space, so `SPOTLIGHT_CARD_HEIGHT` was also reduced 148 → 116 (`d9f2f9c`, `6fa24bc`) |
+| **v1.0.67** | Design-system cleanup: page background now reads the `bg.deep` token instead of a hardcoded `#000000`; `wicket`/`six` split into 5 new dedicated tokens (`live`, `negative`, `special`, `spin`, `slowPace`) for meanings that had been borrowing them; six-ball color mismatch (`OUTCOME.six` turquoise vs. Tailwind `six` purple) resolved to purple (`3afcb51`) |
+| **v1.0.68** | Tournament-table shortcut pill (`WTC TABLE`/`IPL TABLE`/etc.) given a fixed `176px` width instead of content-hugging, so it no longer visibly resizes per tournament (`abc84a8`) |
+| **v1.0.69** | Fix attempt: `min-w-0` + `truncate` on the series-status chip to stop a two-row wrap regression introduced by v1.0.68's wider table pill — did not actually hold, see v1.0.70; also fixed a real bug: bowling tiebreak now compares `economy` instead of raw `runsConceded` (`2868ce3`) |
+| **v1.0.70** | Actual row-wrap fix: switched the shared row container from `flex-wrap` to `flex-nowrap` — `flex-wrap` breaks lines off each item's un-shrunk size, so v1.0.69's shrink/truncate additions never got a chance to apply (`ef112ee`) |

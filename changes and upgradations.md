@@ -3,6 +3,115 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.70] 2026-07-20
+
+### Actually fix the table-pill/series-chip row-wrap regression: flex-wrap → flex-nowrap
+
+#### Fixed — row container switched from `flex-wrap` to `flex-nowrap` (`components/LiveCarousel.tsx`)
+- v1.0.69's `min-w-0` + `truncate` on the series-status chip didn't stop the two-row wrap when verified live
+- Root cause: the shared row container was still `flex-wrap`, and `flex-wrap` decides line-breaks off each item's un-shrunk, max-content size — a shrinkable item still gets pushed onto a new line before `flex-shrink` ever gets applied to it
+- Switched the container to `flex-nowrap` — shrinking now actually takes effect, so the series chip truncates to fill remaining space instead of dropping to row 2
+- v1.0.69's `min-w-0`/`truncate`/`shrink-0` additions on the chip itself are unaffected and stay in place — they're a correct part of the shrink-to-fit pattern, just not sufficient on their own against a `flex-wrap` container
+
+#### Verified
+- Live: series-status chip now truncates in place alongside the table pill, both on one row, at the container width that previously reproduced the two-row regression
+
+---
+
+## [1.0.69] 2026-07-20
+
+### Row-wrap fix attempt (superseded by v1.0.70) + bowling tiebreak bug
+
+#### Fixed — series-status chip given shrink/truncate treatment (`components/LiveCarousel.tsx`) — did NOT actually stop the wrap
+- v1.0.68's fixed-width `TABLE_PILL_WIDTH` (176px, up from content-hugging ~117px for "WTC Table") pushed the sibling series-status chip past the flex container's ~406px available width, tripping a wrap onto a second row — a regression from that commit
+- Added `min-w-0` + `truncate` on the chip's label span, `shrink-0` on both its icons
+- **Verified live afterward that this did NOT actually stop the wrapping** — see v1.0.70, which found and fixed the real cause (the container was still `flex-wrap`)
+
+#### Fixed — bowling tiebreak now compares `economy`, not raw `runsConceded` (`components/Scorecard.tsx`)
+- `topWicketTaker`'s reduce, among bowlers tied on wickets, previously picked whoever had the lower raw `runsConceded` — unfairly favoring fewer overs bowled regardless of rate
+- e.g. Kuldeep (4 overs, 4.25 econ) was beating Bumrah (lower econ, more overs) despite Bumrah's figures being clearly better
+- Changed the tiebreak comparison to `economy`; the outright highest-wickets-wins branch is untouched
+
+#### Verified
+- Bowling tiebreak: live in the ENG vs IND Test, England's 2nd innings bowling table — 4 bowlers tied at 1 wicket each, Bumrah (2.25 econ) now correctly highlighted over Kuldeep (4.25 econ)
+- Row-wrap fix: verified live and found NOT to hold — `flex-wrap` still forced a two-row layout; fixed for real in v1.0.70
+
+---
+
+## [1.0.68] 2026-07-20
+
+### Tournament-table shortcut pill fixed to a consistent width
+
+#### Fixed — `TABLE_PILL_WIDTH = 176` replaces content-hugging width (`components/LiveCarousel.tsx`)
+- Reported: the "WTC TABLE"/"IPL TABLE"/"PSL TABLE" etc. pill below the hero card resized per tournament since its width was content-hugging (icon + label + padding) — only one of these ever shows at a time, in the same slot, so the varying width read as jitter
+- Measured every current real label's natural width with the exact icon/padding/font (IPL, T20 WC, Champ. Tr., BBL, PSL, Hundred, SA20, CPL, MLC, WTC — every `Competition` with `hasStandings: true`); longest is "Champ. Tr. Table" at ~163px
+- Added `TABLE_PILL_WIDTH = 176` (comfortable buffer over that); button switched to `justify-center` + fixed inline width instead of hugging content; label centered inside via a `whitespace-nowrap` span
+- Deliberately no truncate/ellipsis safety net: a future over-length label overflows visibly rather than silently truncating or quietly widening
+
+#### Updated — DESIGN-SYSTEM.md §7
+- Documented the fixed-width pattern, the label-width audit, and an explicit "don't add truncate, don't revert to content-hugging" note
+
+#### Verified
+- Width audited against every current competition's `shortName` + icon/padding/font combination with `hasStandings: true` — longest ("Champ. Tr. Table", ~163px) fits comfortably inside 176px with buffer to spare
+- Note: this change is what pushed the sibling series-status chip into a two-row wrap regression, discovered and addressed in v1.0.69/v1.0.70 below
+
+---
+
+## [1.0.67] 2026-07-20
+
+### Design-system cleanup: 3 flagged inconsistencies resolved
+
+#### Fixed — page background now reads the `bg.deep` token instead of a hardcoded hex (`app/globals.css`)
+- `html`/`body` background was hardcoded to `#000000`, bypassing `bg.deep` (`#03060F`) entirely
+- Confirmed with the user first since the two values don't match exactly (RGB 0,0,0 vs 3,6,15) — accepted the near-imperceptible shift
+- Both now read `#03060F` via the same value `bg.deep` already defines
+
+#### Added — 5 new dedicated color tokens carved out of `wicket`/`six` (`tailwind.config.ts`, `lib/tokens.ts` new file)
+- Audited every `text-wicket`/`bg-wicket`/`text-six`/`bg-six` (and raw hex) usage across the codebase to separate genuine per-ball outcome color from unrelated meanings borrowing one of the two
+- `live` (`#EF4444`) — the live-match indicator; consolidated 3 separate, inconsistent "LIVE" badge implementations inside `LiveCarousel.tsx`/the team-schedule page, one of which was raw Tailwind `red-400`/`red-500`, not even a token
+- `negative` (`#EF4444`) — behind/lost/declining trend, pairs with the existing `boundary` token
+- `special` (`#A855F7`) — Man of the Series, a batter's "Never dismissed" achievement, a bowler's five-for milestone chip
+- `spin` (`#A855F7`) — ball spin-direction/delivery-type indicator
+- `slowPace` (`#A855F7`) — slowest tier of the ball-speed color gradient
+- One more find: `LiveCarousel`'s series-schedule "WON" badge was using `six`/purple as a decorative success marker — reassigned to the existing `boundary` token instead of a new one
+- All five keep their pre-existing hex value — naming/architecture fix only, not a recolor
+- Updated: `app/page.tsx`, `app/schedule/[competitionId]/[teamCode]/page.tsx`, `app/table/page.tsx`, `components/AIMetrics.tsx`, `components/BallGIF.tsx`, `components/DeliveryCard.tsx`, `components/LiveCarousel.tsx`, `components/MatchCard.tsx`, `components/MatchupCard.tsx`, `components/MiniBallGIF.tsx`, `components/MiniStandings.tsx`, `components/MomentStoryCard.tsx`, `components/MomentsStrip.tsx`, `components/PitchReportCard.tsx`, `components/PressureGauge.tsx`, `components/ProjectedScore.tsx`, `components/ScoreBar.tsx`, `components/Scorecard.tsx`, `components/StandingsTab.tsx`, `components/WinProbChart.tsx`
+
+#### Fixed — six-ball color mismatch resolved to purple (`lib/outcomeColors.ts`)
+- `OUTCOME.six` was turquoise (`#2DD4BF`); the Tailwind `six` token used directly everywhere else was purple (`#A855F7`)
+- Audited actual usage before picking one: purple renders in 11+ files; turquoise reached the screen in exactly one place — `DeliveryCard`'s `FullCard` outcome badge, sitting directly next to an already-purple `MiniBallGIF` thumbnail on the same card, a real visible clash
+- Standardized on purple: `OUTCOME.six.primary`/`.tint` → `#A855F7`, `badgeFg` → `#FFFFFF` to match `BallGIF`'s established fg convention for a purple badge
+- `three` (`#EC4899` pink, no Tailwind equivalent) left untouched — nothing conflicts with it
+
+#### Updated — DESIGN-SYSTEM.md
+- All three previously-flagged "known inconsistency" callouts replaced with "Resolved (v1.0.67)" language and the full reasoning above
+
+#### Verified
+- `tsc` + build clean
+- Re-ran the collision-check script from DESIGN-SYSTEM.md (untouched by this pass) — still passes: 72 teams, CSK-AUS 9.3 / SRH-AUS 19.4 / CSK-SRH 23.6, matching exactly
+
+---
+
+## [1.0.66] 2026-07-20
+
+### Spotlight past-match card: merged venue line into story line, then re-tuned card height
+
+#### Fixed — standalone venue line folded into the story/summary line (`components/MatchCard.tsx`)
+- Reported: the past-match Spotlight card rendered two separate context lines below the result banner — a standalone venue line and a separate story/summary line — while the "for you" card directly above it renders only one, making the height mismatch look wrong stacked together
+- Dropped the standalone venue-name line; folds just the venue's city into the story line as one sentence (`...vs Surya's 78, Ahmedabad.`), stripping the summary's own trailing period first to avoid a double `..`
+- Falls back to just the city (still one line, never empty) when there's no summary text — that case already rendered venue-only before this change
+- Scoped to `PastMatchCard`'s branch of `SpotlightMatchCard` only — the upcoming-match branch already showed a single summary line plus a separate countdown/footer row, a different UI element
+
+#### Fixed — `SPOTLIGHT_CARD_HEIGHT` reduced 148 → 116 after the merge alone didn't close the height gap (`components/MatchCard.tsx`)
+- Live measurement after the line-merge above showed the visible card height was still 148px, unchanged — `SPOTLIGHT_CARD_HEIGHT` is a fixed height applied via inline style, not auto-height, so removing a line of text just left ~50-60px of dead space at the bottom
+- Measured new content height directly in the browser for every live spotlight card (~89-103px including a 2-line-wrap case); worked out the equivalent for the upcoming-match branch by its Tailwind classes (~94-106px; 0 upcoming matches currently qualify as spotlight-worthy, so this branch couldn't be measured directly)
+- Reduced the constant to 116 — comfortably fits both branches' content with a small buffer, landing much closer to "for you"'s ~72px than 148px did
+
+#### Verified
+- Content-height measurements taken live in-browser for every currently-live spotlight card before picking the new constant
+
+---
+
 ## [1.0.65] 2026-07-15
 
 ### Fix: stray full-width gray scrollbar bar on swipe carousels
