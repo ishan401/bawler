@@ -210,13 +210,16 @@ export function qualifyMatch(match: Match, prefs: FollowPrefs): MatchQualificati
     const nationA = nationOf(match.teamA.code, match.teamA.country, match.teamA.type);
     const nationB = nationOf(match.teamB.code, match.teamB.country, match.teamB.type);
     const nationMatches = (nationA && prefs.nations.includes(nationA)) || (nationB && prefs.nations.includes(nationB));
-    // A two-team bilateral series (e.g. "India tour of Australia") IS the
-    // followed nation's whole current storyline — the hero card, series
-    // banner, etc. already foreground it elsewhere on the homepage, so
-    // nation-following doesn't add anything a "for you" row should repeat.
-    // (Team/tournament/format/player follows are unaffected — those are
-    // more deliberate choices and still surface bilateral matches normally.)
-    nation = !!nationMatches && match.competition.type !== "bilateral";
+    // v1.0.91 (FC-Bug1): previously suppressed here whenever the match was
+    // part of a bilateral series, on the theory that the hero card/series
+    // banner already foreground it. That blanket gate was wrong in
+    // practice — most international cricket IS bilateral, so it made "for
+    // you" go dark for most nation follows most of the time. Hero-match
+    // exclusion (the only thing this was actually trying to avoid
+    // repeating) is handled uniformly by the caller via `m.id !== heroId`,
+    // the same way team/tournament/series/format/player follows already
+    // work — so nation follows no longer need a special case here.
+    nation = !!nationMatches;
   }
 
   const player = prefs.players.length > 0 && prefs.players.some(pid => isPlayerInMatch(match, pid));

@@ -110,6 +110,24 @@ function ForYouMarker() {
   );
 }
 
+/**
+ * "For you" marker, inline variant — v1.0.91 (FC-Bug2). Same cyan
+ * star-pill visual language as ForYouMarker, but laid out in normal flow
+ * instead of absolutely positioned, so it can sit inside LiveMatchCard's
+ * Row 1 flex group without stacking on top of the "LIVE" badge (which
+ * already occupies that card's top-left corner).
+ */
+function ForYouInlineBadge() {
+  return (
+    <div className="shrink-0 flex items-center gap-1 bg-cyan text-bg text-[8.5px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded-full leading-none shadow-md">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.2 22 12 18.56 5.8 22 7 14.14l-5-4.87 7.1-1.01z" />
+      </svg>
+      For you
+    </div>
+  );
+}
+
 function CompetitionBadge({ match }: { match: Match }) {
   const c = match.competition;
 
@@ -202,7 +220,7 @@ const clamp2: React.CSSProperties = {
 // ============================================================================
 // Live card — full width, prominent win-prob sparkline
 // ============================================================================
-export function LiveMatchCard({ match }: { match: Match }) {
+export function LiveMatchCard({ match, forYou }: { match: Match; forYou?: boolean }) {
   const { teamA, teamB, innings } = match;
 
   // Look up innings by battingTeam code — NOT by position.
@@ -256,6 +274,7 @@ export function LiveMatchCard({ match }: { match: Match }) {
             Live
           </span>
           <div className="flex items-center gap-1.5">
+            {forYou && <ForYouInlineBadge />}
             <CompetitionBadge match={match} />
             <span className="text-[9px] text-white/60 num truncate leading-none hidden sm:inline">{match.venue.city}</span>
           </div>

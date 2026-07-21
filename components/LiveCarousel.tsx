@@ -13,6 +13,11 @@ import CarouselDots from "./CarouselDots";
 interface LiveCarouselProps {
   matches: Match[];
   nextMatch?: Match;
+  // v1.0.91 (FC-Bug2): ids of matches that also qualify for "for you" --
+  // stamped as an inline marker on the existing live card instead of a
+  // duplicate standalone "for you" row (same dedup idea as the Spotlight
+  // "for you" marker, FY5).
+  forYouIds?: Set<string>;
 }
 
 function fmtCountdown(iso: string): string {
@@ -347,7 +352,7 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
   );
 }
 
-export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) {
+export default function LiveCarousel({ matches, nextMatch, forYouIds }: LiveCarouselProps) {
   const [view, setView] = useState<"none" | "standings" | "team-schedule" | "series">("none");
 
   // seriesPool: all matches the series-schedule sheet can filter from.
@@ -465,7 +470,7 @@ export default function LiveCarousel({ matches, nextMatch }: LiveCarouselProps) 
         >
           {matches.map(m => (
             <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-              <LiveMatchCard match={m} />
+              <LiveMatchCard match={m} forYou={forYouIds?.has(m.id)} />
             </div>
           ))}
         </div>

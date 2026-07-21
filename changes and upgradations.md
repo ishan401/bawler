@@ -3,6 +3,34 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.91] 2026-07-21
+
+### "For you" card: fix nation-follow suppression + live-carousel duplication, add explicit tier-priority order
+
+#### Context
+- Four issues isolated via prior controlled testing (constructed trace + live check, not guesswork): two independent bugs and two undefined-behavior gaps in the "for you" personalization card.
+
+#### Fixed — `lib/followPrefs.ts`
+- Bug 1: `qualifyMatch()`'s nation condition was `nation = !!nationMatches && match.competition.type !== "bilateral"`, blanket-suppressing every bilateral match for a followed nation (most international cricket is bilateral, so this made "for you" go dark for most nation follows most of the time). Changed to `nation = !!nationMatches` — hero-exclusion (the only thing the old gate was actually protecting against) is handled uniformly downstream by the existing `m.id !== heroId` filter, the same mechanism team/tournament/series/format follows already used.
+
+#### Fixed — `components/MatchCard.tsx`, `components/LiveCarousel.tsx`
+- Bug 2: qualifying live matches used to render as a second, separate "for you" card duplicating the one already visible in the live carousel above. Added `ForYouInlineBadge` (normal-flow layout, not absolutely positioned like the existing `ForYouMarker`, so it doesn't stack on `LiveMatchCard`'s own "LIVE" label) and a new `forYou?: boolean` prop on `LiveMatchCard`; `LiveCarousel` threads a new `forYouIds?: Set<string>` prop down to it.
+
+#### Fixed — `app/page.tsx`
+- `forYouSelection` restructured into `forYouResult` (`{ liveIds: Set<string>; upcoming: Match | null }`). Because `liveCarouselMatches` already renders every live match unconditionally, a qualifying live match is always already visible there — so live qualifiers (excluding the homepage's own hero match, unchanged) always become marker ids passed to `<LiveCarousel forYouIds={...}>`, never a standalone card. The upcoming fallback only runs when there are zero live qualifiers, preserving the existing re-trigger behavior (a followed team's/nation's only live match being the hero still correctly falls through to that team's/nation's next upcoming match).
+- Gap 1: added `bestFollowRank()` — an explicit priority order for the upcoming fallback when multiple followed categories each have a candidate: team (1) > series (2) > tournament (3) > nation (4) > format (5), player unchanged as a Tier-2 fallback. Candidates are filtered to the single most-specific rank present, then tie-broken by soonest start time — replacing the old pure "whichever is chronologically soonest" selection.
+- Removed `FOR_YOU_LIVE_MAX` and the now-dead multi-card mini-carousel/drag-to-scroll/dot-indicator branch that only ever fired for 2-3 simultaneous live qualifiers — "for you" can render at most one card now (the single upcoming pick).
+
+#### Gap 2
+- Confirmed (constructed test + live check) that following a nation, team, or player with zero current/near-term matches returns cleanly with no card and no error, matching the already-correct series/tournament case — all four categories share the same code path, so there was no per-category special-casing to fix.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+- Constructed trace against real mock data: nation follow (India) now correctly picks up its non-hero live bilateral match; nation follow (Australia) whose only live match IS the hero correctly falls through to the next upcoming AUS-IND match; an isolated priority test confirmed a team follow's later match beats a nation follow's chronologically-sooner match, proving rank (not just soonest) governs the upcoming pick; zero-match nation/team/player follows all returned cleanly with nothing shown
+- Live (Claude-in-Chrome, `localStorage` follow-pref overrides + reload): nation follow with a live bilateral match not the hero, team follow with a live match not the hero, and two simultaneous qualifying follows — confirmed no duplication anywhere on the homepage and no console errors
+
+---
+
 ## [1.0.90] 2026-07-21
 
 ### Add version footer to the homepage (it never had one)

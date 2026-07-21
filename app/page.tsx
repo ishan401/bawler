@@ -19,6 +19,7 @@ import {
   isTier1Match,
   followedMatchSide,
   type FollowPrefs,
+  type MatchQualification,
 } from "@/lib/followPrefs";
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
 import { isSpotlightMatch } from "@/lib/spotlight";
@@ -63,7 +64,7 @@ function fmtShortDate(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { month: "short", day: "numeric" });
 }
 // "For you"'s upcoming-match line only (v1.0.89) -- the selection logic in
-// forYouSelection deliberately has NO lookahead cutoff (it always picks the
+// forYouResult deliberately has NO lookahead cutoff (it always picks the
 // soonest qualifying match, however far out that is), so a genuinely
 // distant match can and does reach this card. A countdown stops being
 // useful information past a week out ("in 84d 3h" reads as noise, not a
@@ -121,9 +122,32 @@ function useDragToScroll<T extends HTMLDivElement>() {
 // Spotlight uses a deliberately stricter, concrete-condition bar than the
 // excitement-glow score elsewhere in the app — see lib/spotlight.ts for why.
 const SPOTLIGHT_MAX = 3;
-// Cap on simultaneous live matches shown in the "for you" carousel — same
-// "stay rare" reasoning as SPOTLIGHT_MAX, just for a different slot.
-const FOR_YOU_LIVE_MAX = 3;
+
+// Gap 1 (v1.0.91) — explicit priority order for when more than one followed
+// category has a qualifying match at once. Live-before-upcoming is handled
+// structurally elsewhere (forYouResult checks live first); this is the
+// second half: "most specific follow type first" when multiple Tier 1
+// categories are in play. Ranked most -> least specific:
+//   1. team       — one exact side of one match, the narrowest signal there is
+//   2. series     — one bilateral tour between two named sides
+//   3. tournament — one named multi-team competition
+//   4. nation     — every match either of a nation's sides plays, of any kind
+//   5. format     — every match of a given format, across every nation/comp
+// Player is intentionally excluded from this scale — it's Tier 2 (see
+// isTier1Match/isAnyMatch in lib/followPrefs.ts) and only ever competes for
+// a slot when NO Tier 1 category has anything at all, so it can't collide
+// with this ranking. NOTE: the original request's example order ("nation >
+// series > tournament > player > format") didn't mention team -- team is
+// added here, ranked above nation, since "most specific first" requires it
+// (one side of one match is more specific than an entire nation's schedule).
+function bestFollowRank(q: MatchQualification): number {
+  if (q.team) return 1;
+  if (q.series) return 2;
+  if (q.tournament) return 3;
+  if (q.nation) return 4;
+  if (q.format) return 5;
+  return 6; // player-only (Tier 2) -- see comment above
+}
 
 type ExpandedCol = null | "past" | "future";
 
@@ -241,16 +265,12 @@ export default function Home() {
   const spotlightIds = useMemo(() => new Set(spotlightMatches.map(s => s.m.id)), [spotlightMatches]);
 
   // ---- "For you" — union-pool of matches qualifying via ANY followed
-  // nation, team, tournament, format, or player (lib/followPrefs.ts
-  // qualifyMatch). Two-tier priority: Nation/Team/Tournament/Format is
-  // Tier 1; Player alone is Tier 2, used ONLY when Tier 1 is completely
+  // nation, team, tournament, series, format, or player (lib/followPrefs.ts
+  // qualifyMatch). Two-tier priority: Nation/Team/Tournament/Series/Format
+  // is Tier 1; Player alone is Tier 2, used ONLY when Tier 1 is completely
   // empty — a match qualifying via both stays Tier 1, the demotion only
-  // hits matches that qualify exclusively via a followed player. Within
-  // whichever tier is active, live beats upcoming, excluding the homepage's
-  // single hero live match (top LiveCarousel card) so it isn't repeated.
-  // Bilateral-series nation-redundancy is already suppressed inside
-  // qualifyMatch. Never surfaces past matches — this row is live-or-
-  // upcoming only. ----
+  // hits matches that qualify exclusively via a followed player. Never
+  // surfaces past matches — this row is live-or-upcoming only. ----
   // Live carousel order: hero (lib/heroSelection.ts's single global pick)
   // always leads, since it's the card shown by default without swiping;
   // every other live match follows in the existing popularity order. Only
@@ -262,56 +282,86 @@ export default function Home() {
     return [hero, ...byPopularity(ALL_LIVE_MATCHES.filter(m => m.id !== hero.id))];
   }, []);
 
-  const forYouSelection = useMemo(() => {
-    if (!followsAnything) return null;
+  // v1.0.91 (Bug 2) — a qualifying LIVE match is, by construction, always
+  // already visible somewhere: liveCarouselMatches (above) renders every
+  // single live match unconditionally, there's no filtering. So a live
+  // "for you" qualifier never needs (or gets) a standalone card anymore —
+  // it gets an inline "for you" marker stamped on its existing live-
+  // carousel card instead (the same dedup idea Spotlight already used for
+  // FY5, extended here to the carousel). Only when there are ZERO
+  // qualifying live matches does this fall through to a single upcoming
+  // card below, which preserves FY3's fallback behavior exactly: if a
+  // followed team's only live match is the hero, hero stays excluded here
+  // (it's a global pick, not a personalization signal — see heroId below),
+  // so liveIds comes back empty and "for you" still falls through to that
+  // team's next upcoming match.
+  const forYouResult = useMemo((): { liveIds: Set<string>; upcoming: Match | null } => {
+    const empty = { liveIds: new Set<string>(), upcoming: null };
+    if (!followsAnything) return empty;
+
     const pool = [...ALL_LIVE_MATCHES, ...ALL_UPCOMING_MATCHES];
-    const tier1: Match[] = [];
-    const playerOnly: Match[] = [];
+    const tier1: { m: Match; rank: number }[] = [];
+    const playerOnly: { m: Match; rank: number }[] = [];
     for (const m of pool) {
       const q = qualifyMatch(m, followPrefs);
-      if (isTier1Match(q)) tier1.push(m);
-      else if (q.player) playerOnly.push(m);
+      if (isTier1Match(q)) tier1.push({ m, rank: bestFollowRank(q) });
+      else if (q.player) playerOnly.push({ m, rank: bestFollowRank(q) });
     }
     const active = tier1.length > 0 ? tier1 : playerOnly;
-    if (active.length === 0) return null;
-    const activeIds = new Set(active.map(m => m.id));
+    if (active.length === 0) return empty;
+    const activeIds = new Set(active.map(a => a.m.id));
 
     // Hero is a single GLOBAL selection (lib/heroSelection.ts) -- the same
     // for every visitor regardless of what they follow, never personalized.
     // "for you" pools separately and simply excludes whatever hero claims.
     const heroId = selectHeroMatch(ALL_LIVE_MATCHES)?.id;
-    const liveCandidates = byPopularity(ALL_LIVE_MATCHES).filter(m => activeIds.has(m.id) && m.id !== heroId);
-    if (liveCandidates.length > 0) {
-      return { kind: "live" as const, matches: liveCandidates.slice(0, FOR_YOU_LIVE_MAX) };
-    }
-    const upcoming = [...ALL_UPCOMING_MATCHES]
-      .filter(m => activeIds.has(m.id))
-      .sort((a, b) => a.startTimeIso.localeCompare(b.startTimeIso))[0];
-    return upcoming ? { kind: "upcoming" as const, matches: [upcoming] } : null;
+    const liveIds = new Set(ALL_LIVE_MATCHES.filter(m => activeIds.has(m.id) && m.id !== heroId).map(m => m.id));
+    if (liveIds.size > 0) return { liveIds, upcoming: null };
+
+    // No live qualifiers -- fall back to the single soonest UPCOMING
+    // qualifying match. Gap 1 (v1.0.91): when several different follow
+    // categories each have a candidate, don't just take whichever happens
+    // to be chronologically soonest -- prefer the most specific follow
+    // type first (bestFollowRank, above), and only break ties between
+    // equally-specific candidates by soonest start time.
+    const upcomingIds = new Set(ALL_UPCOMING_MATCHES.map(m => m.id));
+    const upcomingCandidates = active.filter(a => upcomingIds.has(a.m.id));
+    if (upcomingCandidates.length === 0) return { liveIds, upcoming: null };
+    const minRank = Math.min(...upcomingCandidates.map(a => a.rank));
+    const upcoming = upcomingCandidates
+      .filter(a => a.rank === minRank)
+      .map(a => a.m)
+      .sort((x, y) => x.startTimeIso.localeCompare(y.startTimeIso))[0] ?? null;
+    return { liveIds, upcoming };
   }, [followPrefs, followsAnything]);
 
-  // Spotlight-dedup is a pure display-time filter — matches already shown as
-  // spotlight cards get the "for you" marker there instead of appearing
-  // again in this slot. It does NOT re-trigger the live/upcoming fallback:
-  // if absorbing spotlight empties the row, the row just stays empty (the
-  // marker on the spotlight card already preserves the information).
+  const forYouLiveIds = forYouResult.liveIds;
+
+  // Spotlight-dedup is a pure display-time filter — a qualifying upcoming
+  // match already shown as a spotlight card gets the "for you" marker
+  // there instead of appearing again in this slot. It does NOT re-trigger
+  // the live/upcoming fallback: if absorbing spotlight empties the row, the
+  // row just stays empty (the marker on the spotlight card already
+  // preserves the information). (Live qualifiers never reach this — they're
+  // handled entirely via forYouLiveIds/the live carousel above, and
+  // Spotlight can never contain a live match — see lib/spotlight.ts.)
   const forYouVisible = useMemo(
-    () => (forYouSelection ? forYouSelection.matches.filter(m => !spotlightIds.has(m.id)) : []),
-    [forYouSelection, spotlightIds]
+    () => (forYouResult.upcoming && !spotlightIds.has(forYouResult.upcoming.id) ? forYouResult.upcoming : null),
+    [forYouResult, spotlightIds]
   );
   const forYouSpotlightIds = useMemo(
-    () => new Set(forYouSelection ? forYouSelection.matches.filter(m => spotlightIds.has(m.id)).map(m => m.id) : []),
-    [forYouSelection, spotlightIds]
+    () => new Set(forYouResult.upcoming && spotlightIds.has(forYouResult.upcoming.id) ? [forYouResult.upcoming.id] : []),
+    [forYouResult, spotlightIds]
   );
 
-  // Mouse drag-to-scroll for the two carousels that can hold 2+ cards here
-  // (spotlight, for-you) -- see useDragToScroll's own comment for why.
-  const forYouDrag = useDragToScroll();
+  // Mouse drag-to-scroll for the carousel that can hold 2+ cards here
+  // (spotlight) -- see useDragToScroll's own comment for why. "For you" no
+  // longer needs its own drag-to-scroll/dot-indicator pair as of v1.0.91 --
+  // it renders at most a single card now (live qualifiers became inline
+  // carousel markers instead, see forYouResult above), so it's never a
+  // multi-item carousel.
   const spotlightDrag = useDragToScroll();
-  // Shared with LiveCarousel's own dot indicator -- see
-  // lib/useCarouselIndex.ts. Each hook no-ops safely while its carousel
-  // has 0-1 items (forYouVisible.length / spotlightMatches.length).
-  const forYouActiveIdx = useCarouselIndex(forYouDrag.ref, forYouVisible.length);
+  // Shared with LiveCarousel's own dot indicator -- see lib/useCarouselIndex.ts.
   const spotlightActiveIdx = useCarouselIndex(spotlightDrag.ref, spotlightMatches.length);
 
   return (
@@ -359,45 +409,19 @@ export default function Home() {
       ) : (
         <>
           <section className="mt-1">
-            <LiveCarousel matches={liveCarouselMatches} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} />
+            <LiveCarousel matches={liveCarouselMatches} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} forYouIds={forYouLiveIds} />
           </section>
 
-          {/* For you — surfaces match(es) matching any followed selection (live
-              first, else the single soonest upcoming). Multiple simultaneous
-              live qualifiers become a small swipeable set, matching the
-              spotlight carousel's own pattern. Hidden per-match when it's
-              already shown as a spotlight card (that card gets a "for you"
-              marker instead, so nothing is shown twice). */}
-          {forYouVisible.length === 1 && (
+          {/* For you — surfaces the single best upcoming match matching any
+              followed selection, once no qualifying match is already live
+              (live qualifiers get an inline marker on their existing live-
+              carousel card instead, per forYouLiveIds above -- v1.0.91).
+              Hidden when that upcoming match is already shown as a
+              spotlight card (that card gets the "for you" marker instead,
+              so nothing is shown twice). */}
+          {forYouVisible && (
             <section className="mt-3 px-3">
-              <ForYouRow match={forYouVisible[0]} isLive={forYouSelection?.kind === "live"} followPrefs={followPrefs} />
-            </section>
-          )}
-          {forYouVisible.length > 1 && (
-            <section className="mt-3">
-              <div className="px-3">
-                <div
-                  ref={forYouDrag.ref}
-                  onMouseDown={forYouDrag.onMouseDown}
-                  onMouseMove={forYouDrag.onMouseMove}
-                  onMouseUp={forYouDrag.onMouseUp}
-                  onMouseLeave={forYouDrag.onMouseLeave}
-                  onClickCapture={forYouDrag.onClickCapture}
-                  className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-3 px-3 cursor-grab active:cursor-grabbing select-none"
-                >
-                  {forYouVisible.map(m => (
-                    <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-                      <ForYouRow match={m} isLive={forYouSelection?.kind === "live"} followPrefs={followPrefs} />
-                    </div>
-                  ))}
-                </div>
-                {/* Contained position indicator -- v1.0.65, replaces the
-                    old full-width native scrollbar. "For you" accent
-                    (violet) to match its own label/border color. */}
-                <div className="mt-2">
-                  <CarouselDots count={forYouVisible.length} activeIndex={forYouActiveIdx} activeColor="#7C3AED" />
-                </div>
-              </div>
+              <ForYouRow match={forYouVisible} isLive={false} followPrefs={followPrefs} />
             </section>
           )}
 
