@@ -58,6 +58,27 @@ function fmtCountdown(iso: string): string {
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }
+function fmtShortDate(iso: string): string {
+  return new Date(iso).toLocaleString("en-IN", { month: "short", day: "numeric" });
+}
+// "For you"'s upcoming-match line only (v1.0.89) -- the selection logic in
+// forYouSelection deliberately has NO lookahead cutoff (it always picks the
+// soonest qualifying match, however far out that is), so a genuinely
+// distant match can and does reach this card. A countdown stops being
+// useful information past a week out ("in 84d 3h" reads as noise, not a
+// signal), so the PRESENTATION switches to a plain date instead -- the
+// selection itself is untouched. 7 days chosen as a reasonable "this is
+// close enough that a countdown still means something" cutoff; note this
+// is a NEW threshold, not mirroring an existing one -- FutureMatchCard
+// (components/MatchCard.tsx) always renders the countdown format
+// regardless of distance today, so this is presently the only place in
+// the app that makes this distinction.
+const FOR_YOU_COUNTDOWN_MAX_MS = 7 * 86400000;
+function fmtForYouDistance(iso: string): string {
+  const diff = new Date(iso).getTime() - Date.now();
+  if (diff > FOR_YOU_COUNTDOWN_MAX_MS) return `Next match: ${fmtShortDate(iso)}`;
+  return `${fmtCountdown(iso)} · ${fmtTime(iso)}`;
+}
 
 // Mouse click-drag scroll for the snap-x carousels (spotlight, for-you).
 // Native `overflow-x-auto` already scrolls fine via touch swipe and via
@@ -533,7 +554,7 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
           </div>
         </a>
         <div className="text-[10px] text-text-dim text-center truncate">
-          {isLive ? (match.liveStatusOverride ?? "Live now") : `${fmtCountdown(match.startTimeIso)} · ${fmtTime(match.startTimeIso)}`}
+          {isLive ? (match.liveStatusOverride ?? "Live now") : fmtForYouDistance(match.startTimeIso)}
         </div>
       </div>
     </div>

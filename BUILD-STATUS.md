@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.88 (deployed)
+**Current version:** v1.0.89 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -38,6 +38,7 @@
 - ✅ **Score display: "all out" convention, no dangling slash** (v1.0.59) — `formatScore(runs, wickets)` (`lib/formatUtils.ts`) drops the wicket count entirely when `wickets` is `undefined`/`null`/`>= 10` ("187", never "187/10" or a bare "187/"); used by `QuietSide`/`SideBlock`. Also backfilled 5 mock `match.result` objects that were missing `teamAWickets`/`teamBWickets` outright (data gap, separate from the display-logic fix).
 - ✅ **Grid border-color rule hardened** (v1.0.60) — `PastMatchCard`'s winner-color lookup now requires an explicit match against either `teamA.code` or `teamB.code` (previously a two-way ternary that silently defaulted to `teamB`'s color on any non-match against `teamA`, including a missing/unmatched winner code); falls back to the same neutral line color `FutureMatchCard` uses if truly ambiguous. Audited every card then live in the grid — all already showed the correct winning team color; this closes a latent failure mode rather than a currently-visible mismatch.
 - ✅ **"For you" row** — surfaces a match matching any followed nation/team/tournament/player/format (v1.0.52 Filter feature), pooled by union across categories with Tier-1 (nation/team/tournament/format) outranking Player-only as a last resort, live beating upcoming within the active tier while excluding the homepage's own hero live match, and a small swipeable carousel when 2+ live matches qualify at once (v1.0.53 tiered rewrite); a match shown here that's *also* a spotlight match gets a `★ FOR YOU` marker on the spotlight card instead of a second copy
+- ✅ **"For you" upcoming card: 7-day countdown/plain-date presentation split** (v1.0.89) — the upcoming-match selection itself still has no lookahead cutoff (always picks the soonest qualifying match, however far out); within 7 days the card shows the existing countdown (`"in 4d 19h · 6:12 pm"`), beyond it shows a plain date instead (`"Next match: 19 Oct"`) since a countdown stops being meaningful information at that distance. Scoped to `ForYouRow` only — `FutureMatchCard` ("Coming Up" grid) does not have this same split and still always shows the countdown format regardless of distance (see DECISIONS-LOG.md FD2)
 - ✅ **"For you" ↔ Spotlight shared visual language** (v1.0.61) — corner radius (`0.75rem`, matching Spotlight/grid), padding rhythm (`px-2 py-1.5` edges + one uniform `flex-col gap-0.5`, replacing ad-hoc per-child margins), and label typography aligned between the two cards; each card's own height, background treatment, and content are untouched — Spotlight stays visibly taller/louder, "for you" stays a compact flat strip
 - ✅ **Contained swipe-carousel dot indicator** (`components/CarouselDots.tsx` + `lib/useCarouselIndex.ts`, v1.0.65) — replaces the native scrollbar thumb that used to render as a thin gray bar spanning the full scroll-container width (wider than any one card, so it overflowed past each card's rounded corners); small 5-6px dots now render below the card, bounded to that card's own width, muted gray inactive / accent-colored active (cyan hero + Spotlight, violet "for you"); renders nothing at all below 2 items. Applied to all 3 places this carousel pattern exists — hero, "for you", Spotlight; `.scrollbar-thin` itself is untouched elsewhere (Moments strip, mini-insights bar, table page, FollowSheet, etc.)
 - ✅ **Filter / personalization sheet** — see the Personalization section immediately below
@@ -420,3 +421,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.88** | Filter sheet: new "Series" category split out of Tournaments for bilateral/tour-style competitions (The Ashes, India tour of England/Australia 2026, South Africa tour of England 2026); Tournaments now contains only genuine multi-team competitions; `FollowPrefs.series` added end-to-end (sanitize, qualifyMatch, Tier 1, totals) |
+
+## Changelog additions (v1.0.89)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.89** | "For you" upcoming card: distance presentation now splits at 7 days — countdown format within the window (unchanged), plain date beyond it (`fmtForYouDistance()`, `app/page.tsx`); selection logic (soonest-qualifying-match, no cutoff) deliberately untouched |

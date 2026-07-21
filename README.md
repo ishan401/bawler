@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.88)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.89)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.88 mock) — real data integration next.
+**Status:** UI complete (v1.0.89 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -49,7 +49,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 - **Series status chip** — one-line bilateral series summary below bilateral international cards; TABLE button for competition matches
 - **SplitTeamBg** — national matches: flag images (flagcdn.com); franchise matches: dual-colour gradient
 - **Quiet cards vs. Spotlight** — ordinary past/future matches render as a flat 60px row (no gradient/crest/badge); matches clearing `lib/spotlight.ts`'s concrete bar (close finish / individual milestone / genuine knockout stakes — not a generic excitement score) get the full card treatment, pulled out above the grid as a single card or a capped 3-card carousel
-- **"For you" row** — surfaces match(es) matching any followed nation/team/tournament/player/format (see Personalization below); tiered union selection, live-first with a soonest-upcoming fallback, small carousel when 2+ live matches qualify at once
+- **"For you" row** — surfaces match(es) matching any followed nation/team/tournament/player/format (see Personalization below); tiered union selection, live-first with a soonest-upcoming fallback, small carousel when 2+ live matches qualify at once — no lookahead cutoff on the upcoming fallback (always the soonest qualifying match, however far out); presentation splits at 7 days though, since a countdown stops being useful past that: within the window shows `"in 4d 19h · 6:12 pm"` unchanged, beyond it shows `"Next match: 19 Oct"` instead (`fmtForYouDistance()`, see DECISIONS-LOG.md FD1-FD4)
 - **"For you" ↔ Spotlight visual alignment** — both share the same corner radius (`0.75rem`) and padding rhythm (`px-2 py-1.5` + `flex-col gap-0.5`); each card keeps its own height, background treatment, and content
 - **Filter** — plain flat icon+label tab in the bottom nav (matches Home/Schedule; violet only while its sheet is open), opens the follow-selection sheet; see Personalization below
 - Infinite scroll, pull-to-refresh, shimmer loading skeleton, tap feedback on all cards

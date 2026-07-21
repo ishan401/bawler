@@ -3,6 +3,28 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.89] 2026-07-21
+
+### "For you" upcoming card: differentiate presentation by distance instead of hiding far-off matches
+
+#### Context
+- Confirmed (prior investigation, not a code change): `forYouSelection`'s upcoming-match fallback (`app/page.tsx`) has no lookahead cutoff — it always picks the single soonest qualifying match regardless of how far out it is. That selection logic is deliberately left untouched here; the actual problem was presentation, not selection.
+
+#### Added — `app/page.tsx`
+- `fmtShortDate(iso)` — compact date formatter (`month: "short", day: "numeric"`, no weekday/year), distinct from `MatchCard.tsx`'s fuller `fmtDate`
+- `FOR_YOU_COUNTDOWN_MAX_MS = 7 * 86400000` and `fmtForYouDistance(iso)`: within 7 days, returns the existing `` `${fmtCountdown(iso)} · ${fmtTime(iso)}` `` unchanged; beyond 7 days, returns `` `Next match: ${fmtShortDate(iso)}` `` instead — a countdown stops being meaningful information at that distance
+- `ForYouRow`'s upcoming-match line now calls `fmtForYouDistance()` instead of inlining `fmtCountdown`/`fmtTime` directly
+
+#### Note — correction to the request's premise
+- The request described this as matching a convention the "Coming Up" grid (`FutureMatchCard`) already uses. Checked directly: `FutureMatchCard` always renders the countdown format regardless of distance — there was no existing 7-day split anywhere in the app before this change. Implemented as new presentation logic scoped to `ForYouRow` only; `FutureMatchCard` is unchanged and would show the same "in 84d 3h"-style noise for a genuinely distant match today.
+- Kept the app's existing `en-IN`, day-before-month date convention (e.g. "19 Oct") rather than the request's own casual month-day example ("Oct 15"), for consistency with every other date string in the app.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+- Constructed synthetic timestamps at 2 days (countdown format), 6.9 days (still countdown), 7.1 days (switches to plain date), and 90 days (plain date, no countdown text) — all four behaved as specified, boundary checked from both sides
+
+---
+
 ## [1.0.88] 2026-07-21
 
 ### Filter sheet: split bilateral series out of Tournaments into a new Series category
