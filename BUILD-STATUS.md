@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.86 (deployed)
+**Current version:** v1.0.87 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -407,3 +407,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.86** | Filter sheet: category rail reordered (Nation/Tournament/Team/Player/Format), meaningless dots removed from Tournament/Player/Format; ~50 franchise team colors audited against real branding (20 corrected); The Hundred's real 2026 ownership rebrand reflected (3 teams renamed + recolored, 1 recolored) |
+
+## Changelog additions (v1.0.87)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.87** | Filter sheet: category rail labels pluralized (Nations/Tournaments/Teams/Players/Formats) — each is a list of multiple items, label text only, no functional change |

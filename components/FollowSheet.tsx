@@ -45,11 +45,11 @@ const FORMAT_OPTIONS: Option[] = [
 // first, then the tournament/league context, then the specific club, then
 // individual players, then format as the catch-all last option.
 const CATEGORY_META: { key: FollowCategory; label: string }[] = [
-  { key: "nations", label: "Nation" },
-  { key: "tournaments", label: "Tournament" },
-  { key: "teams", label: "Team" },
-  { key: "players", label: "Player" },
-  { key: "formats", label: "Format" },
+  { key: "nations", label: "Nations" },
+  { key: "tournaments", label: "Tournaments" },
+  { key: "teams", label: "Teams" },
+  { key: "players", label: "Players" },
+  { key: "formats", label: "Formats" },
 ];
 
 function buildOptions(category: FollowCategory): Option[] {

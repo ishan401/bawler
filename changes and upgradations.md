@@ -3,6 +3,20 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.87] 2026-07-21
+
+### Filter sheet: pluralize category rail labels
+
+#### Fixed — `components/FollowSheet.tsx`
+- `CATEGORY_META` labels changed to plural: "Nation"->"Nations", "Tournament"->"Tournaments", "Team"->"Teams", "Player"->"Players", "Format"->"Formats" — each category is a list of multiple items, so the label should read as a plural
+- Label text only; category keys, order, and all behavior unchanged. Search placeholder ("Search {label}...") now also reads correctly in plural (e.g. "Search nations...")
+
+#### Verified
+- `tsc --noEmit` clean
+- Live: all 5 category rail labels confirmed displaying in plural form
+
+---
+
 ## [1.0.86] 2026-07-21
 
 ### Filter sheet: category order, real team colors, meaningless-dot removal
