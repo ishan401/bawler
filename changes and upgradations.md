@@ -3,6 +3,23 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.90] 2026-07-21
+
+### Add version footer to the homepage (it never had one)
+
+#### Context
+- Raised during a "for you" investigation: the homepage shows no version string at all, making it hard to confirm which deploy is being tested. Checked and confirmed this is NOT a regression of the v1.0.83 fix -- `APP_VERSION_LABEL` was only ever wired into `components/MatchView.tsx` (the match-detail page); the homepage simply never had a footer element of any kind.
+
+#### Added — `app/page.tsx`
+- Imports `APP_VERSION_LABEL` from `lib/version.ts`
+- Renders the identical `Bawler {APP_VERSION_LABEL} · all data mocked` footer at the bottom of the page, matching `MatchView.tsx`'s styling exactly
+
+#### Verified
+- `tsc --noEmit` and `npm run build` (including the `prebuild` version-check gate) clean
+- Live: homepage footer now reads `Bawler v1.0.90`; match page footer unchanged, still reads the same value -- both pages agree
+
+---
+
 ## [1.0.89] 2026-07-21
 
 ### "For you" upcoming card: differentiate presentation by distance instead of hiding far-off matches

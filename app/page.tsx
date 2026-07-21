@@ -23,6 +23,7 @@ import {
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
 import { isSpotlightMatch } from "@/lib/spotlight";
 import { selectHeroMatch } from "@/lib/heroSelection";
+import { APP_VERSION_LABEL } from "@/lib/version";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
 import CarouselDots from "@/components/CarouselDots";
 
@@ -484,6 +485,15 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Sourced from lib/version.ts, same as the match-page footer
+          (components/MatchView.tsx) -- previously the homepage had no
+          version string at all, which made live verification unreliable
+          (no way to confirm which deploy you were actually looking at
+          without navigating to a match page first). Added v1.0.90. */}
+      <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
+        Bawler {APP_VERSION_LABEL} · all data mocked
+      </footer>
     </main>
   );
 }

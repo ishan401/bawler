@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.89 (deployed)
+**Current version:** v1.0.90 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -427,3 +427,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.89** | "For you" upcoming card: distance presentation now splits at 7 days — countdown format within the window (unchanged), plain date beyond it (`fmtForYouDistance()`, `app/page.tsx`); selection logic (soonest-qualifying-match, no cutoff) deliberately untouched |
+
+## Changelog additions (v1.0.90)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.90** | Homepage gained the same `Bawler v{version} · all data mocked` footer the match page already had — it was never a regression, the homepage simply never had one; both pages now derive from `lib/version.ts` |

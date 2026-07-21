@@ -846,3 +846,13 @@ The request described this as matching an existing convention already used by th
 
 **FD4 — Verified via constructed dates, not just a description of the logic, since the real mock data has no >7-day upcoming match**
 Ran the exact threshold logic against synthetic ISO timestamps at 2 days (within window — confirmed countdown format, unchanged), 6.9 days (just under — still countdown), 7.1 days (just over — switches to plain date), and 90 days (well over — plain date, confirmed no countdown text leaks through). All four cases behaved as specified; boundary checked from both sides, not just one comfortably-inside and one comfortably-outside case.
+
+---
+
+## Homepage version footer added — v1.0.90 (2026-07-21)
+
+**HF1 — Not a regression: the homepage never had a version footer, it was only ever added to the match-detail page**
+Raised during a "for you" investigation as a verification-reliability problem ("the homepage footer isn't currently showing a version string at all"). Checked directly: `APP_VERSION_LABEL` (`lib/version.ts`) is only imported/rendered in `components/MatchView.tsx`, which mounts on `/match/[id]` pages. The v1.0.83 root-cause fix (stale "v1.0.65" footer, structurally enforced via `scripts/version-check.ts`) targeted the specific reported location — it was never extended to the homepage, which simply has no footer element of any kind. Confirmed live: the deployed match page correctly shows `Bawler v1.0.89`; the deployed homepage shows nothing matching `Bawler v`. Not a broken value, an absent one.
+
+**HF2 — Added the identical footer to the homepage, reusing `APP_VERSION_LABEL` rather than a second literal**
+`app/page.tsx` now imports `APP_VERSION_LABEL` from `lib/version.ts` and renders the same `Bawler {APP_VERSION_LABEL} · all data mocked` footer at the bottom of the page, styled identically to `MatchView.tsx`'s. `scripts/version-check.ts`'s existing hardcoded-literal scan already covers this file (it walks all of `app/`), so no enforcement-script change was needed — the check was already broad enough to catch a hardcoded version anywhere in `app/`, it just had nothing to catch here before since there was no footer at all. Both pages now derive from the same single source of truth.
