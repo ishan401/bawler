@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.91 (deployed)
+**Current version:** v1.0.92 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -440,3 +440,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.91** | "For you" card fixes: nation follows no longer suppressed for bilateral matches (only the hero match is excluded, matching team/tournament/series/format); live qualifiers now stamp an inline `★ For you` marker on their existing live-carousel card instead of duplicating it as a standalone card; explicit tier-priority order added for the upcoming fallback (team > series > tournament > nation > format, then soonest) — see DECISIONS-LOG.md FY11-FY14 |
+
+## Changelog additions (v1.0.92)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.92** | Docs only: fixed a v1.0.91 numbering bug — its 4 new DECISIONS-LOG entries were accidentally labeled FY7-FY10, colliding with pre-existing v1.0.58 entries of the same IDs; renumbered to FY11-FY14 and fixed every cross-reference. Also corrected 2 DESIGN-SYSTEM.md statements left stale by v1.0.91 (the "for you" card-tier description, the swipe-carousel dot-indicator bullet) |

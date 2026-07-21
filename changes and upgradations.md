@@ -3,6 +3,26 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.92] 2026-07-21
+
+### Docs: fix v1.0.91 DECISIONS-LOG ID collision + stale DESIGN-SYSTEM.md statements
+
+#### Fixed — `DECISIONS-LOG.md`
+- v1.0.91 added 4 new entries labeled FY7, FY8, FY9, FY10 — unknowingly colliding with 4 pre-existing v1.0.58 entries using the exact same IDs (followed-team left-side ordering, colored left border). Renumbered the new entries to FY11, FY12, FY13, FY14 and fixed every cross-reference, including one internal self-reference within the new section itself (FY13 pointing to FY12's `liveIds`).
+
+#### Fixed — `BUILD-STATUS.md`, `README.md`
+- Updated the 3 cross-references that pointed at the now-renumbered FY7/FY9 IDs to FY11/FY13, and the v1.0.91 changelog row's "FY7-FY10" range to "FY11-FY14".
+
+#### Fixed — `DESIGN-SYSTEM.md`
+- The §6 card-tier table's "For you" row still described itself as auto-height "depending on live/upcoming content" — no longer accurate since v1.0.91 restructured it to only ever render the single upcoming pick (live qualifiers get an inline marker on the live carousel instead). Updated to describe the current behavior and point at `ForYouInlineBadge`.
+- The §7 swipe-carousel dot-indicator bullet still listed a violet "for you" instance of `CarouselDots` — removed in v1.0.91 along with `FOR_YOU_LIVE_MAX` once "for you" could never render more than one card. Updated to drop the dead reference and note why it's gone (DECISIONS-LOG.md FY12).
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+- `grep`'d every `.md` file for `FY[0-9]` afterward to confirm no remaining collisions or dangling references
+
+---
+
 ## [1.0.91] 2026-07-21
 
 ### "For you" card: fix nation-follow suppression + live-carousel duplication, add explicit tier-priority order

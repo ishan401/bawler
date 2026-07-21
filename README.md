@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.91)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.92)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.91 mock) — real data integration next.
+**Status:** UI complete (v1.0.92 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
