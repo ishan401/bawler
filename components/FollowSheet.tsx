@@ -42,11 +42,14 @@ const FORMAT_OPTIONS: Option[] = [
 ];
 
 // Order matches how people actually think about following cricket: country
-// first, then the tournament/league context, then the specific club, then
-// individual players, then format as the catch-all last option.
+// first, then the tournament/league context, then the specific bilateral
+// series (a related but distinct concept -- see the "series" case below),
+// then the specific club, then individual players, then format as the
+// catch-all last option.
 const CATEGORY_META: { key: FollowCategory; label: string }[] = [
   { key: "nations", label: "Nations" },
   { key: "tournaments", label: "Tournaments" },
+  { key: "series", label: "Series" },
   { key: "teams", label: "Teams" },
   { key: "players", label: "Players" },
   { key: "formats", label: "Formats" },
@@ -74,12 +77,28 @@ function buildOptions(category: FollowCategory): Option[] {
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "tournaments":
+      // Genuine multi-team competitions only. Bilateral/tour-style series
+      // (Competition.type === "bilateral", e.g. "India tour of Australia
+      // 2026") are a related but distinct concept -- a series is two
+      // nations playing a fixed set of matches, not a structured
+      // multi-team competition -- and live under the separate "series"
+      // case below instead (SC1, v1.0.88).
+      //
       // No color swatch here (see Swatch-rendering note below) -- every
       // tournament used to inherit `logoColor`, but that field is shared
       // with unrelated competitions (Big Bash and T20 World Cup both read
       // the same cyan), so it never actually distinguished one row from
       // another. Not carried into the Option here since nothing renders it.
       return Object.values(COMPETITIONS)
+        .filter(c => c.type !== "bilateral")
+        .map(c => ({ id: c.id, label: c.name, sublabel: c.shortName }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    case "series":
+      // Bilateral/tour-style series only -- see the "tournaments" case
+      // above for why these were split out. Same no-swatch reasoning:
+      // logoColor doesn't uniquely identify a row either.
+      return Object.values(COMPETITIONS)
+        .filter(c => c.type === "bilateral")
         .map(c => ({ id: c.id, label: c.name, sublabel: c.shortName }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "players":
@@ -158,7 +177,7 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
   }, [options, search]);
 
   const totalSelected =
-    draft.nations.length + draft.teams.length + draft.tournaments.length + draft.players.length + draft.formats.length;
+    draft.nations.length + draft.teams.length + draft.tournaments.length + draft.series.length + draft.players.length + draft.formats.length;
 
   function toggle(id: string) {
     setDraft(prev => {

@@ -3,6 +3,30 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.88] 2026-07-21
+
+### Filter sheet: split bilateral series out of Tournaments into a new Series category
+
+#### Fixed — `lib/followPrefs.ts`
+- `FollowPrefs` gained a new `series: string[]` field, threaded through everywhere `tournaments` already existed: `emptyFollowPrefs()`, `sanitizeFollowPrefs()` (new `validSeriesIds()`, and `validTournamentIds()` narrowed to `type !== "bilateral"` so a stale bilateral id previously stored under `tournaments` is correctly dropped rather than silently kept), `prefsEqual()`, `totalFollowCount()`
+- `MatchQualification` gained a `series: boolean` field (same `match.competition.id`/`match.championship.id` check as `tournament`); `isTier1Match()` now includes it, so a followed series surfaces in the homepage "for you" row exactly as a followed tournament always has
+
+#### Fixed — `components/FollowSheet.tsx`
+- `buildOptions("tournaments")` now filters to `Competition.type !== "bilateral"` — genuine multi-team competitions only
+- New `buildOptions("series")` case filters to `Competition.type === "bilateral"` — The Ashes, India tour of England 2026, India tour of Australia 2026, South Africa tour of England 2026
+- `CATEGORY_META` gained a `series` entry, placed right after `tournaments`: Nations, Tournaments, Series, Teams, Players, Formats
+- `totalSelected` calculation includes `draft.series.length`
+
+#### Added — `scripts/series-category-check.ts`
+- Constructed checks (not just a visual pass): Tournaments contains zero bilateral entries and all 4 real-world named ones (BBL, IPL, Champions Trophy, T20 WC, WTC) remain; Series contains exactly the 4 bilateral entries; a constructed match qualifies as Tier 1 when its series is followed via `prefs.series`; a stale bilateral id under `tournaments` is dropped by `sanitizeFollowPrefs`, while the same id under `series` survives
+
+#### Verified
+- `npx tsx scripts/series-category-check.ts` — all checks pass
+- `tsc --noEmit` and `npm run build` clean
+- Live: category rail reads Nations/Tournaments/Series/Teams/Players/Formats; "India tour of Australia 2026" and "India tour of England 2026" (and The Ashes, South Africa tour of England) confirmed absent from Tournaments and present under Series; Tournaments confirmed to contain only genuine competitions
+
+---
+
 ## [1.0.87] 2026-07-21
 
 ### Filter sheet: pluralize category rail labels

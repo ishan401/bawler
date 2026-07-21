@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.87 (deployed)
+**Current version:** v1.0.88 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -47,6 +47,7 @@
 - ✅ **Bottom nav Filter trigger** — plain flat icon+label tab (v1.0.56), identical layout/size to Home/Schedule; neutral gray by default, Violet 600 (`#7C3AED`, the `follow` token — same accent used for selections inside the sheet) only while the sheet is open, reverting to neutral on close. Originally a raised circular "camera button" (Instagram-style); downgraded once it read as more prominent than Home/Schedule despite being the least-used and opening an overlay rather than a persistent screen.
 - ✅ **`FollowSheet`** — two-column bottom sheet ("Follow your cricket"): left rail = 5 categories (Nation/Team/Tournament/Player/Format) with per-category selected-count badges; right pane = search + multi-select list; nothing persists until the full-width **"Update (N)"** button is tapped — backdrop tap / × / back-swipe discards in-progress edits. Button reads "Update" rather than "Follow" (v1.0.64) since a saved change can just as easily be a removal as an addition; commit/discard mechanic itself is unchanged
 - ✅ **Category rail reordered to Nation/Tournament/Team/Player/Format** (v1.0.86, was Nation/Team/Tournament/Player/Format) — matches how people actually think about following cricket: country, then competition context, then club, then individuals, then format
+- ✅ **New "Series" category split out of Tournaments** (v1.0.88) — bilateral/tour-style competitions (`Competition.type === "bilateral"`: The Ashes, India tour of England 2026, India tour of Australia 2026, South Africa tour of England 2026) no longer list inside Tournaments alongside genuine multi-team competitions (BBL, IPL, PSL, Hundred, SA20, CPL, MLC, Champions Trophy, T20 World Cup, WTC). Category rail now reads Nations/Tournaments/Series/Teams/Players/Formats. `FollowPrefs.series` threaded through `qualifyMatch`/`isTier1Match`/`sanitizeFollowPrefs`/`totalFollowCount` identically to how `tournaments` already worked — following a series behaves exactly as before, just correctly attributed (see DECISIONS-LOG.md SC1-SC3)
 - ✅ **Colored dot removed from Tournament/Player/Format rows** (v1.0.86) — those three never carried real signal (Tournament inherited `Competition.logoColor`, which repeats across unrelated competitions; Player redundantly echoed the nationality text already shown as sublabel; Format always fell through to the same gray default). Kept only for Nation (real flag image) and Team (now backed by corrected real colors, see below)
 - ✅ **Franchise team colors audited against real official branding** (v1.0.86) — ~50 franchise teams (`TEAMS` + `LEAGUE_TEAMS`, spanning IPL/BBL/PSL/Hundred/SA20/CPL/MLC) checked via multi-source web research, not just a spot-check; 20 teams corrected where the current hex was in the wrong color family or contradicted by corroborating sources (see DECISIONS-LOG.md FC1-FC5 for the full list and reasoning). Barbados Royals' pink reconfirmed correct.
 - ✅ **The Hundred 2026 ownership rebrand reflected in team data** (v1.0.86) — 3 teams renamed to match the real 2026 season after IPL-adjacent groups bought ownership stakes: Oval Invincibles → MI London (`MIL`, Mumbai Indians colors), Manchester Originals → Manchester Super Giants (`MSG`, red/blue), Northern Superchargers → Sunrisers Leeds (`SUL`, Sunrisers Hyderabad colors); Southern Brave (`SBR`) kept its name but switched to Delhi Capitals' blue/red. Squads intentionally left untouched — a full roster reconciliation against the real 2026 auctions is a separate, larger task.
@@ -413,3 +414,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.87** | Filter sheet: category rail labels pluralized (Nations/Tournaments/Teams/Players/Formats) — each is a list of multiple items, label text only, no functional change |
+
+## Changelog additions (v1.0.88)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.88** | Filter sheet: new "Series" category split out of Tournaments for bilateral/tour-style competitions (The Ashes, India tour of England/Australia 2026, South Africa tour of England 2026); Tournaments now contains only genuine multi-team competitions; `FollowPrefs.series` added end-to-end (sanitize, qualifyMatch, Tier 1, totals) |

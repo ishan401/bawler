@@ -10,7 +10,15 @@ import { NATIONAL_TEAMS, ALL_TEAMS, COMPETITIONS, PLAYERS } from "./mockData";
 //   nations      -> Team.country (ISO code, e.g. "IND")
 //   teams        -> Team.code (covers franchise AND national teams as
 //                    literal entities, e.g. "MI" or "IND")
-//   tournaments  -> Competition.id (e.g. "ipl-2026")
+//   tournaments  -> Competition.id, genuine multi-team competitions only
+//                    (e.g. "ipl-2026") -- Competition.type !== "bilateral"
+//   series       -> Competition.id, bilateral/tour-style series only
+//                    (e.g. "ind-aus-t20i-2026") -- Competition.type ===
+//                    "bilateral". Split out from tournaments in v1.0.88:
+//                    a two-team series ("India tour of Australia 2026")
+//                    isn't a tournament, and was listing incorrectly
+//                    alongside genuine multi-team competitions (BBL, IPL,
+//                    Champions Trophy, ...) in the Filter sheet.
 //   players      -> PLAYERS registry id (e.g. "v-kohli")
 //   formats      -> MatchFormat ("T20" | "T20I" | "ODI" | "Test" | "Hundred")
 // No account system exists, so this is still a localStorage preference —
@@ -21,6 +29,7 @@ export interface FollowPrefs {
   nations: string[];
   teams: string[];
   tournaments: string[];
+  series: string[];
   players: string[];
   formats: MatchFormat[];
 }
@@ -31,7 +40,7 @@ const STORAGE_KEY = "bawler:followPrefs";
 const CHANGE_EVENT = "bawler:follow-prefs-changed";
 
 export function emptyFollowPrefs(): FollowPrefs {
-  return { nations: [], teams: [], tournaments: [], players: [], formats: [] };
+  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [] };
 }
 
 // ----------------------------------------------------------------------------
@@ -64,7 +73,12 @@ function validTeamIds(): Set<string> {
   );
 }
 function validTournamentIds(): Set<string> {
-  return new Set(Object.values(COMPETITIONS).map(c => c.id));
+  // Genuine multi-team competitions only -- matches buildOptions("tournaments")'s
+  // scoping exactly. Bilateral series live under "series" instead (SC1).
+  return new Set(Object.values(COMPETITIONS).filter(c => c.type !== "bilateral").map(c => c.id));
+}
+function validSeriesIds(): Set<string> {
+  return new Set(Object.values(COMPETITIONS).filter(c => c.type === "bilateral").map(c => c.id));
 }
 function validPlayerIds(): Set<string> {
   return new Set(Object.keys(PLAYERS));
@@ -75,11 +89,13 @@ export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
   const nations = validNationIds();
   const teams = validTeamIds();
   const tournaments = validTournamentIds();
+  const series = validSeriesIds();
   const players = validPlayerIds();
   return {
     nations: prefs.nations.filter(id => nations.has(id)),
     teams: prefs.teams.filter(id => teams.has(id)),
     tournaments: prefs.tournaments.filter(id => tournaments.has(id)),
+    series: prefs.series.filter(id => series.has(id)),
     players: prefs.players.filter(id => players.has(id)),
     formats: prefs.formats.filter(f => VALID_FORMATS.has(f)),
   };
@@ -90,11 +106,13 @@ function prefsEqual(a: FollowPrefs, b: FollowPrefs): boolean {
     a.nations.length === b.nations.length &&
     a.teams.length === b.teams.length &&
     a.tournaments.length === b.tournaments.length &&
+    a.series.length === b.series.length &&
     a.players.length === b.players.length &&
     a.formats.length === b.formats.length &&
     a.nations.every(id => b.nations.includes(id)) &&
     a.teams.every(id => b.teams.includes(id)) &&
     a.tournaments.every(id => b.tournaments.includes(id)) &&
+    a.series.every(id => b.series.includes(id)) &&
     a.players.every(id => b.players.includes(id)) &&
     a.formats.every(f => b.formats.includes(f))
   );
@@ -148,6 +166,7 @@ export function totalFollowCount(prefs: FollowPrefs): number {
     prefs.nations.length +
     prefs.teams.length +
     prefs.tournaments.length +
+    prefs.series.length +
     prefs.players.length +
     prefs.formats.length
   );
@@ -168,6 +187,7 @@ export interface MatchQualification {
   nation: boolean;
   team: boolean;
   tournament: boolean;
+  series: boolean;
   format: boolean;
   player: boolean;
 }
@@ -178,6 +198,10 @@ export function qualifyMatch(match: Match, prefs: FollowPrefs): MatchQualificati
   const tournament =
     prefs.tournaments.includes(match.competition.id) ||
     (!!match.championship && prefs.tournaments.includes(match.championship.id));
+
+  const series =
+    prefs.series.includes(match.competition.id) ||
+    (!!match.championship && prefs.series.includes(match.championship.id));
 
   const team = prefs.teams.includes(match.teamA.code) || prefs.teams.includes(match.teamB.code);
 
@@ -197,12 +221,12 @@ export function qualifyMatch(match: Match, prefs: FollowPrefs): MatchQualificati
 
   const player = prefs.players.length > 0 && prefs.players.some(pid => isPlayerInMatch(match, pid));
 
-  return { nation, team, tournament, format, player };
+  return { nation, team, tournament, series, format, player };
 }
 
-/** Tier 1 = nation, team, tournament, or format. These outrank Player. */
+/** Tier 1 = nation, team, tournament, series, or format. These outrank Player. */
 export function isTier1Match(q: MatchQualification): boolean {
-  return q.nation || q.team || q.tournament || q.format;
+  return q.nation || q.team || q.tournament || q.series || q.format;
 }
 
 export function isAnyMatch(q: MatchQualification): boolean {
