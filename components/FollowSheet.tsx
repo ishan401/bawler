@@ -30,6 +30,9 @@ interface Option {
   flagIso?: string;
 }
 
+// No color field -- format never had a real color to carry (every entry
+// rendered the same fallback gray dot before Swatch was scoped to
+// nations/teams only, conveying no information).
 const FORMAT_OPTIONS: Option[] = [
   { id: "T20", label: "T20" },
   { id: "T20I", label: "T20I" },
@@ -38,10 +41,13 @@ const FORMAT_OPTIONS: Option[] = [
   { id: "Hundred", label: "The Hundred" },
 ];
 
+// Order matches how people actually think about following cricket: country
+// first, then the tournament/league context, then the specific club, then
+// individual players, then format as the catch-all last option.
 const CATEGORY_META: { key: FollowCategory; label: string }[] = [
   { key: "nations", label: "Nation" },
-  { key: "teams", label: "Team" },
   { key: "tournaments", label: "Tournament" },
+  { key: "teams", label: "Team" },
   { key: "players", label: "Player" },
   { key: "formats", label: "Format" },
 ];
@@ -68,16 +74,20 @@ function buildOptions(category: FollowCategory): Option[] {
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "tournaments":
+      // No color swatch here (see Swatch-rendering note below) -- every
+      // tournament used to inherit `logoColor`, but that field is shared
+      // with unrelated competitions (Big Bash and T20 World Cup both read
+      // the same cyan), so it never actually distinguished one row from
+      // another. Not carried into the Option here since nothing renders it.
       return Object.values(COMPETITIONS)
-        .map(c => ({ id: c.id, label: c.name, sublabel: c.shortName, color: c.logoColor }))
+        .map(c => ({ id: c.id, label: c.name, sublabel: c.shortName }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "players":
+      // No color swatch here either -- a player's team color duplicated
+      // the nationality text already shown as the sublabel, and was
+      // inconsistent besides (only some players resolve a team at all).
       return Object.values(PLAYERS)
-        .map(p => {
-          const teamCode = p.franchiseCode ?? p.teamCode;
-          const color = teamCode ? ALL_TEAMS[teamCode]?.primaryColor : undefined;
-          return { id: p.id, label: p.name, sublabel: p.nationality, color };
-        })
+        .map(p => ({ id: p.id, label: p.name, sublabel: p.nationality }))
         .sort((a, b) => a.label.localeCompare(b.label));
     case "formats":
       return FORMAT_OPTIONS;
@@ -244,13 +254,18 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
             ) : (
               filteredOptions.map(opt => {
                 const selected = (draft[activeCategory] as string[]).includes(opt.id);
+                // Swatch (color dot / flag) only carries real signal for
+                // Nation (flag) and Team (real brand color) -- Tournament,
+                // Player, and Format rows render without one rather than a
+                // decorative dot that means nothing (see buildOptions above).
+                const showSwatch = activeCategory === "nations" || activeCategory === "teams";
                 return (
                   <button
                     key={opt.id}
                     onClick={() => toggle(opt.id)}
                     className="w-full flex items-center gap-2.5 px-3 py-2.5 border-b border-line/50 hover:bg-bg-elevated/40 transition-colors text-left"
                   >
-                    <Swatch color={opt.color} flagIso={opt.flagIso} />
+                    {showSwatch && <Swatch color={opt.color} flagIso={opt.flagIso} />}
                     <div className="flex-1 min-w-0">
                       <div className="text-[12.5px] font-semibold text-text-primary truncate leading-tight">{opt.label}</div>
                       {opt.sublabel && (

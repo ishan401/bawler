@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.85)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.86)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.85 mock) — real data integration next.
+**Status:** UI complete (v1.0.86 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -60,7 +60,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 ## Personalization (Filter / "For you")
 
-- **Bottom nav Filter button** — plain flat icon+label tab identical to Home/Schedule (originally a raised circular button, downgraded — see DECISIONS-LOG.md "NB1"); neutral gray by default, Violet 600 (`#7C3AED`) only while open; opens `FollowSheet`, a two-column bottom sheet (category rail: Nation/Team/Tournament/Player/Format; search + multi-select list), nothing persists until **"Update"** is tapped (relabeled from "Follow" — reads correctly for removals too, commit/discard mechanic unchanged). Team category is scoped to franchise/league teams only — national teams live exclusively under Nation, never double-listed.
+- **Bottom nav Filter button** — plain flat icon+label tab identical to Home/Schedule (originally a raised circular button, downgraded — see DECISIONS-LOG.md "NB1"); neutral gray by default, Violet 600 (`#7C3AED`) only while open; opens `FollowSheet`, a two-column bottom sheet (category rail: Nation/Tournament/Team/Player/Format; search + multi-select list), nothing persists until **"Update"** is tapped (relabeled from "Follow" — reads correctly for removals too, commit/discard mechanic unchanged). Team category is scoped to franchise/league teams only — national teams live exclusively under Nation, never double-listed. Colored dot only shown for Nation (flag) and Team (real brand color) — Tournament/Player/Format render without one, since none of the three ever carried real per-row signal (see DECISIONS-LOG.md FC5).
 - **`lib/followPrefs.ts`** — `FollowPrefs` stores IDs only, never display names: nations by `Team.country`, teams by `Team.code`, tournaments by `Competition.id`, players by `PLAYERS` slug, formats by the `MatchFormat` literal. `qualifyMatch(match, prefs)` returns a per-category breakdown; `isTier1Match()`/`isAnyMatch()` distinguish Tier 1 (nation/team/tournament/format) from Tier 2 (player-only, last-resort). Nation-following is suppressed for two-team bilateral series specifically (already covered elsewhere on the homepage) — team/tournament/format/player follows are unaffected.
 - **`lib/lineups.ts`** — `isPlayerInMatch(match, playerId)` checks `Match.lineups` first (real-API-ready), else a deterministic seeded-hash presence check against the `PLAYERS` registry — so a player on both a national side and a franchise doesn't get credited with every match either team plays
 - **`lib/followNudge.ts`** — empty-state nudge shown only pre-first-follow, within the first 3 Home visits

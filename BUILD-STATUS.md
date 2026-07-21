@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.85 (deployed)
+**Current version:** v1.0.86 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -46,6 +46,10 @@
 
 - ✅ **Bottom nav Filter trigger** — plain flat icon+label tab (v1.0.56), identical layout/size to Home/Schedule; neutral gray by default, Violet 600 (`#7C3AED`, the `follow` token — same accent used for selections inside the sheet) only while the sheet is open, reverting to neutral on close. Originally a raised circular "camera button" (Instagram-style); downgraded once it read as more prominent than Home/Schedule despite being the least-used and opening an overlay rather than a persistent screen.
 - ✅ **`FollowSheet`** — two-column bottom sheet ("Follow your cricket"): left rail = 5 categories (Nation/Team/Tournament/Player/Format) with per-category selected-count badges; right pane = search + multi-select list; nothing persists until the full-width **"Update (N)"** button is tapped — backdrop tap / × / back-swipe discards in-progress edits. Button reads "Update" rather than "Follow" (v1.0.64) since a saved change can just as easily be a removal as an addition; commit/discard mechanic itself is unchanged
+- ✅ **Category rail reordered to Nation/Tournament/Team/Player/Format** (v1.0.86, was Nation/Team/Tournament/Player/Format) — matches how people actually think about following cricket: country, then competition context, then club, then individuals, then format
+- ✅ **Colored dot removed from Tournament/Player/Format rows** (v1.0.86) — those three never carried real signal (Tournament inherited `Competition.logoColor`, which repeats across unrelated competitions; Player redundantly echoed the nationality text already shown as sublabel; Format always fell through to the same gray default). Kept only for Nation (real flag image) and Team (now backed by corrected real colors, see below)
+- ✅ **Franchise team colors audited against real official branding** (v1.0.86) — ~50 franchise teams (`TEAMS` + `LEAGUE_TEAMS`, spanning IPL/BBL/PSL/Hundred/SA20/CPL/MLC) checked via multi-source web research, not just a spot-check; 20 teams corrected where the current hex was in the wrong color family or contradicted by corroborating sources (see DECISIONS-LOG.md FC1-FC5 for the full list and reasoning). Barbados Royals' pink reconfirmed correct.
+- ✅ **The Hundred 2026 ownership rebrand reflected in team data** (v1.0.86) — 3 teams renamed to match the real 2026 season after IPL-adjacent groups bought ownership stakes: Oval Invincibles → MI London (`MIL`, Mumbai Indians colors), Manchester Originals → Manchester Super Giants (`MSG`, red/blue), Northern Superchargers → Sunrisers Leeds (`SUL`, Sunrisers Hyderabad colors); Southern Brave (`SBR`) kept its name but switched to Delhi Capitals' blue/red. Squads intentionally left untouched — a full roster reconciliation against the real 2026 auctions is a separate, larger task.
 - ✅ **`BottomSheet`** extracted to a shared component (`components/BottomSheet.tsx`) from its original `LiveCarousel.tsx`-only implementation, gaining an optional `footer` slot for the Follow sheet's pinned button; all 3 existing `LiveCarousel` call sites unaffected
 - ✅ **ID-based matching, never display-name matching** — nations by `Team.country`, teams by `Team.code`, tournaments by `Competition.id`, players by `PLAYERS` registry slug, formats by the `MatchFormat` literal
 - ✅ **Per-match player lineups** (`lib/lineups.ts`) — `Match.lineups?: { teamA: string[]; teamB: string[] }` checked first (real-API-ready); falls back to a deterministic seeded-hash presence check against the `PLAYERS` registry when a match has no explicit lineup, so a player who represents both a national side and a franchise doesn't get credited with every match either team plays — only ones they're actually confirmed/likely to have featured in
@@ -397,3 +401,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.85** | Docs: full sync of BUILD-STATUS.md, DECISIONS-LOG.md, changes and upgradations.md, README.md, and DESIGN-SYSTEM.md covering everything shipped v1.0.71–v1.0.84 (chip/pill saga + revert, dot-indicator fix, hero badge, tab widths, real-data readiness fixes, Digest overhaul, version-bug fix) — no code changes |
+
+## Changelog additions (v1.0.86)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.86** | Filter sheet: category rail reordered (Nation/Tournament/Team/Player/Format), meaningless dots removed from Tournament/Player/Format; ~50 franchise team colors audited against real branding (20 corrected); The Hundred's real 2026 ownership rebrand reflected (3 teams renamed + recolored, 1 recolored) |

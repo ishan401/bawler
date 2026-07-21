@@ -3,6 +3,57 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.86] 2026-07-21
+
+### Filter sheet: category order, real team colors, meaningless-dot removal
+
+#### Updated — `components/FollowSheet.tsx`
+- `CATEGORY_META` reordered: Nation, Tournament, Team, Player, Format (was Nation, Team, Tournament, Player, Format)
+- `Swatch` (colored dot / flag) now only renders for the `nations` and `teams` categories; `tournaments`/`players`/`formats` render without one
+- Dropped the now-unused `color` field from `buildOptions()`'s tournament and player mapping — `Competition.logoColor` repeats across unrelated tournaments (BBL and T20 World Cup both cyan), and a player's resolved team color duplicated the nationality text already shown as the sublabel; neither ever carried real signal
+- `FORMAT_OPTIONS` never had a color field — every row fell through to the same gray default dot, conveying nothing
+
+#### Fixed — `lib/mockData.ts`: franchise team colors audited against real official branding
+- Researched all ~50 franchise teams (`TEAMS` + `LEAGUE_TEAMS`) via Wikipedia infoboxes, teamcolorcodes.com, schemecolor.com, TheSportsDB, and jersey-launch press coverage — not just the 4 user-flagged examples
+- Corrected 20 teams whose current hex was in the wrong color family or explicitly contradicted by corroborating sources:
+  - **GT** Gujarat Titans: `#4285F4`(Google-blue placeholder)/`#1B2133` → `#1B2133`/`#DBBE6E` (navy + gold)
+  - **HEAT** Brisbane Heat: `#FF6600`/`#5B2D8E` → `#27A6B0`/`#FFFFFF` (teal + white)
+  - **STR** Adelaide Strikers: `#003087`/`#FFB81C` → `#0084D6`/`#C8C8C8` (bright blue + silver)
+  - **DURGD** Durban's Super Giants: `#00A0C6`/`#FF6600` → `#1079BF`/`#E10615` (blue + red)
+  - **STARS** Melbourne Stars: `#00A650`/`#FFFFFF` → `#8DC64C`/`#287246`
+  - **SCORCHERS** Perth Scorchers: secondary `#003087` → `#403529` (no blue in their real palette)
+  - **HURRICANES** Hobart Hurricanes: secondary `#00BFFF` → `#C8CACB`; primary tightened `#5C1FAB` → `#674398`
+  - **KAR** Karachi Kings: primary `#00AEEF` → `#0752C2` (deep sapphire, not cyan)
+  - **PES** Peshawar Zalmi: `#F7A800`/`#C8102E` → `#FFC20F`/`#1A1A1A` (yellow + black, their kit since PSL4)
+  - **QUE** Quetta Gladiators: primary `#2D2D8F` → `#5F0182` (true purple)
+  - **MUL** Multan Sultans: primary `#8B0000` → `#1B3F8B` (royal blue — "always been their signature")
+  - **ISL** Islamabad United: secondary `#004B87` → `#F67600` (no blue in their real palette)
+  - **JSK** Joburg Super Kings: secondary `#005DB7` → `#0B713D` (green, not blue — Wikipedia: "Yellow and Green")
+  - **PREC** Pretoria Capitals: `#002868`/`#00B5E2` → `#2958A5`/`#C82127` (blue + red)
+  - **SKP** St Kitts & Nevis Patriots: primary `#006400` → `#CE1126` (red is the dominant color per every source)
+  - **SEAO** Seattle Orcas: `#008080`/`#002868` → `#1A1A1A`/`#8BC53F` (black + light green)
+  - **SFU** San Francisco Unicorns: secondary `#6B2C91` → `#1B3A5C` (navy, not purple)
+  - **SRH** Sunrisers Hyderabad: primary tightened `#F7A721` → `#EE7429` (most-cited official orange)
+  - **TRR** Trent Rockets: `#CC0033`/`#FFFFFF` → `#FFD500`/`#CC0033` (yellow is their retained identity color)
+  - **WEF** Welsh Fire: secondary `#FFD700` → `#1A1A1A` (black, per retailer-confirmed kit)
+- Barbados Royals' pink (`#EA1A85`) reconfirmed correct — not changed
+- Left unchanged where current values fell within a reasonable/defensible shade of researched official colors: MI, CSK, KKR, RCB, DC, RR, PBKS, LSG, SIXERS, THUNDER, RENE, LAH, TKR, GAW, JAT, SLK, LAKR, TSK, MINE, WASF, MICT, SEC, PARR
+
+#### Added — `lib/mockData.ts`: The Hundred's real 2026 ownership rebrand
+- Discovered mid-audit (verified via Sky Sports, Yahoo Sports, cricketnmore.com) that the real competition renamed 3 teams for 2026 after IPL-adjacent groups bought ownership stakes, with kit colors changed to match the new owner's IPL franchise. Flagged to the user as a scope question before acting (renaming teams is bigger than a color fix); user chose full rename + recolor.
+- **Oval Invincibles → MI London** (`OVI` → `MIL`): colors set to Mumbai Indians' blue/gold (`#004BA0`/`#D1AB3E`)
+- **Manchester Originals → Manchester Super Giants** (`MOR` → `MSG`): colors set to `#C8102E`/`#00A2D6` (red + blue, per Sky Sports/The National's specific "United red / City blue" description — deviates from parent Lucknow Super Giants' own blue/orange)
+- **Northern Superchargers → Sunrisers Leeds** (`NSC` → `SUL`): colors set to Sunrisers Hyderabad's orange/black (`#EE7429`/`#000000`)
+- **Southern Brave** (`SBR`, name unchanged): recolored to Delhi Capitals' blue/red (`#17449B`/`#EF1B23`)
+- Updated the 3 internal references to the old codes found via grep: the Hundred standings rows, one scheduled match's `teamA` object reference, and Ben Stokes' `franchiseCode`
+- Squads intentionally left untouched — a full roster reconciliation against the real 2026 auctions is a separate, larger task not in scope here
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+- Grepped for every old team code (`OVI`, `MOR`, `NSC`) across the repo to confirm no stray references remained after the rename
+
+---
+
 ## [1.0.85] 2026-07-20
 
 ### Docs: full sync covering everything shipped since the last sync (v1.0.71–v1.0.84)
