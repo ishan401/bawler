@@ -98,7 +98,18 @@ function ScoreBar({ match }: ScoreBarProps) {
         </div>
       </div>
       {/* Second row: chase context OR projected score */}
-      {i2 && need !== null && rrr !== null && (
+      {/* Chase line is a live-only concept -- "need N off M balls" describes
+          a target still being chased right now. `need`/`rrr` are derived
+          purely from static innings totals, so without this status gate
+          they'd keep computing (and rendering) a phantom target for a match
+          that's already finished, sometimes days after the last ball was
+          bowled. Gated on isLive alone, not on data presence -- a finished
+          match never shows this line regardless of what innings/ball data
+          it has. Nothing is shown in its place: the actual final result
+          already renders elsewhere on a finished match's page (Scorecard's
+          final-score header, Digest's lead-in summary), so there's nothing
+          this row needs to add here. */}
+      {isLive && i2 && need !== null && rrr !== null && (
         <div className="px-4 pb-2 flex items-center justify-between text-xs">
           <span className="text-text-secondary num">
             {chasingInn?.battingTeam === teamB.code ? teamB.shortName : teamA.shortName} need <span className="text-text-primary font-bold">{need}</span> off <span className="text-text-primary font-bold">{ballsLeft}</span> balls

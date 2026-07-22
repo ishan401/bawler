@@ -3,6 +3,24 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.98] 2026-07-22
+
+### Fix: ScoreBar chase line no longer shows on finished matches
+
+#### Context
+- ScoreBar's second row ("TeamX need N off M balls · RRR X.XX") was computed purely from static innings totals with no check on match status -- a finished non-Test match with a started 2nd innings showed a phantom live chase target, sometimes days after the match actually ended. Diagnosed as affecting exactly the "5 of 12" aggregate-only Past matches (non-Test, innings.length > 0, no ball data); Test matches and innings.length === 0 matches were never affected either way.
+
+#### Fixed -- `components/ScoreBar.tsx`
+- Added `isLive &&` to the chase-line's render condition. A finished match now shows nothing in that row -- the real result already renders elsewhere on the page (Scorecard's final-score header, Digest's lead-in summary), so there's nothing this row needed to add in its place.
+
+#### Verified
+- `bbl-2526-scorchers-sixers`: chase line present before, confirmed gone after.
+- `ipl2026-m35-givsmi` and `ashes-2526-3rd-test`: no chase line before or after (both were already unaffected -- confirmed as regression checks, not true before/afters).
+- A live match: chase line unchanged.
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.97] 2026-07-22
 
 ### Finished matches get a Digest-first tab bar and a retrospective, whole-match Digest

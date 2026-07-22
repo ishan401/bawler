@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.97 (deployed)
+**Current version:** v1.0.98 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -478,3 +478,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.97** | Finished matches (Spotlight, Past, and any live match that ends) now open on a Digest tab in place of Live -- same total tab count, just Digest instead of Live in slot 1. The team-names-with-final-score header moved from the old Live-tab fallback into the Score tab, above the scorecard body. Digest itself is now retrospective for finished matches: a compact lead-in (reusing the existing result/derived-result/pending card), a single match-wide turning point, a whole-match best-batting/bowling performance card, then the existing day/session cards with one hindsight sentence layered on top of each -- all additive, without touching the existing anti-repeat narrative system. Matches with no recorded innings data get an honest "Simple recap" card (final score + summary) instead of an empty or broken-looking Digest (DECISIONS-LOG.md FY24-FY27) |
+
+## Changelog additions (v1.0.98)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.98** | Fix: ScoreBar's "need N off M balls · RRR X.XX" chase line was gated only on data being present, not on the match actually being live — a finished non-Test match with a started 2nd innings (the "5 of 12" aggregate-only Past matches) showed a phantom live chase target after the match had already ended. Now gated on `match.status === "live"` too; a finished match shows nothing in that row instead, since the real result already renders elsewhere on its page (DECISIONS-LOG.md FY28) |
