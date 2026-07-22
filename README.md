@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.93)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.94)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.93 mock) — real data integration next.
+**Status:** UI complete (v1.0.94 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -52,6 +52,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 - **"For you" row** — surfaces the single best match matching any followed nation/team/tournament/series/player/format (see Personalization below); tiered union selection, live-first. As of v1.0.91, a qualifying LIVE match never renders here as a standalone card at all — it gets an inline `★ For you` marker on its existing live-carousel card instead (see "For you" live-carousel marker below); this row now only ever shows the single soonest-ranked qualifying UPCOMING match, chosen by an explicit priority order (team > series > tournament > nation > format, then soonest — see DECISIONS-LOG.md FY13) — no lookahead cutoff on that fallback (always the best-ranked qualifying match, however far out); presentation splits at 7 days though, since a countdown stops being useful past that: within the window shows `"in 4d 19h · 6:12 pm"` unchanged, beyond it shows `"Next match: 19 Oct"` instead (`fmtForYouDistance()`, see DECISIONS-LOG.md FD1-FD4)
 - **"For you" live-carousel marker** (v1.0.91) — a live match that also qualifies for "for you" gets an inline `★ For you` badge on its existing `LiveMatchCard` (`forYou` prop, threaded via `LiveCarousel`'s `forYouIds`) instead of a duplicate standalone card; the homepage's single global hero match is excluded even when it also qualifies, matching the pre-existing rule that hero is a global pick, not a personalization signal
 - **"For you" ↔ Coming Up dedup** (v1.0.93) — the single upcoming match rendered in "for you" is excluded from the "Coming Up" grid below it (`m.id !== forYouVisible?.id`, mirroring "for you"'s own hero-exclusion in the other direction). Selection logic is untouched; only the one match actually shown in "for you" is pulled — a follow with several qualifying upcoming matches still shows every other one in Coming Up (see DECISIONS-LOG.md FY15-FY17)
+- **"Coming Up" header count matches its rendered list** (v1.0.94) — the `· N` count and the card grid now both read one shared `futureVisible` array, instead of the header reading an unfiltered raw count while the grid applied its own exclusions separately (see DECISIONS-LOG.md FY18-FY19)
 - **"For you" ↔ Spotlight visual alignment** — both share the same corner radius (`0.75rem`) and padding rhythm (`px-2 py-1.5` + `flex-col gap-0.5`); each card keeps its own height, background treatment, and content
 - **Filter** — plain flat icon+label tab in the bottom nav (matches Home/Schedule; violet only while its sheet is open), opens the follow-selection sheet; see Personalization below
 - Infinite scroll, pull-to-refresh, shimmer loading skeleton, tap feedback on all cards

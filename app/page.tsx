@@ -354,6 +354,18 @@ export default function Home() {
     [forYouResult, spotlightIds]
   );
 
+  // Coming Up's actually-rendered list (v1.0.94) -- same filter used for
+  // both the header's "· N" count and the card grid below, so they can
+  // never disagree. Previously the header read `futureList.length` (the
+  // raw, unfiltered count) while the grid itself applied the spotlightIds/
+  // forYouVisible exclusions -- harmless while both exclusions were rare,
+  // but confirmed live to visibly drift (header said 11, grid rendered 10)
+  // once the v1.0.93 "for you" dedup started routinely pulling a card.
+  const futureVisible = useMemo(
+    () => futureList.filter(m => !spotlightIds.has(m.id) && m.id !== forYouVisible?.id),
+    [futureList, spotlightIds, forYouVisible]
+  );
+
   // Mouse drag-to-scroll for the carousel that can hold 2+ cards here
   // (spotlight) -- see useDragToScroll's own comment for why. "For you" no
   // longer needs its own drag-to-scroll/dot-indicator pair as of v1.0.91 --
@@ -498,25 +510,24 @@ export default function Home() {
             <div className={`${futureBasis} min-w-0`}>
               <ColumnHeader
                 title="Coming up"
-                count={futureList.length}
+                count={futureVisible.length}
                 expanded={expanded === "future"}
                 onToggleExpand={() => setExpanded(e => (e === "future" ? null : "future"))}
               />
               <div className="space-y-2">
-                {/* Excludes whichever single match is currently occupying the
-                    "for you" slot above (v1.0.93) -- same mirrored pattern as
-                    "for you"'s own `m.id !== heroId` exclusion, just pointed
-                    the other way. Only ever one id, never every qualifying
-                    match: forYouResult's selection logic (soonest qualifying
-                    upcoming match) is untouched, so a follow with several
-                    qualifying upcoming games still shows all-but-one of them
-                    here -- only the one actually rendered in "for you" is
-                    pulled. forYouVisible (not forYouResult.upcoming directly)
-                    is the right id to check: if the selected match happens to
-                    also be a spotlight match, it's already excluded from this
-                    grid via spotlightIds, and forYouVisible is null in that
-                    same case -- nothing extra to exclude, nothing missed. */}
-                {futureList.filter(m => !spotlightIds.has(m.id) && m.id !== forYouVisible?.id).map(m => <FutureMatchCard key={m.id} match={m} />)}
+                {/* futureVisible (defined above, alongside forYouVisible) --
+                    excludes whichever single match is currently occupying
+                    the "for you" slot above (v1.0.93) -- same mirrored
+                    pattern as "for you"'s own `m.id !== heroId` exclusion,
+                    just pointed the other way. Only ever one id, never every
+                    qualifying match: forYouResult's selection logic (soonest
+                    qualifying upcoming match) is untouched, so a follow with
+                    several qualifying upcoming games still shows all-but-one
+                    of them here -- only the one actually rendered in "for
+                    you" is pulled. The header count above uses this exact
+                    same array (v1.0.94), so it can never drift from what's
+                    actually rendered. */}
+                {futureVisible.map(m => <FutureMatchCard key={m.id} match={m} />)}
               </div>
             </div>
           </div>

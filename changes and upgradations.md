@@ -3,6 +3,22 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.94] 2026-07-22
+
+### "Coming Up" header count now matches its actually-rendered card list
+
+#### Context
+- Confirmed live (twice): following a team whose "for you" match got pulled from the "Coming Up" grid (v1.0.93) left the header reading "COMING UP · 11" while only 10 cards actually rendered. The header's `count` prop read `futureList.length` (raw, unfiltered) while the grid below applied its own filter (`!spotlightIds.has(m.id) && m.id !== forYouVisible?.id`) inline -- the same latent mismatch existed for the pre-existing Spotlight-dedup exclusion too, just less often noticed.
+
+#### Fixed — `app/page.tsx`
+- Added `futureVisible`, a `useMemo` applying the exact filter the grid used to apply inline. `ColumnHeader`'s `count` prop and the `.map()` render both now read this one array, so they can't drift apart again.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+- Live (Claude-in-Chrome, `localStorage` follow-pref override + reload): followed Delhi Capitals (`DC`), whose lone qualifying match is the upcoming `ipl2026-m42-rcbvdc` — confirmed the header count dropped by exactly one (11 → 10), matching the 10 cards actually rendered.
+
+---
+
 ## [1.0.93] 2026-07-22
 
 ### "For you" upcoming match no longer duplicates into the "Coming Up" grid

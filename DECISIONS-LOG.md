@@ -899,3 +899,15 @@ A follow whose category has multiple qualifying upcoming matches (e.g. a franchi
 **Verified live** (Claude-in-Chrome, `localStorage` follow-pref overrides + reload, not code alone):
 - Nation follow (South Africa, `RSA`) whose only qualifying match anywhere (live or upcoming) is the upcoming `eng-sa-odi-2026-m2` (England tour of South Africa ODI) — confirmed it renders in "for you" and is absent from Coming Up.
 - Team follow (Sunrisers Hyderabad, `SRH`) with two qualifying upcoming matches, `ipl2026-m40-mivsrh` (soonest) and `ipl2026-m43-gtvsrh` (later) — confirmed only `ipl2026-m40-mivsrh` (the one shown in "for you") disappears from Coming Up, while `ipl2026-m43-gtvsrh` remains visible there.
+
+---
+
+## "Coming Up" header count now matches its actually-rendered card list — v1.0.94 (2026-07-22)
+
+**FY18 — The header's `· N` count read from the raw unfiltered list, while the grid below it already applied two exclusions**
+`ColumnHeader`'s `count` prop was `futureList.length` (all upcoming matches, no filtering), but the grid itself rendered `futureList.filter(m => !spotlightIds.has(m.id) && m.id !== forYouVisible?.id)` — the Spotlight dedup (pre-existing) plus the "for you" dedup (v1.0.93). Confirmed live: following a team whose "for you" match gets pulled from Coming Up left the header reading "COMING UP · 11" while only 10 cards actually rendered.
+
+**FY19 — Fixed by making both consumers read from one shared, already-filtered array, not by adjusting the count separately**
+Added `futureVisible` (`app/page.tsx`), a `useMemo` applying the exact same filter the grid used to inline. `ColumnHeader`'s `count` prop and the `.map()` render both now read `futureVisible`, so the two can never drift from each other again — not just for the "for you" case this was reported against, but for the pre-existing Spotlight-dedup case too, which had the identical latent mismatch (just rarely noticed, since Spotlight only absorbs a small number of matches and rarely an upcoming one specifically).
+
+**Verified live** (Claude-in-Chrome, `localStorage` follow-pref override + reload): followed a team (Delhi Capitals, `DC`) whose single qualifying upcoming match (`ipl2026-m42-rcbvdc`) is the lone one — confirmed the header count decreased by exactly one (11 → 10) to match the 10 cards actually rendered in the grid.
