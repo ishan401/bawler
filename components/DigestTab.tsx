@@ -19,6 +19,7 @@ import { deriveTestSessions } from "@/lib/transformers";
 import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
 import { PLAYERS, slugifyPlayer, getPlayerShortName } from "@/lib/mockData";
 import { NarrativeThresholds, getNarrativeThresholds } from "@/lib/narrativeThresholds";
+import { calculateWinProbForMatch } from "@/lib/winProb";
 
 // ============================================================================
 // Notable-vs-routine drama gates
@@ -577,7 +578,53 @@ export interface PendingResultCard {
   }[];
 }
 
-export type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard | PendingResultCard;
+/** A single "turning point" callout -- the one ball, match-wide, with the
+ *  largest win-probability swing. Computed once across the whole match
+ *  (not per-session/day), only for the post-match Digest, and only when
+ *  ball-by-ball data exists to compute a swing from at all. */
+export interface TurningPointCard {
+  kind: "turning-point";
+  id: string;
+  overLabel: string;
+  description: string;
+  scoreContext: string;
+  shiftText: string;
+  teamColor: string;
+  isWicket: boolean;
+  isSix: boolean;
+}
+
+/** Whole-match best batting and bowling performance -- same underlying
+ *  computation as the lead-in summary's topBat/topBowl (both come from
+ *  computeMatchTopPerformers so they can never disagree), shown here as
+ *  its own dedicated card rather than folded into the compact lead-in. */
+export interface PerformanceCard {
+  kind: "performance";
+  id: string;
+  topBat: { name: string; runs: number; balls: number; fours: number; sixes: number; sr: number; teamColor: string } | null;
+  topBowl: { name: string; wickets: number; runs: number; economy: number; teamColor: string } | null;
+}
+
+/** Honest fallback for the confirmed innings.length === 0 gap (7 of the 12
+ *  current Past-match records) -- final score (from match.result's
+ *  teamA/teamBRuns/Wickets fields, since there's no `innings` data to read
+ *  a score from) plus the existing one-line `match.summary` blurb,
+ *  explicitly labeled as a simple recap rather than styled like a full
+ *  Digest that happens to be empty or broken. */
+export interface SimpleRecapCard {
+  kind: "simple-recap";
+  id: string;
+  resultLine: string | null;
+  teamAName: string;
+  teamAScore: string | null;
+  teamBName: string;
+  teamBScore: string | null;
+  summary: string | null;
+}
+
+export type DigestCardData =
+  | OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard | PendingResultCard
+  | TurningPointCard | PerformanceCard | SimpleRecapCard;
 
 // ── over-group builder (T20 / ODI / Test fallback) ────────────────────────────
 
@@ -678,27 +725,16 @@ function buildMatchNarrative(match: Match): string[] {
   return lines.slice(0, 6);
 }
 
-function buildFullMatchSummaryCard(
-  match: Match,
-  result: NonNullable<Match["result"]>,
-  isDerived = false
-): MatchSummaryCard {
+// Shared across the compact lead-in summary (buildFullMatchSummaryCard) and
+// the standalone whole-match "Performance" card (buildPerformanceCard) --
+// both need the single best batting and bowling performance across ALL
+// innings, not scoped to any one day/session. Extracted once so the two
+// callers can never quietly compute this differently from each other.
+function computeMatchTopPerformers(match: Match): {
+  topBat: { name: string; runs: number; balls: number; fours: number; sixes: number; sr: number; teamColor: string } | null;
+  topBowl: { name: string; wickets: number; runs: number; economy: number; teamColor: string } | null;
+} {
   const { innings, teamA, teamB } = match;
-
-  const winnerColor = result.winner === teamA.code ? teamA.primaryColor :
-                      result.winner === teamB.code ? teamB.primaryColor : "#94A3B8";
-  const loserColor  = result.winner === teamA.code ? teamB.primaryColor :
-                      result.winner === teamB.code ? teamA.primaryColor : "#94A3B8";
-
-  const inningsScores = innings.map(inn => ({
-    label: teamInningsOccurrence(innings, inn) > 1
-      ? `${inn.battingTeam} (2nd Inn)`
-      : inn.battingTeam,
-    runs: inn.runs, wickets: inn.wickets, overs: inn.overs,
-    declared: inn.declared ?? false,
-    teamColor: inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
-    batting: true,
-  }));
 
   // Top bat: highest runs across all innings batting cards
   const allBatters = innings.flatMap(inn =>
@@ -727,6 +763,33 @@ function buildFullMatchSummaryCard(
     runs: topBowlEntry.runsConceded, economy: topBowlEntry.economy,
     teamColor: topBowlEntry.teamColor,
   } : null;
+
+  return { topBat, topBowl };
+}
+
+function buildFullMatchSummaryCard(
+  match: Match,
+  result: NonNullable<Match["result"]>,
+  isDerived = false
+): MatchSummaryCard {
+  const { innings, teamA, teamB } = match;
+
+  const winnerColor = result.winner === teamA.code ? teamA.primaryColor :
+                      result.winner === teamB.code ? teamB.primaryColor : "#94A3B8";
+  const loserColor  = result.winner === teamA.code ? teamB.primaryColor :
+                      result.winner === teamB.code ? teamA.primaryColor : "#94A3B8";
+
+  const inningsScores = innings.map(inn => ({
+    label: teamInningsOccurrence(innings, inn) > 1
+      ? `${inn.battingTeam} (2nd Inn)`
+      : inn.battingTeam,
+    runs: inn.runs, wickets: inn.wickets, overs: inn.overs,
+    declared: inn.declared ?? false,
+    teamColor: inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    batting: true,
+  }));
+
+  const { topBat, topBowl } = computeMatchTopPerformers(match);
 
   // Derive MOM team color — find which innings batting card the MOM appears in
   let manOfMatchColor = winnerColor;
@@ -1110,6 +1173,199 @@ export function buildCards(
   return cards;
 }
 
+// ── post-match Digest (finished matches only) ─────────────────────────────────
+//
+// A finished match already knows how the story ends, so its Digest reads
+// differently from a live one: a compact "what happened" lead-in up top
+// (reusing the existing match-summary/pending-result card as-is), a single
+// match-wide turning point, a dedicated whole-match performance card, then
+// the existing day/session (or over-group) cards underneath -- unchanged in
+// how they're built -- with one retrospective sentence layered on top of
+// each. Matches with no `innings` data at all get an honest simple-recap
+// card instead of attempting any of this.
+
+// Single match-wide turning point -- the one ball, across the whole match,
+// with the largest win-probability swing. `calculateWinProbForMatch`
+// already walks every ball in chronological innings order, so diffing
+// consecutive points is inherently match-wide, never scoped to one
+// session/day. Returns null (rather than a placeholder) when there's no
+// ball-by-ball data to compute a swing from at all.
+function findTurningPoint(match: Match, allBalls: Ball[]): TurningPointCard | null {
+  if (allBalls.length === 0) return null;
+  const points = calculateWinProbForMatch(match);
+  if (points.length < 2) return null;
+
+  let bestIdx = -1;
+  let bestDelta = 0;
+  for (let i = 1; i < points.length; i++) {
+    const delta = Math.abs(points[i].winProbTeamA - points[i - 1].winProbTeamA);
+    if (delta > bestDelta) { bestDelta = delta; bestIdx = i; }
+  }
+  if (bestIdx < 0 || bestDelta === 0) return null;
+
+  const point = points[bestIdx];
+  const ball = allBalls.find(b => b.id === point.ballId);
+  if (!ball) return null;
+
+  // Cumulative score in this ball's own innings, up to and including it.
+  const innBalls = allBalls.filter(b => b.inningsNumber === ball.inningsNumber);
+  const posInInnings = innBalls.findIndex(b => b.id === ball.id);
+  let runs = 0, wkts = 0;
+  for (let i = 0; i <= posInInnings && i < innBalls.length; i++) {
+    runs += innBalls[i].runs + innBalls[i].extras;
+    if (innBalls[i].isWicket) wkts++;
+  }
+  const innings = match.innings.find(inn => inn.number === ball.inningsNumber);
+  const battingTeam = innings
+    ? (innings.battingTeam === match.teamA.code ? match.teamA : match.teamB)
+    : null;
+  const scoreContext = battingTeam ? `${battingTeam.shortName} ${runs}/${wkts}` : `${runs}/${wkts}`;
+
+  const rawDelta = point.winProbTeamA - points[bestIdx - 1].winProbTeamA;
+  const gainedTeam = rawDelta > 0 ? match.teamA : match.teamB;
+  const deltaPct = Math.round(Math.abs(rawDelta) * 100);
+
+  return {
+    kind: "turning-point",
+    id: `turning-point-${match.id}`,
+    overLabel: `${ball.over}.${ball.ballInOver + 1}`,
+    description: ball.oneLiner || `${ball.bowlerName} to ${ball.batterName}`,
+    scoreContext,
+    shiftText: `${deltaPct}% shift toward ${gainedTeam.shortName}`,
+    teamColor: gainedTeam.primaryColor,
+    isWicket: ball.isWicket,
+    isSix: ball.isBoundary6,
+  };
+}
+
+// Whole-match performance card -- same computeMatchTopPerformers() the
+// lead-in summary uses, so the two can never disagree; renders only when
+// there's actually a top batting or bowling performance to show (needs
+// battingCard/bowlingCard data, which -- unlike ball-by-ball -- IS present
+// even for the 5 Past matches that have innings but no recorded balls).
+function buildPerformanceCard(match: Match): PerformanceCard | null {
+  const { topBat, topBowl } = computeMatchTopPerformers(match);
+  if (!topBat && !topBowl) return null;
+  return {
+    kind: "performance",
+    id: `performance-${match.id}`,
+    topBat, topBowl,
+  };
+}
+
+// Honest fallback for the true innings.length === 0 gap. Score comes from
+// match.result's teamA/teamBRuns+Wickets fields specifically -- NOT from
+// `match.innings` (empty here) -- since that's the only place a score
+// still exists for these records in the current mock dataset.
+function buildSimpleRecapCard(match: Match): SimpleRecapCard {
+  const r = match.result;
+  const resultLine = r
+    ? (r.winner !== "draw" && r.winner !== "tie" && r.winner !== "no-result"
+        ? `${r.winner} won ${r.margin}` : String(r.winner))
+    : null;
+  return {
+    kind: "simple-recap",
+    id: `simple-recap-${match.id}`,
+    resultLine,
+    teamAName: match.teamA.shortName,
+    teamAScore: r && typeof r.teamARuns === "number" ? `${r.teamARuns}/${r.teamAWickets ?? "-"}` : null,
+    teamBName: match.teamB.shortName,
+    teamBScore: r && typeof r.teamBRuns === "number" ? `${r.teamBRuns}/${r.teamBWickets ?? "-"}` : null,
+    summary: match.summary ?? null,
+  };
+}
+
+// ── retrospective narrative framing (post-match day/session cards only) ──────
+//
+// Deliberately additive: buildNarrative()/buildOverSummary()/buildDayReport()
+// and their existing per-session/per-day anti-repeat indexing (the v1.0.7x
+// fix -- index-based, not string-based) are called exactly as they already
+// are for the live path, completely untouched. This layer only APPENDS one
+// extra hindsight sentence per card afterward, keyed to that card's own
+// position in the finished array -- a plain numeric index, never a string
+// hash of any kind -- so it cannot collide with or interfere with the
+// existing anti-repeat system it sits on top of.
+const RETRO_PHRASES: ((winnerName: string) => string)[] = [
+  winner => `In hindsight, this is exactly the platform ${winner} needed.`,
+  winner => `Looking back, this is where the momentum genuinely started to swing ${winner}'s way.`,
+  winner => `It didn't look decisive in the moment, but this set the tone for how it finished.`,
+  winner => `Knowing how the match ended, this phase reads very differently now.`,
+];
+
+function retrospectiveClause(match: Match, idx: number): string {
+  const r = match.result;
+  const winnerName =
+    r && r.winner !== "draw" && r.winner !== "tie" && r.winner !== "no-result"
+      ? (r.winner === match.teamA.code ? match.teamA.shortName
+        : r.winner === match.teamB.code ? match.teamB.shortName
+        : String(r.winner))
+      : "the eventual winner";
+  const v = ((idx % RETRO_PHRASES.length) + RETRO_PHRASES.length) % RETRO_PHRASES.length;
+  return RETRO_PHRASES[v](winnerName);
+}
+
+function applyRetrospectiveFraming(cards: DigestCardData[], match: Match): DigestCardData[] {
+  let idx = 0;
+  return cards.map(card => {
+    if (card.kind === "session" || card.kind === "over-group") {
+      const clause = retrospectiveClause(match, idx++);
+      return { ...card, overSummary: `${card.overSummary} ${clause}` };
+    }
+    if (card.kind === "day-summary") {
+      const clause = retrospectiveClause(match, idx++);
+      return { ...card, report: [...card.report, clause] };
+    }
+    return card;
+  });
+}
+
+// Top-level entry point for a finished match's Digest tab -- see the
+// section comment above for the full design. Always called with the
+// FULL match/allBalls (never a ball-scrubbed truncation -- see
+// MatchView.tsx), since the entire point is that the outcome is known.
+export function buildPostMatchDigest(match: Match, allBalls: Ball[]): DigestCardData[] {
+  if (match.innings.length === 0) {
+    return [buildSimpleRecapCard(match)];
+  }
+
+  const t = getNarrativeThresholds();
+  const cards: DigestCardData[] = [];
+
+  // 1. Compact "what happened" lead-in -- reuses the exact same
+  // full/derived/pending logic the live-to-post-match fix (v1.0.96)
+  // already built; isLive=false here always resolves to one of those
+  // three, never null.
+  const leadIn = buildMatchSummaryCard(match, false);
+  if (leadIn) cards.push(leadIn);
+
+  // 2. Single match-wide turning point (omitted, not stubbed, when there's
+  // no ball data to compute one from).
+  const turningPoint = findTurningPoint(match, allBalls);
+  if (turningPoint) cards.push(turningPoint);
+
+  // 3. Whole-match performance summary (omitted when there's no batting/
+  // bowling card data at all -- doesn't happen in practice today, every
+  // match with innings.length > 0 has at least aggregate cards).
+  const performance = buildPerformanceCard(match);
+  if (performance) cards.push(performance);
+
+  // 4. Existing day/session (Test) or over-group (else) cards, built via
+  // the exact same functions the live path uses, unchanged in structure --
+  // then given one retrospective sentence each. When there's no ball data
+  // (the 5 Past matches with innings but no recorded balls), both builders
+  // legitimately return [] -- omitted gracefully, same principle as above.
+  let dayCards: DigestCardData[] = [];
+  if (match.format === "Test") {
+    const sessionCards = buildTestSessionCards(match, allBalls, false, undefined, t);
+    dayCards = sessionCards.length > 0 ? sessionCards : buildOverGroupCards(match, allBalls, false, undefined, t);
+  } else {
+    dayCards = buildOverGroupCards(match, allBalls, false, undefined, t);
+  }
+  cards.push(...applyRetrospectiveFraming(dayCards, match));
+
+  return cards;
+}
+
 // ── sub-components ───────────────────────────────────────────────────────────
 
 function BallDot({ ball }: { ball: Ball }) {
@@ -1473,6 +1729,115 @@ const PendingResultCardView = React.memo(function PendingResultCardView({ card }
   );
 });
 
+// ── TurningPointCardView ─────────────────────────────────────────────────────
+
+const TurningPointCardView = React.memo(function TurningPointCardView({ card }: { card: TurningPointCard }) {
+  return (
+    <div
+      className="rounded-xl overflow-hidden border border-line/40"
+      style={{ borderLeftColor: card.teamColor, borderLeftWidth: 3, borderRadius: 0 }}
+      data-digest-card
+    >
+      <div className="px-3 pt-3 pb-3">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span
+            className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded"
+            style={{ background: `${card.teamColor}28`, color: card.teamColor }}
+          >
+            Turning point · O {card.overLabel}
+          </span>
+          {card.isWicket && <span className="text-[9px] font-black uppercase text-wicket">Wicket</span>}
+          {card.isSix && <span className="text-[9px] font-black uppercase text-six">Six</span>}
+        </div>
+        <p className="text-[12px] font-semibold text-text-primary leading-snug">{card.description}</p>
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[11px] font-bold text-text-secondary">{card.scoreContext}</span>
+          <span className="text-[11px] font-bold" style={{ color: card.teamColor }}>{card.shiftText}</span>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ── PerformanceCardView ──────────────────────────────────────────────────────
+
+const PerformanceCardView = React.memo(function PerformanceCardView({ card }: { card: PerformanceCard }) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-line/40" data-digest-card>
+      <div className="px-3 pt-3 pb-1">
+        <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-white/10 text-text-dim">
+          Performance of the match
+        </span>
+      </div>
+      <div className="px-3 py-2.5 flex gap-3">
+        {card.topBat && (
+          <div className="flex-1">
+            <p className="text-[8px] font-bold uppercase tracking-widest text-text-dim mb-1">Top bat</p>
+            <p className="text-[13px] font-black text-text-primary truncate">{card.topBat.name}</p>
+            <p className="text-[11px] font-semibold num" style={{ color: card.topBat.teamColor }}>
+              {card.topBat.runs}
+              <span className="text-text-dim font-medium"> off {card.topBat.balls}</span>
+              {card.topBat.fours > 0 && <span className="text-boundary ml-1.5">{card.topBat.fours}×4</span>}
+              {card.topBat.sixes > 0 && <span className="text-six ml-1">{card.topBat.sixes}×6</span>}
+            </p>
+            <p className="text-[10px] text-text-dim mt-0.5">SR {card.topBat.sr.toFixed(1)}</p>
+          </div>
+        )}
+        {card.topBat && card.topBowl && <div className="w-px bg-line/40 self-stretch" />}
+        {card.topBowl && (
+          <div className="flex-1">
+            <p className="text-[8px] font-bold uppercase tracking-widest text-text-dim mb-1">Top bowl</p>
+            <p className="text-[13px] font-black text-text-primary truncate">{card.topBowl.name}</p>
+            <p className="text-[11px] font-semibold num" style={{ color: card.topBowl.teamColor }}>
+              {card.topBowl.wickets}/{card.topBowl.runs}
+            </p>
+            <p className="text-[10px] text-text-dim mt-0.5">Econ {card.topBowl.economy.toFixed(1)}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+// ── SimpleRecapCardView ──────────────────────────────────────────────────────
+// The honest fallback for the true innings.length === 0 gap -- explicitly
+// labeled "Simple recap," never dressed up to look like the full Digest.
+
+const SimpleRecapCardView = React.memo(function SimpleRecapCardView({ card }: { card: SimpleRecapCard }) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-line/40" data-digest-card>
+      <div className="px-3 pt-3 pb-2">
+        <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-white/10 text-text-dim">
+          Simple recap
+        </span>
+        <p className="text-[10px] text-text-dim mt-1">
+          Detailed innings data wasn't recorded for this match, so there's no full Digest -- just the final score and summary.
+        </p>
+      </div>
+      <div className="px-3 pb-2.5 flex flex-col gap-1 border-t border-line/30 pt-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-text-secondary">{card.teamAName}</span>
+          <span className="text-[13px] font-black num text-text-primary">{card.teamAScore ?? "—"}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-bold text-text-secondary">{card.teamBName}</span>
+          <span className="text-[13px] font-black num text-text-primary">{card.teamBScore ?? "—"}</span>
+        </div>
+      </div>
+      {card.resultLine && (
+        <div className="px-3 py-2 border-t border-line/30 text-center">
+          <span className="text-[11px] font-bold text-text-secondary">{card.resultLine}</span>
+        </div>
+      )}
+      {card.summary && (
+        <div className="px-3 pb-3 pt-2 border-t border-line/30">
+          <p className="text-[11px] text-text-secondary leading-relaxed">{card.summary}</p>
+        </div>
+      )}
+    </div>
+  );
+});
+
 // ── Day filter chips ─────────────────────────────────────────────────────────
 
 function DayChips({
@@ -1546,6 +1911,7 @@ interface Props {
 
 export default function DigestTab({ match, allBalls }: Props) {
   const isLive = match.status === "live";
+  const isFinished = match.status === "post-match";
   const isTest = match.format === "Test";
 
   // Cache of already-finalized cards (completed sessions/days/over-chunks),
@@ -1576,8 +1942,10 @@ export default function DigestTab({ match, allBalls }: Props) {
   }
 
   const cards = useMemo(
-    () => buildCards(match, allBalls, isLive, cacheRef.current),
-    [match, allBalls, isLive]
+    () => isFinished
+      ? buildPostMatchDigest(match, allBalls)
+      : buildCards(match, allBalls, isLive, cacheRef.current),
+    [match, allBalls, isLive, isFinished]
   );
 
   // Derive available days (Test only)
@@ -1616,7 +1984,10 @@ export default function DigestTab({ match, allBalls }: Props) {
     if (isTest) {
       if (activeDay === null) return cards;
       return cards.filter(c => {
-        if (c.kind === "match-summary" || c.kind === "pending-result") return true;  // always pinned
+        // always pinned -- lead-in/turning-point/performance/recap cards
+        // aren't scoped to any one day
+        if (c.kind === "match-summary" || c.kind === "pending-result" ||
+            c.kind === "turning-point" || c.kind === "performance" || c.kind === "simple-recap") return true;
         if (c.kind === "session")     return c.day === activeDay;
         if (c.kind === "day-summary") return c.day === activeDay;
         return true;
@@ -1626,6 +1997,7 @@ export default function DigestTab({ match, allBalls }: Props) {
     if (activeInnings === null) return cards;
     return cards.filter(c =>
       c.kind === "match-summary" || c.kind === "pending-result" ||  // always pinned
+      c.kind === "turning-point" || c.kind === "performance" || c.kind === "simple-recap" ||
       (c.kind === "over-group" && c.inningsNumber === activeInnings)
     );
   }, [cards, isTest, activeDay, activeInnings]);
@@ -1665,6 +2037,12 @@ export default function DigestTab({ match, allBalls }: Props) {
             return <MatchSummaryCardView key={card.id} card={card} />;
           if (card.kind === "pending-result")
             return <PendingResultCardView key={card.id} card={card} />;
+          if (card.kind === "turning-point")
+            return <TurningPointCardView key={card.id} card={card} />;
+          if (card.kind === "performance")
+            return <PerformanceCardView key={card.id} card={card} />;
+          if (card.kind === "simple-recap")
+            return <SimpleRecapCardView key={card.id} card={card} />;
           if (card.kind === "day-summary")
             return <DaySummaryCardView key={card.id} card={card} />;
           if (card.kind === "session")

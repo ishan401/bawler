@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.96)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.97)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.96 mock) — real data integration next.
+**Status:** UI complete (v1.0.97 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -78,7 +78,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 1. **ScoreBar** (sticky) — score, chase context, innings info
 2. **MiniInsightsBar** — scrolling insight ticker; win probability lives here as one chip (leading team + %, tap opens the full-screen `WinProbChart` modal) — there's no separate always-visible win-prob element on this page. (`components/MiniWinProb.tsx` exists in the tree but isn't rendered anywhere — dead code, not this chip.)
-3. **MatchTabs** — Live / Scorecard / **Digest** / Info / Table (Table only when the competition has standings; swipe or tap, book-page-turn animation)
+3. **MatchTabs** — Live / Scorecard / **Digest** / Info / Table for a still-live (or upcoming) match; a finished match (`match.status === "post-match"`) swaps slot 1 to **Digest** instead of Live, same total tab count (Table only when the competition has standings; swipe or tap, book-page-turn animation)
 4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
 5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
 6. **PartnershipFooter** — live partnership: total runs/balls + per-batter stats, resets on wicket
@@ -88,7 +88,9 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 **Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Team toggle (T20/ODI/Hundred) or per-innings chips (Test) pick which innings shows below, defaulting to whoever's currently batting. Sticky innings header, offset measured live so it stays flush under the real header in any format. Partnership velocity sparklines between batting + bowling cards, plus a per-batter runs-vs-balls sparkline on each dismissal/"not out" line with boundary dots capped at that batter's own 4s/6s.
 
-**Digest tab:** Story-of-the-match in cards. Format-adaptive: over cards (T20), session cards (Test), ODI blocks. Day filter chips for Test (default: latest day). Innings chips for T20/ODI (default: latest innings). Post-match summary card pinned at top once the match is no longer live — from the real `match.result` when present, else a derived minimal result or an explicit "final result pending" card, never silently absent. All cards shareable as PNG. A completed Test day collapses its session cards into one consolidated day-summary card (an in-progress day still shows session cards as they finish); narrative phrasing is bucketed by what actually happened (bowling-collapse, dominant-batting, weather-shortened, etc.) and varies within a day via deterministic per-session seeding rather than defaulting to one generic line; notable days/sessions (e.g. an 11-wicket collapse) get a subtle accent border, routine ones stay quiet — same boolean-gate philosophy as homepage Spotlight. A `DigestCardCache` reuses card objects once their underlying data is complete, keeping re-renders cheap on live ticks; this assumes the underlying feed is append-only (see DECISIONS-LOG.md RD8).
+**Digest tab (live/upcoming path, unchanged):** Story-of-the-match in cards while a match is still live. Format-adaptive: over cards (T20), session cards (Test), ODI blocks. Day filter chips for Test (default: latest day). Innings chips for T20/ODI (default: latest innings). All cards shareable as PNG. A completed Test day collapses its session cards into one consolidated day-summary card (an in-progress day still shows session cards as they finish); narrative phrasing is bucketed by what actually happened (bowling-collapse, dominant-batting, weather-shortened, etc.) and varies within a day via deterministic per-session seeding rather than defaulting to one generic line; notable days/sessions (e.g. an 11-wicket collapse) get a subtle accent border, routine ones stay quiet — same boolean-gate philosophy as homepage Spotlight. A `DigestCardCache` reuses card objects once their underlying data is complete, keeping re-renders cheap on live ticks; this assumes the underlying feed is append-only (see DECISIONS-LOG.md RD8).
+
+**Digest tab (finished-match path, `buildPostMatchDigest`):** the outcome is known, so the story is told retrospectively. Order: a compact lead-in (the same real/derived/pending result card as the live path's post-match summary), a single match-wide turning-point callout (the one ball with the largest win-probability swing across the WHOLE match, via `findTurningPoint`/`calculateWinProbForMatch` — omitted, not stubbed, when there's no ball data), a whole-match performance card (best bat/bowl across all innings, via `computeMatchTopPerformers`), then the existing day/session or over-group cards with one retrospective sentence appended per card (`applyRetrospectiveFraming` — additive only, never touches `buildNarrative`/`buildOverSummary`/`buildDayReport` or their existing anti-repeat indexing). Matches with `innings.length === 0` (7 of the 12 current Past records) get a `SimpleRecapCard` instead — final score from `match.result`'s teamA/B fields plus the existing one-line summary, explicitly labeled "Simple recap," never styled like an empty/broken Digest.
 
 **Info tab:** Pitch report card (surface, sliders, expected score, dew), lineups side-by-side.
 

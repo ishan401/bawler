@@ -14,11 +14,21 @@ interface MatchTabsProps {
   badge?: TabBadge | null;
   showTable?: boolean;
   showDigest?: boolean;
+  /** Which tab occupies slot 1. "live" (default) is today's behavior --
+   *  unchanged for any match that's still status === "live" (or upcoming).
+   *  "digest" is used once a match has finished: Live no longer makes
+   *  sense as a tab (there's no live state left to show), so Digest takes
+   *  its place in the same first position instead of being appended as an
+   *  extra tab -- that's what keeps the total tab count from drifting
+   *  between a finished match with ball data and one without. */
+  firstTab?: "live" | "digest";
 }
 
-function MatchTabs({ active, onChange, badge, showTable, showDigest }: MatchTabsProps) {
+function MatchTabs({ active, onChange, badge, showTable, showDigest, firstTab = "live" }: MatchTabsProps) {
   const TABS: { key: TabKey; label: string }[] = [
-    { key: "live", label: "Live" },
+    firstTab === "digest"
+      ? { key: "digest" as TabKey, label: "Digest" }
+      : { key: "live" as TabKey, label: "Live" },
     // Label shortened to "Score" (v1.0.79) -- at equal tab width (needed
     // to fix the uneven-width bug in v1.0.78), "Scorecard" doesn't fit
     // even at zero letter-spacing (measured ~75px vs. the ~56px available
@@ -27,7 +37,10 @@ function MatchTabs({ active, onChange, badge, showTable, showDigest }: MatchTabs
     // The tab's `key` stays "scorecard" -- this only changes the visible
     // label, not the tab identity or the Scorecard component itself.
     { key: "scorecard", label: "Score" },
-    ...(showDigest ? [{ key: "digest" as TabKey, label: "Digest" }] : []),
+    // When firstTab is already "digest", don't also append a second Digest
+    // tab here -- that's the old standalone-Digest-tab behavior, now folded
+    // into slot 1 for finished matches.
+    ...(firstTab !== "digest" && showDigest ? [{ key: "digest" as TabKey, label: "Digest" }] : []),
     { key: "info", label: "Info" },
     ...(showTable ? [{ key: "table" as TabKey, label: "Table" }] : []),
   ];

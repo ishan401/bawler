@@ -65,18 +65,36 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   }, [selectedBallId, liveBallIdx, allBalls]);
 
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
+  // A finished match has no "live" state left to show -- Digest takes over
+  // slot 1 in its place instead of being appended as an extra tab (see
+  // firstTab below). Scoped to "post-match" specifically, not the broader
+  // "!== live" -- an upcoming/pre-match fixture has no result or innings
+  // data to build any kind of digest from, so it keeps today's exact
+  // tab layout untouched.
+  const isFinished = match.status === "post-match";
   // Show TABLE tab if the match's own competition OR its championship (e.g. WTC) has standings
   const tableComp = match.championship?.hasStandings ? match.championship : match.competition;
   const showTable = tableComp.hasStandings;
-  const showDigest = allBalls.length > 0 && !isUpcoming;
-  const defaultTab: TabKey = isUpcoming ? "info" : "live";
+  // Old standalone-extra-Digest-tab behavior -- unchanged for a still-live
+  // match with ball data. Finished matches get Digest in slot 1 instead
+  // (firstTab below), so this is forced false for them regardless of ball
+  // data, avoiding a duplicate Digest entry.
+  const showDigest = allBalls.length > 0 && !isUpcoming && !isFinished;
+  const firstTab: "live" | "digest" = isFinished ? "digest" : "live";
+  const defaultTab: TabKey = isUpcoming ? "info" : isFinished ? "digest" : "live";
 
   // Restore the last-viewed tab when navigating back from a player profile.
   const SESSION_KEY = `matchTab:${match.id}`;
   const restoredTab = ((): TabKey => {
     if (typeof window === "undefined") return defaultTab;
-    const saved = sessionStorage.getItem(SESSION_KEY);
-    return (saved as TabKey) ?? defaultTab;
+    const saved = sessionStorage.getItem(SESSION_KEY) as TabKey | null;
+    if (!saved) return defaultTab;
+    // A saved tab can go stale -- e.g. "live" was stored while this match
+    // was still in progress, and it has since finished, so "live" is no
+    // longer part of this match's tab set. Fall back to defaultTab rather
+    // than restoring a tab that no longer exists for this match.
+    if (isFinished && saved === "live") return defaultTab;
+    return saved;
   })();
 
   const [tab, setTab] = useState<TabKey>(restoredTab);
@@ -141,13 +159,20 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   }, [tab, SESSION_KEY]);
 
   // ── Swipe between tabs ──────────────────────────────────────────
-  const TABS_ORDER: TabKey[] = [
-      "live",
-      "scorecard",
-      ...(showDigest ? ["digest" as TabKey] : []),
-      "info",
-      ...(showTable ? ["table" as TabKey] : []),
-    ];
+  const TABS_ORDER: TabKey[] = isFinished
+    ? [
+        "digest",
+        "scorecard",
+        "info",
+        ...(showTable ? ["table" as TabKey] : []),
+      ]
+    : [
+        "live",
+        "scorecard",
+        ...(showDigest ? ["digest" as TabKey] : []),
+        "info",
+        ...(showTable ? ["table" as TabKey] : []),
+      ];
   const swipeTouchX = useRef(0);
   const swipeTouchY = useRef(0);
   const swipeIgnored = useRef(false); // true when touch started inside an h-scroll container
@@ -549,7 +574,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           winProbPoints={winProbPoints}
           onExpandWinProb={() => setShowProbModal(true)}
         />
-        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} showDigest={showDigest} />
+        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} showDigest={showDigest} firstTab={firstTab} />
       </div>
 
       <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
@@ -700,8 +725,13 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
 
         {renderedTab === "scorecard" && <Scorecard match={truncatedMatch} />}
         {renderedTab === "digest" && (
+          // A finished match's Digest tells the whole-match story with the
+          // outcome already known -- it always uses the full match/balls,
+          // never the ball-scrubber's truncated view (that scrubber only
+          // makes sense for the in-progress replay a live match's own
+          // Digest tab shows).
           <DigestTab
-            match={truncatedMatch}
+            match={isFinished ? match : truncatedMatch}
             allBalls={allBalls}
           />
         )}

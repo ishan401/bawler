@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.96 (deployed)
+**Current version:** v1.0.97 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -472,3 +472,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.96** | Fix: Digest no longer assumes nested fields (`session.isComplete`, `match.result`) update in lockstep with `match.status`. Day/session completion is now derived from `match.status` — once a match is no longer live, every session belonging to it is treated as complete regardless of its own flag, so the final day/session correctly collapses into its "STUMPS" card even if that flag never independently flipped. The match-summary card is now authoritative on `match.status === "post-match"` too — if `result` is missing once the match has ended, it either derives a minimal result from the final scores (unambiguous non-Test 2-innings case only) or shows an explicit "Final result pending" card, instead of silently rendering nothing (DECISIONS-LOG.md FY22-FY23) |
+
+## Changelog additions (v1.0.97)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.97** | Finished matches (Spotlight, Past, and any live match that ends) now open on a Digest tab in place of Live -- same total tab count, just Digest instead of Live in slot 1. The team-names-with-final-score header moved from the old Live-tab fallback into the Score tab, above the scorecard body. Digest itself is now retrospective for finished matches: a compact lead-in (reusing the existing result/derived-result/pending card), a single match-wide turning point, a whole-match best-batting/bowling performance card, then the existing day/session cards with one hindsight sentence layered on top of each -- all additive, without touching the existing anti-repeat narrative system. Matches with no recorded innings data get an honest "Simple recap" card (final score + summary) instead of an empty or broken-looking Digest (DECISIONS-LOG.md FY24-FY27) |

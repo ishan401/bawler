@@ -3,6 +3,30 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.97] 2026-07-22
+
+### Finished matches get a Digest-first tab bar and a retrospective, whole-match Digest
+
+#### Context
+- For any match with status !== "live" (Spotlight, Past, and any live match that finishes): remove the Live tab, replace it with Digest in the same first slot, same total tab count. Move the Live tab's team-names-with-final-score header into the Score tab, above the scorecard body. Build a new post-match Digest: a compact lead-in summary, a single match-wide turning point, a whole-match performance card, then the existing day/session cards reframed with retrospective hindsight. Matches with no innings data (7 of the current 12 Past records) get an honest fallback recap instead.
+
+#### Added -- `components/MatchTabs.tsx`, `components/MatchView.tsx`
+- `MatchTabs` gained a `firstTab` prop ("live" default, "digest" for finished matches) so Digest occupies slot 1 instead of being appended as an extra tab.
+- `MatchView` computes `isFinished = match.status === "post-match"` (deliberately narrower than "!== live" -- upcoming/pre-match fixtures have nothing to digest) and builds `[digest, scorecard, info, (table)]` for finished matches; live/upcoming keep today's exact tab list and defaults untouched. Stale saved "live" tab values are coerced back to the new default once a match finishes.
+
+#### Added -- `components/Scorecard.tsx`
+- New `FinalScoreHeader` -- the exact team-rows-plus-result-banner block the old Live-tab fallback used to show -- rendered above the scorecard body whenever `innings.length > 0`, any match status. The `innings.length === 0` "Scorecard not available" fallback is untouched.
+
+#### Added -- `components/DigestTab.tsx`
+- `buildPostMatchDigest(match, allBalls)`: new entry point for finished matches. Lead-in reuses the existing `buildMatchSummaryCard` (full/derived/pending, from the v1.0.96 fix) unchanged. `findTurningPoint()` diffs consecutive `calculateWinProbForMatch()` points across the whole match for the single largest win-probability swing. `computeMatchTopPerformers()` extracted as a shared helper feeding both the lead-in and a new whole-match `PerformanceCard`. Existing day/session builders called exactly as before, then `applyRetrospectiveFraming()` appends one hindsight sentence per card via a new, independent, positional-index-based phrase bank -- `buildNarrative`/`buildOverSummary`/`buildDayReport` and their existing anti-repeat indexing are untouched. `innings.length === 0` matches get a new `SimpleRecapCard` (final score from `match.result`'s teamA/B fields + the existing summary blurb) instead.
+
+#### Verified
+- Synthetic 5-day finished Test match (identical underlying stats every day, via reused ball data) via `npx tsx`: existing day-overview anti-repeat still produces 5/5 distinct lines with zero code changes to it; new retrospective layer produces distinct lines across every adjacent day pair.
+- Synthetic finished T20 match, 17 over-group cards: 17/17 distinct summary strings.
+- Live-browser pass: innings-present-but-ball-less Past match shows lead-in + performance only (turning-point/day-cards correctly omitted, not a gap); empty-innings Past match shows the "Simple recap" card; Score tab shows the new header for both; a live match's Live tab and tab bar are unchanged.
+
+---
+
 ## [1.0.96] 2026-07-22
 
 ### Digest no longer trusts nested fields to update in lockstep with `match.status`
