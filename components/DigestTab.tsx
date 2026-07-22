@@ -13,12 +13,12 @@
  * Default view = latest day with data.
  */
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
 import { PLAYERS, slugifyPlayer, getPlayerShortName } from "@/lib/mockData";
-import { NarrativeThresholds, getNarrativeThresholds } from "@/lib/narrativeThresholds";
+import { NarrativeThresholds, DEFAULT_NARRATIVE_THRESHOLDS, getNarrativeThresholds } from "@/lib/narrativeThresholds";
 import { calculateWinProbForMatch } from "@/lib/winProb";
 
 // ============================================================================
@@ -173,7 +173,7 @@ function dominantBowler(balls: Ball[]): string {
 function buildNarrative(
   runs: number, wickets: number, fours: number, sixes: number,
   bowler: string, keyBall: Ball | null, format: MatchFormat,
-  t: NarrativeThresholds["narrative"] = getNarrativeThresholds().narrative
+  t: NarrativeThresholds["narrative"] = DEFAULT_NARRATIVE_THRESHOLDS.narrative
 ): string {
   const span = format === "ODI" ? "block" : format === "Test" ? "session" : "over";
   const big  = format === "ODI" ? t.bigOverRunsODI : format === "Test" ? t.bigOverRunsTest : t.bigOverRunsDefault;
@@ -196,7 +196,7 @@ function buildNarrative(
 function buildOverSummary(
   runs: number, wickets: number, fours: number, sixes: number,
   bowlerName: string, keyBall: Ball | null, variant: number,
-  t: NarrativeThresholds["overSummary"] = getNarrativeThresholds().overSummary
+  t: NarrativeThresholds["overSummary"] = DEFAULT_NARRATIVE_THRESHOLDS.overSummary
 ): string {
   const bowler = lastName(bowlerName) || "Bowler";
   const batter = lastName(keyBall?.batterName) || "Batter";
@@ -357,7 +357,7 @@ function buildDayReport(
   day: number,
   entries: SessionEntry[],
   isCurrentDay: boolean,
-  t: NarrativeThresholds["dayReport"] = getNarrativeThresholds().dayReport
+  t: NarrativeThresholds["dayReport"] = DEFAULT_NARRATIVE_THRESHOLDS.dayReport
 ): string[] {
   const lines: string[] = [];
   const totalRuns    = entries.reduce((s, e) => s + e.card.runs, 0);
@@ -897,7 +897,7 @@ function buildMatchSummaryCard(match: Match, isLive: boolean): MatchSummaryCard 
 export function buildOverGroupCards(
   match: Match, allBalls: Ball[], isLive: boolean,
   cache?: DigestCardCache,
-  t: NarrativeThresholds = getNarrativeThresholds()
+  t: NarrativeThresholds = DEFAULT_NARRATIVE_THRESHOLDS
 ): OverGroupCard[] {
   const gs = groupSize(match.format);
   const result: OverGroupCard[] = [];
@@ -984,7 +984,7 @@ export function buildOverGroupCards(
 export function buildTestSessionCards(
   match: Match, allBalls: Ball[], isLive: boolean,
   cache?: DigestCardCache,
-  t: NarrativeThresholds = getNarrativeThresholds()
+  t: NarrativeThresholds = DEFAULT_NARRATIVE_THRESHOLDS
 ): DigestCardData[] {
   const dayMap = new Map<number, SessionEntry[]>();
   const inningsCount = match.innings.length;
@@ -1149,14 +1149,15 @@ export function buildTestSessionCards(
 
 export function buildCards(
   match: Match, allBalls: Ball[], isLive: boolean,
-  cache?: DigestCardCache
+  cache?: DigestCardCache,
+  // Passed in by the caller (DigestTab reads the real localStorage-backed
+  // override, if any, inside a useEffect after mount and threads it down
+  // here) rather than read directly here -- reading storage during this
+  // function's own call would run during the render/useMemo phase, before
+  // hydration completes, and risk a server/client mismatch. Defaults to
+  // the pure constant so direct calls (e.g. tests) stay storage-free.
+  t: NarrativeThresholds = DEFAULT_NARRATIVE_THRESHOLDS
 ): DigestCardData[] {
-  // Fetched once per buildCards() call (not once per card) so every card
-  // built in this pass judges "notable" and phrasing against the exact same
-  // threshold snapshot, and so a localStorage-backed override only gets
-  // read once per recompute rather than once per card.
-  const t = getNarrativeThresholds();
-
   let cards: DigestCardData[] = [];
   if (match.format === "Test") {
     const sessionCards = buildTestSessionCards(match, allBalls, isLive, cache, t);
@@ -1323,12 +1324,16 @@ function applyRetrospectiveFraming(cards: DigestCardData[], match: Match): Diges
 // section comment above for the full design. Always called with the
 // FULL match/allBalls (never a ball-scrubbed truncation -- see
 // MatchView.tsx), since the entire point is that the outcome is known.
-export function buildPostMatchDigest(match: Match, allBalls: Ball[]): DigestCardData[] {
+export function buildPostMatchDigest(
+  match: Match, allBalls: Ball[],
+  // See buildCards() above for why this is a caller-supplied parameter
+  // rather than an internal getNarrativeThresholds() read.
+  t: NarrativeThresholds = DEFAULT_NARRATIVE_THRESHOLDS
+): DigestCardData[] {
   if (match.innings.length === 0) {
     return [buildSimpleRecapCard(match)];
   }
 
-  const t = getNarrativeThresholds();
   const cards: DigestCardData[] = [];
 
   // 1. Compact "what happened" lead-in -- reuses the exact same
@@ -1941,11 +1946,21 @@ export default function DigestTab({ match, allBalls }: Props) {
     cacheMatchIdRef.current = match.id;
   }
 
+  // Render (and the client's first pass) with the pure default thresholds
+  // -- no localStorage read during render, so server and client agree on
+  // the very first paint. The real override, if a developer has set one
+  // via setNarrativeThresholdOverride(...), is read after mount below;
+  // cards then recompute against it like any other state change.
+  const [thresholds, setThresholds] = useState<NarrativeThresholds>(DEFAULT_NARRATIVE_THRESHOLDS);
+  useEffect(() => {
+    setThresholds(getNarrativeThresholds());
+  }, []);
+
   const cards = useMemo(
     () => isFinished
-      ? buildPostMatchDigest(match, allBalls)
-      : buildCards(match, allBalls, isLive, cacheRef.current),
-    [match, allBalls, isLive, isFinished]
+      ? buildPostMatchDigest(match, allBalls, thresholds)
+      : buildCards(match, allBalls, isLive, cacheRef.current, thresholds),
+    [match, allBalls, isLive, isFinished, thresholds]
   );
 
   // Derive available days (Test only)

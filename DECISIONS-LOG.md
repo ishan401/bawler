@@ -972,3 +972,27 @@ For `match.innings.length === 0`, `buildPostMatchDigest` returns a single `Simpl
 - `bbl-2526-scorchers-sixers` (finished, `innings.length > 0`, no ball data): chase line present before the fix, confirmed gone after.
 - `ashes-2526-3rd-test` (finished Test): no chase line before or after — Test matches never compute one, confirmed unaffected by the fix either way.
 - A currently-live match: chase line still renders correctly and unchanged (`isLive` was already `true` for it, so the added condition is a no-op there).
+
+---
+
+## Hydration-mismatch fix: `MatchView.tsx` tab restoration and `DigestTab.tsx` narrative-threshold override no longer read browser storage during render — v1.0.99 (2026-07-22)
+
+**FY29 — Two confirmed locations read `sessionStorage`/`localStorage` synchronously during a component's initial render, causing React hydration mismatch (#418/#423) on every match page**
+
+Scoped in the immediately preceding diagnostic pass (14 other locations already used the safe deferred pattern; these 2 didn't):
+
+1. `MatchView.tsx`'s `restoredTab`: a same-render IIFE called `sessionStorage.getItem(SESSION_KEY)` directly whenever `typeof window !== "undefined"`. On the server this branch never runs (`window` is undefined, so it always fell through to `defaultTab`). On the client's own first render pass -- before hydration reconciles -- `window` is already defined (this is a `"use client"` component), so the IIFE could read a real stored value and return something other than `defaultTab`. React then found the client's first-render output didn't match the server-rendered HTML it was hydrating against.
+2. `DigestTab.tsx`'s `cards` `useMemo` called `buildCards()`/`buildPostMatchDigest()`, both of which called `getNarrativeThresholds()` internally at their own top -- a `localStorage` read. `useMemo` callbacks run synchronously during the render phase itself (not deferred like `useEffect`), so this carried the exact same risk as a bare top-of-render-body read, despite being "memoized."
+
+**Fixed** by applying the same safe pattern already used correctly elsewhere in this codebase (canonical example: `app/page.tsx`'s `followPrefs` state) to both locations -- render with a neutral default on both server and the client's first pass, then read the real value inside a `useEffect` and update state if it differs:
+
+- `MatchView.tsx`: `tab`/`renderedTab` now initialize with `useState<TabKey>(defaultTab)` directly (the `restoredTab` IIFE is gone from the render path entirely). A new `useEffect` reads `sessionStorage.getItem(SESSION_KEY)` post-mount, applies the same `isFinished && saved === "live"` staleness guard as before, and calls `setTab`/`setRenderedTab` only if the restored value differs from `defaultTab`.
+- `DigestTab.tsx`: added `const [thresholds, setThresholds] = useState<NarrativeThresholds>(DEFAULT_NARRATIVE_THRESHOLDS)` plus `useEffect(() => setThresholds(getNarrativeThresholds()), [])` in the main component. `buildCards()` and `buildPostMatchDigest()` now accept `t`/`thresholds` as an explicit parameter (defaulting to the pure `DEFAULT_NARRATIVE_THRESHOLDS` constant, never a storage read) instead of calling `getNarrativeThresholds()` themselves; the `cards` `useMemo` passes `thresholds` through and depends on it, so cards recompute once the real override (if any) arrives. The 5 other `getNarrativeThresholds()` call sites in this file were only ever exercised as unused TypeScript default-parameter expressions (every real caller already passed `t` explicitly) -- also switched to the pure `DEFAULT_NARRATIVE_THRESHOLDS` constant for consistency, since a default-parameter expression evaluates at call time, in the same render-phase timing class, if a future caller ever omits the argument.
+
+**Verified live** (deployed site, `read_console_messages`):
+- Currently-live match: no #418/#423 hydration warnings.
+- Finished match with full innings data: no #418/#423 hydration warnings.
+- Finished match with no innings data: no #418/#423 hydration warnings.
+- Tab restoration still works: selecting a non-default tab, navigating away and back, correctly restores it -- now via the post-mount `useEffect` rather than the initial render, with no functional loss.
+- `setNarrativeThresholdOverride(...)` still works: an override set via the browser console is picked up and reflected in Digest's narrative copy after the `useEffect` fires, same as before the fix.
+- Both deferred updates apply within a single frame of mount, before any user-visible paint settles -- no visible flash of default content in either case.

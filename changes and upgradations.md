@@ -3,6 +3,27 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.99] 2026-07-22
+
+### Fix: two hydration mismatches -- `MatchView.tsx` tab restoration, `DigestTab.tsx` narrative-threshold override
+
+#### Context
+- Platform-wide scoping pass found exactly 2 locations reading browser storage synchronously during render (14 others already used the safe deferred pattern): `MatchView.tsx`'s `restoredTab` (read `sessionStorage` in a same-render IIFE) and `DigestTab.tsx`'s `cards` `useMemo` (via `buildCards()`/`buildPostMatchDigest()` calling `getNarrativeThresholds()`, a `localStorage` read, internally). Both could return a different value on the client's own first render pass than the server rendered, producing React hydration mismatch (#418/#423) -- confirmed live on every match page tested, including a never-before-visited match.
+
+#### Fixed -- `components/MatchView.tsx`
+- `tab`/`renderedTab` now initialize with `useState<TabKey>(defaultTab)` directly; the `restoredTab` IIFE is gone from the render path. A new `useEffect` reads `sessionStorage.getItem(SESSION_KEY)` post-mount, applies the same `isFinished && saved === "live"` staleness guard as before, and updates state only if the restored value differs from `defaultTab`.
+
+#### Fixed -- `components/DigestTab.tsx`
+- Added `thresholds` state (`useState<NarrativeThresholds>(DEFAULT_NARRATIVE_THRESHOLDS)`) plus a `useEffect(() => setThresholds(getNarrativeThresholds()), [])` in the main component. `buildCards()` and `buildPostMatchDigest()` now take `t`/`thresholds` as an explicit parameter (default: the pure `DEFAULT_NARRATIVE_THRESHOLDS` constant) instead of reading storage themselves; the `cards` `useMemo` passes `thresholds` through and depends on it. The 5 other `getNarrativeThresholds()` call sites in this file -- unused default-parameter expressions, never exercised by any real caller -- were switched to the same pure constant for consistency.
+
+#### Verified
+- Deployed-site console check (`read_console_messages`) on a live match, a finished match with full innings data, and a finished match with no innings data: zero #418/#423 warnings on all three.
+- Tab restoration: selecting a non-default tab and returning still restores it, now via the post-mount effect.
+- `setNarrativeThresholdOverride(...)` still applies, now via the post-mount effect.
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.98] 2026-07-22
 
 ### Fix: ScoreBar chase line no longer shows on finished matches

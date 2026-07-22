@@ -84,21 +84,29 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const defaultTab: TabKey = isUpcoming ? "info" : isFinished ? "digest" : "live";
 
   // Restore the last-viewed tab when navigating back from a player profile.
+  // Render with defaultTab on both server and the client's first pass (no
+  // sessionStorage read during render -- that would differ between server
+  // and the client's own pre-hydration render and trigger a hydration
+  // mismatch). The real saved tab, if any, is read after mount below.
   const SESSION_KEY = `matchTab:${match.id}`;
-  const restoredTab = ((): TabKey => {
-    if (typeof window === "undefined") return defaultTab;
+
+  const [tab, setTab] = useState<TabKey>(defaultTab);
+  const [renderedTab, setRenderedTab] = useState<TabKey>(defaultTab);
+
+  useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY) as TabKey | null;
-    if (!saved) return defaultTab;
+    if (!saved) return;
     // A saved tab can go stale -- e.g. "live" was stored while this match
     // was still in progress, and it has since finished, so "live" is no
     // longer part of this match's tab set. Fall back to defaultTab rather
     // than restoring a tab that no longer exists for this match.
-    if (isFinished && saved === "live") return defaultTab;
-    return saved;
-  })();
+    const restored = isFinished && saved === "live" ? defaultTab : saved;
+    if (restored === defaultTab) return;
+    setTab(restored);
+    setRenderedTab(restored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [SESSION_KEY]);
 
-  const [tab, setTab] = useState<TabKey>(restoredTab);
-  const [renderedTab, setRenderedTab] = useState<TabKey>(restoredTab);
   const [animClass, setAnimClass] = useState("");
   const transitioningRef = useRef(false);
   const [showProbModal, setShowProbModal] = useState(false);

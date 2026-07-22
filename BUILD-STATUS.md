@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.98 (deployed)
+**Current version:** v1.0.99 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -484,3 +484,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.98** | Fix: ScoreBar's "need N off M balls · RRR X.XX" chase line was gated only on data being present, not on the match actually being live — a finished non-Test match with a started 2nd innings (the "5 of 12" aggregate-only Past matches) showed a phantom live chase target after the match had already ended. Now gated on `match.status === "live"` too; a finished match shows nothing in that row instead, since the real result already renders elsewhere on its page (DECISIONS-LOG.md FY28) |
+
+## Changelog additions (v1.0.99)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.99** | Fix: two confirmed React hydration mismatches (#418/#423) -- `MatchView.tsx`'s tab restoration and `DigestTab.tsx`'s narrative-threshold override both read browser storage (`sessionStorage`/`localStorage`) synchronously during render/`useMemo`, which can differ from the server-rendered default on the client's own first pass. Both now render with a neutral default on server and client alike, then apply the real stored value via a `useEffect` after mount -- matching the pattern already used safely elsewhere (`app/page.tsx`'s `followPrefs`). No functional loss: tab restoration and the narrative-threshold override both still work, just via a deferred update instead of the initial render (DECISIONS-LOG.md FY29) |
