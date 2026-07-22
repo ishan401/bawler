@@ -550,9 +550,34 @@ export interface MatchSummaryCard {
   narrative: string[];
   seriesStatus: string | null;
   excitement: number;
+  /** True when `winner`/`margin` were inferred from final scores because
+   *  `match.result` itself was never populated even though `match.status`
+   *  is no longer "live" -- see buildMatchSummaryCard(). Never true for a
+   *  card built from a real `match.result`. */
+  isDerived: boolean;
 }
 
-export type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard;
+/** Shown instead of MatchSummaryCard when a match's `status` is no longer
+ *  "live" but `match.result` is still missing AND a minimal result can't
+ *  be safely inferred from final scores (e.g. Test matches, where draws /
+ *  ties / innings wins / follow-on outcomes aren't inferable from the
+ *  scoreline alone). Keeps the gap visually explicit instead of silently
+ *  rendering nothing where a summary card would otherwise be. */
+export interface PendingResultCard {
+  kind: "pending-result";
+  id: string;
+  format: MatchFormat;
+  inningsScores: {
+    label: string;
+    runs: number;
+    wickets: number;
+    overs: number;
+    declared: boolean;
+    teamColor: string;
+  }[];
+}
+
+export type DigestCardData = OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard | PendingResultCard;
 
 // ── over-group builder (T20 / ODI / Test fallback) ────────────────────────────
 
@@ -653,9 +678,12 @@ function buildMatchNarrative(match: Match): string[] {
   return lines.slice(0, 6);
 }
 
-function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
-  if (!match.result) return null;
-  const { result, innings, teamA, teamB } = match;
+function buildFullMatchSummaryCard(
+  match: Match,
+  result: NonNullable<Match["result"]>,
+  isDerived = false
+): MatchSummaryCard {
+  const { innings, teamA, teamB } = match;
 
   const winnerColor = result.winner === teamA.code ? teamA.primaryColor :
                       result.winner === teamB.code ? teamB.primaryColor : "#94A3B8";
@@ -734,10 +762,73 @@ function buildMatchSummaryCard(match: Match): MatchSummaryCard | null {
       return (PLAYERS[slug] as { photoUrl?: string })?.photoUrl ?? null;
     })(),
     manOfMatchColor,
-    narrative: buildMatchNarrative(match),
+    narrative: buildMatchNarrative({ ...match, result }),
     seriesStatus: match.seriesStatus ?? null,
     excitement: match.excitement ?? 5,
+    isDerived,
   };
+}
+
+// Deliberately conservative: only infer a winner for the unambiguous
+// two-innings limited-overs case (a normal T20/ODI chase). Test matches,
+// and anything without exactly two recorded innings, are left to the
+// explicit "pending" card below instead of guessing -- draws, ties,
+// innings/follow-on wins and declarations are not safely inferable from
+// final scores alone.
+function deriveMinimalMatchResult(match: Match): NonNullable<Match["result"]> | null {
+  if (match.format === "Test") return null;
+  if (match.innings.length !== 2) return null;
+  const [inn1, inn2] = match.innings;
+  if (typeof inn1.runs !== "number" || typeof inn2.runs !== "number") return null;
+
+  if (inn2.runs > inn1.runs) {
+    // Team batting 2nd chased it down. If they did that while also losing
+    // all 10 wickets, the exact wicket-margin framing gets ambiguous
+    // (the winning run and the 10th wicket can't both be the final ball in
+    // a real match) -- don't guess in that edge case, fall through to pending.
+    if (inn2.wickets >= 10) return null;
+    const wickets = 10 - inn2.wickets;
+    return { winner: inn2.battingTeam, margin: `by ${wickets} wicket${wickets === 1 ? "" : "s"}` };
+  }
+  if (inn1.runs > inn2.runs) {
+    const runs = inn1.runs - inn2.runs;
+    return { winner: inn1.battingTeam, margin: `by ${runs} run${runs === 1 ? "" : "s"}` };
+  }
+  // Scores level and the side batting 2nd didn't get past the target --
+  // a tie, and still unambiguous.
+  return { winner: "tie", margin: "scores level" };
+}
+
+function buildPendingResultCard(match: Match): PendingResultCard {
+  const { innings, teamA, teamB } = match;
+  return {
+    kind: "pending-result",
+    id: `pending-result-${match.id}`,
+    format: match.format,
+    inningsScores: innings.map(inn => ({
+      label: teamInningsOccurrence(innings, inn) > 1
+        ? `${inn.battingTeam} (2nd Inn)`
+        : inn.battingTeam,
+      runs: inn.runs, wickets: inn.wickets, overs: inn.overs,
+      declared: inn.declared ?? false,
+      teamColor: inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    })),
+  };
+}
+
+// `match.status` is the authoritative signal here too: a real feed offers
+// no guarantee that `result` lands in the same update as `status` flipping
+// to "post-match". While still live, no result yet is normal (no card).
+// Once the match is no longer live, silently returning null would look
+// identical to a bug -- so once the match isn't live, a card of some kind
+// is always produced: the real result, a safely-derived minimal one, or an
+// explicit "pending" state.
+function buildMatchSummaryCard(match: Match, isLive: boolean): MatchSummaryCard | PendingResultCard | null {
+  if (match.result) return buildFullMatchSummaryCard(match, match.result);
+  if (isLive) return null;
+  const derived = deriveMinimalMatchResult(match);
+  if (derived) return buildFullMatchSummaryCard(match, derived, true);
+  return buildPendingResultCard(match);
 }
 
 export function buildOverGroupCards(
@@ -835,6 +926,16 @@ export function buildTestSessionCards(
   const dayMap = new Map<number, SessionEntry[]>();
   const inningsCount = match.innings.length;
 
+  // `match.status` is the authoritative signal for whether a session is
+  // really done. A live feed has no guarantee that a session's own
+  // `isComplete` flag lands in the same update as `status` flipping to
+  // "post-match" -- so once the match itself is no longer live, every
+  // session belonging to it is treated as complete regardless of what its
+  // own flag says. While the match IS live, the per-session flag remains
+  // the sole source of truth (a still-live match can legitimately have
+  // some sessions done and others not).
+  const effectivelyComplete = (s: TestSession): boolean => !isLive || s.isComplete;
+
   for (let innIdx = 0; innIdx < inningsCount; innIdx++) {
     const inn: Innings = match.innings[innIdx];
     const innBalls = allBalls.filter(b => b.inningsNumber === inn.number);
@@ -882,7 +983,7 @@ export function buildTestSessionCards(
       // balls and regenerating its narrative on every subsequent tick.
       // Still-live sessions are never cached (they keep growing) and always
       // recomputed below.
-      if (cachedCard && cachedCard.kind === "session" && sess.isComplete) {
+      if (cachedCard && cachedCard.kind === "session" && effectivelyComplete(sess)) {
         const dayEntries = dayMap.get(sess.day) ?? [];
         dayEntries.push({ sess, card: cachedCard });
         dayMap.set(sess.day, dayEntries);
@@ -912,11 +1013,11 @@ export function buildTestSessionCards(
         allBalls: sessBalls, keyBall, bowlerName,
         narrative:    buildNarrative(runs, wickets, fours, sixes, bowlerName, keyBall, "Test", t.narrative),
         overSummary:  buildOverSummary(runs, wickets, fours, sixes, bowlerName, keyBall, sess.day * 3 + sessIdx, t.overSummary),
-        isLiveSession: !sess.isComplete,
+        isLiveSession: !effectivelyComplete(sess),
         oversInSession: sessOvers.length,
         isNotable: isNotableSession(runs, wickets, t.dayReport),
       };
-      if (sess.isComplete) cache?.set(id, card);
+      if (effectivelyComplete(sess)) cache?.set(id, card);
 
       const dayEntries = dayMap.get(sess.day) ?? [];
       dayEntries.push({ sess, card });
@@ -933,7 +1034,7 @@ export function buildTestSessionCards(
     const order = ["first", "second", "third"];
     entries.sort((a, b) => order.indexOf(a.sess.session) - order.indexOf(b.sess.session));
 
-    const allComplete = entries.every(e => e.sess.isComplete);
+    const allComplete = entries.every(e => effectivelyComplete(e.sess));
 
     if (!allComplete) {
       // Day still in progress -- show each session as it completes. There's
@@ -1001,8 +1102,10 @@ export function buildCards(
   } else {
     cards = buildOverGroupCards(match, allBalls, isLive, cache, t);
   }
-  // Prepend match summary card (pinned at top, post-match only)
-  const summary = buildMatchSummaryCard(match);
+  // Prepend match summary card (pinned at top, post-match only). `isLive`
+  // is passed through so a finished-but-not-yet-`result`-populated match
+  // gets a derived/pending card instead of silently no card at all.
+  const summary = buildMatchSummaryCard(match, isLive);
   if (summary) cards = [summary, ...cards];
   return cards;
 }
@@ -1213,6 +1316,11 @@ const MatchSummaryCardView = React.memo(function MatchSummaryCardView({ card }: 
           >
             {card.resultLine}
           </p>
+          {card.isDerived && (
+            <p className="text-[9px] text-text-dim italic mt-0.5">
+              Result inferred from final score — official confirmation pending.
+            </p>
+          )}
         </div>
         <ShareButton label={`Match-Summary`} />
       </div>
@@ -1319,6 +1427,48 @@ const MatchSummaryCardView = React.memo(function MatchSummaryCardView({ card }: 
           );
         })}
       </div>
+    </div>
+  );
+});
+
+// ── PendingResultCardView ────────────────────────────────────────────────────
+// Shown in place of MatchSummaryCardView when the match has stopped being
+// live but `match.result` never arrived and couldn't be safely inferred
+// (see buildMatchSummaryCard / deriveMinimalMatchResult). The goal is just
+// to make the gap visually explicit -- never render an empty space where a
+// summary card would otherwise be, since that's indistinguishable from a bug.
+
+const PendingResultCardView = React.memo(function PendingResultCardView({ card }: { card: PendingResultCard }) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-line/40" data-digest-card>
+      <div className="px-3 pt-3 pb-2.5">
+        <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-white/10 text-text-dim">
+          {card.format} · Match Finished
+        </span>
+        <p className="text-[13px] font-bold text-text-secondary mt-1.5">Final result pending</p>
+        <p className="text-[10px] text-text-dim mt-0.5">
+          The match has finished, but the official result hasn't come through yet.
+        </p>
+      </div>
+      {card.inningsScores.length > 0 && (
+        <div className="px-3 pb-3 pt-2 flex flex-col gap-1 border-t border-line/30">
+          {card.inningsScores.map((inn, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: inn.teamColor }} />
+                <span className="text-[11px] font-bold text-text-secondary">{inn.label}</span>
+                {inn.declared && (
+                  <span className="text-[8px] font-black text-amber-400/80 uppercase tracking-wider">d</span>
+                )}
+              </div>
+              <span className="text-[13px] font-black num text-text-primary">
+                {inn.runs}<span className="text-text-dim font-semibold text-[11px]">/{inn.wickets}</span>
+                <span className="text-[10px] font-medium text-text-dim ml-1.5">({inn.overs} ov)</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 });
@@ -1466,7 +1616,7 @@ export default function DigestTab({ match, allBalls }: Props) {
     if (isTest) {
       if (activeDay === null) return cards;
       return cards.filter(c => {
-        if (c.kind === "match-summary") return true;  // always pinned
+        if (c.kind === "match-summary" || c.kind === "pending-result") return true;  // always pinned
         if (c.kind === "session")     return c.day === activeDay;
         if (c.kind === "day-summary") return c.day === activeDay;
         return true;
@@ -1475,7 +1625,7 @@ export default function DigestTab({ match, allBalls }: Props) {
     // non-Test: filter by innings
     if (activeInnings === null) return cards;
     return cards.filter(c =>
-      c.kind === "match-summary" ||                           // always pinned
+      c.kind === "match-summary" || c.kind === "pending-result" ||  // always pinned
       (c.kind === "over-group" && c.inningsNumber === activeInnings)
     );
   }, [cards, isTest, activeDay, activeInnings]);
@@ -1513,6 +1663,8 @@ export default function DigestTab({ match, allBalls }: Props) {
         {visibleCards.map(card => {
           if (card.kind === "match-summary")
             return <MatchSummaryCardView key={card.id} card={card} />;
+          if (card.kind === "pending-result")
+            return <PendingResultCardView key={card.id} card={card} />;
           if (card.kind === "day-summary")
             return <DaySummaryCardView key={card.id} card={card} />;
           if (card.kind === "session")

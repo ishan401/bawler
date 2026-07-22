@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.95 (deployed)
+**Current version:** v1.0.96 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -466,3 +466,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.95** | Confirmed (exhaustive grep) `bawler:followedTeam` is fully dead — zero code reads/writes it, `lib/followedTeam.ts` was deleted at v1.0.52, `bawler:followPrefs` is the only source of truth for follow state and cannot desync from a key nothing reads. Fixed one related stale comment (`ForYouRow`'s docstring still described the deleted single-team mechanism) (DECISIONS-LOG.md FY20-FY21) |
+
+## Changelog additions (v1.0.96)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.96** | Fix: Digest no longer assumes nested fields (`session.isComplete`, `match.result`) update in lockstep with `match.status`. Day/session completion is now derived from `match.status` — once a match is no longer live, every session belonging to it is treated as complete regardless of its own flag, so the final day/session correctly collapses into its "STUMPS" card even if that flag never independently flipped. The match-summary card is now authoritative on `match.status === "post-match"` too — if `result` is missing once the match has ended, it either derives a minimal result from the final scores (unambiguous non-Test 2-innings case only) or shows an explicit "Final result pending" card, instead of silently rendering nothing (DECISIONS-LOG.md FY22-FY23) |

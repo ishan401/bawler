@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.95)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.96)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.95 mock) — real data integration next.
+**Status:** UI complete (v1.0.96 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -88,7 +88,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 **Scorecard tab:** Uses `ALL_TEAMS` (not `TEAMS`) — works for national + franchise teams. Team toggle (T20/ODI/Hundred) or per-innings chips (Test) pick which innings shows below, defaulting to whoever's currently batting. Sticky innings header, offset measured live so it stays flush under the real header in any format. Partnership velocity sparklines between batting + bowling cards, plus a per-batter runs-vs-balls sparkline on each dismissal/"not out" line with boundary dots capped at that batter's own 4s/6s.
 
-**Digest tab:** Story-of-the-match in cards. Format-adaptive: over cards (T20), session cards (Test), ODI blocks. Day filter chips for Test (default: latest day). Innings chips for T20/ODI (default: latest innings). Post-match summary card pinned at top when `match.result` exists. All cards shareable as PNG. A completed Test day collapses its session cards into one consolidated day-summary card (an in-progress day still shows session cards as they finish); narrative phrasing is bucketed by what actually happened (bowling-collapse, dominant-batting, weather-shortened, etc.) and varies within a day via deterministic per-session seeding rather than defaulting to one generic line; notable days/sessions (e.g. an 11-wicket collapse) get a subtle accent border, routine ones stay quiet — same boolean-gate philosophy as homepage Spotlight. A `DigestCardCache` reuses card objects once their underlying data is complete, keeping re-renders cheap on live ticks; this assumes the underlying feed is append-only (see DECISIONS-LOG.md RD8).
+**Digest tab:** Story-of-the-match in cards. Format-adaptive: over cards (T20), session cards (Test), ODI blocks. Day filter chips for Test (default: latest day). Innings chips for T20/ODI (default: latest innings). Post-match summary card pinned at top once the match is no longer live — from the real `match.result` when present, else a derived minimal result or an explicit "final result pending" card, never silently absent. All cards shareable as PNG. A completed Test day collapses its session cards into one consolidated day-summary card (an in-progress day still shows session cards as they finish); narrative phrasing is bucketed by what actually happened (bowling-collapse, dominant-batting, weather-shortened, etc.) and varies within a day via deterministic per-session seeding rather than defaulting to one generic line; notable days/sessions (e.g. an 11-wicket collapse) get a subtle accent border, routine ones stay quiet — same boolean-gate philosophy as homepage Spotlight. A `DigestCardCache` reuses card objects once their underlying data is complete, keeping re-renders cheap on live ticks; this assumes the underlying feed is append-only (see DECISIONS-LOG.md RD8).
 
 **Info tab:** Pitch report card (surface, sliders, expected score, dew), lineups side-by-side.
 
@@ -123,7 +123,7 @@ Horizontal tab selector across 8 competitions:
 - **`totalBallsForFormat(match)`** — use this everywhere instead of hardcoded 120 for balls/chase math
 - **`franchiseStats` / `franchiseLeague`** — not `iplStats`; every player stores which league their franchise stats came from
 - **`seriesStatus?: string`** on Match — set by data layer for bilateral series; used by LiveCarousel chip
-- **`match.result`** drives the post-match summary card in DigestTab (not `match.status`)
+- **`match.status === "post-match"`** (not `match.result` alone) is authoritative for DigestTab's summary card — real `result` renders the full card, a missing `result` post-match either derives a minimal one (unambiguous non-Test 2-innings case) or renders an explicit "final result pending" card; per-session `isComplete` flags are likewise only trusted while `isLive`, overridden once the match ends (DECISIONS-LOG.md FY22-FY23)
 - **`match.championship`** drives the TABLE button for Test matches (WTC); falls back to `match.competition`
 - **`normalizeMatch()`** (`lib/dataValidation.ts`) — validation/adapter layer at the data boundary; collects errors (blocking) + warnings (non-blocking) instead of letting malformed data flow silently into narrative/win-prob functions
 - **`getPlayerShortName()`** (`lib/mockData.ts`) — always use this instead of splitting a full-name string; looks up each player's own registry `shortName` field, falls back to the unmodified full name for an unregistered player rather than guessing

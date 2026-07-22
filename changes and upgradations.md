@@ -3,6 +3,24 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.96] 2026-07-22
+
+### Digest no longer trusts nested fields to update in lockstep with `match.status`
+
+#### Context
+- All prior Digest verification (duplication fix, narrative-repetition fix, visual-hierarchy fix, ref-based cache) was done while matches were live. A dedicated post-match-transition test found two real bugs: the final day/session's "STUMPS" collapse relied on each session's own `isComplete` flag rather than `match.status`, and the match-summary card silently rendered nothing whenever `match.result` was missing, regardless of whether the match had actually finished.
+
+#### Fixed — `components/DigestTab.tsx`
+- `buildTestSessionCards()`: added a function-scoped `effectivelyComplete(sess) => !isLive || sess.isComplete` helper and routed the cached-card reuse guard, the `isLiveSession` card field, and the day-level `allComplete` check through it. While live, the per-session flag stays authoritative; once the match is no longer live, every session is treated as complete regardless of its own flag.
+- `buildMatchSummaryCard(match, isLive)`: now authoritative on `match.status` too. Real `result` -> full card as before. Still live with no `result` -> `null`, unchanged. Otherwise -> a minimal result derived from final scores when unambiguous (new `deriveMinimalMatchResult()`, non-Test two-innings chase only, marked `isDerived: true` with a small inferred-result caption), or a new explicit `PendingResultCard` ("Final result pending", final scores shown) when it can't be safely derived (e.g. Test matches).
+- `buildCards()` now threads `isLive` into `buildMatchSummaryCard`; the Test-day and non-Test-innings filters pin `pending-result` cards the same way `match-summary` cards are already pinned.
+
+#### Verified
+- Direct `buildCards()` calls via `npx tsx` against constructed scenarios (mirroring the diagnosis method): (1) a finished Test match with its final session's `isComplete` deliberately left stale (`false`) -- day still collapsed correctly into one day-summary card; (2) a finished Test match with sessions properly finalized but `result` deleted -- rendered an explicit `pending-result` card (real final scores) instead of a gap; (3) a genuinely-completed T20I with `result` deleted -- derived card exactly matched the deleted ground truth ("India won by 6 wickets").
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.95] 2026-07-22
 
 ### Confirmed `bawler:followedTeam` is dead legacy state, fixed a stale comment referencing it
