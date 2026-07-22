@@ -552,8 +552,14 @@ export default function Home() {
 
 /**
  * "For you" row (v1.0.49) — small personalization strip above the spotlight/
- * grid. Tapping the label opens an inline team picker (no account system
- * yet, so this is a simple localStorage-backed preference, default India).
+ * grid. Stale note removed (v1.0.95): this originally described the v1.0.49
+ * single-team placeholder (`lib/followedTeam.ts`, deleted at v1.0.52) --
+ * "tapping the label opens an inline team picker" and "default India" have
+ * not been true since that rewrite. Selection now comes entirely from the
+ * multi-category Filter sheet (`components/FollowSheet.tsx`, opened via the
+ * bottom nav, not by tapping this row's label), backed by
+ * `lib/followPrefs.ts`'s `bawler:followPrefs` localStorage key -- the one
+ * and only source of truth for follow state; there is no default follow.
  */
 function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boolean; followPrefs: FollowPrefs }) {
   // v1.0.58 -- this card only (Live/Spotlight/grid keep their own existing

@@ -3,6 +3,26 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.95] 2026-07-22
+
+### Confirmed `bawler:followedTeam` is dead legacy state, fixed a stale comment referencing it
+
+#### Context
+- Two follow-related localStorage keys were found set independently during testing: `bawler:followPrefs` (the real, structured multi-category state) and `bawler:followedTeam` (a single string). Asked to confirm whether the latter is still active or legacy, and remove it if genuinely dead.
+
+#### Investigated
+- Grepped every occurrence of `followedTeam` in the repo -- one hit, a comment in `lib/followPrefs.ts` documenting that `lib/followedTeam.ts` was deleted. The file doesn't exist on disk.
+- Grepped every `localStorage` call in the codebase -- only `lib/followPrefs.ts` (`bawler:followPrefs`), `lib/followNudge.ts`, and `lib/narrativeThresholds.ts` touch it at all, none of them reference `bawler:followedTeam`. No dynamic key access anywhere.
+- Conclusion: `bawler:followedTeam` was removed from source at v1.0.52 and has zero live code paths today. A value sitting in some browser's localStorage is inert leftover from a pre-v1.0.52 deploy -- it cannot influence "for you," hero selection, or anything else, since nothing reads it. `bawler:followPrefs` is the only source of truth for follow state, and can't desync from a key nothing reads.
+
+#### Fixed — `app/page.tsx`
+- `ForYouRow`'s docstring still described the deleted single-team mechanism ("tapping the label opens an inline team picker... default India") -- none of that has been true since the v1.0.52 rewrite. Updated to describe the current Filter-sheet-backed mechanism.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+
+---
+
 ## [1.0.94] 2026-07-22
 
 ### "Coming Up" header count now matches its actually-rendered card list

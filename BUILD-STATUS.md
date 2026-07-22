@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.94 (deployed)
+**Current version:** v1.0.95 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -460,3 +460,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.94** | Fix: "Coming Up"'s header count (`· N`) didn't match its own rendered card list — it read the raw unfiltered total while the grid applied Spotlight + "for you" dedup exclusions. Both now read one shared `futureVisible` array (DECISIONS-LOG.md FY18-FY19) |
+
+## Changelog additions (v1.0.95)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.95** | Confirmed (exhaustive grep) `bawler:followedTeam` is fully dead — zero code reads/writes it, `lib/followedTeam.ts` was deleted at v1.0.52, `bawler:followPrefs` is the only source of truth for follow state and cannot desync from a key nothing reads. Fixed one related stale comment (`ForYouRow`'s docstring still described the deleted single-team mechanism) (DECISIONS-LOG.md FY20-FY21) |
