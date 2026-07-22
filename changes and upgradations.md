@@ -14,12 +14,13 @@ Format: `[version] YYYY-MM-DD — description`
 - `tab`/`renderedTab` now initialize with `useState<TabKey>(defaultTab)` directly; the `restoredTab` IIFE is gone from the render path. A new `useEffect` reads `sessionStorage.getItem(SESSION_KEY)` post-mount, applies the same `isFinished && saved === "live"` staleness guard as before, and updates state only if the restored value differs from `defaultTab`.
 
 #### Fixed -- `components/DigestTab.tsx`
-- Added `thresholds` state (`useState<NarrativeThresholds>(DEFAULT_NARRATIVE_THRESHOLDS)`) plus a `useEffect(() => setThresholds(getNarrativeThresholds()), [])` in the main component. `buildCards()` and `buildPostMatchDigest()` now take `t`/`thresholds` as an explicit parameter (default: the pure `DEFAULT_NARRATIVE_THRESHOLDS` constant) instead of reading storage themselves; the `cards` `useMemo` passes `thresholds` through and depends on it. The 5 other `getNarrativeThresholds()` call sites in this file -- unused default-parameter expressions, never exercised by any real caller -- were switched to the same pure constant for consistency.
+- Added `thresholds` state (`useState<NarrativeThresholds>(DEFAULT_NARRATIVE_THRESHOLDS)`) plus a mount-only `useEffect` that reads the real value via `getNarrativeThresholds()` in the main component. `buildCards()` and `buildPostMatchDigest()` now take `t`/`thresholds` as an explicit parameter (default: the pure `DEFAULT_NARRATIVE_THRESHOLDS` constant) instead of reading storage themselves; the `cards` `useMemo` passes `thresholds` through and depends on it. The 5 other `getNarrativeThresholds()` call sites in this file -- unused default-parameter expressions, never exercised by any real caller -- were switched to the same pure constant for consistency.
+- Follow-up bug caught during verification: `buildOverGroupCards()`/`buildTestSessionCards()` permanently cache every already-complete card, and that first build happens on mount with default thresholds -- before the new effect can apply the real override. Without a further fix, the override would silently only affect overs/sessions completing after mount, never anything already on the page. Fixed by clearing the cache inside the same mount effect, forcing one full rebuild against the correct thresholds.
 
 #### Verified
-- Deployed-site console check (`read_console_messages`) on a live match, a finished match with full innings data, and a finished match with no innings data: zero #418/#423 warnings on all three.
-- Tab restoration: selecting a non-default tab and returning still restores it, now via the post-mount effect.
-- `setNarrativeThresholdOverride(...)` still applies, now via the post-mount effect.
+- Deployed-site console check (`read_console_messages`, cleared before each reload to avoid stale-message false positives) on a live match, a finished match with full innings data, and a finished match with no innings data: zero #418/#423 warnings on all three.
+- Tab restoration: switched to Score on a finished Test match, did a full page reload, confirmed it stayed on Score instead of falling back to Digest.
+- Narrative-threshold override: set `bawler:narrativeThresholds` to make `tightOverRuns` impossible to hit, reloaded a live match with several already-complete "Tight over" cards, confirmed their text changed -- this is what caught the cache bug above and confirmed the fix for it.
 - `tsc --noEmit` and `npm run build` clean.
 
 ---

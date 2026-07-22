@@ -1953,7 +1953,21 @@ export default function DigestTab({ match, allBalls }: Props) {
   // cards then recompute against it like any other state change.
   const [thresholds, setThresholds] = useState<NarrativeThresholds>(DEFAULT_NARRATIVE_THRESHOLDS);
   useEffect(() => {
-    setThresholds(getNarrativeThresholds());
+    const real = getNarrativeThresholds();
+    setThresholds(real);
+    // buildOverGroupCards()/buildTestSessionCards() permanently cache any
+    // already-COMPLETE card by id (correct -- a finished over/session's
+    // stats never change again), but that first build happens on mount
+    // using the DEFAULT thresholds, before this effect has run. Without
+    // clearing the cache here, every already-complete card at mount time
+    // would be frozen with default-threshold narrative text forever, and
+    // a real override would only ever affect overs/sessions that complete
+    // AFTER this effect fires -- silently breaking the override for any
+    // page that's already fully loaded. Clearing it once here (this
+    // effect only runs on mount) forces one full rebuild against the
+    // correct snapshot, then caching behaves exactly as before for every
+    // subsequent live tick.
+    cacheRef.current = new Map();
   }, []);
 
   const cards = useMemo(
