@@ -503,7 +503,20 @@ export default function Home() {
                 onToggleExpand={() => setExpanded(e => (e === "future" ? null : "future"))}
               />
               <div className="space-y-2">
-                {futureList.filter(m => !spotlightIds.has(m.id)).map(m => <FutureMatchCard key={m.id} match={m} />)}
+                {/* Excludes whichever single match is currently occupying the
+                    "for you" slot above (v1.0.93) -- same mirrored pattern as
+                    "for you"'s own `m.id !== heroId` exclusion, just pointed
+                    the other way. Only ever one id, never every qualifying
+                    match: forYouResult's selection logic (soonest qualifying
+                    upcoming match) is untouched, so a follow with several
+                    qualifying upcoming games still shows all-but-one of them
+                    here -- only the one actually rendered in "for you" is
+                    pulled. forYouVisible (not forYouResult.upcoming directly)
+                    is the right id to check: if the selected match happens to
+                    also be a spotlight match, it's already excluded from this
+                    grid via spotlightIds, and forYouVisible is null in that
+                    same case -- nothing extra to exclude, nothing missed. */}
+                {futureList.filter(m => !spotlightIds.has(m.id) && m.id !== forYouVisible?.id).map(m => <FutureMatchCard key={m.id} match={m} />)}
               </div>
             </div>
           </div>

@@ -3,6 +3,23 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.93] 2026-07-22
+
+### "For you" upcoming match no longer duplicates into the "Coming Up" grid
+
+#### Context
+- The single soonest-qualifying upcoming match selected by `forYouResult` and rendered in "for you" was still also rendering a second time in the "Coming Up" grid below, since that grid's only existing exclusion was Spotlight dedup (`spotlightIds`), unrelated to "for you". Scoped narrowly per the request: don't touch `forYouResult`'s selection logic, don't touch the live path (already fixed in v1.0.91), only stop the one match currently shown in "for you" from also appearing in Coming Up.
+
+#### Fixed — `app/page.tsx`
+- `futureList.filter(m => !spotlightIds.has(m.id) && m.id !== forYouVisible?.id)` — one added clause on the existing filter, mirroring "for you"'s own `m.id !== heroId` hero-exclusion (v1.0.53) in the other direction. Uses `forYouVisible` (not `forYouResult.upcoming` directly) so the two dedup mechanisms never conflict: if the selected match is also a Spotlight match, `forYouVisible` is already `null` and that match is already excluded from Coming Up via `spotlightIds` — nothing extra needed.
+- A follow whose category has multiple qualifying upcoming matches still only pulls the single soonest one (the one actually shown in "for you"); every other qualifying-but-not-selected match stays visible in Coming Up exactly as before.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean
+- Live (Claude-in-Chrome, `localStorage` follow-pref overrides + reload): a nation follow (South Africa) whose only qualifying match anywhere is the upcoming England-South Africa ODI — appeared in "for you", confirmed absent from Coming Up. A team follow (Sunrisers Hyderabad) with two qualifying upcoming fixtures — confirmed only the soonest (shown in "for you") disappeared from Coming Up while the later one stayed visible there.
+
+---
+
 ## [1.0.92] 2026-07-21
 
 ### Docs: fix v1.0.91 DECISIONS-LOG ID collision + stale DESIGN-SYSTEM.md statements
