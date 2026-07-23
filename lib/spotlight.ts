@@ -1,5 +1,4 @@
-import type { Match, Team } from "./types";
-import { getTeamMembershipStatus } from "./teamData";
+import type { Match } from "./types";
 
 // ============================================================================
 // Spotlight-worthiness — v1.0.49
@@ -31,19 +30,6 @@ import { getTeamMembershipStatus } from "./teamData";
 // carry no battingCard/bowlingCard detail and no stakes-matching badge — so
 // the spotlight pool stays small and fixed; it doesn't dilute as more
 // matches load in.
-//
-// COMPETITION-TIER GATE (v1.0.103) — added ahead of the three checks above,
-// which are otherwise untouched. League/domestic competitions (IPL, BBL,
-// PSL, CPL, The Hundred, SA20, MLC, etc.) are unrestricted -- any match
-// there goes straight to the three excitement checks, same as always.
-// International/bilateral matches additionally require BOTH teams to be
-// full ICC members (via the getTeamMembershipStatus() adapter -- see
-// lib/teamData.ts and ARCHITECTURE.md) before the excitement checks even
-// run. An associate nation having a dramatic finish is still a real,
-// notable story for that nation's own fans, but it isn't the same "rare
-// enough to interrupt the homepage" signal a Full Member upset or thriller
-// is -- Full Member cricket is what most of this app's audience follows,
-// and Spotlight is deliberately meant to stay small (see SPOTLIGHT_MAX).
 // ============================================================================
 
 function hasCloseFinish(match: Match): boolean {
@@ -79,56 +65,7 @@ function hasContextStakes(match: Match): boolean {
   return false;
 }
 
-/**
- * True if a team is a full ICC member -- the membership-tier half of the
- * Spotlight gate. Callers build this once, upfront, via
- * buildFullMemberLookup() below (NOT per-match/per-call), since
- * getTeamMembershipStatus() is async and isSpotlightMatch() itself must stay
- * synchronous to run inside a plain Array.filter().
- */
-export type FullMemberLookup = (team: Team) => boolean;
-
-/**
- * Resolves the full-member/associate status for every team that actually
- * appears in `matches`, ONE TIME, via the sanctioned getTeamMembershipStatus()
- * interface (lib/teamData.ts) -- never by reading team.membershipStatus
- * directly. Dedupes by team code first so a team appearing in dozens of
- * matches is only resolved once, not once per match.
- *
- * Returns a plain synchronous lookup function, so the actual per-match
- * filtering pass (isSpotlightMatch, called from inside Array.filter) never
- * needs to await anything itself.
- */
-export async function buildFullMemberLookup(matches: Match[]): Promise<FullMemberLookup> {
-  const byCode = new Map<string, Team>();
-  for (const m of matches) {
-    byCode.set(m.teamA.code, m.teamA);
-    byCode.set(m.teamB.code, m.teamB);
-  }
-  const resolved = await Promise.all(
-    [...byCode.values()].map(
-      async (team) => [team.code, (await getTeamMembershipStatus(team)) === "full"] as const
-    )
-  );
-  const isFullMemberByCode = new Map(resolved);
-  return (team: Team) => isFullMemberByCode.get(team.code) ?? false;
-}
-
-/**
- * True if a match clears the (deliberately rare) homepage spotlight bar.
- *
- * `isFullMember` must come from buildFullMemberLookup() above, resolved
- * once upfront by the caller -- see that function's comment for why this
- * can't be an inline per-match await instead.
- */
-export function isSpotlightMatch(match: Match, isFullMember: FullMemberLookup): boolean {
-  const compType = match.competition.type;
-  const isLeagueOrDomestic = compType === "league" || compType === "domestic";
-  if (!isLeagueOrDomestic) {
-    // International/bilateral: both teams must be full ICC members, checked
-    // BEFORE the excitement checks below ever run -- an associate-nation
-    // match is rejected outright here regardless of how dramatic it was.
-    if (!isFullMember(match.teamA) || !isFullMember(match.teamB)) return false;
-  }
+/** True if a match clears the (deliberately rare) homepage spotlight bar. */
+export function isSpotlightMatch(match: Match): boolean {
   return hasCloseFinish(match) || hasMilestone(match) || hasContextStakes(match);
 }
