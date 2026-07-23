@@ -3,6 +3,28 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.105] 2026-07-23
+
+### Team-color theming correction: hairline-stroke contrast audit
+
+#### Context
+- Live bug found on `ind-eng-test-2026-d3-live`: England's not-out box border/text and sparkline line were nearly invisible. v1.0.104's fallback logic only ever contrast-checked a team's primary color if it was literally `#000000` -- every other team's real primary, including England's dark navy `#1D244E` (~1.16:1 against the card background), was used unchecked.
+
+#### Fixed -- `lib/teamAccentColor.ts`
+- Removed the "colorless team" special case. The contrast check now runs for every team's `primaryColor`, not just literal `#000000` ones -- one uniform primary -> secondary -> cyan chain for all 72 teams.
+- Raised `MIN_CONTRAST` from 3.0 to 7.0 (WCAG 2.x AAA "enhanced contrast," the closest published reference for a graphical element with as little rendering margin as a 1-2px stroke -- WCAG has no official number for strokes this thin). One threshold gates all four themed components: the not-out box's ~1px ring, the sparkline's 2px line, and the two pill fills (which are strictly more forgiving than either stroke).
+
+#### Audit results (all 72 teams, vs `#141B2D`)
+- **Real primary passes (9)**: Australia, Chennai Super Kings, Jamaica Tallawahs, Joburg Super Kings, Melbourne Stars, Peshawar Zalmi, Sunrisers Eastern Cape, Texas Super Kings, Trent Rockets -- all gold/yellow/lime brand colors.
+- **Falls back to secondary (32)**: e.g. India (`#005BAC` 2.53:1 fails -> `#F9A825` 8.70:1), New Zealand, Uganda, Punjab Kings (`#DD1F2D` 3.52:1 fails -> grey `#A7A9AC` 7.28:1 -- ordinary math, not a red-collision exception), Pakistan, South Africa, West Indies, and 25 more.
+- **Falls back to cyan (31)**: England (primary 1.16:1 and secondary 5.59:1 both fail the stricter bar -- the bug that triggered this fix), Zimbabwe, Perth Scorchers, Papua New Guinea, London Spirit, and 26 more.
+- No special-casing for the wicket-red teams (Zimbabwe, Perth Scorchers, Punjab Kings) -- they run the identical check as everyone else.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean.
+- Live-checked England's not-out box and sparkline post-deploy -- now visibly rendered via cyan fallback.
+- Spot-checked a passing-primary team and a red-collision team render correctly with no dedicated code path.
+
 ## [1.0.104] 2026-07-23
 
 ### Batting-team color theming: not-out box, sparkline line, and team-selector pills

@@ -36,6 +36,6 @@ export const SPIN = "#A855F7";
 export const SLOW_PACE = "#A855F7";
 
 /** The platform's default accent. Matches tailwind.config.ts's `cyan` token.
- * Also the explicit fallback for a team with no usable brand color at all --
- * see lib/teamAccentColor.ts's colorless-team exception. */
+ * Also the fallback for a team whose primary AND secondary both fail the
+ * hairline-stroke contrast check -- see lib/teamAccentColor.ts. */
 export const CYAN = "#00E5FF";
