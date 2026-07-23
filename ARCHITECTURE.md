@@ -122,6 +122,26 @@ usual field-level concerns:
   hydration-safe `useState(placeholder)` + `useEffect` pattern as
   `NationalRankBadge` — cyan for both teams (the platform default) on the
   first pass, the real resolved colors after mount.
+- **Replace, never mutate (v1.0.109):** `useMatchAccentColors`'s effect
+  depends on `teamA.code`/`teamA.primaryColor`/`teamA.secondaryColor` and
+  the same three fields for `teamB` — not on `teamA`/`teamB` object
+  identity. That was deliberate: depending on the whole object would only
+  catch a team being swapped for a brand-new object, not a team's colors
+  actually changing, so it's the fields that determine the resolved color
+  that belong in the dependency array, not a proxy for them. But this only
+  closes half the gap. The other half is a contract this code cannot
+  enforce on its own: **any future real data source must publish team
+  color updates by replacing the `Team` object, never by mutating an
+  existing one's `primaryColor`/`secondaryColor` in place.** React only
+  re-renders in response to a state or props change; mutating a field on an
+  object already sitting in props or state doesn't trigger anything, no
+  matter what that object's fields are keyed on downstream. This is the
+  same discipline React state generally requires of any mutable data it
+  holds a reference to. Whoever wires up the real feed later needs to know
+  this going in — it's easy to reach for `team.primaryColor = newColor`
+  as a shortcut and have every color-consuming component on the page
+  silently go stale with no error, no warning, and no test that would
+  catch it short of a live visual check.
 - **Malformed-input hardening:** this is the one place so far where the
   *shape* of the incoming data matters as much as its presence.
   `Team.primaryColor`/`secondaryColor` are typed as required `string`

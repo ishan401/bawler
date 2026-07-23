@@ -25,6 +25,22 @@ interface ScorecardProps {
  * real resolved colors after mount. Shared by all three of this file's
  * call sites (TeamToggle, TestInningsChips, InningsCard) instead of each
  * duplicating the same effect.
+ *
+ * v1.0.109 -- the effect depends on the specific fields that determine the
+ * resolved color (`code`, `primaryColor`, `secondaryColor` for each team),
+ * NOT on `teamA`/`teamB` object identity. Depending on the whole object was
+ * a real-data-readiness gap: it means "did this team get REPLACED with a
+ * new object," not "did this team's colors actually change." A future live
+ * source that mutates an existing Team object's `primaryColor` in place
+ * (rather than publishing a new object) would never flip the reference, so
+ * the old dependency would silently keep showing a stale color on the next
+ * render. Depending on the primitive fields instead means: whenever a
+ * re-render happens for any reason, this hook correctly notices whether the
+ * colors actually changed -- it doesn't rely on object identity as a proxy
+ * for that. This does NOT make the hook re-render on a mutation by itself
+ * (nothing can, without the mutating code triggering a re-render somewhere
+ * upstream) -- see the "replace, never mutate" contract in
+ * ARCHITECTURE.md, which is what actually has to hold end to end.
  */
 function useMatchAccentColors(teamA: Team, teamB: Team): Record<string, string> {
   const [colors, setColors] = useState<Record<string, string>>({
@@ -40,7 +56,16 @@ function useMatchAccentColors(teamA: Team, teamB: Team): Record<string, string> 
     return () => {
       cancelled = true;
     };
-  }, [teamA, teamB]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
+    // field-level, not object-identity, deps; see doc comment above.
+  }, [
+    teamA.code,
+    teamA.primaryColor,
+    teamA.secondaryColor,
+    teamB.code,
+    teamB.primaryColor,
+    teamB.secondaryColor,
+  ]);
 
   return colors;
 }

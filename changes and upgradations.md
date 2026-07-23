@@ -3,6 +3,24 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.109] 2026-07-23
+
+### Close the stale-mutation gap flagged in the v1.0.108 real-data-readiness pass
+
+#### Context
+- v1.0.108 flagged an accepted limitation: `useMatchAccentColors` depended on `[teamA, teamB]` by object reference, so it wouldn't notice a team's colors changing via in-place mutation of an existing object -- only via a full object replacement.
+
+#### Fixed -- `components/Scorecard.tsx`
+- `useMatchAccentColors`'s effect now depends on `[teamA.code, teamA.primaryColor, teamA.secondaryColor, teamB.code, teamB.primaryColor, teamB.secondaryColor]` instead of `[teamA, teamB]` -- tracks the fields that actually determine the resolved color, not object identity as a proxy for them.
+
+#### Documented -- `ARCHITECTURE.md`
+- New explicit rule alongside the existing worked example: any future real data source must publish team color updates by replacing the `Team` object, never mutating an existing one's fields in place. Flagged as a contract for the future feed integrator -- this code can track field changes across a render, but it can't make a mutation trigger a render in the first place.
+
+#### Verified
+- Real test via `npx tsx` + `react-test-renderer` (temp dev install, not saved to `package.json`): in-place mutation with no re-render correctly leaves the stale color in place; a proper object replacement correctly picks up the new color on the next render.
+- Re-ran the full 29-match audit against the shipped `resolveMatchAccentColors` -- byte-identical to v1.0.108 (expected: this is a UI-hook-layer change only).
+- `tsc --noEmit` and `npm run build` clean.
+
 ## [1.0.108] 2026-07-23
 
 ### Real-data-readiness test pass: team-color theming system
