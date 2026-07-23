@@ -998,3 +998,28 @@ Scoped in the immediately preceding diagnostic pass (14 other locations already 
 - Tab restoration still works: selecting a non-default tab (Score, on a finished Test match), then doing a full page reload, correctly restores Score instead of falling back to the default Digest tab -- confirmed via screenshot before and after reload.
 - `setNarrativeThresholdOverride(...)`'s underlying mechanism still works, and now actually applies to already-complete cards after the cache fix above: set `bawler:narrativeThresholds` to override `tightOverRuns` to `-1` (so no over should ever qualify as "tight") on a live match with several already-complete "Tight over" cards, reloaded, and confirmed those cards' narrative text changed accordingly.
 - Both deferred updates apply within a single frame of mount, before any user-visible paint settles -- no visible flash of default content in either case.
+
+**Reproducible verification recipe** (for anyone re-checking this independently -- e.g. after a future change touches `DigestTab.tsx` or `narrativeThresholds.ts` -- since `setNarrativeThresholdOverride()` is not attached to `window` and can't be typed directly into the console; the override has to be written to its `localStorage` key instead):
+
+- Key: `bawler:narrativeThresholds`. Value: a JSON-stringified *partial* `NarrativeThresholds` object (only the fields being changed need to be present -- `getNarrativeThresholds()` deep-merges it over `DEFAULT_NARRATIVE_THRESHOLDS`). Three top-level groups: `narrative`, `overSummary`, `dayReport` (see `lib/narrativeThresholds.ts` for every field).
+- Known-good test case, checked directly against this match's actual mock data (not assumed): `ind-eng-test-2026-d3-live`, Digest tab, Day 2 -> 2nd Session (ENG's innings, overs 29-58) -- **6 wickets for 32 runs**, `isComplete: true`, i.e. exactly the kind of already-cached card the bug above affected. This session is "notable" (amber styling) *only* via its wicket count (32 runs is well under the `sessionDominantBattingRuns` default of 70), which makes it a clean single-variable test -- unlike Day 2's 1st Session (5 wickets but 116 runs, which clears the runs threshold on its own regardless of any wickets override).
+- Console commands:
+  ```js
+  // set an override, then reload -- flips this session's "notable" amber
+  // styling off (dayReport.sessionDominantBowlingWickets raised above 6)
+  // and its narrative text from "6 wickets — collapse!" to "32 scored"
+  // (narrative.wicketsCollapse raised above 6):
+  localStorage.setItem('bawler:narrativeThresholds', JSON.stringify({
+    dayReport: { sessionDominantBowlingWickets: 10 },
+    narrative: { wicketsCollapse: 10 }
+  }));
+  location.reload();
+
+  // inspect the current override:
+  localStorage.getItem('bawler:narrativeThresholds');
+
+  // clear it and reload -- reverts to the amber "6 wickets — collapse!" card:
+  localStorage.removeItem('bawler:narrativeThresholds');
+  location.reload();
+  ```
+- `isNotableSession()`'s wickets threshold lives at `dayReport.sessionDominantBowlingWickets` (default `5`); the "collapse!" wording specifically comes from `narrative.wicketsCollapse` (default `3`) inside `buildNarrative()`. They're independent knobs -- the recipe above happens to move both for a clean before/after, but either can be overridden alone.

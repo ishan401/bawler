@@ -13,13 +13,35 @@
 // (this file just makes that possible without a code change).
 //
 // RUNTIME OVERRIDE (no redeploy required):
-//   Call `setNarrativeThresholdOverride({...})` from the browser console (or
-//   wire it to a hidden admin control later) to persist a partial override
-//   to localStorage. `getNarrativeThresholds()` merges it over the defaults
-//   on every read. `clearNarrativeThresholdOverride()` removes it.
+//   getNarrativeThresholds() merges a partial override over the defaults
+//   on every read. The override lives in localStorage under the key
+//   "bawler:narrativeThresholds". setNarrativeThresholdOverride()/
+//   clearNarrativeThresholdOverride() below are the intended way to
+//   write/clear that key from CODE that imports this module (e.g. a
+//   future hidden admin control) -- they are plain exported functions,
+//   NOT attached to `window`, so typing their name directly into the
+//   browser console will throw "not defined". To override from the
+//   console today, write the key directly instead:
 //
-//   Example — loosen what counts as a "big over" in T20s:
-//     setNarrativeThresholdOverride({ narrative: { bigOverRunsDefault: 16 } })
+//     localStorage.setItem('bawler:narrativeThresholds', JSON.stringify({
+//       narrative: { bigOverRunsDefault: 16 }
+//     }));
+//     location.reload();
+//
+//   Clear it the same way:
+//     localStorage.removeItem('bawler:narrativeThresholds');
+//     location.reload();
+//
+//   A full page reload (not just re-navigating within the app) is
+//   required after changing the override -- DigestTab.tsx reads the real
+//   value inside a useEffect after mount (kept out of the render path on
+//   purpose, see DECISIONS-LOG.md FY29 for why), and that effect also
+//   clears its per-card cache so already-COMPLETE over/session/day cards
+//   rebuild against the new value instead of staying frozen with
+//   whatever was cached before the override was read. FY29 also has a
+//   real worked example (exact match, session, wicket/run counts, and
+//   copy-pasteable console commands) for independently re-verifying this
+//   mechanism end to end.
 // ============================================================================
 
 export interface NarrativeThresholds {
