@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.106 (deployed)
+**Current version:** v1.0.107 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -514,6 +514,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.103** | Spotlight gets a competition-tier gate: international/bilateral matches now also require both teams to be full ICC members (via `getTeamMembershipStatus()`, lib/teamData.ts) before the existing three excitement checks even run -- league/domestic matches (IPL, BBL, PSL, etc.) are unaffected. New `lib/spotlight.ts` export `buildFullMemberLookup()` resolves every team's status once upfront (not per-match) since the underlying check is async; `isSpotlightMatch()` itself stays synchronous. Fixed a real bug found during this work: `useState`'s setter treats a bare function argument as a functional updater, not a value -- `.then(setFullMemberLookup)` was calling the resolved lookup function against the previous (null) state instead of storing it, crashing the homepage. Fixed via `.then(lookup => setFullMemberLookup(() => lookup))` (DECISIONS-LOG.md FY33) |
+
+## Changelog additions (v1.0.107)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.107** | Replaced the v1.0.106 cross-team collision check's metric: WCAG contrast (luminance-only, which wrongly flagged New Zealand's grey as "colliding" with Australia's gold just for being similarly bright) is now CIEDE2000, the standard perceptual color-difference formula that accounts for hue and saturation too. New threshold `COLLISION_MIN_DELTA_E = 10.0`, calibrated so India-vs-Australia gold still collides (dE00 5.42) and New Zealand-vs-Australia no longer does (dE00 31.71). Re-audited all 29 matches: the 8 known gold-on-gold pairs still fall back, New Zealand now keeps its real grey, and 13 previously-flagged-but-inert pairs are now correctly classified as non-collisions (DECISIONS-LOG.md FY37) |
 
 ## Changelog additions (v1.0.106)
 

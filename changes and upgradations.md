@@ -3,6 +3,28 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.107] 2026-07-23
+
+### Team-color theming: CIEDE2000 replaces WCAG contrast for the collision check
+
+#### Context
+- v1.0.106's cross-team collision check reused WCAG contrast (luminance-only) to compare two teams' colors against each other. That's why New Zealand's grey secondary got flagged as "colliding" with Australia's gold primary -- similarly bright, but obviously different colors to look at.
+
+#### Fixed -- `lib/teamAccentColor.ts`
+- Cross-team collision check now uses CIEDE2000 (`ciede2000()` / `deltaE00()`) -- converts both colors to CIE Lab and computes a perceptual Delta E accounting for lightness, chroma, and hue together. The WCAG-based background-legibility check (7.0:1 minimum, unchanged) is left as-is -- that's a genuine brightness question; the cross-team question needed a perceptual tool instead.
+- New threshold `COLLISION_MIN_DELTA_E = 10.0`, calibrated against two known answers: India's gold vs Australia's gold must collide (dE00 = 5.42, confirmed below 10.0) and New Zealand's grey vs Australia's gold must not (dE00 = 31.71, confirmed above 10.0). Every other known real collision clusters at 5.4-9.2; every known non-collision is 25.66+ -- wide margin either side of 10.0.
+
+#### Re-audit -- all 29 matches
+- The 8 gold-on-gold pairs from v1.0.106 (Mumbai Indians vs 3 opponents, Kolkata Knight Riders vs Chennai Super Kings, India vs Australia x3, Multan Sultans vs Peshawar Zalmi, LA Knight Riders vs Texas Super Kings) still collide and still fall back -- confirmed under the new metric too, not just the old one.
+- New Zealand vs Australia no longer flagged -- New Zealand now renders its real grey secondary instead of dropping to cyan.
+- The 3 identical-color (both-cyan) pairs are still flagged but still inert, as before.
+- 13 pairs that were flagged-but-inert under the old luminance metric are now correctly classified as "no collision" (they're hue-distinct, not just coincidentally similar in brightness) -- no visible change, since they were already inert, but a more accurate audit.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean.
+- TS CIEDE2000 implementation cross-checked against independent Node.js and Python ports -- identical Delta E values across all calibration and audit cases.
+- Live re-checked New Zealand vs Australia post-deploy -- New Zealand now renders its real grey, not cyan.
+
 ## [1.0.106] 2026-07-23
 
 ### Team-color theming: cross-team collision check

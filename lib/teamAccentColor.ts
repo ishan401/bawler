@@ -2,7 +2,7 @@ import type { Team } from "./types";
 import { CYAN } from "./tokens";
 
 // ============================================================================
-// Batting-team accent color resolution — v1.0.104, corrected v1.0.105/106
+// Batting-team accent color resolution — v1.0.104, corrected v1.0.105/106/107
 // ============================================================================
 // Resolves the color used to theme the not-out highlight, the sparkline's
 // live line, and the two team-selector pills (TeamToggle, TestInningsChips
@@ -12,63 +12,82 @@ import { CYAN } from "./tokens";
 // v1.0.105 correction: the contrast check now runs for every team's real
 // `primaryColor` against the card background (`#141B2D`), not just teams
 // with a literal `#000000` primary, and the minimum was raised from 3.0 to
-// 7.0 (WCAG AAA "enhanced contrast") -- see the per-team audit in
-// DECISIONS-LOG.md FY35 for why. `resolveTeamColorTier()` below is that
-// per-team-only check, unaware of who the other team in the match is.
+// 7.0 (WCAG AAA "enhanced contrast"). `resolveTeamColorTier()` below is that
+// per-team-only check, unaware of who the other team in the match is. This
+// part of the system is UNCHANGED by v1.0.106/107 -- it's a legibility
+// check (does this color survive as a 1-2px stroke against a fixed dark
+// background), which is a different question from the one those two
+// corrections address below, and WCAG luminance contrast is the right tool
+// for it.
 //
-// v1.0.106 correction -- READ THIS BEFORE CHANGING THE COLLISION LOGIC:
-// Checking each team's color against the background in isolation misses a
-// second failure mode: two teams can each independently clear the bar and
-// still land on colors too close to EACH OTHER to tell apart. Live example:
-// India's real primary blue fails the hairline check and falls back to its
-// gold secondary (`#F9A825`) -- which passes fine against the dark
-// background on its own, but sits right on top of Australia's real gold
-// primary (`#FFB81C`) in an India vs Australia match, so both batters'
-// not-out boxes read as "Australia-colored" even when India is batting.
+// v1.0.106 introduced a second check: two teams in the same match could each
+// independently clear the background check and still land on colors too
+// close to EACH OTHER. `resolveMatchAccentColors(teamA, teamB)` runs both
+// teams' colors through `resolveTeamColorTier` first, then compares the two
+// FINAL colors against each other.
 //
-// `resolveMatchAccentColors(teamA, teamB)` is the fix: it resolves each
-// team's color independently first (exactly as before), then checks the two
-// FINAL colors against each other (not the background) at a separate,
-// lower bar -- 1.5:1 -- since this step is about telling two colors apart
-// from each other, not about a color surviving against a fixed dark
-// background. Below that, the lower-priority team drops:
-//   - real primary > secondary fallback > cyan, in that order;
-//   - a team one tier below the other drops one tier (primary -> secondary,
-//     but only if that secondary both clears its OWN background-contrast
-//     check and doesn't ALSO collide with the other team's now-fixed color;
-//     otherwise straight to cyan, since there's nowhere softer to land);
-//   - two teams landing at the SAME tier is a deterministic tie: whichever
-//     team's `fullName` sorts second alphabetically drops straight to cyan.
-//     This is intentionally NOT based on which team is batting, home, or
-//     listed as `teamA` -- it must give the same answer regardless of match
-//     state, or two renders of the same match could disagree with each
-//     other.
+// v1.0.107 correction -- READ THIS BEFORE CHANGING THE COLLISION METRIC:
+// v1.0.106 compared the two teams' colors using the same WCAG contrast-
+// ratio formula as the background check. That formula only measures
+// LUMINANCE (brightness) -- it has no concept of hue or saturation. That's
+// why New Zealand's grey secondary (`#A8A9AD`) got flagged as "colliding"
+// with Australia's gold primary (`#FFB81C`): they're similarly bright, so
+// WCAG contrast between them is low (1.36:1), even though a human looking
+// at grey and gold would never call them the same color.
+//
+// The cross-team check now uses CIEDE2000 (`ciede2000()` below) instead --
+// the standard perceptual color-difference formula (a "Delta E"), which
+// converts both colors to CIE Lab space and accounts for lightness, hue,
+// AND saturation together, the way human color perception actually works.
+// The WCAG-based background check above is left untouched: that one is
+// genuinely a brightness question (can a stroke this thin be read against
+// a fixed dark background), where luminance-only contrast is the correct
+// tool. The cross-team question is a "do these two specific colors look
+// the same to a person" question, where CIEDE2000 is the correct tool.
+//
+// THRESHOLD CALIBRATION: `COLLISION_MIN_DELTA_E = 10.0`. Chosen against two
+// known answers, not a default textbook number:
+//   - India's gold secondary (`#F9A825`) vs Australia's gold primary
+//     (`#FFB81C`) MUST collide -- dE00 = 5.42.
+//   - New Zealand's grey secondary (`#A8A9AD`) vs Australia's gold primary
+//     (`#FFB81C`) MUST NOT collide -- dE00 = 31.71.
+//   - Every other real v1.0.106 gold-on-gold collision (Mumbai Indians vs
+//     Kolkata Knight Riders/Gujarat Titans/Chennai Super Kings, Kolkata
+//     Knight Riders vs Chennai Super Kings, Multan Sultans vs Peshawar
+//     Zalmi, LA Knight Riders vs Texas Super Kings) falls in the 5.4-9.2
+//     range -- clustered tightly with the India/Australia case, nowhere
+//     near the New Zealand/Australia case.
+// 10.0 sits with ~1 point of headroom above the highest confirmed real
+// collision (9.21) and ~15 points of headroom below the lowest confirmed
+// non-collision (25.66) -- not a knife-edge choice. It also lines up with
+// the commonly cited CIEDE2000 perceptibility bands (roughly 2-10 =
+// "perceptible at a glance," 11-49 = "more similar than opposite"), so it's
+// not just curve-fit to these two cases -- it's a real, citable boundary
+// that happens to land exactly where the calibration cases need it to.
 //
 // Every real call site (TeamToggle, TestInningsChips, InningsCard, all in
 // components/Scorecard.tsx) always has both teams in scope, so
-// `resolveMatchAccentColors` is what they should call -- there's no longer
-// a single-team-only entry point exported from this module, since a
-// single-team resolution can't know about a same-match collision and would
-// silently reintroduce this bug for any new caller that used it.
+// `resolveMatchAccentColors` is what they should call -- there's no
+// single-team-only entry point exported from this module.
 //
 // No exception exists for the wicket-red teams (Zimbabwe, Perth Scorchers,
-// Punjab Kings) here either -- the same math applies to them as to anyone
-// else, at both the background-contrast and the cross-team-collision step.
+// Punjab Kings) at any step -- the same math applies to them as to anyone
+// else, at the background-contrast, tier-resolution, and collision steps.
 // ============================================================================
 
 const CARD_BG = "#141B2D"; // bg-surface -- the real .card background these elements render on
 
 // WCAG 2.x AAA "enhanced contrast" level. See the module comment above for
 // why a hairline-stroke check borrows this number instead of the 3.0 minimum
-// meant for solid, normal-size non-text UI components.
+// meant for solid, normal-size non-text UI components. Only used for the
+// per-team background check -- NOT the cross-team collision check below.
 const MIN_CONTRAST = 7.0;
 
-// Minimum contrast the two teams' FINAL resolved colors must have against
-// EACH OTHER (not the background) to count as visually distinguishable.
-// Deliberately much lower than MIN_CONTRAST above -- this step isn't asking
-// "does this color survive on a dark background," it's asking "can these
-// two specific colors be told apart from each other," which is a lower bar.
-const COLLISION_MIN_CONTRAST = 1.5;
+// Minimum perceptual color difference (CIEDE2000 "Delta E") the two teams'
+// FINAL resolved colors must have from EACH OTHER to count as visually
+// distinguishable. See the module comment above for how this number was
+// calibrated against known collision/non-collision cases.
+const COLLISION_MIN_DELTA_E = 10.0;
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -87,7 +106,9 @@ function relativeLuminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
 }
 
-/** WCAG contrast ratio between two hex colors -- 1 (no contrast) to 21 (max). */
+/** WCAG contrast ratio between two hex colors -- 1 (no contrast) to 21 (max).
+ * Luminance-only -- used for the per-team background-legibility check, NOT
+ * the cross-team collision check (see `ciede2000` for that). */
 export function contrastRatio(hexA: string, hexB: string): number {
   const lA = relativeLuminance(hexToRgb(hexA));
   const lB = relativeLuminance(hexToRgb(hexB));
@@ -102,6 +123,141 @@ export function contrastRatio(hexA: string, hexB: string): number {
 export function hexToRgbTriplet(hex: string): string {
   const [r, g, b] = hexToRgb(hex);
   return `${r}, ${g}, ${b}`;
+}
+
+// ----------------------------------------------------------------------------
+// CIEDE2000 -- perceptual color difference ("Delta E"). Converts sRGB -> CIE
+// Lab (D65 illuminant) and applies the standard CIEDE2000 formula (Sharma,
+// Wu & Dalal 2005), which is what "do these two colors look the same to a
+// human eye" actually means in color science -- it accounts for lightness,
+// chroma (saturation), and hue together, unlike a WCAG contrast ratio,
+// which is lightness-only.
+// ----------------------------------------------------------------------------
+
+function srgbToLinear(c: number): number {
+  const v = c / 255;
+  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+
+const D65_XN = 95.0489;
+const D65_YN = 100.0;
+const D65_ZN = 108.884;
+
+function hexToLab(hex: string): [number, number, number] {
+  const [r8, g8, b8] = hexToRgb(hex);
+  const r = srgbToLinear(r8);
+  const g = srgbToLinear(g8);
+  const b = srgbToLinear(b8);
+
+  // sRGB (D65) -> XYZ
+  const x = (r * 0.4124564 + g * 0.3575761 + b * 0.1804375) * 100;
+  const y = (r * 0.2126729 + g * 0.7151522 + b * 0.072175) * 100;
+  const z = (r * 0.0193339 + g * 0.119192 + b * 0.9503041) * 100;
+
+  const xr = x / D65_XN;
+  const yr = y / D65_YN;
+  const zr = z / D65_ZN;
+
+  const eps = Math.pow(6 / 29, 3);
+  const kappaTerm = 1 / (3 * Math.pow(6 / 29, 2));
+  const f = (t: number) => (t > eps ? Math.pow(t, 1 / 3) : t * kappaTerm + 4 / 29);
+
+  const fx = f(xr);
+  const fy = f(yr);
+  const fz = f(zr);
+
+  const L = 116 * fy - 16;
+  const a = 500 * (fx - fy);
+  const bLab = 200 * (fy - fz);
+  return [L, a, bLab];
+}
+
+function degToRad(deg: number): number {
+  return (deg * Math.PI) / 180;
+}
+function radToDeg(rad: number): number {
+  return (rad * 180) / Math.PI;
+}
+
+/** CIEDE2000 Delta E between two Lab colors. ~0 = identical, higher = more
+ * different. Roughly: <1 not perceptible, 1-2 perceptible on close
+ * inspection, 2-10 perceptible at a glance, 11-49 "more similar than
+ * opposite," 100 = polar opposites. */
+function ciede2000(lab1: [number, number, number], lab2: [number, number, number]): number {
+  const [L1, a1, b1] = lab1;
+  const [L2, a2, b2] = lab2;
+
+  const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+  const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+  const CBar = (C1 + C2) / 2;
+
+  const G = 0.5 * (1 - Math.sqrt(Math.pow(CBar, 7) / (Math.pow(CBar, 7) + Math.pow(25, 7))));
+  const a1p = a1 * (1 + G);
+  const a2p = a2 * (1 + G);
+
+  const C1p = Math.sqrt(a1p * a1p + b1 * b1);
+  const C2p = Math.sqrt(a2p * a2p + b2 * b2);
+
+  const hp = (ap: number, b: number): number => {
+    if (ap === 0 && b === 0) return 0;
+    const h = radToDeg(Math.atan2(b, ap));
+    return h < 0 ? h + 360 : h;
+  };
+  const h1p = hp(a1p, b1);
+  const h2p = hp(a2p, b2);
+
+  const dLp = L2 - L1;
+  const dCp = C2p - C1p;
+
+  let dhp: number;
+  if (C1p * C2p === 0) {
+    dhp = 0;
+  } else {
+    let dh = h2p - h1p;
+    if (dh > 180) dh -= 360;
+    else if (dh < -180) dh += 360;
+    dhp = dh;
+  }
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(degToRad(dhp) / 2);
+
+  const LBarp = (L1 + L2) / 2;
+  const CBarp = (C1p + C2p) / 2;
+
+  let hBarp: number;
+  if (C1p * C2p === 0) {
+    hBarp = h1p + h2p;
+  } else if (Math.abs(h1p - h2p) > 180) {
+    hBarp = h1p + h2p < 360 ? (h1p + h2p + 360) / 2 : (h1p + h2p - 360) / 2;
+  } else {
+    hBarp = (h1p + h2p) / 2;
+  }
+
+  const T =
+    1 -
+    0.17 * Math.cos(degToRad(hBarp - 30)) +
+    0.24 * Math.cos(degToRad(2 * hBarp)) +
+    0.32 * Math.cos(degToRad(3 * hBarp + 6)) -
+    0.2 * Math.cos(degToRad(4 * hBarp - 63));
+
+  const dTheta = 30 * Math.exp(-Math.pow((hBarp - 275) / 25, 2));
+  const Rc = 2 * Math.sqrt(Math.pow(CBarp, 7) / (Math.pow(CBarp, 7) + Math.pow(25, 7)));
+  const Sl = 1 + (0.015 * Math.pow(LBarp - 50, 2)) / Math.sqrt(20 + Math.pow(LBarp - 50, 2));
+  const Sc = 1 + 0.045 * CBarp;
+  const Sh = 1 + 0.015 * CBarp * T;
+  const Rt = -Math.sin(degToRad(2 * dTheta)) * Rc;
+
+  const dE = Math.sqrt(
+    Math.pow(dLp / Sl, 2) +
+      Math.pow(dCp / Sc, 2) +
+      Math.pow(dHp / Sh, 2) +
+      Rt * (dCp / Sc) * (dHp / Sh)
+  );
+  return dE;
+}
+
+/** Perceptual color difference between two hex colors (CIEDE2000 Delta E). */
+export function deltaE00(hexA: string, hexB: string): number {
+  return ciede2000(hexToLab(hexA), hexToLab(hexB));
 }
 
 type Tier = 0 | 1 | 2; // 0 = real primary, 1 = secondary fallback, 2 = platform cyan
@@ -126,17 +282,19 @@ function resolveTeamColorTier(team: Team): ResolvedTeamColor {
   return { color: CYAN, tier: 2 };
 }
 
+/** Cross-team "do these look the same" check -- CIEDE2000, not WCAG
+ * contrast. See the module comment above (v1.0.107) for why. */
 function collides(colorX: string, colorY: string): boolean {
-  return contrastRatio(colorX, colorY) < COLLISION_MIN_CONTRAST;
+  return deltaE00(colorX, colorY) < COLLISION_MIN_DELTA_E;
 }
 
 /** Drops `resolved` one tier for `team`, given the OTHER team's (unchanged)
  * final color. Only ever called on the lower-priority side of a same-match
  * collision. A real primary can drop to its secondary IF that secondary
  * both clears its own background-contrast minimum AND doesn't also collide
- * with the other team's color; any other case (no safe secondary, or
- * already on secondary/cyan with nothing softer below it) drops straight to
- * the platform cyan. */
+ * (perceptually) with the other team's color; any other case (no safe
+ * secondary, or already on secondary/cyan with nothing softer below it)
+ * drops straight to the platform cyan. */
 function dropOneTier(resolved: ResolvedTeamColor, team: Team, otherColor: string): string {
   if (resolved.tier === 0) {
     const sec = team.secondaryColor;
@@ -152,13 +310,14 @@ function dropOneTier(resolved: ResolvedTeamColor, team: Team, otherColor: string
  * Resolves BOTH teams' batting-accent colors for a single match at once.
  * Each team's color is resolved independently first (real primary, else
  * secondary, else cyan -- see `resolveTeamColorTier`), then the two FINAL
- * colors are checked against each other. If they're too close to tell
- * apart (below 1.5:1 contrast), the lower-priority team -- real primary
- * outranks a secondary fallback, which outranks cyan -- drops one tier; a
- * same-tier tie drops whichever team's full name sorts second
- * alphabetically straight to cyan. See the module comment above for the
- * full reasoning and DECISIONS-LOG.md FY36 for the audited results across
- * every match in the mock dataset.
+ * colors are checked against each other using CIEDE2000 perceptual color
+ * difference (NOT WCAG contrast -- see the module comment above for why).
+ * If they're too close to tell apart (below a Delta E of 10.0), the
+ * lower-priority team -- real primary outranks a secondary fallback, which
+ * outranks cyan -- drops one tier; a same-tier tie drops whichever team's
+ * full name sorts second alphabetically straight to cyan. See
+ * DECISIONS-LOG.md FY36/FY37 for the audited results across every match in
+ * the mock dataset.
  *
  * This is the only entry point real call sites should use -- there is no
  * single-team equivalent exported from this module.
