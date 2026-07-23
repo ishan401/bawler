@@ -1023,3 +1023,20 @@ Scoped in the immediately preceding diagnostic pass (14 other locations already 
   location.reload();
   ```
 - `isNotableSession()`'s wickets threshold lives at `dayReport.sessionDominantBowlingWickets` (default `5`); the "collapse!" wording specifically comes from `narrative.wicketsCollapse` (default `3`) inside `buildNarrative()`. They're independent knobs -- the recipe above happens to move both for a clean before/after, but either can be overridden alone.
+
+---
+
+## `bg.deep`'s page background is now a real Tailwind `theme()` reference, not a coincidentally-matching literal — v1.0.100 (2026-07-23)
+
+**FY30 — The v1.0.67 background fix replaced one hardcoded literal with another hardcoded literal that merely happened to match the token's value**
+
+An external, independent review of this doc's own "Resolved" claims (checking the actual code, not trusting the doc's wording) caught that §1's "Resolved (v1.0.67)" line said `html`/`body` "now both read `background: #03060F` via the token" -- but `app/globals.css` was still a plain `background: #03060F;` string literal, not a reference to anything. `bg.deep`'s own table row in the same section (§1) already said, correctly, "zero matches for `bg-bg-deep` anywhere in `components/` or `app/`" -- the doc was contradicting itself. The v1.0.67 fix corrected the *value* (so the rendered color already matched `bg.deep`) but never actually wired the CSS to the token, so a future change to `bg.deep` in `tailwind.config.ts` would have silently desynced from `globals.css` again, exactly the failure mode the fix was meant to prevent.
+
+**Fixed** by using Tailwind's `theme()` function, which `postcss.config.mjs`'s `tailwindcss` plugin resolves at build time: `html`/`body` in `app/globals.css` now read `background: theme('colors.bg.deep')` / `background-color: theme('colors.bg.deep')` instead of the literal hex. `bg.deep` in `tailwind.config.ts` is a plain string (`colors.bg.deep`), not nested under its own `DEFAULT`, so that's the exact path -- not `colors.bg.deep.DEFAULT`.
+
+**Verified**:
+- Compiled output is pixel-identical: `.next/static/css/*.css` shows `html{color-scheme:dark;background:#03060f}` -- same value as before, now resolved from the config rather than typed twice.
+- Config-change propagation: temporarily changed `bg.deep` to `#FF00FF` in `tailwind.config.ts`, rebuilt, and the compiled CSS actually changed to `background:#f0f` (Tailwind's hex-shorthand compression) with zero edits to `globals.css`. Reverted immediately after confirming; `tailwind.config.ts` shows no diff post-revert.
+- `npm run build` clean before and after.
+
+`DESIGN-SYSTEM.md` §1's "Resolved" line updated to describe the real mechanism (a build-time `theme()` reference) instead of the vague "via the token" phrasing that didn't match what the code actually did.

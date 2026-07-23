@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.99 (deployed)
+**Current version:** v1.0.100 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -490,3 +490,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.99** | Fix: two confirmed React hydration mismatches (#418/#423) -- `MatchView.tsx`'s tab restoration and `DigestTab.tsx`'s narrative-threshold override both read browser storage (`sessionStorage`/`localStorage`) synchronously during render/`useMemo`, which can differ from the server-rendered default on the client's own first pass. Both now render with a neutral default on server and client alike, then apply the real stored value via a `useEffect` after mount -- matching the pattern already used safely elsewhere (`app/page.tsx`'s `followPrefs`). Also fixed a follow-up bug the deferred update exposed: Digest's per-card cache was freezing already-complete cards with default-threshold text before the real override could apply -- the mount effect now clears that cache too, so the override actually reaches already-complete cards, not just future ones (DECISIONS-LOG.md FY29) |
+
+## Changelog additions (v1.0.100)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.100** | Doc/code audit fix: `app/globals.css`'s page background was a hardcoded `#03060F` literal that merely happened to match `bg.deep`'s value in `tailwind.config.ts` -- `DESIGN-SYSTEM.md` had claimed this was already "via the token," which wasn't true. Now a real Tailwind `theme('colors.bg.deep')` reference, resolved at build time, so the two can't silently drift apart again. Verified pixel-identical compiled output, and confirmed (then reverted) that changing `bg.deep` in the config actually propagates without touching `globals.css` (DECISIONS-LOG.md FY30) |

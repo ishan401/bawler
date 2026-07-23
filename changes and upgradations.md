@@ -3,6 +3,24 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.100] 2026-07-23
+
+### Fix: page background is now a real Tailwind `theme()` reference, not a coincidentally-matching literal
+
+#### Context
+- An independent check of `DESIGN-SYSTEM.md`'s own "Resolved (v1.0.67)" claim -- that the page background reads `#03060F` "via the token" -- found the code didn't back that up: `app/globals.css` was still a plain hardcoded `background: #03060F;` string, not a reference to `bg.deep` in `tailwind.config.ts`. The v1.0.67 fix corrected the *value* (matching `bg.deep`'s hex) but never actually wired the CSS to the token, so a future change to `bg.deep` would have silently desynced from `globals.css` again.
+
+#### Fixed -- `app/globals.css`
+- `html`/`body` now read `background: theme('colors.bg.deep')` / `background-color: theme('colors.bg.deep')` instead of the literal hex. Resolved at build time by `postcss.config.mjs`'s `tailwindcss` plugin.
+
+#### Verified
+- Compiled CSS is pixel-identical: `background:#03060f`, same as before.
+- Temporarily changed `bg.deep` to `#FF00FF` in `tailwind.config.ts`, rebuilt, confirmed the compiled output changed to `background:#f0f` with zero edits to `globals.css` -- then reverted (confirmed clean diff after).
+- `npm run build` clean before and after.
+- `DESIGN-SYSTEM.md` §1 updated to describe the real mechanism.
+
+---
+
 ## [1.0.99] 2026-07-22
 
 ### Fix: two hydration mismatches -- `MatchView.tsx` tab restoration, `DigestTab.tsx` narrative-threshold override

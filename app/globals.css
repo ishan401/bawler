@@ -6,14 +6,20 @@
   html {
     color-scheme: dark;
     /* v1.0.67: was a hardcoded #000000, bypassing the token system
-       entirely -- bg.deep (#03060F) is the token this was always meant
-       to be. Near-imperceptible shift (RGB 0,0,0 -> 3,6,15), confirmed
+       entirely. Near-imperceptible shift (RGB 0,0,0 -> 3,6,15), confirmed
        with the user before changing since the two values don't match
-       exactly. */
-    background: #03060F;
+       exactly.
+       v1.0.100: that fix landed as another hardcoded literal (#03060F)
+       that merely happened to match bg.deep's value -- still bypassing
+       the token system, just with numbers that lined up. Reading it via
+       Tailwind's theme() (resolved at build time from tailwind.config.ts)
+       makes this a real reference: if bg.deep's hex ever changes in the
+       config, this updates automatically on the next build instead of
+       silently drifting again. */
+    background: theme('colors.bg.deep');
   }
   body {
-    background-color: #03060F;
+    background-color: theme('colors.bg.deep');
     @apply text-text-primary font-sans antialiased;
     font-feature-settings: "tnum" 1, "cv11" 1;
   }
