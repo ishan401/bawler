@@ -1102,3 +1102,21 @@ Since `getTeamMembershipStatus()` is `async` (deliberately, per the FY32 adapter
 - League matches unaffected: GT vs MI (IPL, last-over thriller) and Perth Scorchers vs Sydney Sixers (BBL Final) both still appeared in Spotlight exactly as before.
 - The constructed KEN vs NAM tied match (associate vs associate) did NOT appear in Spotlight despite clearing `hasCloseFinish` -- it rendered normally in the ordinary Past grid instead ("Past · 13"), confirming the gate rejects it on membership status alone, before the excitement checks are even reached.
 - `tsc --noEmit` and `npm run build` clean.
+
+---
+
+## Batting-team color theming: not-out box, sparkline, and team pills — v1.0.104 (2026-07-23)
+
+**FY34 — the not-out highlight, live sparkline, and team-selector pills all shared one fixed cyan accent regardless of which team was batting, after a feasibility check confirmed the data and existing precedent (`WinProbChart.tsx`, `MomentStoryCard.tsx`, match-card left borders already theme with `team.primaryColor`) made this low-risk to build**
+
+Themed exactly four things, per the settled scope, and nothing else: `BatterRow`'s not-out box (the `excitement-glow` border/glow and the "not out" + on-strike `*` text) and `BatterSparkline`'s live-line stroke -- both in `components/Scorecard.tsx` -- plus the `TeamToggle` and `TestInningsChips` selector pills in the same file. Outcome-coded colors were deliberately left untouched: the strike-rate highlight (`text-blue-400`), the four-dot and six-dot sparkline markers (`#00E5FF`/`#A855F7`, hardcoded independently of the line color despite sharing a hex with the old cyan by coincidence), and the top-scorer/top-wicket-taker highlights all still render identically regardless of which team is batting or bowling.
+
+**New `lib/teamAccentColor.ts`** exports `getBattingTeamAccentColor(team)`: real `primaryColor` for almost every team, including several that score poorly on contrast against the card background (Zimbabwe, RCB, Punjab Kings) -- explicitly no carve-out there, since the not-out box always carries its own text label, unlike an unlabeled ball-outcome dot. The one exception is a team with a literally colorless `#000000` primary (New Zealand, Uganda, Papua New Guinea, London Spirit, as of this mock dataset) -- for those, it falls back to `secondaryColor` if that clears WCAG contrast (>= 3.0:1) against `#141B2D` (`bg-surface`, the real `.card` background), or to the platform's default cyan (now a named export, `CYAN`, in `lib/tokens.ts`) if there's no secondary color or it also fails. All four of today's colorless teams pass on their secondary: NZ silver `#A8A9AD` (7.30:1), Uganda yellow `#FCDC04` (12.56:1), London Spirit teal `#00B5A4` (6.65:1), and PNG red `#CE1126` (3.05:1, the closest call of the four but still a clear pass) -- none of them needed the cyan fallback in practice, though the fallback path exists and was exercised in testing for a team with no secondary color at all.
+
+**Threading**: `InningsCard` already computed `team = ALL_TEAMS[innings.battingTeam]` for its header dot -- added one `const teamColor = getBattingTeamAccentColor(team)` next to it and passed `teamColor` one level down into `BatterRow` (and from there into `BatterSparkline`). `TeamToggle`/`TestInningsChips` already receive full `Team` objects as props, so no threading was needed there at all.
+
+**`app/globals.css`**: `.excitement-glow`'s box-shadow keyframes were a hardcoded `rgba(0, 229, 255, ...)`, shared with two unrelated usages (`MatchCard.tsx`'s Spotlight card, `DigestTab.tsx`'s notable-day card). Rewrote the keyframes to read `rgba(var(--glow-rgb, 0, 229, 255), alpha)` -- the CSS variable defaults to the original cyan triplet, so the two unrelated usages (which never set it) are pixel-identical to before; only Scorecard.tsx's not-out box now sets `--glow-rgb` inline to the batting team's accent color.
+
+**Verified**:
+- `tsc --noEmit` and `npm run build` clean.
+- Grepped `components/Scorecard.tsx` for every outcome-coded highlight (`isTopScorer`, `isTopSR`, `isTopWicketTaker`, the 4s/6s header colors, the sparkline dot markers) -- all untouched, still fixed hex/Tailwind-token colors with no team dependency.

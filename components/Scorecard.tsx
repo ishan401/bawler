@@ -5,6 +5,8 @@ import type { Match, Innings, BattingEntry, BowlingEntry, Team, Ball } from "@/l
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 import { teamInningsOccurrence } from "@/lib/formatUtils";
+import { getBattingTeamAccentColor, hexToRgbTriplet } from "@/lib/teamAccentColor";
+import { CYAN } from "@/lib/tokens";
 
 interface ScorecardProps {
   match: Match;
@@ -249,15 +251,17 @@ function TeamToggle({
     <div className="flex gap-2 pb-3">
       {[teamA, teamB].map(team => {
         const active = team.code === activeTeamCode;
+        const accent = getBattingTeamAccentColor(team);
         return (
           <button
             key={team.code}
             onClick={() => onSelect(team.code)}
             className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
               active
-                ? "bg-cyan text-bg-base border-cyan"
+                ? "text-bg-base"
                 : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
             }`}
+            style={active ? { backgroundColor: accent, borderColor: accent } : undefined}
           >
             {team.shortName}
           </button>
@@ -286,22 +290,24 @@ function TestInningsChips({
   const items = innings.map(inn => {
     const team = ALL_TEAMS[inn.battingTeam];
     const shortName = team?.shortName ?? inn.battingTeam;
-    return { value: inn.number, label: `${shortName} Inn. ${teamInningsOccurrence(innings, inn)}` };
+    return { value: inn.number, label: `${shortName} Inn. ${teamInningsOccurrence(innings, inn)}`, team };
   });
 
   return (
     <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
       {items.map(item => {
         const active = item.value === activeInningsNum;
+        const accent = item.team ? getBattingTeamAccentColor(item.team) : CYAN;
         return (
           <button
             key={item.value}
             onClick={() => onSelect(item.value)}
             className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold border transition-colors ${
               active
-                ? "bg-cyan text-bg-base border-cyan"
+                ? "text-bg-base"
                 : "bg-transparent text-text-dim border-line/60 active:bg-line/30"
             }`}
+            style={active ? { backgroundColor: accent, borderColor: accent } : undefined}
           >
             {item.label}
           </button>
@@ -313,6 +319,10 @@ function TestInningsChips({
 
 function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   const team = ALL_TEAMS[innings.battingTeam];
+  // Resolved once per innings (not once per batter) -- every row in this
+  // innings' batting card shares the same batting team, so there's no
+  // reason to recompute it inside the map below.
+  const teamColor = team ? getBattingTeamAccentColor(team) : CYAN;
 
   // Compute highlights
   const topScorer = innings.battingCard.reduce(
@@ -420,6 +430,7 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
                 isTopSR={row.playerId === topSR?.playerId}
                 motm={match.result?.manOfMatch}
                 mots={match.result?.manOfTournament}
+                teamColor={teamColor}
               />
             ))}
           </tbody>
@@ -492,6 +503,7 @@ function BatterRow({
   isTopSR,
   motm,
   mots,
+  teamColor,
 }: {
   row: BattingEntry;
   balls: Ball[];
@@ -499,6 +511,7 @@ function BatterRow({
   isTopSR: boolean;
   motm?: string;
   mots?: string;
+  teamColor: string;
 }) {
   const isMotm = motm && row.playerName === motm;
   const isMots = mots && row.playerName === mots;
@@ -517,18 +530,27 @@ function BatterRow({
   const sparklinePoints = buildSparklinePoints(balls, row.fours, row.sixes);
 
   return (
-    <tr className={`border-t border-line/50 last:border-b-0 ${isLiveBatter ? "bg-cyan/[0.035]" : ""}`}>
+    <tr
+      className="border-t border-line/50 last:border-b-0"
+      style={isLiveBatter ? { backgroundColor: `rgba(${hexToRgbTriplet(teamColor)}, 0.035)` } : undefined}
+    >
       <td className="py-2 pr-2">
         {/* The glow lives on this inner wrapper, not the <tr>, and is
             rounded + blur-only (no hard outset ring) -- confining it to
             just the name/sparkline column reads as "this player's info is
             glowing" rather than a stark rectangle boxing the whole row,
-            which is what a box-shadow on a plain table row looks like. */}
-        <div className={isLiveBatter ? "excitement-glow -mx-1.5 -my-1 px-1.5 py-1 rounded-lg" : ""}>
+            which is what a box-shadow on a plain table row looks like.
+            --glow-rgb themes .excitement-glow's box-shadow (see
+            globals.css) to the batting team's color instead of its fixed
+            cyan default. */}
+        <div
+          className={isLiveBatter ? "excitement-glow -mx-1.5 -my-1 px-1.5 py-1 rounded-lg" : ""}
+          style={isLiveBatter ? ({ "--glow-rgb": hexToRgbTriplet(teamColor) } as React.CSSProperties) : undefined}
+        >
           <div className="flex items-center gap-1.5">
             <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
             {row.onStrike && !row.out && (
-              <span className="text-[9px] font-bold text-cyan tracking-widest">*</span>
+              <span className="text-[9px] font-bold tracking-widest" style={{ color: teamColor }}>*</span>
             )}
             {isMotm && (
               <span className="text-[8px] font-extrabold uppercase tracking-widest text-yellow-400 bg-yellow-400/15 px-1 py-0.5 rounded leading-none">MOM</span>
@@ -540,13 +562,13 @@ function BatterRow({
           {row.out && row.dismissal && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal}</span>
-              <BatterSparkline points={sparklinePoints} live={false} />
+              <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} />
             </div>
           )}
           {isLiveBatter && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-cyan font-semibold shrink-0">not out</span>
-              <BatterSparkline points={sparklinePoints} live={true} />
+              <span className="text-[10px] font-semibold shrink-0" style={{ color: teamColor }}>not out</span>
+              <BatterSparkline points={sparklinePoints} live={true} teamColor={teamColor} />
             </div>
           )}
         </div>
@@ -652,7 +674,7 @@ function smoothPath(pts: { x: number; y: number }[]): string {
  * an older match recorded without ball data) -- the dismissal line then
  * looks exactly as it did before this existed.
  */
-function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boolean }) {
+function BatterSparkline({ points, live, teamColor }: { points: SparklinePoint[]; live: boolean; teamColor: string }) {
   if (points.length < 2) return null;
   const sampled = downsampleSparkline(points);
 
@@ -668,9 +690,10 @@ function BatterSparkline({ points, live }: { points: SparklinePoint[]; live: boo
 
   const linePath = smoothPath(px);
   // Bright, high-contrast lines -- the point is to read the trend at a
-  // glance, not to blend into the row. Cyan for the live batter, a near-
-  // white light slate (not a dim mid-gray) for completed innings.
-  const lineColor = live ? "#00E5FF" : "#E2E8F0";
+  // glance, not to blend into the row. The batting TEAM's color for the
+  // live batter (was a fixed cyan -- see lib/teamAccentColor.ts), a near-
+  // white light slate (not a dim mid-gray) for completed innings, unchanged.
+  const lineColor = live ? teamColor : "#E2E8F0";
 
   return (
     <svg

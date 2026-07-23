@@ -190,12 +190,18 @@
 
 /* Subtle excitement glow */
 @keyframes excitement-pulse {
-  0%, 100% { box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.4), 0 0 24px rgba(0, 229, 255, 0.25); }
-  50%      { box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.7), 0 0 36px rgba(0, 229, 255, 0.45); }
+  0%, 100% { box-shadow: 0 0 0 1px rgba(var(--glow-rgb, 0, 229, 255), 0.4), 0 0 24px rgba(var(--glow-rgb, 0, 229, 255), 0.25); }
+  50%      { box-shadow: 0 0 0 1px rgba(var(--glow-rgb, 0, 229, 255), 0.7), 0 0 36px rgba(var(--glow-rgb, 0, 229, 255), 0.45); }
 }
 .excitement-glow {
   animation: excitement-pulse 3s ease-in-out infinite;
 }
+/* --glow-rgb (an "r, g, b" triplet, no `rgb()` wrapper) lets a specific
+   instance recolor this glow -- e.g. Scorecard.tsx's not-out box sets it to
+   the batting team's accent color. Unset, it falls back to the original
+   fixed cyan (0, 229, 255) exactly as before -- MatchCard.tsx's Spotlight
+   card glow and DigestTab.tsx's notable-day glow never set this variable,
+   so their glow color is unchanged by this. */
 
 /* ============================================================
    Skeleton shimmer

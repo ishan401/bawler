@@ -3,6 +3,32 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.104] 2026-07-23
+
+### Batting-team color theming: not-out box, sparkline line, and team-selector pills
+
+#### Context
+- Followed a feasibility check confirming the app already has proven precedent for theming with `team.primaryColor` directly (`WinProbChart.tsx`, `MomentStoryCard.tsx`, match-card left borders) and that team color data was already in scope wherever these components render, or one prop-hop away.
+
+#### Added -- `lib/teamAccentColor.ts` (new file)
+- `getBattingTeamAccentColor(team)`: real `primaryColor` for nearly every team. One exception -- a team with a literally colorless `#000000` primary (New Zealand, Uganda, Papua New Guinea, London Spirit) falls back to `secondaryColor` if it clears WCAG contrast (>=3.0:1) against the real card background (`#141B2D`), else falls back to the platform's default cyan. Also exports `contrastRatio()` and `hexToRgbTriplet()`.
+- `lib/tokens.ts`: added a named `CYAN` export (`#00E5FF`) -- the fallback target, and the same value already used as the fixed accent everywhere else in the app.
+
+#### Fixed -- `components/Scorecard.tsx`
+- `BatterRow`: the not-out box's `excitement-glow` border/pulse and its "not out" + on-strike `*` text now use the batting team's resolved accent color, threaded down from `InningsCard` (which already computed `team` for its own header dot).
+- `BatterSparkline`: the live batter's line stroke uses the team accent color; the dismissed-batter line (light slate) and the four/six dot markers are untouched.
+- `TeamToggle` and `TestInningsChips`: the active pill's fill/border now use the relevant team's accent color instead of fixed cyan.
+- Left every outcome-coded color alone: strike-rate highlight, top-scorer/top-wicket-taker highlights, and the sparkline's four/six dot markers all still render identically for every team.
+
+#### Fixed -- `app/globals.css`
+- `.excitement-glow`'s box-shadow keyframes now read a `--glow-rgb` CSS variable (default: the original cyan triplet), so `MatchCard.tsx`'s and `DigestTab.tsx`'s unrelated uses of the same class are pixel-identical to before; only the not-out box sets this variable.
+
+#### Verified
+- New Zealand -> secondary `#A8A9AD`, 7.30:1. Uganda -> secondary `#FCDC04`, 12.56:1. London Spirit -> secondary `#00B5A4`, 6.65:1. Papua New Guinea -> secondary `#CE1126`, 3.05:1 (closest pass of the four). None needed the cyan fallback.
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.103] 2026-07-23
 
 ### Spotlight competition-tier gate: international/bilateral matches now require both teams to be full ICC members

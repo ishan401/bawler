@@ -34,3 +34,8 @@ export const SPIN = "#A855F7";
 
 /** Slowest tier of BallGIF's speed-readout color scale. Was borrowing "six". */
 export const SLOW_PACE = "#A855F7";
+
+/** The platform's default accent. Matches tailwind.config.ts's `cyan` token.
+ * Also the explicit fallback for a team with no usable brand color at all --
+ * see lib/teamAccentColor.ts's colorless-team exception. */
+export const CYAN = "#00E5FF";
