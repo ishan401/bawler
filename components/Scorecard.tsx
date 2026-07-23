@@ -5,7 +5,7 @@ import type { Match, Innings, BattingEntry, BowlingEntry, Team, Ball } from "@/l
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
 import { teamInningsOccurrence } from "@/lib/formatUtils";
-import { getBattingTeamAccentColor, hexToRgbTriplet } from "@/lib/teamAccentColor";
+import { resolveMatchAccentColors, hexToRgbTriplet } from "@/lib/teamAccentColor";
 import { CYAN } from "@/lib/tokens";
 
 interface ScorecardProps {
@@ -166,6 +166,8 @@ export default function Scorecard({ match }: ScorecardProps) {
         <div ref={topRef}>
           <TestInningsChips
             innings={match.innings}
+            teamA={match.teamA}
+            teamB={match.teamB}
             activeInningsNum={activeInningsNum!}
             onSelect={handleSelectInnings}
           />
@@ -247,11 +249,13 @@ function TeamToggle({
   // feedback that even the shrunk version was still visibly bulkier than
   // Digest's chips (the flex+gap+dot was adding width/height Digest's
   // plain-text chip doesn't have).
+  const accentColors = resolveMatchAccentColors(teamA, teamB);
+
   return (
     <div className="flex gap-2 pb-3">
       {[teamA, teamB].map(team => {
         const active = team.code === activeTeamCode;
-        const accent = getBattingTeamAccentColor(team);
+        const accent = accentColors[team.code] ?? CYAN;
         return (
           <button
             key={team.code}
@@ -280,13 +284,18 @@ function TeamToggle({
  */
 function TestInningsChips({
   innings,
+  teamA,
+  teamB,
   activeInningsNum,
   onSelect,
 }: {
   innings: Innings[];
+  teamA: Team;
+  teamB: Team;
   activeInningsNum: number;
   onSelect: (num: number) => void;
 }) {
+  const accentColors = resolveMatchAccentColors(teamA, teamB);
   const items = innings.map(inn => {
     const team = ALL_TEAMS[inn.battingTeam];
     const shortName = team?.shortName ?? inn.battingTeam;
@@ -297,7 +306,7 @@ function TestInningsChips({
     <div className="flex gap-2 pb-3 overflow-x-auto no-scrollbar">
       {items.map(item => {
         const active = item.value === activeInningsNum;
-        const accent = item.team ? getBattingTeamAccentColor(item.team) : CYAN;
+        const accent = item.team ? (accentColors[item.team.code] ?? CYAN) : CYAN;
         return (
           <button
             key={item.value}
@@ -321,8 +330,12 @@ function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
   const team = ALL_TEAMS[innings.battingTeam];
   // Resolved once per innings (not once per batter) -- every row in this
   // innings' batting card shares the same batting team, so there's no
-  // reason to recompute it inside the map below.
-  const teamColor = team ? getBattingTeamAccentColor(team) : CYAN;
+  // reason to recompute it inside the map below. Uses the match-aware
+  // resolver (not a single-team lookup) since the two teams' colors can
+  // collide with each other even when each independently clears its own
+  // background-contrast check -- see lib/teamAccentColor.ts.
+  const accentColors = resolveMatchAccentColors(match.teamA, match.teamB);
+  const teamColor = team ? (accentColors[team.code] ?? CYAN) : CYAN;
 
   // Compute highlights
   const topScorer = innings.battingCard.reduce(

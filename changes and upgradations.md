@@ -3,6 +3,29 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.106] 2026-07-23
+
+### Team-color theming: cross-team collision check
+
+#### Context
+- Gap in v1.0.105's per-team contrast check: it only validated a color against the dark background, so two teams in the same match could each independently pass and still land on near-identical colors. Live example: India's gold secondary fallback (`#F9A825`) landing almost on top of Australia's real gold primary (`#FFB81C`) in an India vs Australia match.
+
+#### Added -- `lib/teamAccentColor.ts`
+- `resolveMatchAccentColors(teamA, teamB)`: resolves both teams' colors independently first, then checks the two FINAL colors against each other at a 1.5:1 minimum (lower than the 7:1 background check, since this is about telling two colors apart, not surviving a background). Priority on collision: real primary > secondary fallback > cyan -- lower-priority team drops one tier, or straight to cyan if there's nowhere softer. Same-tier ties drop whichever team's full name sorts second alphabetically, straight to cyan -- deterministic regardless of which team is batting or listed as `teamA`.
+- Removed the old single-team `getBattingTeamAccentColor` export entirely (not deprecated) -- every real call site needs both teams to check for a collision, so a single-team entry point could silently reintroduce the bug for a future caller.
+
+#### Fixed -- `components/Scorecard.tsx`
+- `TeamToggle`, `TestInningsChips`, `InningsCard` all now call `resolveMatchAccentColors(teamA, teamB)` instead of resolving each team's color in isolation. `TestInningsChips` gained `teamA`/`teamB` props to support this.
+
+#### Audit -- all 29 matches in the mock dataset
+- 3 pairs had no collision to begin with (incl. India vs Pakistan, 1.97:1).
+- 16 were flagged as a collision but produced no visible change -- the lower-priority side was already on the platform cyan with nowhere lower to fall (including pairs where both teams were already independently on cyan, e.g. Perth Scorchers vs Sydney Sixers -- not a new problem, already accepted in v1.0.105).
+- 10 match rows across 8 distinct team pairs got an actual color change, all gold-on-gold (or grey-on-gold) collisions: Mumbai Indians' gold secondary vs 3 different gold opponents, Kolkata Knight Riders vs Chennai Super Kings, **India vs Australia on all 3 fixtures (the reported bug)**, New Zealand vs Australia, Multan Sultans vs Peshawar Zalmi, LA Knight Riders vs Texas Super Kings.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean.
+- Live re-checked India vs Australia -- India now renders in cyan, clearly distinct from Australia's gold.
+
 ## [1.0.105] 2026-07-23
 
 ### Team-color theming correction: hairline-stroke contrast audit
