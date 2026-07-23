@@ -3,6 +3,26 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.108] 2026-07-23
+
+### Real-data-readiness test pass: team-color theming system
+
+#### Context
+- Comprehensive check before considering the theming/collision system done, per this codebase's real-data-readiness standard (ARCHITECTURE.md): malformed-data handling, interface boundary, memoization correctness, full regression.
+
+#### Fixed -- `lib/teamAccentColor.ts`
+- New `sanitizeHexColor()`: validates/normalizes every color before it reaches the contrast/Delta E math. Missing/`null`/non-string primaryColor used to crash outright; a bare hex with no `#` was silently accepted; whitespace-padded hex parsed to a wrong non-obvious value. All now degrade to the same fallback path as a genuinely colorless team -- never a crash, never a silently-wrong value. Shorthand hex (`#FFF`) is now properly expanded instead of accidentally falling through via NaN.
+- `resolveMatchAccentColors` now returns a `Promise` -- async from day one, matching `lib/teamData.ts`'s `getTeamMembershipStatus`/`getTeamRanking` pattern. Documented as a second worked example in `ARCHITECTURE.md`.
+
+#### Fixed -- `components/Scorecard.tsx`
+- New shared `useMatchAccentColors` hook (hydration-safe `useState`+`useEffect`, same pattern as `NationalRankBadge`), called ONCE at the top of `Scorecard` (before its early return, per Rules of Hooks) and passed down as a plain `accentColors` prop to `TeamToggle`, `TestInningsChips`, and `InningsCard` -- not called inside any of them individually. `InningsCard` remounts on every innings/team-tab switch; calling the hook there would have re-run the async resolution on every switch, flashing back to the cyan placeholder each time. Also cuts 3 redundant resolutions per match down to 1.
+
+#### Verified
+- Malformed-input test cases (missing, null, non-string, bad hex, shorthand, lowercase, whitespace, rgb()/rgba()) run against the real functions via `npx tsx` -- all degrade gracefully post-fix.
+- Re-ran the full 29-match audit against the shipped `resolveMatchAccentColors` -- identical results to v1.0.107.
+- `tsc --noEmit` and `npm run build` clean.
+- Live-verified: outcome-coded colors unchanged, wicket-red teams still real-colored with no carve-out, England's not-out box/sparkline still cyan.
+
 ## [1.0.107] 2026-07-23
 
 ### Team-color theming: CIEDE2000 replaces WCAG contrast for the collision check

@@ -2,7 +2,7 @@ import type { Team } from "./types";
 import { CYAN } from "./tokens";
 
 // ============================================================================
-// Batting-team accent color resolution — v1.0.104, corrected v1.0.105/106/107
+// Batting-team accent color resolution — v1.0.104, corrected v1.0.105/106/107/108
 // ============================================================================
 // Resolves the color used to theme the not-out highlight, the sparkline's
 // live line, and the two team-selector pills (TeamToggle, TestInningsChips
@@ -73,6 +73,23 @@ import { CYAN } from "./tokens";
 // No exception exists for the wicket-red teams (Zimbabwe, Perth Scorchers,
 // Punjab Kings) at any step -- the same math applies to them as to anyone
 // else, at the background-contrast, tier-resolution, and collision steps.
+//
+// v1.0.108 -- real-data-readiness pass (see ARCHITECTURE.md's
+// "real-data-readiness: the interface-first pattern"). Two gaps closed:
+//   1. `resolveMatchAccentColors` now returns a Promise -- async from day
+//      one, matching lib/teamData.ts's `getTeamMembershipStatus`/
+//      `getTeamRanking` -- so a future swap from mock `Team` objects to a
+//      real color-data source (a brand-kit API, say) is a one-file change
+//      here, not a call-site migration.
+//   2. `sanitizeHexColor` (below) guards the boundary where genuinely
+//      untrusted data can reach this module: `Team.primaryColor`/
+//      `secondaryColor` are typed as required `string` fields, but that's
+//      compile-time-only (see lib/dataValidation.ts's header comment on
+//      this exact gap) -- a real provider can send `null`, `undefined`, a
+//      non-string, an empty string, a CSS color name, an `rgb()` string,
+//      or a bare hex with no `#`. Every one of those now degrades to
+//      exactly the same fallback path as a team with no usable color at
+//      all -- never a crash, never a silently-wrong computed value.
 // ============================================================================
 
 const CARD_BG = "#141B2D"; // bg-surface -- the real .card background these elements render on
@@ -267,17 +284,66 @@ interface ResolvedTeamColor {
   tier: Tier;
 }
 
+/**
+ * Validates and normalizes a candidate color into a strict 6-digit
+ * uppercase hex string (`#RRGGBB`), or returns `undefined` if it isn't
+ * one -- treated identically to a MISSING color by every caller here.
+ *
+ * This guards the one real boundary where this module can receive
+ * genuinely untrusted data: `Team.primaryColor`/`secondaryColor` are
+ * typed as required `string` fields, but that's a compile-time-only
+ * guarantee (see lib/dataValidation.ts's header comment on exactly this
+ * gap) -- a real provider can still send `null`, `undefined`, a
+ * non-string value, an empty string, a CSS color name ("blue"), an
+ * `rgb()`/`rgba()` string, a bare hex with no `#`, or accidental
+ * whitespace. `lib/dataValidation.ts`'s `requireString` catches missing/
+ * null/empty values at the match-normalization boundary, but it only
+ * checks that the value IS a string -- it has no opinion on whether that
+ * string is a valid hex color, so a malformed-but-string value like
+ * "blue" or "rgb(0,0,0)" passes that check today and would otherwise
+ * reach this module's contrast/Delta E math unvalidated.
+ *
+ * Without this guard, a missing/null/non-string color crashes outright
+ * (the lower-level hex parsing calls `.replace()` on it), and some
+ * malformed-but-string values silently compute a meaningless contrast or
+ * Delta E value from garbage input rather than being recognized as
+ * invalid. Every color that reaches `contrastRatio`/`deltaE00` in this
+ * module's resolution pipeline goes through this first, so a bad value
+ * degrades to the exact same fallback path as a team with no usable
+ * color at all -- never a crash, never a silently-wrong color.
+ *
+ * Shorthand 3-digit hex (`#FFF`) is expanded to 6-digit (`#FFFFFF`) --
+ * valid, common CSS shorthand, cheap to support properly rather than
+ * letting it fall through to the NaN-driven fallback the way it used to.
+ */
+function sanitizeHexColor(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  const shortHex = /^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/.exec(trimmed);
+  if (shortHex) {
+    const [, r, g, b] = shortHex;
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  const longHex = /^#[0-9a-fA-F]{6}$/.exec(trimmed);
+  if (longHex) {
+    return trimmed.toUpperCase();
+  }
+  return undefined; // named colors, rgb()/rgba(), missing "#", 8-digit alpha hex, etc.
+}
+
 /** Per-team-only resolution (v1.0.105): real `primaryColor` if it clears the
  * hairline-stroke minimum against the card background, else `secondaryColor`
  * if THAT clears it, else the platform cyan. Deliberately not exported --
  * see the module comment above for why every real caller needs the
  * match-aware `resolveMatchAccentColors` instead. */
 function resolveTeamColorTier(team: Team): ResolvedTeamColor {
-  if (contrastRatio(team.primaryColor, CARD_BG) >= MIN_CONTRAST) {
-    return { color: team.primaryColor, tier: 0 };
+  const primary = sanitizeHexColor(team.primaryColor);
+  if (primary && contrastRatio(primary, CARD_BG) >= MIN_CONTRAST) {
+    return { color: primary, tier: 0 };
   }
-  if (team.secondaryColor && contrastRatio(team.secondaryColor, CARD_BG) >= MIN_CONTRAST) {
-    return { color: team.secondaryColor, tier: 1 };
+  const secondary = sanitizeHexColor(team.secondaryColor);
+  if (secondary && contrastRatio(secondary, CARD_BG) >= MIN_CONTRAST) {
+    return { color: secondary, tier: 1 };
   }
   return { color: CYAN, tier: 2 };
 }
@@ -297,7 +363,7 @@ function collides(colorX: string, colorY: string): boolean {
  * drops straight to the platform cyan. */
 function dropOneTier(resolved: ResolvedTeamColor, team: Team, otherColor: string): string {
   if (resolved.tier === 0) {
-    const sec = team.secondaryColor;
+    const sec = sanitizeHexColor(team.secondaryColor);
     if (sec && contrastRatio(sec, CARD_BG) >= MIN_CONTRAST && !collides(sec, otherColor)) {
       return sec;
     }
@@ -319,10 +385,30 @@ function dropOneTier(resolved: ResolvedTeamColor, team: Team, otherColor: string
  * DECISIONS-LOG.md FY36/FY37 for the audited results across every match in
  * the mock dataset.
  *
- * This is the only entry point real call sites should use -- there is no
- * single-team equivalent exported from this module.
+ * This is the ONLY sanctioned entry point for this data -- there is no
+ * single-team equivalent exported from this module, and every real caller
+ * (TeamToggle, TestInningsChips, InningsCard in components/Scorecard.tsx)
+ * goes through this function instead of reading `team.primaryColor` /
+ * `team.secondaryColor` directly, the same way `getTeamMembershipStatus`/
+ * `getTeamRanking` in lib/teamData.ts are the only sanctioned reads of
+ * membership/ranking data (see ARCHITECTURE.md's real-data-readiness
+ * pattern).
+ *
+ * v1.0.108: returns a Promise -- async from day one, per that same
+ * pattern -- even though today it still resolves synchronously from
+ * in-memory mock `Team` objects. A real integration (colors from a live
+ * brand-kit API, say) is a network call, which is unavoidably async, so
+ * every call site is already written against that shape. The three call
+ * sites in components/Scorecard.tsx consume this via a shared
+ * `useMatchAccentColors` hook using the same hydration-safe
+ * useState(placeholder)+useEffect pattern already established for
+ * `getTeamRanking()` (see MatchCard.tsx's `NationalRankBadge`): render the
+ * platform default (cyan for both teams) on the first pass, matching what
+ * the server renders, then fill in the real resolved colors after mount.
+ * This means swapping the mock implementation for a real fetch later is a
+ * one-file change inside this module -- no call site needs to change.
  */
-export function resolveMatchAccentColors(teamA: Team, teamB: Team): Record<string, string> {
+export async function resolveMatchAccentColors(teamA: Team, teamB: Team): Promise<Record<string, string>> {
   const a = resolveTeamColorTier(teamA);
   const b = resolveTeamColorTier(teamB);
 

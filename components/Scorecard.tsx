@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry, Team, Ball } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
@@ -10,6 +10,39 @@ import { CYAN } from "@/lib/tokens";
 
 interface ScorecardProps {
   match: Match;
+}
+
+/**
+ * Both teams' batting-accent colors for a match, read through the ONLY
+ * sanctioned interface for this data -- `resolveMatchAccentColors()` in
+ * lib/teamAccentColor.ts, which is async-from-day-one (see
+ * ARCHITECTURE.md's real-data-readiness pattern) even though today it
+ * resolves synchronously from mock `Team` objects. Same hydration-safe
+ * useState(placeholder)+useEffect pattern already used for
+ * `getTeamRanking()` elsewhere in this codebase (see MatchCard.tsx's
+ * `NationalRankBadge`): render the platform default (cyan for both teams)
+ * on the first pass, matching what the server renders, then fill in the
+ * real resolved colors after mount. Shared by all three of this file's
+ * call sites (TeamToggle, TestInningsChips, InningsCard) instead of each
+ * duplicating the same effect.
+ */
+function useMatchAccentColors(teamA: Team, teamB: Team): Record<string, string> {
+  const [colors, setColors] = useState<Record<string, string>>({
+    [teamA.code]: CYAN,
+    [teamB.code]: CYAN,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    resolveMatchAccentColors(teamA, teamB).then(resolved => {
+      if (!cancelled) setColors(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [teamA, teamB]);
+
+  return colors;
 }
 
 /**
@@ -76,6 +109,19 @@ export default function Scorecard({ match }: ScorecardProps) {
   const [selectedTeamCode, setSelectedTeamCode] = useState<string | null>(null);
   const [selectedInningsNum, setSelectedInningsNum] = useState<number | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
+  // Resolved ONCE here, at the top of the component that never remounts
+  // across an innings/team-tab switch, and passed down to TeamToggle,
+  // TestInningsChips, and InningsCard as a plain prop -- NOT called inside
+  // any of those three, since InningsCard remounts on every tab switch
+  // (`key={activeInnings.number}`/`key={activeTestInnings.number}` below).
+  // Calling the hook inside InningsCard itself would re-run its effect on
+  // every remount, flashing back to the cyan placeholder each time a user
+  // switches tabs on an already-loaded match -- not a stale-data bug, but
+  // an unnecessary, avoidable one-frame flash on every single switch. Must
+  // be called before the early return just below (Rules of Hooks --
+  // `match.innings.length` can legitimately go from 0 to nonzero as a live
+  // match's first innings begins, so this can't be conditional on it).
+  const accentColors = useMatchAccentColors(match.teamA, match.teamB);
 
   if (match.innings.length === 0) {
     const isLive = match.status === "live" || match.status === "toss";
@@ -166,15 +212,14 @@ export default function Scorecard({ match }: ScorecardProps) {
         <div ref={topRef}>
           <TestInningsChips
             innings={match.innings}
-            teamA={match.teamA}
-            teamB={match.teamB}
+            accentColors={accentColors}
             activeInningsNum={activeInningsNum!}
             onSelect={handleSelectInnings}
           />
         </div>
 
         {activeTestInnings && (
-          <InningsCard key={activeTestInnings.number} innings={activeTestInnings} match={match} />
+          <InningsCard key={activeTestInnings.number} innings={activeTestInnings} match={match} accentColors={accentColors} />
         )}
       </div>
     );
@@ -210,12 +255,13 @@ export default function Scorecard({ match }: ScorecardProps) {
           teamA={match.teamA}
           teamB={match.teamB}
           activeTeamCode={activeTeamCode}
+          accentColors={accentColors}
           onSelect={handleSelectTeam}
         />
       </div>
 
       {activeInnings ? (
-        <InningsCard key={activeInnings.number} innings={activeInnings} match={match} />
+        <InningsCard key={activeInnings.number} innings={activeInnings} match={match} accentColors={accentColors} />
       ) : (
         <div className="card p-6 flex flex-col items-center gap-1.5 text-center">
           <span className="text-2xl">🏏</span>
@@ -237,11 +283,13 @@ function TeamToggle({
   teamA,
   teamB,
   activeTeamCode,
+  accentColors,
   onSelect,
 }: {
   teamA: Team;
   teamB: Team;
   activeTeamCode: string;
+  accentColors: Record<string, string>;
   onSelect: (code: string) => void;
 }) {
   // Byte-identical chip markup to DigestTab's own filter chips (Day N /
@@ -249,7 +297,11 @@ function TeamToggle({
   // feedback that even the shrunk version was still visibly bulkier than
   // Digest's chips (the flex+gap+dot was adding width/height Digest's
   // plain-text chip doesn't have).
-  const accentColors = resolveMatchAccentColors(teamA, teamB);
+  //
+  // accentColors is resolved ONCE by the parent Scorecard component (see
+  // its own comment) and passed down -- not re-resolved here -- so that
+  // switching tabs doesn't cause a repeated async round-trip/flash back to
+  // the cyan placeholder on a component that itself never remounts.
 
   return (
     <div className="flex gap-2 pb-3">
@@ -284,18 +336,17 @@ function TeamToggle({
  */
 function TestInningsChips({
   innings,
-  teamA,
-  teamB,
+  accentColors,
   activeInningsNum,
   onSelect,
 }: {
   innings: Innings[];
-  teamA: Team;
-  teamB: Team;
+  accentColors: Record<string, string>;
   activeInningsNum: number;
   onSelect: (num: number) => void;
 }) {
-  const accentColors = resolveMatchAccentColors(teamA, teamB);
+  // accentColors is resolved ONCE by the parent Scorecard component and
+  // passed down -- see TeamToggle's comment above for why.
   const items = innings.map(inn => {
     const team = ALL_TEAMS[inn.battingTeam];
     const shortName = team?.shortName ?? inn.battingTeam;
@@ -326,15 +377,23 @@ function TestInningsChips({
   );
 }
 
-function InningsCard({ innings, match }: { innings: Innings; match: Match }) {
+function InningsCard({
+  innings,
+  match,
+  accentColors,
+}: {
+  innings: Innings;
+  match: Match;
+  accentColors: Record<string, string>;
+}) {
   const team = ALL_TEAMS[innings.battingTeam];
-  // Resolved once per innings (not once per batter) -- every row in this
-  // innings' batting card shares the same batting team, so there's no
-  // reason to recompute it inside the map below. Uses the match-aware
-  // resolver (not a single-team lookup) since the two teams' colors can
-  // collide with each other even when each independently clears its own
-  // background-contrast check -- see lib/teamAccentColor.ts.
-  const accentColors = resolveMatchAccentColors(match.teamA, match.teamB);
+  // accentColors is resolved ONCE by the parent Scorecard component (not
+  // here) and passed down -- InningsCard remounts on every innings/team-tab
+  // switch (see its `key={...}` at the call site), so calling the hook in
+  // THIS component would re-run its resolution effect on every switch,
+  // flashing back to the cyan placeholder each time even though nothing
+  // about the match's teams changed. See Scorecard()'s own comment for the
+  // full reasoning.
   const teamColor = team ? (accentColors[team.code] ?? CYAN) : CYAN;
 
   // Compute highlights

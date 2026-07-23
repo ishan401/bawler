@@ -94,7 +94,60 @@ app's own computed data either way. Knowing when a field is real-data-bound
 versus when it's already the source of truth is part of applying this
 pattern correctly — not everything needs an adapter.
 
+**Worked example — batting-team accent color resolution (v1.0.104-108):**
+
+`components/Scorecard.tsx`'s not-out box, sparkline, and team-selector pills
+theme themselves to the batting team's own color instead of a fixed platform
+accent. The resolution pipeline is a real fourth step this pattern's
+"interface" and "async from day one" points needed to cover, on top of the
+usual field-level concerns:
+
+- **Interface:** `lib/teamAccentColor.ts` exports `resolveMatchAccentColors
+  (teamA, teamB)` as the only sanctioned way to read this data. It runs the
+  full pipeline internally (per-team hairline-stroke contrast check against
+  the card background → secondary-color fallback → platform-cyan fallback →
+  cross-team CIEDE2000 perceptual-collision check) and every real call site
+  (`TeamToggle`, `TestInningsChips`, `InningsCard`, all in
+  `components/Scorecard.tsx`) goes through it instead of reading
+  `team.primaryColor` / `team.secondaryColor` directly. (Plenty of other,
+  unrelated components — match-card left borders, `WinProbChart`, country
+  flags, etc. — read `team.primaryColor` directly for their own simpler,
+  pre-existing purposes; that's an accepted, separate design decision
+  documented in `DESIGN-SYSTEM.md` §5, not part of this pipeline, and out of
+  scope for this adapter.)
+- **Promises from day one:** `resolveMatchAccentColors` is `async` and
+  returns `Promise<Record<string, string>>`, resolving synchronously from
+  mock `Team` objects today. Its three call sites consume it through a
+  shared `useMatchAccentColors(teamA, teamB)` hook using the same
+  hydration-safe `useState(placeholder)` + `useEffect` pattern as
+  `NationalRankBadge` — cyan for both teams (the platform default) on the
+  first pass, the real resolved colors after mount.
+- **Malformed-input hardening:** this is the one place so far where the
+  *shape* of the incoming data matters as much as its presence.
+  `Team.primaryColor`/`secondaryColor` are typed as required `string`
+  fields, but `lib/dataValidation.ts`'s `requireString` only confirms the
+  value IS a non-empty string at the match-normalization boundary — it has
+  no opinion on whether that string is a valid hex color, so a real
+  provider sending `"blue"`, `"rgb(0,0,0)"`, a bare hex with no `#`, or
+  `null`/`undefined` would reach this pipeline unvalidated. `sanitizeHexColor
+  ()` in `lib/teamAccentColor.ts` normalizes and validates every color
+  before it touches the contrast/Delta E math, treating anything that isn't
+  a genuine 3- or 6-digit hex (case-insensitive, whitespace-tolerant) as
+  absent — exactly the same fallback path as a team with no usable color at
+  all. Without it, a missing/non-string color crashed outright rather than
+  degrading; this is worth checking for on any future real-data adapter
+  that accepts a loosely-typed external string, not just colors.
+- **No-op placeholder:** none needed yet — there's no refresh concept for a
+  team's brand color the way there is for a weekly-moving ranking number.
+  If a future real integration needs one (a brand refresh, a kit change
+  mid-season), add it the same way `refreshRankings()` was added, rather
+  than inventing the call site later.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor
-functions, make them async immediately, add the placeholder refresh hook.
+functions, make them async immediately, add the placeholder refresh hook. If
+the field is a loosely-typed string (a color, a free-text status, anything
+where "is it a string" and "is it a VALID one" are different questions),
+add explicit format validation at the same boundary — don't rely on
+type-check-only guarantees to catch a malformed-but-correctly-typed value.
