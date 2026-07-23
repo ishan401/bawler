@@ -261,23 +261,30 @@ export default function Home() {
   // server renders, then the real lookup fills in via useEffect post-mount.
   const [fullMemberLookup, setFullMemberLookup] = useState<FullMemberLookup | null>(null);
   useEffect(() => {
-    buildFullMemberLookup([...ALL_PAST_MATCHES, ...ALL_UPCOMING_MATCHES]).then(setFullMemberLookup);
+    buildFullMemberLookup([...ALL_PAST_MATCHES, ...ALL_UPCOMING_MATCHES])
+      .then(setFullMemberLookup)
+      .catch(e => console.error("SPOTLIGHT_LOOKUP_ERROR", e));
   }, []);
 
   const spotlightMatches = useMemo(() => {
     if (!fullMemberLookup) return [];
-    // Most-recent-first for past (freshest result leads), soonest-first for
-    // upcoming. Past matches lead the combined list since they're a settled,
-    // immediate story; upcoming fills remaining slots if any are left.
-    const past = ALL_PAST_MATCHES
-      .filter(m => isSpotlightMatch(m, fullMemberLookup))
-      .map(m => ({ m, isPast: true as const }))
-      .sort((a, b) => b.m.startTimeIso.localeCompare(a.m.startTimeIso));
-    const future = ALL_UPCOMING_MATCHES
-      .filter(m => isSpotlightMatch(m, fullMemberLookup))
-      .map(m => ({ m, isPast: false as const }))
-      .sort((a, b) => a.m.startTimeIso.localeCompare(b.m.startTimeIso));
-    return [...past, ...future].slice(0, SPOTLIGHT_MAX);
+    try {
+      // Most-recent-first for past (freshest result leads), soonest-first for
+      // upcoming. Past matches lead the combined list since they're a settled,
+      // immediate story; upcoming fills remaining slots if any are left.
+      const past = ALL_PAST_MATCHES
+        .filter(m => { try { return isSpotlightMatch(m, fullMemberLookup); } catch (e) { console.error("SPOTLIGHT_FILTER_PAST_ERROR", m.id, e); throw e; } })
+        .map(m => ({ m, isPast: true as const }))
+        .sort((a, b) => b.m.startTimeIso.localeCompare(a.m.startTimeIso));
+      const future = ALL_UPCOMING_MATCHES
+        .filter(m => { try { return isSpotlightMatch(m, fullMemberLookup); } catch (e) { console.error("SPOTLIGHT_FILTER_FUTURE_ERROR", m.id, e); throw e; } })
+        .map(m => ({ m, isPast: false as const }))
+        .sort((a, b) => a.m.startTimeIso.localeCompare(b.m.startTimeIso));
+      return [...past, ...future].slice(0, SPOTLIGHT_MAX);
+    } catch (e) {
+      console.error("SPOTLIGHT_MEMO_ERROR", e);
+      return [];
+    }
   }, [fullMemberLookup]);
   const spotlightIds = useMemo(() => new Set(spotlightMatches.map(s => s.m.id)), [spotlightMatches]);
 
