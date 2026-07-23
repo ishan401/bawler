@@ -90,6 +90,17 @@ import { CYAN } from "./tokens";
 //      or a bare hex with no `#`. Every one of those now degrades to
 //      exactly the same fallback path as a team with no usable color at
 //      all -- never a crash, never a silently-wrong computed value.
+//
+// v1.0.109 -- v1.0.108 above flagged one more gap in the same pass: the
+// consumer of this module (`useMatchAccentColors` in components/Scorecard.
+// tsx) depended on `[teamA, teamB]` by object reference, so it wouldn't
+// notice a team's colors changing via in-place mutation of an existing
+// object, only via a full replacement. That fix lives entirely in
+// Scorecard.tsx (the hook's dependency array), not in this file --
+// `resolveMatchAccentColors` and `sanitizeHexColor` below are unchanged.
+// See ARCHITECTURE.md's "replace, never mutate" rule for the other half of
+// that gap, which no code in this module (or any module) can enforce on
+// its own.
 // ============================================================================
 
 const CARD_BG = "#141B2D"; // bg-surface -- the real .card background these elements render on

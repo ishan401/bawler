@@ -107,6 +107,11 @@ function validateTeam(raw: unknown, path: string, errors: ValidationIssue[]): ra
   requireString(raw.code, `${path}.code`, errors);
   requireString(raw.shortName, `${path}.shortName`, errors);
   requireString(raw.fullName, `${path}.fullName`, errors);
+  // primaryColor/secondaryColor: this only confirms they're non-empty
+  // strings, not valid hex colors -- see requireString's doc comment
+  // above. lib/teamAccentColor.ts's sanitizeHexColor() is the real
+  // format guard for these two fields, applied downstream at the point
+  // where the color actually gets used, not here.
   requireString(raw.primaryColor, `${path}.primaryColor`, errors);
   requireString(raw.secondaryColor, `${path}.secondaryColor`, errors);
   return true;
@@ -196,6 +201,23 @@ function validateInnings(raw: unknown, path: string, errors: ValidationIssue[], 
   return true;
 }
 
+// `requireString` only answers "IS this a non-empty string" -- it has no
+// opinion on whether that string is a VALID instance of whatever the field
+// actually represents (a hex color, an enum-like free-text status, an
+// ID matching some external format). That's a real, previously-unguarded
+// gap: `validateTeam` below calls this for `primaryColor`/`secondaryColor`,
+// so a real feed sending `"blue"`, `"rgb(0,0,0)"`, or a bare hex with no
+// `#` passes this check cleanly (all non-empty strings) and reaches
+// lib/teamAccentColor.ts's contrast/Delta E math completely unvalidated --
+// exactly the gap `sanitizeHexColor()` in that file closes at its own
+// boundary (see that file's v1.0.108 module comment, and ARCHITECTURE.md's
+// real-data-readiness pattern). This is the template for any other
+// loosely-typed string field validated here: `requireString` alone is
+// necessary but not sufficient whenever "is it a string" and "is it a
+// VALID one" are different questions -- add a format-specific check at
+// whichever module actually consumes the field, the same way
+// `sanitizeHexColor` does, rather than assuming this function already
+// covers it.
 function requireString(v: unknown, path: string, errors: ValidationIssue[]): void {
   if (!isString(v) || v.length === 0) errors.push({ path, message: `expected a non-empty string, got ${typeOf(v)}` });
 }

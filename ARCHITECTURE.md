@@ -94,7 +94,7 @@ app's own computed data either way. Knowing when a field is real-data-bound
 versus when it's already the source of truth is part of applying this
 pattern correctly — not everything needs an adapter.
 
-**Worked example — batting-team accent color resolution (v1.0.104-108):**
+**Worked example — batting-team accent color resolution (v1.0.104-109):**
 
 `components/Scorecard.tsx`'s not-out box, sparkline, and team-selector pills
 theme themselves to the batting team's own color instead of a fixed platform
@@ -171,3 +171,12 @@ the field is a loosely-typed string (a color, a free-text status, anything
 where "is it a string" and "is it a VALID one" are different questions),
 add explicit format validation at the same boundary — don't rely on
 type-check-only guarantees to catch a malformed-but-correctly-typed value.
+And if any consumer hook's `useEffect` depends on a mutable object read
+through one of these interfaces, depend on the specific fields that
+determine the result (like `useMatchAccentColors` does as of v1.0.109), not
+on the object's identity — object identity only tells you a value was
+*replaced*, not that it *changed*. Pair that with an explicit "replace,
+never mutate" note for whoever wires up the real feed, the same way v1.0.109
+did for team colors: the dependency-array fix and the data-source contract
+are two separate halves of the same gap, and only one of them is something
+code can actually enforce.
