@@ -28,13 +28,40 @@ export interface Competition {
   hasStandings: boolean; // true = league/tournament with group table; false = bilateral series
 }
 
+// Per-format ICC ranking. National teams only. Deliberately partial --
+// real ICC rankings are published per-format (Test/ODI/T20I are separate
+// tables, not one universal number), and this mock dataset only ever had
+// one arbitrary number per nation to begin with, so today only `t20i` is
+// populated anywhere. `test`/`odi` exist so real data can fill them in
+// later without another type change. See lib/teamData.ts -- this field is
+// read through getTeamRanking(), never accessed directly.
+export interface TeamRankings {
+  test?: number;
+  odi?: number;
+  t20i?: number;
+}
+
 export interface Team {
   code: TeamCode;
   shortName: string;
   fullName: string;
   primaryColor: string;     // hex — chart lines + accents
   secondaryColor: string;
-  currentRanking?: number;  // league position or ICC ranking
+  // ICC membership tier -- national teams only. See lib/teamData.ts --
+  // read through getTeamMembershipStatus(), never accessed directly.
+  membershipStatus?: "full" | "associate";
+  // Per-format ICC ranking -- national teams only. See TeamRankings above
+  // and lib/teamData.ts's getTeamRanking().
+  rankings?: TeamRankings;
+  // Current league points-table position -- FRANCHISE teams only. A
+  // completely different concept from `rankings` (a single season's
+  // in-progress standings vs. a rolling international rating) that used
+  // to incorrectly share one field name (`currentRanking`) with it. Read
+  // directly -- franchise standings aren't part of the real-data adapter
+  // pattern this file's `rankings`/`membershipStatus` fields are (no
+  // external ranking body to eventually swap in; a league's own points
+  // table is already this app's own computed/mock data either way).
+  leagueStanding?: number;
   type?: "national" | "franchise"; // national = country, franchise = league team
   flagEmoji?: string;       // "🇮🇳" — shown next to national team names
   country?: string;         // ISO 3-letter: "IND", "AUS" — for national teams

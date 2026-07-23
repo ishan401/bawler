@@ -1061,3 +1061,25 @@ Reported directly by the user on `ind-aus-t20i-2026-m2-live`: the persistent hea
 - `ashes-2526-3rd-test` (finished, full data): Score tab still shows the score header -- AUS 512/8, ENG 210/10, "AUS won · by an innings and 27 runs" result banner. No live badge, no liveStatusOverride line (this match never had one either way).
 - `ipl2026-m35-givsmi` (finished, `innings.length === 0`): untouched by this change -- `Scorecard`'s `innings.length === 0` early return (the "Scorecard not available" fallback) happens before `finalScoreHeader` is even computed, so this path was never affected by either the bug or the fix.
 - `tsc --noEmit` and `npm run build` clean.
+
+---
+
+## Team rankings/membership split into an interface-first adapter — v1.0.102 (2026-07-23)
+
+**FY32 — `Team.currentRanking` was one field doing two unrelated jobs, and the app's only way to tell a full ICC member from an associate ("does it have a ranking number") only worked by coincidence of the mock data, not because it was actually a valid signal**
+
+User asked, ahead of any real-data integration work: "will this ranking thing work fine, once real data starts incoming, as it keeps on changing?" Root cause: `Team.currentRanking?: number` was reused for two conceptually different things depending on team type -- an IPL franchise's season-scoped points-table position, and a nation's rolling cross-season ICC rating -- and separately, code elsewhere treated "`currentRanking` is set" as a proxy for "is a full ICC member." That proxy only held because this mock dataset happened to leave the field blank for every associate nation. It would have broken immediately against real data: ICC publishes T20I rankings for 100+ members including most associates (confirmed live via Wikipedia's "List of International Cricket Council members" page, which even shows current real numeric ODI rankings for several associates -- Netherlands, Scotland, Nepal, Oman, Namibia, Canada, PNG -- directly disproving the "ranked implies full member" assumption).
+
+Also surfaced a pre-existing data inaccuracy while verifying the real ICC Full Member list rather than assuming it from memory: Ireland and Zimbabwe were filed under the mock dataset's "Associates & emerging nations" comment block, but both are real ICC Full Members (Ireland since 22 June 2017 alongside Afghanistan; Zimbabwe since 1992) -- twelve total: AFG, AUS, BAN, ENG, IND, IRE, NZ, PAK, SA, SL, WI, ZIM.
+
+Built as the reference implementation of a reusable pattern (see `ARCHITECTURE.md`, "Real-data-readiness: the interface-first pattern") rather than a one-off fix, since this is the first of several real-data-readiness items already anticipated (win probability, ball-by-ball deliveries, player name parsing):
+
+- **Data model split** (`lib/types.ts`): `currentRanking` replaced by three fields -- `membershipStatus?: "full" | "associate"` (nations, categorical, durable), `rankings?: { test?: number; odi?: number; t20i?: number }` (nations, per-format, volatile -- only `t20i` populated today since the old mock data only ever had one number per nation), and `leagueStanding?: number` (franchises, unrelated concept, kept as a plain field since there's no external body's data it will eventually be swapped for).
+- **Interface layer** (`lib/teamData.ts`, new file): `getTeamMembershipStatus(team)` and `getTeamRanking(team, format)` are the only sanctioned reads of the two nation-specific fields -- both `async`, resolving synchronously from mock data today but already shaped for a future network-backed swap with zero call-site changes. `refreshRankings()` is an explicitly-commented no-op placeholder for a future sync mechanism.
+- **Call sites migrated**: `components/MatchCard.tsx`'s `FlagOrRank` -- franchise teams now read `team.leagueStanding` directly (out of scope for the adapter, per above); the national-team fallback case (today only reached by Kenya/Uganda, which have no `FLAG_ISO` flag-image entry) now calls `getTeamRanking(team, "t20i")` through a new `NationalRankBadge` sub-component, using the same hydration-safe `useState(undefined)` + `useEffect` pattern established in v1.0.99 (render nothing on first pass so server and client agree, fill in the real value post-mount). Grepped the full codebase afterward -- zero remaining `currentRanking` references outside this log's own prose.
+
+**Verified**:
+- All 22 national teams confirmed to have `membershipStatus` set (12 `"full"`, 10 `"associate"`) -- zero teams left unset.
+- `tsc --noEmit` and `npm run build` both clean.
+- No code outside `lib/teamData.ts`'s two accessor functions reads `team.membershipStatus` or `team.rankings` directly (grepped for both).
+- Visual result is unchanged for every team: nations with a `FLAG_ISO` entry (20 of 22) render the same flag image as before; franchise teams render the same numeric badge value as before, just sourced from `leagueStanding` instead of `currentRanking`; Kenya/Uganda render nothing, same as before (they had no ranking under the old field either).

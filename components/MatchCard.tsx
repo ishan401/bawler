@@ -6,6 +6,7 @@ import type { Match, Team } from "@/lib/types";
 import SplitTeamBg from "./SplitTeamBg";
 import { calculateWinProbForMatch, calculateProjectedScore } from "@/lib/winProb";
 import { ballsPerSet, formatScore } from "@/lib/formatUtils";
+import { getTeamRanking } from "@/lib/teamData";
 
 // ============================================================================
 // Fixed card heights
@@ -76,11 +77,44 @@ function FlagOrRank({ team }: { team: Team }) {
         />
       );
     }
+    // National team with no flag image today (e.g. Kenya, Uganda -- FLAG_ISO
+    // has no entry for them yet) falls back to a numeric rank badge, read
+    // through the async getTeamRanking() interface. See NationalRankBadge.
+    return <NationalRankBadge team={team} />;
   }
-  if (!team.currentRanking) return null;
+  // Franchise teams: league points-table position. Not part of the
+  // rankings/membership adapter (see lib/types.ts's leagueStanding comment)
+  // -- read directly, no interface needed.
+  if (!team.leagueStanding) return null;
   return (
     <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-black/40 border border-white/20 num leading-none">
-      #{team.currentRanking}
+      #{team.leagueStanding}
+    </span>
+  );
+}
+
+// getTeamRanking() returns a Promise (see lib/teamData.ts), so this renders
+// nothing on first pass -- matching what the server renders -- then fills in
+// the real value after mount. Same hydration-safe useState+useEffect pattern
+// used elsewhere in this codebase (e.g. the v1.0.99 fix) for any value that
+// can differ between server and client render passes.
+function NationalRankBadge({ team }: { team: Team }) {
+  const [rank, setRank] = React.useState<number | undefined>(undefined);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    getTeamRanking(team, "t20i").then((r) => {
+      if (!cancelled) setRank(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [team]);
+
+  if (!rank) return null;
+  return (
+    <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-black/40 border border-white/20 num leading-none">
+      #{rank}
     </span>
   );
 }

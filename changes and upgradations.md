@@ -3,6 +3,36 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.102] 2026-07-23
+
+### Team rankings/membership status rebuilt as an interface-first adapter, not direct field access
+
+#### Context
+- User asked, ahead of any real-data integration work: will the current ranking-based logic survive once real data starts coming in? Root cause found: `Team.currentRanking` was one field reused for two unrelated things (a franchise's season-scoped points-table position vs. a nation's rolling ICC rating), and separate code used "does `currentRanking` exist" as a proxy for "is this a full ICC member" -- which only worked by coincidence of the mock data. Real ICC rankings are published for 100+ members including most associates, so that proxy would break immediately against real data.
+- Verified the real, current ICC Full Member list live (not from memory) rather than assume it -- 12 members: AFG, AUS, BAN, ENG, IND, IRE, NZ, PAK, SA, SL, WI, ZIM. This also surfaced a pre-existing inaccuracy: Ireland and Zimbabwe were filed under the mock dataset's "Associates" comment block despite being real Full Members.
+- Built as the reference implementation of a reusable "interface-first" pattern for any dataset expected to eventually come from a real provider -- documented in full in the new `ARCHITECTURE.md`, since this is the first of several anticipated real-data-readiness items (win probability, ball-by-ball deliveries, player name parsing).
+
+#### Fixed -- `lib/types.ts`
+- `Team.currentRanking` replaced by three fields: `membershipStatus?: "full" | "associate"` (nations, categorical), `rankings?: { test?: number; odi?: number; t20i?: number }` (nations, per-format -- only `t20i` populated today), and `leagueStanding?: number` (franchises, kept as a plain field -- no external provider will ever replace a league's own standings, so it doesn't need the adapter treatment).
+
+#### Added -- `lib/teamData.ts` (new file)
+- `getTeamMembershipStatus(team)` and `getTeamRanking(team, format)`: the only sanctioned reads of the two nation-specific fields. Both `async`/`Promise`-returning from day one, even though they resolve synchronously from mock data today, so a future real-data swap requires zero call-site changes.
+- `refreshRankings()`: an explicitly no-op placeholder marking where a future ranking-sync mechanism will plug in.
+
+#### Fixed -- `lib/mockData.ts`
+- All 22 national teams migrated to the new fields: 12 `membershipStatus: "full"` (10 with `rankings.t20i` carried over from the old `currentRanking` values; Ireland and Zimbabwe left without a ranking since they never had one), 10 `membershipStatus: "associate"`. All 10 IPL franchise teams migrated from `currentRanking` to `leagueStanding` with the same values.
+
+#### Fixed -- `components/MatchCard.tsx`
+- `FlagOrRank`: franchise teams now read `team.leagueStanding` directly; national teams without a `FLAG_ISO` flag image (currently only Kenya/Uganda) now go through a new `NationalRankBadge` sub-component that calls `getTeamRanking(team, "t20i")`, using the same hydration-safe `useState(undefined)` + `useEffect` pattern from v1.0.99 (render nothing on first pass so server/client agree, fill in the real value post-mount).
+
+#### Verified
+- All 22 nations confirmed to have `membershipStatus` set; zero left unset.
+- Grepped the full codebase: zero remaining `currentRanking` references; no code outside `lib/teamData.ts`'s two accessor functions reads `membershipStatus`/`rankings` directly.
+- Visual output unchanged: nations with a flag image render identically; franchise badges show the same numbers as before, just sourced from `leagueStanding`; Kenya/Uganda still render nothing (unranked before and after).
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.101] 2026-07-23
 
 ### Fix: Score-tab header card restricted back to finished matches; `liveStatusOverride` removed from it

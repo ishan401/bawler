@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.101 (deployed)
+**Current version:** v1.0.102 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -502,3 +502,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.101** | Fix: the Score tab's score-header card (added v1.0.97) was rendering on currently-live matches too, not just finished ones -- an unscoped expansion of the original request. Now gated entirely on `match.status !== "live"`; a live match's Score tab shows just the scorecard again, no card. Also removed `liveStatusOverride` (a static flavor-text field meant for Spotlight/homepage cards) from this component entirely -- it was surfacing a frozen score snapshot directly under genuinely live, ticking score rows, causing a real visible mismatch (DECISIONS-LOG.md FY31) |
+
+## Changelog additions (v1.0.102)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.102** | Team rankings/membership status rebuilt as an interface-first adapter (see `ARCHITECTURE.md`) instead of direct field access. `Team.currentRanking` split into `membershipStatus?: "full" \| "associate"` (verified against ICC's real current 12-member Full Member list rather than assumed from memory -- also corrected a pre-existing miscategorization of Ireland and Zimbabwe as associates), `rankings?: { test?; odi?; t20i? }` (nations, per-format), and `leagueStanding?: number` (franchises, unrelated concept, own field). New `lib/teamData.ts` exposes `getTeamMembershipStatus()`/`getTeamRanking()` as the only sanctioned reads (both `async`, resolving synchronously today so a future real-data swap needs zero call-site changes) plus a no-op `refreshRankings()` placeholder. `MatchCard.tsx`'s `FlagOrRank` badge migrated off direct field access; visual output unchanged (DECISIONS-LOG.md FY32) |
