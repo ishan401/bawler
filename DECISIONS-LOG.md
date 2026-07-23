@@ -1083,3 +1083,22 @@ Built as the reference implementation of a reusable pattern (see `ARCHITECTURE.m
 - `tsc --noEmit` and `npm run build` both clean.
 - No code outside `lib/teamData.ts`'s two accessor functions reads `team.membershipStatus` or `team.rankings` directly (grepped for both).
 - Visual result is unchanged for every team: nations with a `FLAG_ISO` entry (20 of 22) render the same flag image as before; franchise teams render the same numeric badge value as before, just sourced from `leagueStanding` instead of `currentRanking`; Kenya/Uganda render nothing, same as before (they had no ranking under the old field either).
+
+---
+
+## Spotlight gets a competition-tier membership gate; fixed a `setState`-with-a-function crash along the way — v1.0.103 (2026-07-23)
+
+**FY33 — Spotlight's three excitement checks (close finish / milestone / context stakes) applied identically to Full Member and Associate nations, but a rare, exciting associate-nation result isn't the same "interrupt the homepage" signal a Full Member one is**
+
+Requested as a follow-up to FY32's membership-status adapter: gate `isSpotlightMatch()` (`lib/spotlight.ts`) on competition tier, using `getTeamMembershipStatus()` rather than any new direct field access. League/domestic competitions (IPL, BBL, PSL, CPL, The Hundred, SA20, MLC) are unrestricted -- any match there still only needs to clear the three existing excitement checks, untouched. International/bilateral matches now additionally require BOTH teams to be full ICC members, checked *before* the excitement checks run at all -- an associate-nation match never reaches them, however dramatic the result.
+
+Since `getTeamMembershipStatus()` is `async` (deliberately, per the FY32 adapter pattern) and `isSpotlightMatch()` must stay synchronous to run inside a plain `Array.filter()`, added `buildFullMemberLookup(matches)` to `lib/spotlight.ts`: resolves every *unique* team's status ONE TIME via `Promise.all`, returns a plain synchronous `(team) => boolean` closure. `app/page.tsx` resolves this once in a mount effect (`useState<FullMemberLookup | null>(null)` + `useEffect`), matching the same hydration-safe shape used elsewhere in this file (neutral default on first render, real value filled in post-mount) -- `spotlightMatches`'s `useMemo` returns `[]` until the lookup resolves, then computes for real.
+
+**A real bug surfaced and fixed during this work, unrelated to the gate's logic itself**: the first deploy attempt crashed the entire homepage (`TypeError: Cannot read properties of null (reading 'code')`, confirmed live on `bawler-gold.vercel.app`). Root cause: `buildFullMemberLookup(...).then(setFullMemberLookup)` passed the *resolved lookup function* directly to `useState`'s setter. React's setter treats a bare function argument as a **functional updater** (`(prevState) => newState`), not as the literal new value -- so it immediately invoked `lookup(prevState)`, i.e. `lookup(null)` (the initial state), which crashed reading `null.code` inside the lookup's own `team.code` access. Confirmed via a careful bisection: reverted to the exact pre-change commit (worked, live-verified) → reintroduced the gate code alone against unmodified mock data (crashed identically) → replaced the effect body with a trivially-wrapped `setFullMemberLookup(() => true)` (didn't crash, isolating the functional-updater footgun specifically) → fixed the real code with the same wrapping: `.then(lookup => setFullMemberLookup(() => lookup))`.
+
+**Verified live** (`bawler-gold.vercel.app`, using a temporary constructed Kenya-vs-Namibia tied T20I fixture -- both associate nations, "super over" finish satisfying `hasCloseFinish` -- removed again immediately after verification, never part of the shipped mock dataset):
+- Homepage loads cleanly, zero console errors, after the fix.
+- Full Member international dramatic finish still qualifies: IND vs PAK (T20 World Cup, last-over thriller) appeared as one of the 3 Spotlight cards.
+- League matches unaffected: GT vs MI (IPL, last-over thriller) and Perth Scorchers vs Sydney Sixers (BBL Final) both still appeared in Spotlight exactly as before.
+- The constructed KEN vs NAM tied match (associate vs associate) did NOT appear in Spotlight despite clearing `hasCloseFinish` -- it rendered normally in the ordinary Past grid instead ("Past · 13"), confirming the gate rejects it on membership status alone, before the excitement checks are even reached.
+- `tsc --noEmit` and `npm run build` clean.

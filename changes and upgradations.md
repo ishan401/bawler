@@ -3,6 +3,29 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.103] 2026-07-23
+
+### Spotlight competition-tier gate: international/bilateral matches now require both teams to be full ICC members
+
+#### Context
+- Follow-up to v1.0.102's membership-status adapter: Spotlight's three excitement checks (close finish, milestone, context stakes) applied identically regardless of whether a match was between two Full Members or two Associates. A dramatic associate-nation result is a real story for that nation's fans, but not the same "rare enough to interrupt the homepage" signal a Full Member thriller is.
+
+#### Fixed -- `lib/spotlight.ts`
+- `isSpotlightMatch(match, isFullMember)` now takes a second parameter and, for any match whose competition type is `international` or `bilateral` (not `league`/`domestic`), requires both `isFullMember(match.teamA)` and `isFullMember(match.teamB)` before the three existing excitement checks run at all. League/domestic matches are completely unaffected -- they skip straight to the same three checks as before.
+- New `buildFullMemberLookup(matches)`: resolves every unique team's membership status ONE TIME via `getTeamMembershipStatus()` (the FY32 adapter, never accessed directly) using `Promise.all`, returning a plain synchronous `(team) => boolean` closure -- necessary because the underlying check is `async` but `isSpotlightMatch()` must stay synchronous to run inside `Array.filter()`.
+
+#### Fixed -- `app/page.tsx`
+- Resolves the lookup once in a mount effect (`useState<FullMemberLookup | null>(null)` + `useEffect`), following the same hydration-safe pattern used elsewhere in this file: `spotlightMatches` returns `[]` until the lookup resolves, then computes for real.
+
+#### Bug found and fixed during this work
+- First deploy crashed the whole homepage: `buildFullMemberLookup(...).then(setFullMemberLookup)` passed the resolved lookup *function* directly to `useState`'s setter, which treats a bare function argument as a functional updater (`(prevState) => newState`) rather than the literal value -- it called `lookup(null)` (the initial state) immediately, crashing inside the lookup on `null.code`. Fixed via `.then(lookup => setFullMemberLookup(() => lookup))`. Root-caused via bisection against a clean revert, live-deployed at each step.
+
+#### Verified
+- Live on bawler-gold.vercel.app, using a temporary constructed Kenya-vs-Namibia tied T20I (removed after verification, never shipped): homepage loads with zero console errors; Full Member international dramatic finish (IND vs PAK, T20 World Cup) still qualifies for Spotlight; league matches (IPL's GT vs MI, BBL Final Scorchers vs Sixers) unaffected; the constructed associate-vs-associate tied match did not qualify for Spotlight despite clearing the close-finish check, and rendered normally in the ordinary Past grid instead.
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.102] 2026-07-23
 
 ### Team rankings/membership status rebuilt as an interface-first adapter, not direct field access
