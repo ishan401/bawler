@@ -191,6 +191,9 @@ export const COMPETITIONS: Record<string, Competition> = {
   cpl2025:       { id: "cpl-2025",         name: "CPL 2025",                      shortName: "CPL",       type: "league",        format: "T20",  season: "2025",    logoColor: "#7B0041",  hasStandings: true },
   mlc2026:       { id: "mlc-2026",         name: "Major League Cricket 2026",     shortName: "MLC",       type: "league",        format: "T20",  season: "2026",    logoColor: "#B22234",  hasStandings: true },
   wtc2527:       { id: "wtc-2025-27",      name: "ICC World Test Championship 2025-27", shortName: "WTC",    type: "international", format: "Test", season: "2025-27", logoColor: "#1A237E",  hasStandings: true },
+  // TEMP -- FY33 verification fixture only, see DECISIONS-LOG.md. Remove
+  // alongside the Kenya-vs-Namibia match below once verified live.
+  kenNamT20i2026:{ id: "ken-nam-t20i-2026", name: "Kenya tour of Namibia 2026",    shortName: "KEN v NAM", type: "bilateral",     format: "T20I", season: "2026",    logoColor: "#006600",  hasStandings: false },
 };
 
 // ============================================================================
@@ -14440,6 +14443,52 @@ export const LIVE_INTERNATIONAL: Match[] = [
 ];
 
 export const PAST_INTERNATIONAL: Match[] = [
+  // TEMP -- FY33 verification fixture only. Associate-vs-associate (KEN, NAM
+  // both membershipStatus: "associate"), constructed with a tied/super-over
+  // finish specifically so it clears the three existing excitement checks
+  // (hasCloseFinish, via "super over" in the summary) -- proving the new
+  // competition-tier gate in isSpotlightMatch() rejects it on membership
+  // status alone, before the excitement checks even run. Remove this match
+  // and the kenNamT20i2026 competition above once verified live.
+  {
+    id: "ken-nam-t20i-2026-m3-tied",
+    format: "T20I",
+    competition: COMPETITIONS.kenNamT20i2026,
+    matchNumber: "3rd T20I",
+    seriesStatus: "Series level 1-1 · 3-match T20I series",
+    startTimeIso: new Date(Date.now() - 30 * 3600000).toISOString(),
+    status: "post-match",
+    venue: { id: "nairobi-gym", name: "Nairobi Gymkhana Club", city: "Nairobi", country: "KEN", parScore: 140 },
+    teamA: NATIONAL_TEAMS.KEN,
+    teamB: NATIONAL_TEAMS.NAM,
+    toss: { winner: "KEN", elected: "bat" },
+    innings: [
+      {
+        number: 1, battingTeam: "KEN", bowlingTeam: "NAM", runs: 145, wickets: 8, overs: 20, balls: [],
+        battingCard: [
+          { playerId: "aobanda2", playerName: "A Obanda", runs: 41, ballsFaced: 33, fours: 4, sixes: 1, strikeRate: 124.2, out: true, dismissal: "b Frylinck" },
+          { playerId: "ikarim2",  playerName: "I Karim",  runs: 29, ballsFaced: 24, fours: 2, sixes: 1, strikeRate: 120.8, out: true, dismissal: "c Wiese b Smit" },
+        ],
+        bowlingCard: [
+          { playerId: "dwiese2", playerName: "D Wiese", oversBowled: 4, maidens: 0, runsConceded: 26, wickets: 2, economy: 6.5 },
+        ],
+      },
+      {
+        number: 2, battingTeam: "NAM", bowlingTeam: "KEN", runs: 145, wickets: 6, overs: 20, balls: [],
+        battingCard: [
+          { playerId: "gerasmus2", playerName: "G Erasmus", runs: 58, ballsFaced: 40, fours: 6, sixes: 2, strikeRate: 145.0, out: true, dismissal: "c Ngoche b Bundi" },
+          { playerId: "dwiese3",   playerName: "D Wiese",   runs: 33, ballsFaced: 22, fours: 3, sixes: 1, strikeRate: 150.0, out: false, dismissal: "not out" },
+        ],
+        bowlingCard: [
+          { playerId: "ebundi2", playerName: "E Bundi", oversBowled: 4, maidens: 0, runsConceded: 31, wickets: 2, economy: 7.75 },
+        ],
+      },
+    ],
+    result: { winner: "tie", margin: "Match tied", teamARuns: 145, teamAWickets: 8, teamBRuns: 145, teamBWickets: 6, manOfMatch: "G Erasmus" },
+    excitement: 9,
+    highlightBadge: "Tied",
+    summary: "Kenya and Namibia finished level after 20 overs apiece; Kenya won a nerve-shredding super over to close out the series.",
+  },
   {
     id: "ind-aus-t20i-2026-m1",
     format: "T20I",

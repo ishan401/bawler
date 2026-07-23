@@ -22,7 +22,7 @@ import {
   type MatchQualification,
 } from "@/lib/followPrefs";
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
-import { isSpotlightMatch } from "@/lib/spotlight";
+import { isSpotlightMatch, buildFullMemberLookup, type FullMemberLookup } from "@/lib/spotlight";
 import { selectHeroMatch } from "@/lib/heroSelection";
 import { APP_VERSION_LABEL } from "@/lib/version";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
@@ -248,20 +248,45 @@ export default function Home() {
   // rendered full-width (or as a capped 3-card carousel) above it. Sourced
   // from the original mock arrays (not the infinite-scroll-grown lists) so
   // the spotlight slot doesn't shuffle as the user scrolls the grid below. ----
+  //
+  // isSpotlightMatch() now also gates international/bilateral matches on
+  // both teams being full ICC members (lib/spotlight.ts), read through the
+  // async getTeamMembershipStatus() adapter (lib/teamData.ts) -- never
+  // directly. Since that's a Promise-returning call and isSpotlightMatch()
+  // itself must stay synchronous to run inside .filter(), the lookup is
+  // resolved ONCE upfront via buildFullMemberLookup() in a mount effect,
+  // not per-match/per-render. Same hydration-safe shape used elsewhere in
+  // this file (e.g. followPrefs above): a neutral default (null -- treated
+  // as "nothing qualifies yet") on the first render, matching what the
+  // server renders, then the real lookup fills in via useEffect post-mount.
+  const [fullMemberLookup, setFullMemberLookup] = useState<FullMemberLookup | null>(null);
+  useEffect(() => {
+    // NOTE: setFullMemberLookup(lookup) (passing the resolved function
+    // directly) would be wrong -- useState's setter treats a bare function
+    // argument as a functional updater ((prev) => next), not as the value
+    // itself, and would immediately invoke the lookup as `lookup(prevState)`
+    // i.e. `lookup(null)`, crashing inside it. Wrapping it in `() => lookup`
+    // makes the updater return the lookup AS the new state instead.
+    buildFullMemberLookup([...ALL_PAST_MATCHES, ...ALL_UPCOMING_MATCHES])
+      .then(lookup => setFullMemberLookup(() => lookup))
+      .catch(e => console.error("SPOTLIGHT_LOOKUP_ERROR", e));
+  }, []);
+
   const spotlightMatches = useMemo(() => {
+    if (!fullMemberLookup) return [];
     // Most-recent-first for past (freshest result leads), soonest-first for
     // upcoming. Past matches lead the combined list since they're a settled,
     // immediate story; upcoming fills remaining slots if any are left.
     const past = ALL_PAST_MATCHES
-      .filter(isSpotlightMatch)
+      .filter(m => isSpotlightMatch(m, fullMemberLookup))
       .map(m => ({ m, isPast: true as const }))
       .sort((a, b) => b.m.startTimeIso.localeCompare(a.m.startTimeIso));
     const future = ALL_UPCOMING_MATCHES
-      .filter(isSpotlightMatch)
+      .filter(m => isSpotlightMatch(m, fullMemberLookup))
       .map(m => ({ m, isPast: false as const }))
       .sort((a, b) => a.m.startTimeIso.localeCompare(b.m.startTimeIso));
     return [...past, ...future].slice(0, SPOTLIGHT_MAX);
-  }, []);
+  }, [fullMemberLookup]);
   const spotlightIds = useMemo(() => new Set(spotlightMatches.map(s => s.m.id)), [spotlightMatches]);
 
   // ---- "For you" — union-pool of matches qualifying via ANY followed
