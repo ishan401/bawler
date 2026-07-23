@@ -3,6 +3,25 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.101] 2026-07-23
+
+### Fix: Score-tab header card restricted back to finished matches; `liveStatusOverride` removed from it
+
+#### Context
+- v1.0.97's Score-tab score header (`FinalScoreHeader` in `components/Scorecard.tsx`) was rendering for every match status, live included -- beyond the original scope (finished matches only). On a currently-live match this surfaced a real bug: the card's own team-score rows correctly tracked the live, ticking score, but a sub-line rendering `match.liveStatusOverride` verbatim showed a frozen snapshot from earlier in the match, visibly disagreeing with the rows above it.
+
+#### Fixed -- `components/Scorecard.tsx`
+- `finalScoreHeader` is now only constructed when `match.status !== "live"`; both JSX usages skip the wrapping `<div className="mb-3">` entirely when it's `null` (matching the existing `momMosBanners` pattern), so a live match's Score tab has no extra card or spacing.
+- `FinalScoreHeader` no longer has a `match.status === "live"` branch (unreachable now that the caller gates on it) and no longer renders `liveStatusOverride` at all -- checked every current `post-match` match in the mock dataset, all have a real `match.result`, so the result banner is sufficient on its own. `liveStatusOverride` is untouched everywhere else it's used (Spotlight cards, homepage rows).
+
+#### Verified
+- `ind-aus-t20i-2026-m2-live` (live): Score tab shows no card above the scorecard -- just the team toggle and innings tables.
+- `ashes-2526-3rd-test` (finished, full data): score header still shows correctly, with the result banner.
+- `ipl2026-m35-givsmi` (finished, no innings data): unaffected either way -- its "Scorecard not available" fallback returns before `finalScoreHeader` is computed.
+- `tsc --noEmit` and `npm run build` clean.
+
+---
+
 ## [1.0.100] 2026-07-23
 
 ### Fix: page background is now a real Tailwind `theme()` reference, not a coincidentally-matching literal

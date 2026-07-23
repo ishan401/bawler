@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.100 (deployed)
+**Current version:** v1.0.101 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -496,3 +496,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.100** | Doc/code audit fix: `app/globals.css`'s page background was a hardcoded `#03060F` literal that merely happened to match `bg.deep`'s value in `tailwind.config.ts` -- `DESIGN-SYSTEM.md` had claimed this was already "via the token," which wasn't true. Now a real Tailwind `theme('colors.bg.deep')` reference, resolved at build time, so the two can't silently drift apart again. Verified pixel-identical compiled output, and confirmed (then reverted) that changing `bg.deep` in the config actually propagates without touching `globals.css` (DECISIONS-LOG.md FY30) |
+
+## Changelog additions (v1.0.101)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.101** | Fix: the Score tab's score-header card (added v1.0.97) was rendering on currently-live matches too, not just finished ones -- an unscoped expansion of the original request. Now gated entirely on `match.status !== "live"`; a live match's Score tab shows just the scorecard again, no card. Also removed `liveStatusOverride` (a static flavor-text field meant for Spotlight/homepage cards) from this component entirely -- it was surfacing a frozen score snapshot directly under genuinely live, ticking score rows, causing a real visible mismatch (DECISIONS-LOG.md FY31) |

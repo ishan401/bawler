@@ -12,24 +12,39 @@ interface ScorecardProps {
 
 /**
  * Team-names-with-final-scores header, above the scorecard body. Ported
- * verbatim (same fields, same result-banner condition) from the "Live" tab
- * fallback card MatchView used to show for any match with no ball-by-ball
- * data -- that fallback no longer exists for finished matches (Live isn't
- * a tab for them anymore), so its score header lives here instead, where
- * it's actually reachable regardless of match status.
+ * from the "Live" tab fallback card MatchView used to show for any match
+ * with no ball-by-ball data -- that fallback no longer exists for finished
+ * matches (Live isn't a tab for them anymore), so its score header lives
+ * here instead.
+ *
+ * v1.0.97 originally rendered this for every match status, live included
+ * -- an unscoped expansion beyond what was asked (the original request
+ * was to move the header out of the removed Live tab for FINISHED matches
+ * only). v1.0.101 restricts it back to finished matches: the caller below
+ * only constructs this component when `match.status !== "live"`, so the
+ * `match.status === "live"` badge branch that used to live in this
+ * component is gone too -- it could never fire once the caller's gate is
+ * in place, and keeping unreachable "Live" markup here would be confusing.
+ *
+ * `match.liveStatusOverride` is also gone from this component for the same
+ * reason: it's static flavor text authored for surfaces where nothing else
+ * on screen is actively changing (Spotlight cards, homepage rows) -- it
+ * was never meant to sit directly under score data, and doing so on a
+ * still-live match was what caused v1.0.97's real bug (a frozen snapshot
+ * string reading a different score than the live-ticking rows above it,
+ * e.g. "IND 142/3 ... need 34 off 22" next to rows correctly showing
+ * 155/6). Now that this card is finished-match-only, every current match
+ * with `status: "post-match"` already has a real `match.result` (checked
+ * across the full mock dataset), so the result banner below is sufficient
+ * on its own -- there's no finished-match case that needs
+ * `liveStatusOverride` as a fallback. It's untouched everywhere else it's
+ * already used safely (Spotlight cards, homepage rows).
  */
 function FinalScoreHeader({ match }: { match: Match }) {
   const innA = match.innings.find(i => i.battingTeam === match.teamA.code);
   const innB = match.innings.find(i => i.battingTeam === match.teamB.code);
   return (
     <div className="card overflow-hidden">
-      {match.status === "live" && (
-        <div className="flex items-center gap-1.5 px-4 pt-3 pb-1">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">Live</span>
-        </div>
-      )}
-
       <div className="flex items-center gap-3 px-4 py-3 border-b border-line">
         <span className="w-3 h-3 rounded-full shrink-0" style={{ background: match.teamA.primaryColor }} />
         <span className="text-sm font-extrabold flex-1">{match.teamA.shortName}</span>
@@ -41,12 +56,6 @@ function FinalScoreHeader({ match }: { match: Match }) {
         <span className="text-sm font-extrabold flex-1">{match.teamB.shortName}</span>
         <span className="text-lg font-extrabold num">{innB ? `${innB.runs}/${innB.wickets}` : "—"}</span>
       </div>
-
-      {match.liveStatusOverride && (
-        <div className="px-4 py-2.5 bg-bg-surface border-t border-line">
-          <p className="text-xs font-bold text-text-primary text-center">{match.liveStatusOverride}</p>
-        </div>
-      )}
 
       {match.result && (
         <div className="px-4 py-2.5 border-t border-line text-center">
@@ -99,11 +108,13 @@ export default function Scorecard({ match }: ScorecardProps) {
   // matches with no ball-by-ball data. Shown above the scorecard body
   // whenever real innings data exists (this whole function has already
   // returned above for the innings.length === 0 case, so that fallback is
-  // untouched). Shown regardless of match status -- a still-live match's
-  // Score tab gets the same header (current, not-yet-final score; no
-  // result banner until match.result exists), a finished match's gets a
-  // genuinely final one.
-  const finalScoreHeader = <FinalScoreHeader match={match} />;
+  // untouched). Restricted to finished matches only -- a still-live
+  // match's Score tab goes back to showing just the scorecard body, no
+  // header card, exactly as it did before this card existed. See
+  // FinalScoreHeader's own comment for why this gate moved from a partial
+  // in-component check (just the "Live" badge) to fully skipping
+  // construction here.
+  const finalScoreHeader = match.status !== "live" ? <FinalScoreHeader match={match} /> : null;
 
   const motm = match.result?.manOfMatch;
   const mots = match.result?.manOfTournament;
@@ -147,7 +158,7 @@ export default function Scorecard({ match }: ScorecardProps) {
 
     return (
       <div>
-        <div className="mb-3">{finalScoreHeader}</div>
+        {finalScoreHeader && <div className="mb-3">{finalScoreHeader}</div>}
         {momMosBanners && <div className="mb-3">{momMosBanners}</div>}
 
         <div ref={topRef}>
@@ -187,7 +198,7 @@ export default function Scorecard({ match }: ScorecardProps) {
 
   return (
     <div>
-      <div className="mb-3">{finalScoreHeader}</div>
+      {finalScoreHeader && <div className="mb-3">{finalScoreHeader}</div>}
       {momMosBanners && <div className="mb-3">{momMosBanners}</div>}
 
       <div ref={topRef}>

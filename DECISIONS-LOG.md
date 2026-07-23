@@ -1040,3 +1040,24 @@ An external, independent review of this doc's own "Resolved" claims (checking th
 - `npm run build` clean before and after.
 
 `DESIGN-SYSTEM.md` §1's "Resolved" line updated to describe the real mechanism (a build-time `theme()` reference) instead of the vague "via the token" phrasing that didn't match what the code actually did.
+
+---
+
+## `FinalScoreHeader` restricted back to finished matches; `liveStatusOverride` removed from it entirely — v1.0.101 (2026-07-23)
+
+**FY31 — v1.0.97's Score-tab header card was rendering on live matches too, and one of its sub-lines was a frozen snapshot string that visibly disagreed with the live-ticking score right above it**
+
+Reported directly by the user on `ind-aus-t20i-2026-m2-live`: the persistent header and the new Score-tab card's own team rows both correctly showed AUS 175/8 vs IND 155/6 (both driven by `MatchView.tsx`'s `truncatedMatch`, in sync) -- but the card had an extra sub-line reading "IND 142/3 (16.2) · need 34 off 22", directly contradicting the rows above it. Root-caused to two separate things, confirmed live before fixing:
+
+1. `FinalScoreHeader` (`components/Scorecard.tsx`) had exactly one `match.status === "live"` check, and it only gated the small pulsing "LIVE" badge -- not whether the whole card rendered. The card itself rendered "regardless of match status" by explicit, deliberate design (per its own v1.0.97 comment), which went beyond the original request (move the header out of the removed Live tab for FINISHED matches specifically; "leave the Live tab completely unchanged for any match still actively live").
+2. The mismatched sub-line was `match.liveStatusOverride` rendered verbatim -- a hand-authored static string in `lib/mockData.ts`, meant as flavor text for surfaces where nothing else on screen is actively changing (Spotlight cards, homepage rows), never tied to the ball-by-ball data. Confirmed by summing India's actual recorded balls for this match: 98 deliveries, totaling exactly 155 runs / 6 wickets, last ball at over 17.2 -- matching the live rows. The innings' own static `runs: 142, wickets: 3, overs: 16.2` fields and `liveStatusOverride` were both authored to describe an earlier point in the match and never updated when the ball array was later extended -- a real mock-data drift that `FinalScoreHeader` surfaced by placing it next to genuinely live data.
+
+**Fixed**:
+- `components/Scorecard.tsx`: the caller now only constructs `FinalScoreHeader` when `match.status !== "live"` (`const finalScoreHeader = match.status !== "live" ? <FinalScoreHeader match={match} /> : null`), and both JSX usages wrap it in `{finalScoreHeader && ...}` (matching the existing `momMosBanners` pattern) so a live match's Score tab renders no extra wrapper div at all -- not even an empty one.
+- `FinalScoreHeader` itself: removed the now-unreachable `match.status === "live"` badge branch, and removed the `match.liveStatusOverride` block entirely. Checked every current `status: "post-match"` match in the mock dataset: all of them already have a real `match.result` (zero exceptions), so the existing result banner is sufficient on its own -- there's no finished-match case that still needs `liveStatusOverride` as a fallback. Every other surface that already uses `liveStatusOverride` safely (Spotlight cards, homepage rows) is untouched.
+
+**Verified live**:
+- `ind-aus-t20i-2026-m2-live` (currently live): Score tab now shows no card above the scorecard at all -- just the team toggle (AUS/IND chips) and the innings' batting/bowling tables, exactly as it looked before this feature existed.
+- `ashes-2526-3rd-test` (finished, full data): Score tab still shows the score header -- AUS 512/8, ENG 210/10, "AUS won · by an innings and 27 runs" result banner. No live badge, no liveStatusOverride line (this match never had one either way).
+- `ipl2026-m35-givsmi` (finished, `innings.length === 0`): untouched by this change -- `Scorecard`'s `innings.length === 0` early return (the "Scorecard not available" fallback) happens before `finalScoreHeader` is even computed, so this path was never affected by either the bug or the fix.
+- `tsc --noEmit` and `npm run build` clean.
