@@ -3,6 +3,32 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.115] 2026-07-24
+
+### Unify Filter/Follow sheet's selection accent from purple to cyan
+
+#### Context
+- `FollowSheet`'s selection-state UI (checkbox checkmarks, each category's "N selected" count badge, the "Update (N)" button) used its own dedicated purple, visually distinct from the platform's single cyan active/selected accent used everywhere else. Unified to cyan so the sheet reads as the same platform. Scoped to this sheet only -- the `six` token (ball-outcome purple) and the `follow` token's other consumers (bottom-nav Filter icon, homepage "FOR YOU" nudge) are unchanged.
+
+#### Changed -- `components/FollowSheet.tsx`
+- `CheckIndicator` fill/border: `#7C3AED` -> `#00E5FF`; checkmark stroke: `white` -> `#0A0E1A`.
+- Category left-rail active border: `#7C3AED` -> `#00E5FF`.
+- Category "N selected" badge: fill `#7C3AED` -> `#00E5FF`; text `text-white` -> `text-bg`.
+- "Update (N)" button: fill `#7C3AED` -> `#00E5FF`; text `text-white` -> `text-bg`.
+- Search input focus border: `focus:border-follow` -> `focus:border-cyan`.
+- Text-color changes follow the platform's existing "cyan fill + dark text/icon" contrast convention (`MatchCard`, `ViewSwitcher`, `InsightsPanel`, `DigestTab`, `DemoControls` all already do this).
+
+#### Unchanged (confirmed via diff)
+- `six` token (`#A855F7`) and all ~11+ consumers (`BallGIF`, `MiniBallGIF`, `Scorecard`'s "6s" column, `WinProbChart` event dots, etc.).
+- `follow` token definition (`tailwind.config.ts`), `components/BottomNav.tsx`'s violet Filter icon, `app/page.tsx`'s "FOR YOU" label + nudge card.
+
+#### Docs
+- `DESIGN-SYSTEM.md` §3/§4 `follow` token rows corrected to drop the now-inaccurate claim that `follow` covers `FollowSheet`'s checkbox/badges/Update button -- those are now `cyan`. `follow`'s documented scope is now just the bottom-nav Filter icon and homepage "FOR YOU" nudge.
+- `README.md` Filter section updated to note the sheet's selection UI is cyan, distinct from the still-violet Filter icon.
+
+#### Verified
+- `tsc --noEmit`/`npm run build` clean. Grep-confirmed zero remaining `#7C3AED` values in `components/FollowSheet.tsx`. Live verification recorded separately.
+
 ## [1.0.114] 2026-07-24
 
 ### Fix Schedule tab row ordering: nations before franchise teams

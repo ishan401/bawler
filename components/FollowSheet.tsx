@@ -134,18 +134,50 @@ function Swatch({ color, flagIso }: { color?: string; flagIso?: string }) {
   );
 }
 
+// ============================================================================
+// Selection accent: cyan, not purple -- v1.0.115
+// ============================================================================
+// Every selection-state element inside this sheet (a checked
+// `CheckIndicator`, each category's "N selected" count badge, the
+// "Update (N)" submit button) used a dedicated purple (`#7C3AED`, the
+// `follow` design token) as its own accent, distinct from the platform's
+// one cyan active/selected accent used everywhere else. Unified to cyan
+// (`#00E5FF`, matching `tailwind.config.ts`'s `cyan` token) here so this
+// sheet reads as the same platform, not a visually separate feature.
+//
+// SCOPED TO THIS FILE ONLY -- the `follow` token itself (`tailwind.config.
+// ts`) is UNCHANGED, and so is its other consumer: `components/
+// BottomNav.tsx`'s Filter tab still turns violet while this sheet is open
+// (`text-follow`/`bg-follow`). That's a deliberate, separate decision this
+// change does not touch -- see DECISIONS-LOG.md. Purple itself is also
+// unchanged everywhere else in the app: it's the intentional outcome-coded
+// color for a six (the `six` token, `#A855F7` -- a different hex from the
+// `follow` token this file used, they were never the same color, just the
+// same family), and stays exactly as-is on the batting card, sparkline
+// dots, BallGIF, etc.
+// ============================================================================
+
 function CheckIndicator({ selected }: { selected: boolean }) {
+  // v1.0.115: cyan, not purple -- see the module comment above the
+  // component for why (unifying with the platform's single active/
+  // selected accent, scoped to this sheet only). The checkmark itself
+  // switched from white to the dark `bg` token to stay legible against
+  // the brighter cyan fill, matching the "bg-cyan + dark text/icon"
+  // contrast convention already used everywhere else a cyan fill carries
+  // a mark on top of it (e.g. MatchCard's `bg-cyan text-bg` badges) --
+  // white-on-cyan is the one combination this codebase never uses for
+  // exactly that contrast reason.
   return (
     <span
       className="w-5 h-5 rounded-md shrink-0 flex items-center justify-center border transition-colors"
       style={{
-        background: selected ? "#7C3AED" : "transparent",
-        borderColor: selected ? "#7C3AED" : "var(--line)",
+        background: selected ? "#00E5FF" : "transparent",
+        borderColor: selected ? "#00E5FF" : "var(--line)",
       }}
     >
       {selected && (
         <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-          <path d="M3 8.5L6.2 12L13 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 8.5L6.2 12L13 4" stroke="#0A0E1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
     </span>
@@ -206,8 +238,8 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
       footer={
         <button
           onClick={handleUpdate}
-          className="w-full py-3.5 text-sm font-extrabold uppercase tracking-widest text-white"
-          style={{ background: "#7C3AED" }}
+          className="w-full py-3.5 text-sm font-extrabold uppercase tracking-widest text-bg"
+          style={{ background: "#00E5FF" }}
         >
           {/* "Update" rather than "Follow" -- this button commits
               additions AND removals, so a label that only reads
@@ -232,15 +264,15 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
                 className={`w-full flex flex-col items-start gap-1 px-2.5 py-3 text-left border-l-2 transition-colors ${
                   active ? "bg-bg-elevated" : "hover:bg-bg-elevated/50"
                 }`}
-                style={{ borderLeftColor: active ? "#7C3AED" : "transparent" }}
+                style={{ borderLeftColor: active ? "#00E5FF" : "transparent" }}
               >
                 <span className={`text-[11px] font-bold leading-tight ${active ? "text-text-primary" : "text-text-secondary"}`}>
                   {cat.label}
                 </span>
                 {count > 0 && (
                   <span
-                    className="text-[9px] font-extrabold num px-1.5 py-0.5 rounded-full leading-none text-white"
-                    style={{ background: "#7C3AED" }}
+                    className="text-[9px] font-extrabold num px-1.5 py-0.5 rounded-full leading-none text-bg"
+                    style={{ background: "#00E5FF" }}
                   >
                     {count}
                   </span>
@@ -263,7 +295,7 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder={`Search ${CATEGORY_META.find(c => c.key === activeCategory)?.label.toLowerCase()}…`}
-                className="w-full pl-8 pr-2.5 py-2 rounded-lg bg-bg-elevated border border-line text-xs text-text-primary placeholder:text-text-dim focus:outline-none focus:border-follow"
+                className="w-full pl-8 pr-2.5 py-2 rounded-lg bg-bg-elevated border border-line text-xs text-text-primary placeholder:text-text-dim focus:outline-none focus:border-cyan"
               />
             </div>
           </div>

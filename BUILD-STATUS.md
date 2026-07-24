@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.114 (deployed)
+**Current version:** v1.0.115 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -48,8 +48,8 @@
 
 ### Personalization (Filter / For You) — v1.0.52, v1.0.53, v1.0.56–v1.0.58, v1.0.63–v1.0.64
 
-- ✅ **Bottom nav Filter trigger** — plain flat icon+label tab (v1.0.56), identical layout/size to Home/Schedule; neutral gray by default, Violet 600 (`#7C3AED`, the `follow` token — same accent used for selections inside the sheet) only while the sheet is open, reverting to neutral on close. Originally a raised circular "camera button" (Instagram-style); downgraded once it read as more prominent than Home/Schedule despite being the least-used and opening an overlay rather than a persistent screen.
-- ✅ **`FollowSheet`** — two-column bottom sheet ("Follow your cricket"): left rail = 5 categories (Nation/Team/Tournament/Player/Format) with per-category selected-count badges; right pane = search + multi-select list; nothing persists until the full-width **"Update (N)"** button is tapped — backdrop tap / × / back-swipe discards in-progress edits. Button reads "Update" rather than "Follow" (v1.0.64) since a saved change can just as easily be a removal as an addition; commit/discard mechanic itself is unchanged
+- ✅ **Bottom nav Filter trigger** — plain flat icon+label tab (v1.0.56), identical layout/size to Home/Schedule; neutral gray by default, Violet 600 (`#7C3AED`, the `follow` token) only while the sheet is open, reverting to neutral on close. As of v1.0.115, the sheet's own selection UI no longer shares this violet — see the `FollowSheet` bullet below. Originally a raised circular "camera button" (Instagram-style); downgraded once it read as more prominent than Home/Schedule despite being the least-used and opening an overlay rather than a persistent screen.
+- ✅ **`FollowSheet`** — two-column bottom sheet ("Follow your cricket"): left rail = 5 categories (Nation/Team/Tournament/Player/Format) with per-category selected-count badges; right pane = search + multi-select list; nothing persists until the full-width **"Update (N)"** button is tapped — backdrop tap / × / back-swipe discards in-progress edits. Button reads "Update" rather than "Follow" (v1.0.64) since a saved change can just as easily be a removal as an addition; commit/discard mechanic itself is unchanged. Selection-state UI (checkbox fill, per-category count badges, the "Update" button itself) uses the platform's standard cyan accent (v1.0.115, unified from a separate purple to match the rest of the app's single active/selected color) — distinct from the still-violet bottom-nav Filter icon above
 - ✅ **Category rail reordered to Nation/Tournament/Team/Player/Format** (v1.0.86, was Nation/Team/Tournament/Player/Format) — matches how people actually think about following cricket: country, then competition context, then club, then individuals, then format
 - ✅ **New "Series" category split out of Tournaments** (v1.0.88) — bilateral/tour-style competitions (`Competition.type === "bilateral"`: The Ashes, India tour of England 2026, India tour of Australia 2026, South Africa tour of England 2026) no longer list inside Tournaments alongside genuine multi-team competitions (BBL, IPL, PSL, Hundred, SA20, CPL, MLC, Champions Trophy, T20 World Cup, WTC). Category rail now reads Nations/Tournaments/Series/Teams/Players/Formats. `FollowPrefs.series` threaded through `qualifyMatch`/`isTier1Match`/`sanitizeFollowPrefs`/`totalFollowCount` identically to how `tournaments` already worked — following a series behaves exactly as before, just correctly attributed (see DECISIONS-LOG.md SC1-SC3)
 - ✅ **Colored dot removed from Tournament/Player/Format rows** (v1.0.86) — those three never carried real signal (Tournament inherited `Competition.logoColor`, which repeats across unrelated competitions; Player redundantly echoed the nationality text already shown as sublabel; Format always fell through to the same gray default). Kept only for Nation (real flag image) and Team (now backed by corrected real colors, see below)
@@ -522,6 +522,7 @@
 
 | Version | Highlight |
 |---|---|
+| **v1.0.115** | Unified `FollowSheet`'s selection-state UI (checkbox checkmarks, per-category "N selected" badges, "Update (N)" button) from a dedicated purple to the platform's standard cyan accent, matching the single active/selected color used elsewhere. Scoped to the sheet only -- the `six` ball-outcome purple and the `follow` token's other consumers (bottom-nav Filter icon, homepage "FOR YOU" nudge) are unchanged (DECISIONS-LOG.md) |
 | **v1.0.114** | Fixed Schedule tab row ordering: followed-team tabs now sort nations before franchise/league teams (alphabetical within each group), instead of one flat alphabetical pass across both that could put a franchise team like CSK ahead of a nation like IND. Uses the same `Team.type` categorization Filter's Nations/Teams sections already rely on (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.113)
