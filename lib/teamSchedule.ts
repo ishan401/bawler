@@ -531,11 +531,17 @@ export function formatLastResult(entry: ScheduleEntry): string {
   if (winner === "tie") return `Tied: ${match.teamA.shortName} vs ${match.teamB.shortName}`;
   if (winner === "no-result") return `No result: ${match.teamA.shortName} vs ${match.teamB.shortName}`;
 
+  // `margin` in this dataset already reads as a full phrase ("by 4
+  // wickets", "by an innings and 27 runs") -- the same convention
+  // `ScheduleRow` relies on when it appends `match.result.margin` directly
+  // after a separator with no "by" of its own added. Prepending another
+  // "by" here would double up ("won by by 4 wickets"), so this joins with
+  // a plain space instead.
   const winnerTeam = winner === match.teamA.code ? match.teamA : winner === match.teamB.code ? match.teamB : undefined;
   const loserTeam = winnerTeam === match.teamA ? match.teamB : winnerTeam === match.teamB ? match.teamA : undefined;
-  if (!winnerTeam || !loserTeam) return `${winner} won${margin ? ` by ${margin}` : ""}`; // winner didn't match either team -- can't name the opponent reliably
+  if (!winnerTeam || !loserTeam) return `${winner} won${margin ? ` ${margin}` : ""}`; // winner didn't match either team -- can't name the opponent reliably
 
-  return `${winnerTeam.shortName} won${margin ? ` by ${margin}` : ""} vs ${loserTeam.shortName}`;
+  return `${winnerTeam.shortName} won${margin ? ` ${margin}` : ""} vs ${loserTeam.shortName}`;
 }
 
 /**

@@ -30,6 +30,7 @@ Format: `[version] YYYY-MM-DD — description`
 - 25 cases (`npx tsx`): summary derivation (no-completed-yet, fails-safe next-entry, live detection, skip-bad-result-fallback), recap text accuracy (6 outcome types incl. the spec's own example), `getMatchesForCompetition`/`getAllCompetitionIds` against real data + unknown/empty/null ids + malformed competition.
 - 8 recomputation cases (`npx tsx`): a synthetic series walked upcoming -> live -> post-match -> upcoming again, confirming `isLive`, series inclusion in "All", and `getMatchesForCompetition` all reflect each in-place mutation immediately, no caching.
 - `tsc --noEmit` and `npm run build` clean; build now generates 11 static `/schedule/series/[competitionId]` pages. Grep-confirmed caller boundaries for all 4 new exports plus `ScheduleRow`.
+- Live-verification catch: `formatLastResult()` initially double-prefixed "by" (mock `margin` values already include it, e.g. `"by 4 wickets"`) -- fixed to join with a plain space, re-verified against real data before shipping.
 
 ## [1.0.112] 2026-07-24
 
