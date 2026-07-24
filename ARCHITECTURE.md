@@ -163,7 +163,7 @@ usual field-level concerns:
   mid-season), add it the same way `refreshRankings()` was added, rather
   than inventing the call site later.
 
-**Worked example — Schedule tab (v1.0.110, simplified v1.0.111, "All" re-grouped by series v1.0.112):**
+**Worked example — Schedule tab (v1.0.110, simplified v1.0.111, "All" re-grouped by series v1.0.112, "All" collapsed to summary rows v1.0.113):**
 
 Schedule is a plain tab row: "All" (default, every match app-wide, in
 ascending date order, grouped by month) plus one tab per team the user has
@@ -297,6 +297,74 @@ too, not just the UI on top of it.
     `react-test-renderer`) switching away from and back to "All" — 5/5 pass,
     confirming the hook re-fetches fresh rather than reusing its mount-time
     result.
+  - **No-op placeholder:** none needed yet, same reasoning as above.
+- **"All" collapsed to one summary row per series, full match list moved to
+  a dedicated page (v1.0.113):** v1.0.112 rendered every one of a
+  qualifying series' matches inline under its heading — more detail than
+  the "All" tab needed. v1.0.113 collapses each qualifying series to a
+  single row (name, a LIVE badge if anything in it is live right now, the
+  date of its next live/upcoming match, and a one-line "Last: ..." recap
+  of its most recently completed match) and moves the full match list to a
+  new page, `/schedule/series/[competitionId]`. The inclusion rule
+  (ongoing/upcoming only) and ordering (true start date ascending, stable)
+  from v1.0.112 are UNCHANGED — this only changes presentation, not which
+  series qualify or in what order.
+  - **Interface, same file, no new data source:** `summarizeSeriesGroup()`
+    and `formatLastResult()` are pure presentation derivations over an
+    already-fetched `SeriesGroup` — like `groupScheduleByMonth`, not a
+    data-access boundary, so they don't need the async/interface treatment
+    on their own. `getMatchesForCompetition(competitionId)` is the
+    dedicated page's sanctioned data source — every match for ONE series,
+    past included, no inclusion-rule filtering (a fully-concluded series
+    still gets a complete page; that rule is specific to which series earn
+    an "All" row, not to what a series' own page shows once you're on it).
+    `getAllCompetitionIds()` backs the new page's `generateStaticParams`
+    through the same `safeCompetition()` validation, rather than the page
+    re-deriving that logic itself.
+  - **Fail-safe on the two edge cases the product spec called out
+    explicitly:** a series with no completed match yet → `lastCompletedEntry`
+    is `undefined`, the row simply omits the "Last:" line rather than
+    rendering something broken. A series that qualified (has a live/
+    upcoming match somewhere in the UNBOUNDED dataset) but has none inside
+    the windowed `entries` actually shown → `nextEntry` is `undefined`, the
+    row omits the date rather than showing a blank or garbage one. Verified
+    with real constructed `SeriesGroup` objects for both cases (`npx tsx`).
+  - **Malformed-result hardening:** `hasUsableResult()` (private to
+    `lib/teamSchedule.ts`) now requires a past match's `result.winner` to
+    be `"draw"`/`"tie"`/`"no-result"` OR to genuinely match one of that
+    match's own two teams before it's eligible to become a series'
+    `lastCompletedEntry` — a `winner` string that matches neither (stale/
+    malformed data) is treated the same as "no usable result," the same
+    "can't attribute this" posture `safeTeamCode` already takes elsewhere
+    in this file. `formatLastResult()` keeps its own independent fallback
+    for this same case regardless, as a second line of defense. Tested: a
+    series whose most-recent past match has an unusable winner correctly
+    falls back to an earlier match that has a usable one, rather than
+    showing nothing or crashing (`npx tsx`).
+  - **Recap text accuracy:** `formatLastResult()` tested against a real win
+    ("KKR won by 7 wickets vs RR," matching the product spec's own
+    example, plus the same case with `teamA`/`teamB` swapped to confirm the
+    winner is identified by matching `result.winner` to a team code, not by
+    positional assumption), a draw, a tie, a no-result, a missing `result`
+    object entirely (empty string, not a crash), and a malformed winner
+    matching neither team (falls back to naming just the winner, no
+    fabricated opponent) — 6/6 pass.
+  - **Recomputation:** no caching, same as every other function in this
+    file. A synthetic single-match series was walked through upcoming →
+    live → post-match (with a result) → upcoming again, calling
+    `getSeriesGroupedSchedule()`/`summarizeSeriesGroup()` and
+    `getMatchesForCompetition()` fresh after each in-place mutation:
+    `isLive` flipped immediately on the live transition, the series
+    correctly dropped from "All" the moment its only match completed,
+    `getMatchesForCompetition()` kept showing it regardless (no inclusion-
+    rule filtering there), and the series correctly reappeared once
+    upcoming again — 8/8 pass.
+  - **Dedicated page reuses the existing card format, not a new one:**
+    `ScheduleRow` (plus its `TeamChip`/`fmtDate`/`fmtTime` helpers) was
+    extracted from app/schedule/page.tsx into `components/ScheduleRow.tsx`
+    specifically so the new page could render the exact same match card
+    already used everywhere else in Schedule, rather than a second,
+    subtly-different card style for the same `ScheduleEntry` shape.
   - **No-op placeholder:** none needed yet, same reasoning as above.
 
 **When starting a new real-data-readiness item** (win probability, delivery

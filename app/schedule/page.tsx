@@ -9,42 +9,56 @@ import {
   getSeriesGroupedSchedule,
   getTeamSchedule,
   groupScheduleByMonth,
+  summarizeSeriesGroup,
+  formatLastResult,
   type ScheduleEntry,
   type SeriesGroup,
+  type SeriesSummary,
 } from "@/lib/teamSchedule";
+import ScheduleRow, { fmtDate } from "@/components/ScheduleRow";
 
 // ============================================================================
-// Schedule tab — v1.0.110, simplified v1.0.111, "All" re-grouped by series v1.0.112
+// Schedule tab — v1.0.110, simplified v1.0.111, "All" re-grouped by series
+// v1.0.112, "All" collapsed to one row per series v1.0.113
 // ============================================================================
 // A tab row of "All" (default) plus one tab per team the user has selected
 // in Filter (nations + franchise teams both count -- see
 // lib/followPrefs.ts's `myTeamCodes()`). A user with no teams selected
 // just sees "All" with no team tabs at all.
 //
-// The two tab kinds render DIFFERENTLY on purpose, as of v1.0.112:
-//   - "All": every ongoing-or-upcoming series/tournament app-wide, grouped
-//     under its own heading (series name), ordered by that series' true
-//     start date ascending and held stable as matches complete -- see
-//     `getSeriesGroupedSchedule` in lib/teamSchedule.ts. A series where
-//     every match has already been played drops out of "All" entirely;
-//     one that still qualifies shows ALL its matches, past included, so a
-//     tournament you're following mid-run reads as one continuous story
-//     rather than losing its results the moment they're final.
-//   - A team tab: unchanged from v1.0.111 -- a flat, month-grouped,
+// The two tab kinds render DIFFERENTLY on purpose:
+//   - "All": one summary row per ongoing-or-upcoming series/tournament
+//     app-wide -- name, a LIVE badge if anything in it is live right now,
+//     the date of its next live/upcoming match, and a one-line "Last: ..."
+//     recap of its most recently completed match. NO individual matches
+//     inline (that was v1.0.112's behavior; v1.0.113 moved the full match
+//     list to a dedicated page instead -- see
+//     app/schedule/series/[competitionId]/page.tsx). Rows are ordered by
+//     each series' true start date ascending, held stable as matches
+//     complete, and a series where every match has already been played
+//     drops out of "All" entirely -- both UNCHANGED from v1.0.112, see
+//     `getSeriesGroupedSchedule` in lib/teamSchedule.ts. Tapping a row
+//     opens that series' dedicated page, which shows ALL of its matches
+//     (past included) in ascending date order.
+//   - A team tab: unchanged since v1.0.111 -- a flat, month-grouped,
 //     chronological list of exactly that team's matches (past, live, and
-//     upcoming), with no series grouping and no completed-series
-//     exclusion. This split is deliberate, not an oversight: per-team
-//     tabs are explicitly deferred, not redesigned, by this change (see
-//     DECISIONS-LOG.md).
+//     upcoming), with no series grouping, no row-collapsing, and no
+//     completed-series exclusion. This split is deliberate, not an
+//     oversight: per-team tabs are explicitly deferred, not redesigned, by
+//     either the v1.0.112 or v1.0.113 change (see DECISIONS-LOG.md).
 // Tapping "All" and tapping a team tab therefore each fetch through their
 // own sanctioned interface (`getSeriesGroupedSchedule` vs.
-// `getTeamSchedule`) -- see `useScheduleTab` below.
+// `getTeamSchedule`) -- see `useScheduleTab` below. `summarizeSeriesGroup`
+// (lib/teamSchedule.ts) is a pure presentation derivation over an already-
+// fetched `SeriesGroup` -- computed fresh every render from `seriesGroups`,
+// not stored in state, so it can never itself go stale independently of
+// the fetch that produced its input.
 //
 // v1.0.111 dropped an earlier two-view split (an all-competitions picker
 // for zero-follows, a separate merged-multi-team view for one-or-more
 // follows) and the win/loss colored left-border strip on a narrowed tab's
 // match cards -- see DECISIONS-LOG.md for why. That simplification is
-// untouched by v1.0.112: no colored strip on any tab, "All" is still the
+// untouched here: no colored strip on any tab or row, "All" is still the
 // same content regardless of follow state.
 //
 // Hydration safety: `followPrefs` starts as `emptyFollowPrefs()` (the same
@@ -108,7 +122,7 @@ export default function SchedulePage() {
           {loading
             ? "Loading…"
             : isAllTab
-            ? `${entries.length} matches · next ~12 months`
+            ? `${seriesGroups.length} ongoing/upcoming series · next ~12 months`
             : `${entries.length} matches · ${tabTeams.find(t => t.code === activeTab)?.shortName ?? activeTab}, next ~12 months`}
         </p>
       </header>
@@ -136,31 +150,26 @@ export default function SchedulePage() {
           </p>
         )}
 
-        {isAllTab
-          ? seriesGroups.map(group => (
-              <div key={group.competition.id}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-1">
-                  {group.competition.name}
-                </p>
-                <div className="space-y-1.5">
-                  {group.entries.map(entry => (
-                    <ScheduleRow key={entry.match.id} entry={entry} focusTeamCode={focusTeamCode} />
-                  ))}
-                </div>
-              </div>
-            ))
-          : monthGroups.map(group => (
-              <div key={group.label}>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-1">
-                  {group.label}
-                </p>
-                <div className="space-y-1.5">
-                  {group.entries.map(entry => (
-                    <ScheduleRow key={entry.match.id} entry={entry} focusTeamCode={focusTeamCode} />
-                  ))}
-                </div>
-              </div>
+        {isAllTab ? (
+          <div className="space-y-1.5">
+            {seriesGroups.map(group => (
+              <SeriesSummaryRow key={group.competition.id} summary={summarizeSeriesGroup(group)} />
             ))}
+          </div>
+        ) : (
+          monthGroups.map(group => (
+            <div key={group.label}>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-1">
+                {group.label}
+              </p>
+              <div className="space-y-1.5">
+                {group.entries.map(entry => (
+                  <ScheduleRow key={entry.match.id} entry={entry} focusTeamCode={focusTeamCode} />
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </main>
   );
@@ -238,102 +247,41 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
   );
 }
 
-function ScheduleRow({ entry, focusTeamCode }: { entry: ScheduleEntry; focusTeamCode?: string }) {
-  const { match, bucket, confirmed } = entry;
-  const isLive = bucket === "live";
-  const isPast = bucket === "past";
-
-  // Used only to decide the WORDING ("Won"/"Lost") from the active tab's
-  // team's perspective -- v1.0.111 deliberately removed the colored
-  // left-border strip and the colored text this used to also drive, so a
-  // match card looks identical whether "All" or a specific team's tab is
-  // active. See DECISIONS-LOG.md.
-  const won = focusTeamCode ? match.result?.winner === focusTeamCode : undefined;
-  const lost =
-    focusTeamCode &&
-    match.result &&
-    match.result.winner !== focusTeamCode &&
-    !["draw", "tie", "no-result"].includes(match.result.winner);
+/**
+ * One row per qualifying series on the "All" tab -- v1.0.113. No inline
+ * matches here on purpose (see module comment): name, a LIVE badge if
+ * `summary.isLive`, the date of `summary.nextEntry` (omitted entirely if
+ * absent -- see `SeriesSummary.nextEntry`'s doc comment for the fail-safe
+ * case this guards), and a one-line "Last: ..." recap of
+ * `summary.lastCompletedEntry` (omitted entirely if the series has no
+ * completed match yet, rather than rendering an empty/broken line).
+ * Tapping the row opens the dedicated per-series page.
+ */
+function SeriesSummaryRow({ summary }: { summary: SeriesSummary }) {
+  const { competition, isLive, nextEntry, lastCompletedEntry } = summary;
 
   return (
     <Link
-      href={`/match/${match.id}`}
-      className="card flex items-start gap-3 px-3 py-3 active:scale-[0.99] transition-transform"
+      href={`/schedule/series/${competition.id}`}
+      className="card flex items-center gap-3 px-3 py-3 active:scale-[0.99] transition-transform"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <TeamChip name={match.teamA.shortName} color={match.teamA.primaryColor} />
-          <span className="text-text-dim text-[10px]">vs</span>
-          <TeamChip name={match.teamB.shortName} color={match.teamB.primaryColor} />
+          <span className="font-bold text-sm truncate">{competition.name}</span>
           {isLive && (
             <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-widest text-live shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-live animate-pulse" />Live
             </span>
           )}
-          {!confirmed && (
-            <span className="text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border border-line text-text-dim shrink-0">
-              Unconfirmed
-            </span>
-          )}
         </div>
-
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span className="text-[9px] text-text-dim">{match.competition.shortName}</span>
-          {match.matchNumber && <span className="text-[9px] text-text-dim">· {match.matchNumber}</span>}
-        </div>
-
-        {isPast && match.result && (
-          <p className="text-[10px] text-text-secondary mt-0.5 leading-snug">
-            {focusTeamCode ? (
-              <span className="font-bold">{won ? "Won" : lost ? "Lost" : "Tied/Drawn"}</span>
-            ) : (
-              <span className="font-bold">
-                {match.result.winner === "draw" ? "Drawn" : match.result.winner === "tie" ? "Tied" : `${match.result.winner} won`}
-              </span>
-            )}
-            {match.result.margin ? ` · ${match.result.margin}` : ""}
-          </p>
+        {lastCompletedEntry && (
+          <p className="text-[10px] text-text-secondary mt-0.5 leading-snug">Last: {formatLastResult(lastCompletedEntry)}</p>
         )}
-        {isLive && match.liveStatusOverride && (
-          <p className="text-[10px] text-cyan font-medium mt-0.5">{match.liveStatusOverride}</p>
-        )}
-
-        <p className="text-[9px] text-text-dim mt-0.5">
-          {confirmed ? `${match.venue.name}, ${match.venue.city}` : "Venue TBD"}
-        </p>
       </div>
 
       <div className="text-right shrink-0">
-        {bucket === "upcoming" && (
-          <>
-            <div className="text-[10px] font-bold num">{fmtTime(match.startTimeIso)}</div>
-            <div className="text-[9px] text-text-dim">{fmtDate(match.startTimeIso)}</div>
-          </>
-        )}
-        {isPast && <div className="text-[9px] text-text-dim">{fmtDate(match.startTimeIso)}</div>}
+        {nextEntry && <div className="text-[9px] text-text-dim">{fmtDate(nextEntry.match.startTimeIso)}</div>}
       </div>
     </Link>
   );
-}
-
-function TeamChip({ name, color }: { name: string; color: string }) {
-  return (
-    <span className="flex items-center gap-1">
-      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-      <span className="font-bold text-sm">{name}</span>
-    </span>
-  );
-}
-
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === tomorrow.toDateString()) return "Tomorrow";
-  return d.toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-}
-function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }

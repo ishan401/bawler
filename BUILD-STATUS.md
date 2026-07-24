@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.112 (deployed)
+**Current version:** v1.0.113 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -69,9 +69,10 @@
 ### Schedule page (`/schedule`)
 
 - ✅ **Tab row** — "All" (default) plus one tab per team the user has selected in Filter (nations + franchise teams both count, `myTeamCodes()` in `lib/followPrefs.ts`); zero teams selected shows "All" only, no team tabs.
-- ✅ **"All" tab (v1.0.112)** — grouped by series/tournament (`Match.competition`), each group headed by the series name, ordered by that series' true start date ascending, held stable throughout its run. Only an ongoing-or-upcoming series appears — a fully-concluded series (every match already played) drops out entirely; a qualifying series shows ALL of its matches, past included. Sanctioned interface: `getSeriesGroupedSchedule()` in `lib/teamSchedule.ts`.
-- ✅ **A team tab** — unchanged, deliberately deferred from the "All" redesign: a flat, chronological, month-grouped list of exactly that team's matches (live/upcoming/past all included, no series grouping, no completed-series exclusion). Sanctioned interface: `getTeamSchedule(teamCode)`.
-- ✅ Past matches show winner + margin; live show pulsing dot; future show time/date. No color-coding by match result on any tab (win/loss text label only, no colored strip — removed in v1.0.111).
+- ✅ **"All" tab (v1.0.113)** — one summary row per ongoing-or-upcoming series/tournament: name, a LIVE badge if anything in it is live right now, the date of its next live/upcoming match, and a one-line "Last: ..." recap of its most recently completed match. No matches listed inline. Ordered by each series' true start date ascending, held stable throughout its run; a fully-concluded series (every match already played) drops out entirely. Sanctioned interface: `getSeriesGroupedSchedule()` + `summarizeSeriesGroup()`/`formatLastResult()` in `lib/teamSchedule.ts`.
+- ✅ **Dedicated series page (`/schedule/series/[competitionId]`, v1.0.113)** — tapping an "All" row opens every match that series has (past, live, upcoming) in ascending date order, same card format as the rest of Schedule. No inclusion-rule filtering here — a fully-concluded series still gets a complete page. Sanctioned interface: `getMatchesForCompetition()`.
+- ✅ **A team tab** — unchanged, deliberately deferred from the "All" redesign: a flat, chronological, month-grouped list of exactly that team's matches (live/upcoming/past all included, no series grouping, no completed-series exclusion, no row-collapsing). Sanctioned interface: `getTeamSchedule(teamCode)`.
+- ✅ Past matches show winner + margin; live show pulsing dot; future show time/date. No color-coding by match result anywhere (win/loss text label only, no colored strip — removed in v1.0.111).
 - ✅ Clean header — title + live match count, no back button (primary nav destination)
 - ✅ Tap to open match page
 
@@ -516,6 +517,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.103** | Spotlight gets a competition-tier gate: international/bilateral matches now also require both teams to be full ICC members (via `getTeamMembershipStatus()`, lib/teamData.ts) before the existing three excitement checks even run -- league/domestic matches (IPL, BBL, PSL, etc.) are unaffected. New `lib/spotlight.ts` export `buildFullMemberLookup()` resolves every team's status once upfront (not per-match) since the underlying check is async; `isSpotlightMatch()` itself stays synchronous. Fixed a real bug found during this work: `useState`'s setter treats a bare function argument as a functional updater, not a value -- `.then(setFullMemberLookup)` was calling the resolved lookup function against the previous (null) state instead of storing it, crashing the homepage. Fixed via `.then(lookup => setFullMemberLookup(() => lookup))` (DECISIONS-LOG.md FY33) |
+
+## Changelog additions (v1.0.113)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.113** | Schedule "All" tab collapsed from per-series inline match lists to one summary row per series (name, LIVE badge, next-match date, "Last: ..." result recap) -- no match list, no score detail beyond the one-line recap. New dedicated page (`/schedule/series/[competitionId]`) shows a series' full match history (past included, no inclusion-rule filtering) in ascending date order via the extracted, shared `ScheduleRow` component. Series inclusion/ordering rules unchanged from v1.0.112; per-team tabs unaffected. 25 malformed/edge-case + 8 recomputation tests pass (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.112)
 

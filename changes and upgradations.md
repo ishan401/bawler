@@ -3,6 +3,34 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.113] 2026-07-24
+
+### Schedule "All" tab collapsed to one row per series; new dedicated series page
+
+#### Context
+- v1.0.112's series-grouping/exclusion/ordering was correct, but "All" showed every qualifying series' matches listed inline underneath its heading -- more detail than intended. Collapsed to one summary row per series (name, LIVE badge, next-match date, "Last: ..." recap); moved the full match list to a new dedicated page. Inclusion rule and ordering unchanged. Per-team tabs unaffected.
+
+#### Added -- `lib/teamSchedule.ts`
+- `summarizeSeriesGroup(group)`: derives `{ competition, isLive, nextEntry, lastCompletedEntry }` from an already-fetched `SeriesGroup`. Fails safe: `nextEntry`/`lastCompletedEntry` are `undefined` (not blank/broken) when there's nothing to show.
+- `formatLastResult(entry)`: "KKR won by 7 wickets vs RR"-style recap text; handles draw/tie/no-result/missing-result/malformed-winner cases.
+- `hasUsableResult()` strengthened: a past match's `result.winner` must now be `"draw"`/`"tie"`/`"no-result"` or genuinely match one of its own two teams to be eligible as a series' `lastCompletedEntry`.
+- `getMatchesForCompetition(competitionId)`: every match for one series (past included), no inclusion-rule filtering -- backs the new dedicated page.
+- `getAllCompetitionIds()`: every valid competition id in the dataset, through `safeCompetition()` -- backs the new page's `generateStaticParams`.
+
+#### Added -- `app/schedule/series/[competitionId]/page.tsx` (new route)
+- Async server component; renders all of one series' matches ascending via the shared `ScheduleRow`. Distinct from the pre-existing `/schedule/[competitionId]` route (still used by `MiniStandings`, out of scope here).
+
+#### Changed -- `components/ScheduleRow.tsx` (new, extracted)
+- `ScheduleRow`/`TeamChip`/`fmtDate`/`fmtTime` moved out of `app/schedule/page.tsx` so the new dedicated page reuses the identical card format.
+
+#### Changed -- `app/schedule/page.tsx`
+- "All" tab now renders one `SeriesSummaryRow` per qualifying series (Link to the new dedicated page) instead of `ScheduleRow`-per-match under each heading. Header text now reads "N ongoing/upcoming series" for "All".
+
+#### Verified
+- 25 cases (`npx tsx`): summary derivation (no-completed-yet, fails-safe next-entry, live detection, skip-bad-result-fallback), recap text accuracy (6 outcome types incl. the spec's own example), `getMatchesForCompetition`/`getAllCompetitionIds` against real data + unknown/empty/null ids + malformed competition.
+- 8 recomputation cases (`npx tsx`): a synthetic series walked upcoming -> live -> post-match -> upcoming again, confirming `isLive`, series inclusion in "All", and `getMatchesForCompetition` all reflect each in-place mutation immediately, no caching.
+- `tsc --noEmit` and `npm run build` clean; build now generates 11 static `/schedule/series/[competitionId]` pages. Grep-confirmed caller boundaries for all 4 new exports plus `ScheduleRow`.
+
 ## [1.0.112] 2026-07-24
 
 ### Schedule "All" tab re-grouped by series/tournament

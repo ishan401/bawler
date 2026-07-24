@@ -415,6 +415,153 @@ export async function getSeriesGroupedSchedule(opts?: ScheduleOptions): Promise<
   return groups;
 }
 
+// ============================================================================
+// "All" tab rows + the per-series dedicated page -- v1.0.113 (DECISIONS-LOG.md)
+// ============================================================================
+// v1.0.112 rendered every one of a qualifying series' matches inline under
+// its heading on the "All" tab. That was more detail than intended -- v1.0.113
+// collapses each qualifying series to a single summary row (name, a LIVE
+// badge if anything in it is currently live, its next live/upcoming match's
+// date, and a one-line "Last: ..." recap of its most recently completed
+// match) and moves the full match list to a new dedicated page,
+// `/schedule/series/[competitionId]`. The series inclusion rule (ongoing/
+// upcoming only) and ordering (true start date ascending, stable) are
+// UNCHANGED from v1.0.112 -- this only changes how a qualifying series is
+// presented on "All", not which series qualify or in what order.
+// ============================================================================
+
+export interface SeriesSummary {
+  competition: Competition;
+  /** True if ANY of this series' matches within `entries` is currently live. */
+  isLive: boolean;
+  /** The earliest entry in `entries` that is live or upcoming -- "the
+   * series' next live-or-upcoming match." `undefined` only in the
+   * pathological case where a series qualified (has a live/upcoming match
+   * SOMEWHERE in the unbounded dataset, per `getSeriesGroupedSchedule`)
+   * but none of it falls inside the display window passed to
+   * `summarizeSeriesGroup`'s source `SeriesGroup` -- fails safe by simply
+   * omitting the "next" date rather than showing a blank/garbage one. */
+  nextEntry?: ScheduleEntry;
+  /** The most recently completed match with a usable `result` (a defined
+   * `winner`), or `undefined` if this series has no completed match yet
+   * (nothing to recap) or its only past match(es) lack usable result data
+   * (same "nothing correct to show" posture as excluding a match with no
+   * usable date elsewhere in this file, rather than rendering a broken
+   * recap line). */
+  lastCompletedEntry?: ScheduleEntry;
+}
+
+function hasUsableResult(match: Match): boolean {
+  const r: unknown = (match as unknown as Record<string, unknown>).result;
+  if (!isObjectLike(r) || typeof r.winner !== "string" || r.winner.length === 0) return false;
+  if (r.winner === "draw" || r.winner === "tie" || r.winner === "no-result") return true;
+  // A real, attributable winner needs to actually be one of this match's
+  // two teams -- a `winner` string that matches neither (malformed/stale
+  // data referencing a team no longer on this match) isn't usable for a
+  // "X won vs Y" recap, the same "can't attribute this" posture
+  // `safeTeamCode` takes elsewhere in this file.
+  return r.winner === match.teamA.code || r.winner === match.teamB.code;
+}
+
+/**
+ * Derives the "All" tab's one-row-per-series summary from an already-
+ * fetched `SeriesGroup` (see `getSeriesGroupedSchedule`). Pure presentation
+ * derivation over already-validated data -- like `groupScheduleByMonth`,
+ * not a data-access boundary, so it doesn't need the async/interface
+ * treatment on its own. `group.entries` is already sorted ascending by the
+ * time it reaches here, so the "next" entry is simply the first non-past
+ * one, and the "last completed" entry is found by scanning backward for
+ * the first past one with usable result data.
+ */
+export function summarizeSeriesGroup(group: SeriesGroup): SeriesSummary {
+  const isLive = group.entries.some(e => e.bucket === "live");
+  const nextEntry = group.entries.find(e => e.bucket !== "past");
+
+  let lastCompletedEntry: ScheduleEntry | undefined;
+  for (let i = group.entries.length - 1; i >= 0; i--) {
+    const entry = group.entries[i];
+    if (entry.bucket === "past" && hasUsableResult(entry.match)) {
+      lastCompletedEntry = entry;
+      break;
+    }
+  }
+
+  return { competition: group.competition, isLive, nextEntry, lastCompletedEntry };
+}
+
+/**
+ * Every valid match for ONE series/tournament (`competitionId`), live,
+ * upcoming, AND past, sorted ascending -- the dedicated per-series page's
+ * sanctioned data source. Deliberately does NOT apply the "ongoing/
+ * upcoming only" inclusion rule `getSeriesGroupedSchedule` uses for the
+ * "All" row list -- once a user has tapped into a specific series, a fully
+ * -concluded one should still show its complete match history, not an
+ * empty page. Reads through `getFullSchedule`/`safeCompetition` the same
+ * as every other function in this file; a `competitionId` that matches no
+ * valid match (unknown id, or a malformed/empty string) returns `[]`
+ * rather than throwing, letting the page render its own not-found state.
+ */
+export async function getMatchesForCompetition(
+  competitionId: string,
+  opts?: ScheduleOptions
+): Promise<ScheduleEntry[]> {
+  if (typeof competitionId !== "string" || competitionId.length === 0) return [];
+  const entries = await getFullSchedule(opts);
+  return entries.filter(entry => safeCompetition(entry.match)?.id === competitionId);
+}
+
+/**
+ * "KKR won by 7 wickets vs RR"-style one-line recap of a completed match,
+ * for the "All" tab's per-series summary row (`SeriesSummaryRow` in
+ * app/schedule/page.tsx). Kept here rather than in the page component
+ * itself so it's pure-function-testable the same way as every other
+ * presentation derivation in this file, and so its "winner doesn't
+ * actually match either team" fallback lives next to `hasUsableResult()`,
+ * the function that's supposed to prevent this from ever firing in
+ * practice -- `entry` is expected to have already passed that check, but
+ * this stays defensive on its own regardless.
+ */
+export function formatLastResult(entry: ScheduleEntry): string {
+  const { match } = entry;
+  const result = match.result;
+  if (!result) return "";
+  const { winner, margin } = result;
+
+  if (winner === "draw") return `Drawn: ${match.teamA.shortName} vs ${match.teamB.shortName}`;
+  if (winner === "tie") return `Tied: ${match.teamA.shortName} vs ${match.teamB.shortName}`;
+  if (winner === "no-result") return `No result: ${match.teamA.shortName} vs ${match.teamB.shortName}`;
+
+  const winnerTeam = winner === match.teamA.code ? match.teamA : winner === match.teamB.code ? match.teamB : undefined;
+  const loserTeam = winnerTeam === match.teamA ? match.teamB : winnerTeam === match.teamB ? match.teamA : undefined;
+  if (!winnerTeam || !loserTeam) return `${winner} won${margin ? ` by ${margin}` : ""}`; // winner didn't match either team -- can't name the opponent reliably
+
+  return `${winnerTeam.shortName} won${margin ? ` by ${margin}` : ""} vs ${loserTeam.shortName}`;
+}
+
+/**
+ * Every distinct, validly-identified competition id present in the
+ * dataset (unbounded by default -- see `UNBOUNDED_WINDOW_DAYS`), through
+ * `safeCompetition()` so a match with malformed/missing competition
+ * metadata can't contribute a garbage id. Exists to back build-time
+ * enumeration for the dedicated per-series page's `generateStaticParams`
+ * (app/schedule/series/[competitionId]/page.tsx) WITHOUT that page having
+ * to re-derive the same validation logic itself -- keeps `safeCompetition`
+ * the one place this check happens, consistent with the rest of this
+ * file's single-interface discipline. Deliberately includes fully-
+ * concluded series too (unlike `getSeriesGroupedSchedule`'s "All" rows) --
+ * the dedicated page itself has no inclusion-rule restriction, so every
+ * competition that has ever had a valid match should get a page.
+ */
+export async function getAllCompetitionIds(opts?: ScheduleOptions): Promise<string[]> {
+  const entries = await getFullSchedule(opts ?? { windowDays: UNBOUNDED_WINDOW_DAYS });
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    const competition = safeCompetition(entry.match);
+    if (competition) ids.add(competition.id);
+  }
+  return Array.from(ids);
+}
+
 /**
  * Groups an already-fetched, already-sorted schedule into month buckets
  * for rendering (`"July 2026"`, etc.). Pure presentation grouping, not a
