@@ -3,6 +3,29 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.110] 2026-07-24
+
+### Schedule tab redefault: my-teams merged view
+
+#### Context
+- When a user has one or more teams selected in Filter (nations or franchise teams), Schedule should open directly to a merged, chronological, month-grouped list of those teams' matches instead of the all-competitions picker. Zero teams selected keeps today's behavior unchanged.
+
+#### Added -- `lib/followPrefs.ts`
+- `myTeamCodes(prefs)`: resolves the full set of `Team.code`s a user follows as a team, combining franchise `prefs.teams` with national teams resolved from `prefs.nations` (a real reverse lookup, not a pass-through -- a nation's ISO code isn't always its team's own code, e.g. South Africa is `"SA"` but its country field is `"RSA"`).
+
+#### Added -- `lib/teamSchedule.ts` (new, third real-data-readiness adapter)
+- `getTeamSchedule(teamCode)` / `getMergedTeamSchedule(teamCodes)`: the sanctioned, async-from-day-one interface for reading team schedules -- composes per-team fetches, dedupes matches between two followed teams, sorts chronologically, filters to a ~1-year window.
+- `toScheduleEntry()`: defensive validation for malformed fixture data -- missing/malformed date or unrecognized status excludes a match; missing venue or an explicit unconfirmed flag keeps it but marks it TBD instead of presenting it as certain.
+- New optional `Match.fixtureConfirmed?: boolean` field (`lib/types.ts`), defaulting to confirmed when absent.
+
+#### Changed -- `app/schedule/page.tsx`
+- Branches on `myTeamCodes(followPrefs).length > 0`: renders the new `MyTeamsScheduleView` (chip row: All + per-team, merged month-grouped list) or the pre-existing `AllCompetitionsView` (unchanged), hydration-safe the same way `app/page.tsx` handles `followPrefs`, reactive to Filter changes via `onFollowPrefsChanged`.
+
+#### Verified
+- 20 real malformed-input test cases (`npx tsx`) against `toScheduleEntry()` -- all degrade to exclude-or-mark-TBD correctly, no crashes.
+- Recomputation correctness tested two ways: mutated a mock match's status between two interface calls (no stale cache), and verified via `react-test-renderer` that the consuming hook's dependency array is keyed on team-code values, not array references.
+- Grep-confirmed single-interface boundary; `tsc --noEmit` and `npm run build` clean.
+
 ## [1.0.109] 2026-07-23
 
 ### Close the stale-mutation gap flagged in the v1.0.108 real-data-readiness pass

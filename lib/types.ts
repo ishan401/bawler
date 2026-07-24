@@ -131,6 +131,18 @@ export interface Match {
     teamA: string[];
     teamB: string[];
   };
+  // Whether this fixture is officially confirmed by the governing body, or
+  // still provisional (schedule announced but venue/date/teams pending
+  // final confirmation -- common for early-announced tours or knockout
+  // placeholder fixtures like "Winner Group A vs Runner-up Group B").
+  // Defaults to true/confirmed when absent -- every fixture in this mock
+  // dataset is fully confirmed; a real provider sets this explicitly.
+  // Read through lib/teamSchedule.ts, never accessed directly -- see that
+  // file's module comment and ARCHITECTURE.md's real-data-readiness
+  // pattern for why a loosely-typed boolean like this needs a format
+  // guard at its one sanctioned read site, the same as Team's color
+  // fields do in lib/teamAccentColor.ts.
+  fixtureConfirmed?: boolean;
 }
 
 export interface Innings {

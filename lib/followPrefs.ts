@@ -276,3 +276,44 @@ export function followedMatchSide(match: Match, prefs: FollowPrefs): "A" | "B" |
 
   return null;
 }
+
+/**
+ * The full set of `Team.code`s the user is following AS A TEAM -- combining
+ * both Filter categories that represent "a specific team's matches" from a
+ * schedule standpoint: the dedicated Team category (franchise teams, stored
+ * directly as `Team.code` in `prefs.teams`) AND the Nation category
+ * (national teams, stored as `Team.country` -- an ISO code that is NOT
+ * always equal to the team's own `code`, e.g. South Africa's team code is
+ * "SA" but its `country` field is "RSA" -- so this can't be a simple
+ * pass-through).
+ *
+ * v1.0.110 -- built for the Schedule tab redefault (see ARCHITECTURE.md's
+ * lib/teamSchedule.ts worked example and DECISIONS-LOG.md): "does this user
+ * have any teams selected" and "which teams" both need to treat following
+ * India (a nation) and following Mumbai Indians (a franchise team) as
+ * equally strong "this is one of my teams" signals, the same way
+ * `qualifyMatch`'s Tier 1 already treats nation and team follows as equal-
+ * weight personalization signals for "for you". This is the SAME
+ * `FollowPrefs` store `qualifyMatch` reads -- not a second preference
+ * store -- just a different derived view of it (a flat list of team codes
+ * instead of a per-match qualification check).
+ *
+ * Deliberately exported from this file (not duplicated in
+ * lib/teamSchedule.ts): resolving "what does this user's follow selection
+ * mean in terms of team codes" is a FollowPrefs-shaped question, the same
+ * category as `followedMatchSide` above. lib/teamSchedule.ts's job starts
+ * one step later -- given a set of team codes, fetch their schedules --
+ * and stays agnostic of how those codes were chosen.
+ */
+export function myTeamCodes(prefs: FollowPrefs): string[] {
+  const codes = new Set<string>(prefs.teams);
+  if (prefs.nations.length > 0) {
+    for (const team of Object.values(NATIONAL_TEAMS)) {
+      const nationId = nationOf(team.code, team.country, team.type);
+      if (nationId && prefs.nations.includes(nationId)) {
+        codes.add(team.code);
+      }
+    }
+  }
+  return Array.from(codes);
+}

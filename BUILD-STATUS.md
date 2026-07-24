@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.109 (deployed)
+**Current version:** v1.0.110 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -514,6 +514,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.103** | Spotlight gets a competition-tier gate: international/bilateral matches now also require both teams to be full ICC members (via `getTeamMembershipStatus()`, lib/teamData.ts) before the existing three excitement checks even run -- league/domestic matches (IPL, BBL, PSL, etc.) are unaffected. New `lib/spotlight.ts` export `buildFullMemberLookup()` resolves every team's status once upfront (not per-match) since the underlying check is async; `isSpotlightMatch()` itself stays synchronous. Fixed a real bug found during this work: `useState`'s setter treats a bare function argument as a functional updater, not a value -- `.then(setFullMemberLookup)` was calling the resolved lookup function against the previous (null) state instead of storing it, crashing the homepage. Fixed via `.then(lookup => setFullMemberLookup(() => lookup))` (DECISIONS-LOG.md FY33) |
+
+## Changelog additions (v1.0.110)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.110** | Schedule tab redefault: a user with one or more teams selected in Filter now sees Schedule open directly to a merged, chronological, month-grouped list of those teams' matches (All + per-team chip row, narrows in place) instead of the all-competitions picker -- zero teams selected keeps today's behavior. New `lib/teamSchedule.ts` adapter (third real-data-readiness worked example, ARCHITECTURE.md) is the sanctioned async interface, tested against 20 real malformed-fixture inputs and two recomputation scenarios (stale-cache check, hook dependency-array check) (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 
