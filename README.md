@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.110)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.111)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.110 mock) — real data integration next.
+**Status:** UI complete (v1.0.111 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -108,9 +108,10 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 ## Schedule tab (`/schedule`)
 
-- **My-teams redefault (v1.0.110)** — a user with one or more teams selected in Filter (nations or franchise teams both count, see `myTeamCodes()` in `lib/followPrefs.ts`) sees Schedule open directly to a merged, chronological, month-grouped list of live/upcoming/past matches for those teams, instead of the all-competitions picker. Chip row: "All" plus one chip per selected team, narrows the same already-fetched list in place (no navigation). Reactive to Filter changes while Schedule is open (`onFollowPrefsChanged`), same as the homepage's "for you" row.
-- **Zero teams selected** — unchanged: the all-competitions picker (`AllCompetitionsView`), sorted by popularity, drilling into `/schedule/[competitionId]` then `/schedule/[competitionId]/[teamCode]`.
-- **`lib/teamSchedule.ts`** — the sanctioned async interface behind the my-teams view (`getTeamSchedule`/`getMergedTeamSchedule`); see "Key data rules" below and `ARCHITECTURE.md` for the full real-data-readiness treatment (malformed-fixture handling, dedup, the ~1-year window).
+- **Tab row (v1.0.111)** — "All" (default, every live/upcoming/past match app-wide, ascending date order, grouped by month, spanning ~1 year) plus one tab per team selected in Filter (nations or franchise teams both count, see `myTeamCodes()` in `lib/followPrefs.ts`). Tapping a team's tab narrows the same list to just that team's matches; tapping "All" returns to everything. Zero teams selected shows "All" only, with no team tabs — same content either way, since "All" never depended on follow state. Reactive to Filter changes while Schedule is open (`onFollowPrefsChanged`), same as the homepage's "for you" row; falls back to "All" if the active tab's team gets unfollowed.
+- Match cards look identical regardless of which tab is active — no color-coding by result (the v1.0.110 win/loss colored left-border strip and colored text were both removed in v1.0.111); the "Won"/"Lost" text label itself still reflects the active tab's team perspective, just uncolored.
+- **`lib/teamSchedule.ts`** — the sanctioned async interface (`getFullSchedule()` for "All", `getTeamSchedule(teamCode)` for a team tab, sharing one internal validator); see "Key data rules" below and `ARCHITECTURE.md` for the full real-data-readiness treatment (malformed-fixture handling, the ~1-year window).
+- `/schedule/[competitionId]` and `/schedule/[competitionId]/[teamCode]` still exist as drill-down routes reachable from `MiniStandings`, but are no longer linked from the main Schedule tab itself.
 
 ## Table page (`/table`)
 
@@ -196,6 +197,6 @@ lib/
 ├── followPrefs.ts      # FollowPrefs model, qualifyMatch()/isTier1Match(), sanitizeFollowPrefs(), localStorage persistence + change event
 ├── followNudge.ts      # empty-state Filter nudge (first-N-sessions, dismissible)
 ├── heroSelection.ts    # selectHeroMatch() — 3-tier deterministic hero-match rule (prominence, live stakes, live runway)
-├── teamSchedule.ts      # getTeamSchedule()/getMergedTeamSchedule() — real-data-ready async schedule adapter behind Schedule's my-teams redefault
+├── teamSchedule.ts      # getFullSchedule()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All + per-team tabs
 └── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
 ```

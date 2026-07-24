@@ -163,71 +163,81 @@ usual field-level concerns:
   mid-season), add it the same way `refreshRankings()` was added, rather
   than inventing the call site later.
 
-**Worked example — Schedule tab's my-teams redefault (v1.0.110):**
+**Worked example — Schedule tab (v1.0.110, simplified v1.0.111):**
 
-When a user has one or more teams selected in Filter (nations and franchise
-teams both count — see `lib/followPrefs.ts`'s `myTeamCodes()`), the Schedule
-tab opens directly to a merged, chronological, month-grouped list of those
-teams' matches instead of the all-competitions picker. This one needed the
-pattern applied to a dataset that's currently read out of flat, in-memory
-mock arrays (`ALL_LIVE_MATCHES`/`ALL_PAST_MATCHES`/`ALL_UPCOMING_MATCHES` in
-`lib/mockData.ts`) but will realistically become a per-team fetch once a
-real fixture feed exists — most cricket data providers expose schedules as
-"give me team X's fixtures," not "give me every fixture ever and I'll
-filter it myself."
+Schedule is a plain tab row: "All" (default, every match app-wide, in
+ascending date order, grouped by month) plus one tab per team the user has
+selected in Filter (nations and franchise teams both count — see
+`lib/followPrefs.ts`'s `myTeamCodes()`). Tapping a team tab narrows the same
+list to just that team; tapping "All" shows everything again. v1.0.110
+originally also merged every followed team into one combined view behind
+"All," with a separate all-competitions-picker as the zero-follows default —
+that split was real, unnecessary complexity once "All" was redefined to mean
+literally every match app-wide instead of "every match my followed teams
+happen to be in": one view, one list style, a tab row that only changes
+which team (if any) filters it. The simplification is as much a part of
+this pattern as the original build — real-data-readiness doesn't mean every
+feature accretes complexity forever; when a requirement changes in a way
+that makes an earlier adapter's shape over-general, simplify the adapter
+too, not just the UI on top of it.
 
-- **Interface:** `lib/teamSchedule.ts` exports `getTeamSchedule(teamCode)`
-  (the fundamental per-team unit, written as the shape a real provider's
-  endpoint would actually take) and `getMergedTeamSchedule(teamCodes)` (the
-  sanctioned entry point for the redefault's merged view — composes N calls
-  to the first, dedupes by match id so a match between two followed teams
-  shows once, not twice). `app/schedule/page.tsx` reads through these two
-  functions only, never `ALL_LIVE_MATCHES`/etc. directly, for this view.
-  (The zero-teams-selected default view — today's all-competitions picker —
-  is untouched and still reads those arrays directly for its own, unrelated
-  purpose; this adapter only governs the my-teams path.)
+- **Interface:** `lib/teamSchedule.ts` exports `getFullSchedule()` (every
+  valid match app-wide within the window — the "All" tab's data source) and
+  `getTeamSchedule(teamCode)` (one team's matches — a followed-team tab's
+  data source). Both share one internal implementation
+  (`scheduleEntries(filterTeamCode?, opts?)`) that validates every match the
+  same way either way; the only difference is whether a team filter is
+  applied — exactly the shape a real provider's "all fixtures" vs "team X's
+  fixtures" endpoints would take. `app/schedule/page.tsx` reads through
+  these two functions only, never `ALL_LIVE_MATCHES`/`ALL_PAST_MATCHES`/
+  `ALL_UPCOMING_MATCHES` directly (grep-confirmed). v1.0.110's
+  `getMergedTeamSchedule(teamCodes)` — composing N per-team calls and
+  deduping — is gone: nothing merges multiple teams into one view anymore,
+  so there was nothing left for it to do.
 - **Promises from day one:** both functions return `Promise<ScheduleEntry[]>`,
   resolving synchronously from mock arrays today. Consumed through a
-  `useTeamSchedule(teamCodes)` hook using the same hydration-safe
+  `useScheduleTab(tab)` hook using the same hydration-safe
   `useState(placeholder)` + `useEffect` pattern as `NationalRankBadge` and
-  `useMatchAccentColors` — an empty list on the first pass (matching what
-  the server renders, since `followPrefs` itself starts empty pre-mount),
-  the real merged schedule after mount.
-- **Values, not references, from day one:** learned from the v1.0.109
-  correction rather than repeating it — `useTeamSchedule`'s effect depends
-  on a `key` string (`teamCodes` sorted and joined), not the `teamCodes`
-  array reference, which is a new object every render regardless of whether
-  its contents changed. Verified with a real test (temporarily exporting
-  the hook, `react-test-renderer`): a new array reference with the same
-  values doesn't perturb the result, and an actual change in the followed
-  team set correctly triggers a refetch reflecting the new teams.
-- **Malformed-input hardening:** `Match.startTimeIso`/`venue`/`status` are
-  typed as required fields, but that's compile-time-only — a real fixture
-  feed can send a missing/malformed date, a null venue (ground not yet
-  confirmed), or an unrecognized status. `toScheduleEntry()` in
-  `lib/teamSchedule.ts` is the one place all of that gets resolved, with a
-  deliberate two-way split rather than one blanket rule: no usable date or
-  unrecognized status → excluded (nothing correct to sort/group/bucket it
-  by); no usable venue, or an explicit `Match.fixtureConfirmed: false` (a
-  new optional field, `lib/types.ts`, defaulting to confirmed when absent)
-  → kept, but flagged `confirmed: false` on its `ScheduleEntry` and
-  rendered with an "Unconfirmed"/TBD treatment rather than presented with
-  the same certainty as an official fixture. Tested with 20 real,
-  deliberately malformed inputs (`npx tsx`, not a description) — null/
-  undefined/string top-level input, missing team codes, missing/malformed/
-  out-of-window dates, missing/unrecognized status, null/missing venue, a
-  malformed non-boolean `fixtureConfirmed`, and a missing `id` — all
-  degrade to exactly the exclude-or-mark-TBD path described above, never a
-  crash or a silently-wrong entry.
-- **No client-side caching across calls:** `getTeamSchedule`/
-  `getMergedTeamSchedule` re-read the underlying arrays fresh on every
-  call — no memoization keyed by team code that could mask a status change
-  a real feed pushed between two calls. Verified with a real test: mutated
-  a mock match's `status` from `"upcoming"` to `"live"` in place between two
-  calls to each function and confirmed the second call's `bucket` reflects
-  the change — the same class of staleness bug as the Digest narrative-
-  threshold cache and the pre-v1.0.109 accent-color hook, checked here from
-  day one instead of needing a later correction.
+  `useMatchAccentColors` — an empty list on the first pass, the real
+  schedule after mount.
+- **Values, not references — simpler this time, not just fixed this time:**
+  v1.0.110's equivalent hook had to depend on a derived `key` string because
+  its input was an array of team codes (a new reference every render
+  regardless of content). v1.0.111's `useScheduleTab` depends on `tab`
+  directly — "all" or a single team code, a plain string primitive — so
+  there's no array-identity trap left to guard against at all. Worth
+  noting as its own lesson: simplifying the underlying requirement
+  (one-team-or-everything instead of an arbitrary merged set) didn't just
+  remove UI complexity, it removed an entire class of bug risk from the
+  data layer along with it. Verified with a real test (temporarily
+  exporting the hook, `react-test-renderer`): switching the active tab
+  through "all" → a team → a different team → back to "all" correctly
+  recomputes and reflects each tab's own matches every time.
+- **Malformed-input hardening:** unchanged from v1.0.110 — `toScheduleEntry()`
+  in `lib/teamSchedule.ts` is still the one place a raw match gets resolved,
+  with the same deliberate two-way split: no usable date or unrecognized
+  status → excluded (nothing correct to sort/group/bucket it by); no usable
+  venue, or an explicit `Match.fixtureConfirmed: false` → kept, but flagged
+  `confirmed: false` and rendered with an "Unconfirmed"/TBD treatment.
+  Re-tested with the same 20 real, deliberately malformed inputs after the
+  rewrite (`npx tsx`, not assumed-still-correct) — all 20 still pass.
+- **No client-side caching across calls:** `getFullSchedule`/
+  `getTeamSchedule` re-read the underlying arrays fresh on every call.
+  Re-verified after the rewrite: mutated a mock match's `status` from
+  `"upcoming"` to `"live"` in place between two calls to each function and
+  confirmed the second call's `bucket` reflects the change on both entry
+  points — the same class of staleness bug as the Digest narrative-
+  threshold cache and the pre-v1.0.109 accent-color hook.
+- **No color-coding by match result:** a v1.0.110 detail worth naming
+  explicitly since it was deliberately removed, not merely never added —
+  the narrowed per-team view originally rendered a colored left-border
+  strip (green for a win, red for a loss) and colored "Won"/"Lost" text.
+  Dropped in v1.0.111 so a match card looks identical whichever tab is
+  active — the "Won"/"Lost" wording itself stays (still computed from the
+  active tab's team perspective), just with no color applied anywhere on
+  the card. Not a real-data-readiness concern on its own, but recorded here
+  because it's the kind of "simplify, don't just add" decision this pattern
+  should keep making room for.
 - **No-op placeholder:** none needed yet — there's no refresh/sync concept
   for mock data that never goes stale on its own. A real integration adds
   one the same way `refreshRankings()` was, rather than inventing the call

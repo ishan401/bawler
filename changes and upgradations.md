@@ -3,6 +3,28 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.111] 2026-07-24
+
+### Schedule tab simplification: drop merged view, plain All + per-team tabs
+
+#### Context
+- v1.0.110's Schedule redesign got redundant once someone follows several teams (a merged-teams view plus a separate all-competitions picker for zero-follows). Simplified to one view: "All" (default, every match app-wide, ascending date order) plus one tab per followed team, narrowing the same list in place. Also dropped the win/loss colored left-border strip on a narrowed tab's cards entirely.
+
+#### Changed -- `lib/teamSchedule.ts`
+- Removed `getMergedTeamSchedule(teamCodes)` (multi-team merge/dedupe -- no longer needed, nothing merges several teams into one view anymore).
+- Added `getFullSchedule(opts)`: every valid match app-wide within the ~1-year window, no team filter -- the new "All" tab's data source.
+- `getFullSchedule`/`getTeamSchedule` now share one internal implementation (`scheduleEntries`), same validation either way.
+
+#### Changed -- `app/schedule/page.tsx`
+- Retired `AllCompetitionsView` (competition picker) and `MyTeamsScheduleView`'s merge-all-followed-teams behavior. Single view: tab row = "All" + one tab per followed team. `useTeamSchedule(teamCodes: string[])` replaced by `useScheduleTab(tab: string)`, keyed directly on the plain string tab value -- no array-reference dependency trap to guard against anymore.
+- `ScheduleRow`: removed the colored win/loss left-border strip and the colored "Won"/"Lost" text -- cards now look identical on "All" or any team's tab; the text label itself stays.
+
+#### Verified
+- Re-ran the same 20 malformed-input test cases (`npx tsx`) against the rewritten `toScheduleEntry()` -- all pass, no regression.
+- Re-ran interface-level recomputation test (mutate status between calls) against both `getFullSchedule`/`getTeamSchedule` -- both pick up the change.
+- New hook-level test (`react-test-renderer`): switching tabs all -> IND -> AUS -> all correctly recomputes each time (29 -> 5 -> 5 -> 29 entries).
+- Live-verified full tap sequence + confirmed color strip is gone; `tsc --noEmit` and `npm run build` clean.
+
 ## [1.0.110] 2026-07-24
 
 ### Schedule tab redefault: my-teams merged view
