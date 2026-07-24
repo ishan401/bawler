@@ -94,6 +94,21 @@ app's own computed data either way. Knowing when a field is real-data-bound
 versus when it's already the source of truth is part of applying this
 pattern correctly — not everything needs an adapter.
 
+**Reused, not reinvented, twice since:** Spotlight's international-match
+gate (v1.0.103, `lib/spotlight.ts`'s `buildFullMemberLookup()`) and the
+Filter/Follow sheet's Nations-tab sort (v1.0.116, `components/
+FollowSheet.tsx`'s `membershipRank()`) both need "is this nation a full
+member," and both get it exclusively through `getTeamMembershipStatus()` —
+neither hardcodes a list of full-member nations, and neither reads
+`team.membershipStatus` directly. Same shape both times: resolve the async
+adapter once upfront into a plain synchronous lookup (a `Map`/closure), then
+sort or filter against that lookup rather than awaiting per-item inline —
+because the consumer itself (`Array.filter`/`Array.sort`) has to stay
+synchronous. This is the intended payoff of putting the interface in one
+place: a second and third consumer needing the same fact got it for free,
+and will keep working with zero changes once real ICC data replaces the
+mock field.
+
 **Worked example — batting-team accent color resolution (v1.0.104-109):**
 
 `components/Scorecard.tsx`'s not-out box, sparkline, and team-selector pills

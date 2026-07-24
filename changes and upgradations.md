@@ -3,6 +3,21 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.116] 2026-07-24
+
+### Sort Filter/Follow sheet's Nations tab by ICC membership tier
+
+#### Context
+- Nations in `FollowSheet` were listed purely alphabetically. Changed to: full ICC members first, associate nations after, alphabetical within each group -- using the existing `getTeamMembershipStatus()` adapter (`lib/teamData.ts`) rather than a hardcoded full-member list, so real ICC data will re-sort this correctly with no code changes later.
+
+#### Changed -- `components/FollowSheet.tsx`
+- New `membershipRank()` -- `"full"` -> 0, `"associate"` -> 1, missing/malformed -> 2 (its own trailing group, not folded into associate and not dropped).
+- `buildOptions()` takes a resolved `nationMembership` map; only the Nations case uses it. Teams/Tournaments/Series/Players/Formats are unchanged.
+- New state + `useEffect` resolves `getTeamMembershipStatus()` for all `NATIONAL_TEAMS` once per sheet-open (same "resolve once into a sync lookup" shape `lib/spotlight.ts`'s `buildFullMemberLookup()` already uses), since the adapter is async but `Array.sort` must stay synchronous.
+
+#### Verified
+- Real test (`npx tsx`, 7/7 pass): mixed full/associate sort, all-full, all-associate, missing status, malformed status, empty list, and the pre-resolve fallback state. `tsc --noEmit`/`npm run build` clean. Search still filters correctly against the new order (unchanged `.filter()` over the pre-sorted list).
+
 ## [1.0.115] 2026-07-24
 
 ### Unify Filter/Follow sheet's selection accent from purple to cyan

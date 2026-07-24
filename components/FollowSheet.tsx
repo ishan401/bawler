@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import BottomSheet from "./BottomSheet";
 import { NATIONAL_TEAMS, ALL_TEAMS, COMPETITIONS, PLAYERS } from "@/lib/mockData";
 import type { MatchFormat } from "@/lib/types";
+import { getTeamMembershipStatus, type MembershipStatus } from "@/lib/teamData";
 import {
   type FollowPrefs,
   type FollowCategory,
@@ -55,12 +56,52 @@ const CATEGORY_META: { key: FollowCategory; label: string }[] = [
   { key: "formats", label: "Formats" },
 ];
 
-function buildOptions(category: FollowCategory): Option[] {
+// ============================================================================
+// Nations sort: full ICC members first, associates after -- v1.0.116
+// ============================================================================
+// Membership tier comes ONLY from the sanctioned getTeamMembershipStatus()
+// adapter (lib/teamData.ts) -- the same one Spotlight's international-match
+// gate already uses (see lib/spotlight.ts's buildFullMemberLookup). Nothing
+// here reads `team.membershipStatus` directly, and no nation names are
+// hardcoded as "the full members" -- when real ICC membership data
+// eventually flows through that adapter instead of the mock field, this
+// list re-sorts correctly with no code changes here.
+//
+// getTeamMembershipStatus() is async (by design -- see teamData.ts), so it's
+// resolved once per sheet-open via `nationMembership` state (built in the
+// component below, the same "resolve once upfront into a synchronous
+// lookup" shape buildFullMemberLookup() already established), not awaited
+// inline inside this sort.
+//
+// Fail-safe placement for a nation with no resolved status (missing from
+// the underlying data, or -- despite the type -- some other malformed
+// value slipping through at runtime): it's placed in its OWN trailing
+// group, after both full members and associates, rather than folded into
+// "associate". Folding it into associate would assert a specific tier for
+// a nation whose tier is actually unknown, which is a stronger (and
+// possibly wrong) claim than "we don't know" -- and dropping it from the
+// list entirely would make a followable nation disappear outright. Ending
+// up last, on its own, is the honest middle ground: still followable,
+// still visible, just not asserted into a tier the data doesn't support.
+export function membershipRank(status: MembershipStatus | undefined): number {
+  if (status === "full") return 0;
+  if (status === "associate") return 1;
+  return 2; // missing or malformed -- see comment above
+}
+
+function buildOptions(
+  category: FollowCategory,
+  nationMembership: Map<string, MembershipStatus | undefined>
+): Option[] {
   switch (category) {
     case "nations":
       return Object.values(NATIONAL_TEAMS)
         .map(t => ({ id: t.country ?? t.code, label: t.fullName, color: t.primaryColor, flagIso: FLAG_ISO[t.code] }))
-        .sort((a, b) => a.label.localeCompare(b.label));
+        .sort((a, b) => {
+          const rankDiff = membershipRank(nationMembership.get(a.id)) - membershipRank(nationMembership.get(b.id));
+          if (rankDiff !== 0) return rankDiff;
+          return a.label.localeCompare(b.label);
+        });
     case "teams":
       // Scoped to franchise/league teams only. National teams are
       // deliberately excluded here -- Nation is already the dedicated
@@ -192,6 +233,16 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
   const [draft, setDraft] = useState<FollowPrefs>(emptyFollowPrefs());
   const [activeCategory, setActiveCategory] = useState<FollowCategory>("nations");
   const [search, setSearch] = useState("");
+  // Resolved once per sheet-open, via the sanctioned getTeamMembershipStatus()
+  // adapter -- see the module comment above buildOptions for why this can't
+  // be an inline per-row await (that function must stay synchronous so the
+  // nations case can run inside a plain Array.sort). Starts empty each open,
+  // same "recompute fresh, don't reuse a stale cache" discipline the other
+  // adapter-backed features in this app already follow (useScheduleTab,
+  // useMatchAccentColors) -- while empty, membershipRank() treats every
+  // nation as unclassified, which safely degrades to a plain alphabetical
+  // list for the one render before this resolves.
+  const [nationMembership, setNationMembership] = useState<Map<string, MembershipStatus | undefined>>(new Map());
 
   useEffect(() => {
     if (open) {
@@ -201,7 +252,22 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
     }
   }, [open]);
 
-  const options = useMemo(() => buildOptions(activeCategory), [activeCategory]);
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const teams = Object.values(NATIONAL_TEAMS);
+      const resolved = await Promise.all(
+        teams.map(async t => [t.country ?? t.code, await getTeamMembershipStatus(t)] as const)
+      );
+      if (!cancelled) setNationMembership(new Map(resolved));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const options = useMemo(() => buildOptions(activeCategory, nationMembership), [activeCategory, nationMembership]);
   const filteredOptions = useMemo(() => {
     if (!search.trim()) return options;
     const q = search.trim().toLowerCase();
