@@ -3,6 +3,19 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.114] 2026-07-24
+
+### Fix Schedule tab row ordering: nations before franchise teams
+
+#### Context
+- Followed-team tabs on Schedule ("All" + one per followed team) were sorted alphabetically across ALL followed teams combined, letting a franchise team like CSK land ahead of a nation like IND (e.g. `All, CSK, IND`). Fixed to `All, IND, CSK`: nations always precede franchise/league teams, alphabetical within each group.
+
+#### Changed -- `app/schedule/page.tsx`
+- `tabTeams` now sorts by `team.type` category first (`"national"` before anything else), then `shortName` alphabetically within each category -- same categorization Filter's Nations/Teams sections already use (`Team.type`, set directly from `NATIONAL_TEAMS`/`LEAGUE_TEAMS` in `lib/mockData.ts`).
+
+#### Verified
+- Real sort-function test (`npx tsx`): scrambled multi-nation + multi-team inputs come back grouped and alphabetized correctly in every combination tried (nations-only, teams-only, mixed, single-item, empty). `tsc --noEmit`/`npm run build` clean. No change to tab content, "All" scoping, or v1.0.113's series rows/dedicated page.
+
 ## [1.0.113] 2026-07-24
 
 ### Schedule "All" tab collapsed to one row per series; new dedicated series page

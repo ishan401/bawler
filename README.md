@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.113)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.114)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.113 mock) — real data integration next.
+**Status:** UI complete (v1.0.114 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -108,7 +108,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 ## Schedule tab (`/schedule`)
 
-- **Tab row** — "All" (default) plus one tab per team selected in Filter (nations or franchise teams both count, see `myTeamCodes()` in `lib/followPrefs.ts`). Zero teams selected shows "All" only, with no team tabs. Reactive to Filter changes while Schedule is open (`onFollowPrefsChanged`), same as the homepage's "for you" row; falls back to "All" if the active tab's team gets unfollowed.
+- **Tab row** — "All" (default) plus one tab per team selected in Filter (nations or franchise teams both count, see `myTeamCodes()` in `lib/followPrefs.ts`), ordered nations first then franchise/league teams, alphabetical within each group (v1.0.114 -- same `Team.type` categorization Filter's Nations/Teams sections use). Zero teams selected shows "All" only, with no team tabs. Reactive to Filter changes while Schedule is open (`onFollowPrefsChanged`), same as the homepage's "for you" row; falls back to "All" if the active tab's team gets unfollowed.
 - **"All" tab (v1.0.113)** — one summary row per ongoing-or-upcoming series/tournament, no matches listed inline: the series name, a LIVE badge if anything in it is currently in progress, the date of its next live/upcoming match, and a one-line "Last: ..." recap of its most recently completed match (e.g. "Last: KKR won by 7 wickets vs RR"). Rows are ordered by each series' true start date ascending, held stable throughout its run; a fully-concluded series (every match already played) drops out of "All" entirely (both rules unchanged from v1.0.112). Tapping a row opens that series' dedicated page.
 - **Dedicated series page (`/schedule/series/[competitionId]`, v1.0.113, new)** — every match a series has (past, live, upcoming) in ascending date order, same card format as the rest of Schedule. No inclusion-rule filtering here — a fully-concluded series still gets a complete page (reachable directly even though it has no "All" row).
 - **A team tab** — unchanged, deliberately deferred from both the v1.0.112 and v1.0.113 redesigns: a flat, chronological, month-grouped list of exactly that team's matches (live/upcoming/past all included, no series grouping, no completed-series exclusion, no row-collapsing). Tapping a team's tab narrows to just that team; tapping "All" returns to the series row list.

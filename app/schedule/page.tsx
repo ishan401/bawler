@@ -97,12 +97,29 @@ export default function SchedulePage() {
   const { entries, seriesGroups, loading } = useScheduleTab(activeTab);
   const isAllTab = activeTab === "all";
 
+  // Nations first (alphabetical), then franchise/league teams
+  // (alphabetical) -- the same "national" vs "franchise" categorization
+  // Filter's own Nations/Teams sections use (`Team.type`, set directly off
+  // which of `NATIONAL_TEAMS`/`LEAGUE_TEAMS` a team came from in
+  // lib/mockData.ts -- `ALL_TEAMS` is just those two spread together, so
+  // reading `type` here is reading the exact same categorization, not a
+  // second one that could drift out of sync with it). A plain single
+  // alphabetical sort across both groups combined -- the previous
+  // behavior -- let a franchise team like CSK land ahead of a nation like
+  // IND purely by letter order, which read as arbitrary; grouping by
+  // category first fixes that regardless of which specific teams are
+  // followed.
   const tabTeams = useMemo(
     () =>
       teamCodes
         .map(code => ALL_TEAMS[code])
         .filter((t): t is Team => !!t)
-        .sort((a, b) => a.shortName.localeCompare(b.shortName)),
+        .sort((a, b) => {
+          const aNation = a.type === "national" ? 0 : 1;
+          const bNation = b.type === "national" ? 0 : 1;
+          if (aNation !== bNation) return aNation - bNation;
+          return a.shortName.localeCompare(b.shortName);
+        }),
     [teamCodes]
   );
 

@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.113 (deployed)
+**Current version:** v1.0.114 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -68,7 +68,7 @@
 
 ### Schedule page (`/schedule`)
 
-- ✅ **Tab row** — "All" (default) plus one tab per team the user has selected in Filter (nations + franchise teams both count, `myTeamCodes()` in `lib/followPrefs.ts`); zero teams selected shows "All" only, no team tabs.
+- ✅ **Tab row** — "All" (default) plus one tab per team the user has selected in Filter (nations + franchise teams both count, `myTeamCodes()` in `lib/followPrefs.ts`); zero teams selected shows "All" only, no team tabs. Ordered nations first (alphabetical), then franchise/league teams (alphabetical) -- v1.0.114, same nation/team categorization Filter uses (`Team.type`).
 - ✅ **"All" tab (v1.0.113)** — one summary row per ongoing-or-upcoming series/tournament: name, a LIVE badge if anything in it is live right now, the date of its next live/upcoming match, and a one-line "Last: ..." recap of its most recently completed match. No matches listed inline. Ordered by each series' true start date ascending, held stable throughout its run; a fully-concluded series (every match already played) drops out entirely. Sanctioned interface: `getSeriesGroupedSchedule()` + `summarizeSeriesGroup()`/`formatLastResult()` in `lib/teamSchedule.ts`.
 - ✅ **Dedicated series page (`/schedule/series/[competitionId]`, v1.0.113)** — tapping an "All" row opens every match that series has (past, live, upcoming) in ascending date order, same card format as the rest of Schedule. No inclusion-rule filtering here — a fully-concluded series still gets a complete page. Sanctioned interface: `getMatchesForCompetition()`.
 - ✅ **A team tab** — unchanged, deliberately deferred from the "All" redesign: a flat, chronological, month-grouped list of exactly that team's matches (live/upcoming/past all included, no series grouping, no completed-series exclusion, no row-collapsing). Sanctioned interface: `getTeamSchedule(teamCode)`.
@@ -517,6 +517,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.103** | Spotlight gets a competition-tier gate: international/bilateral matches now also require both teams to be full ICC members (via `getTeamMembershipStatus()`, lib/teamData.ts) before the existing three excitement checks even run -- league/domestic matches (IPL, BBL, PSL, etc.) are unaffected. New `lib/spotlight.ts` export `buildFullMemberLookup()` resolves every team's status once upfront (not per-match) since the underlying check is async; `isSpotlightMatch()` itself stays synchronous. Fixed a real bug found during this work: `useState`'s setter treats a bare function argument as a functional updater, not a value -- `.then(setFullMemberLookup)` was calling the resolved lookup function against the previous (null) state instead of storing it, crashing the homepage. Fixed via `.then(lookup => setFullMemberLookup(() => lookup))` (DECISIONS-LOG.md FY33) |
+
+## Changelog additions (v1.0.114)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.114** | Fixed Schedule tab row ordering: followed-team tabs now sort nations before franchise/league teams (alphabetical within each group), instead of one flat alphabetical pass across both that could put a franchise team like CSK ahead of a nation like IND. Uses the same `Team.type` categorization Filter's Nations/Teams sections already rely on (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.113)
 
