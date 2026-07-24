@@ -3,6 +3,27 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.112] 2026-07-24
+
+### Schedule "All" tab re-grouped by series/tournament
+
+#### Context
+- "All" was a flat chronological list of every match app-wide. Changed back to grouping by series/tournament (`Match.competition`): each group headed by the series name, matches underneath. Only an ongoing-or-upcoming series appears; a fully-concluded series (every match played) drops out of "All" entirely. Groups ordered by true start date ascending, stable throughout a series' run. A qualifying series shows ALL of its matches, past included. Per-team tabs are unaffected -- same flat, chronological, past-included view as v1.0.111.
+
+#### Added -- `lib/teamSchedule.ts`
+- `safeCompetition(match)`: validates `Match.competition` defensively (null/missing, `{}`, empty or wrong-typed `id`/`name`, non-object) -- a match that fails is excluded from series grouping only, still shows on a per-team tab.
+- `getSeriesGroupedSchedule(opts?)`: the "All" tab's new data source. Computes series qualification (any live/upcoming match anywhere in the dataset) and true earliest-match-date ordering from an effectively-unbounded lookup, while what's actually rendered per qualifying series stays the normal ~1-year windowed set.
+- `SeriesGroup` interface: `{ competition, entries }`.
+
+#### Changed -- `app/schedule/page.tsx`
+- `useScheduleTab(tab)` now fetches `getSeriesGroupedSchedule()` for `"all"` (returns `seriesGroups`) vs. `getTeamSchedule(tab)` for a team code (returns flat `entries`, unchanged). "All" renders one section per series (heading = `competition.name`); a team tab still renders via `groupScheduleByMonth`, unchanged from v1.0.111.
+- Header match count for "All" now reflects the flattened, already-qualifying-series-only total.
+
+#### Verified
+- 26 interface-level cases (`npx tsx`): 10 malformed-competition inputs (null, `{}`, empty/wrong-typed `id`/`name`, bare string, missing field) all excluded cleanly, no crash; fully-concluded synthetic series correctly absent; ongoing synthetic series correctly shows past + upcoming together; 3 synthetic series inserted out of order came back sorted ascending by true start date; a series' position confirmed unchanged after a non-earliest match completed, correctly dropped once ALL matches completed, and correctly reappeared at the same position once reopened. Real dataset: IPL 2026 (16 matches, live/past/upcoming mixed) present; ICC T20 World Cup 2026, ICC Champions Trophy 2025, The Ashes 2025-26, Big Bash League 2025-26 (each 1 already-played match) all correctly absent.
+- 5 hook-level cases (`react-test-renderer`, temporarily exported `useScheduleTab`): mount on "all" shows synthetic series; switching to a team tab returns empty `seriesGroups`; series drops after completing while away from "All" and reappears once revisited -- confirms fresh re-fetch, no stale cache.
+- `tsc --noEmit` and `npm run build` clean. Grep-confirmed `getSeriesGroupedSchedule` has exactly one caller, lives in one file. Live verification recorded in DECISIONS-LOG.md.
+
 ## [1.0.111] 2026-07-24
 
 ### Schedule tab simplification: drop merged view, plain All + per-team tabs

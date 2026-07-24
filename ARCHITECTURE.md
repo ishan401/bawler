@@ -163,7 +163,7 @@ usual field-level concerns:
   mid-season), add it the same way `refreshRankings()` was added, rather
   than inventing the call site later.
 
-**Worked example — Schedule tab (v1.0.110, simplified v1.0.111):**
+**Worked example — Schedule tab (v1.0.110, simplified v1.0.111, "All" re-grouped by series v1.0.112):**
 
 Schedule is a plain tab row: "All" (default, every match app-wide, in
 ascending date order, grouped by month) plus one tab per team the user has
@@ -242,6 +242,62 @@ too, not just the UI on top of it.
   for mock data that never goes stale on its own. A real integration adds
   one the same way `refreshRankings()` was, rather than inventing the call
   site later.
+- **"All" re-grouped by series/tournament, not a flat list (v1.0.112):** the
+  "All" tab groups matches under their series/tournament heading
+  (`Match.competition`) instead of one flat chronological list, and only
+  shows a series that's ongoing or upcoming — a series where every match
+  has already been played drops out of "All" entirely. A qualifying series
+  shows ALL of its matches, past included, so a tournament you're following
+  mid-run reads as one continuous story instead of losing its results the
+  moment they're final. Per-team tabs are explicitly UNCHANGED by this —
+  still the flat, month-grouped, past-included view `getTeamSchedule`
+  already provided; deferring any series-grouping decision there was a
+  deliberate scope boundary, not an oversight.
+  - **Interface:** `getSeriesGroupedSchedule()`, added to the same
+    `lib/teamSchedule.ts` file rather than a new adapter file — it's a
+    second SHAPE of the same underlying `ScheduleEntry` data, reading
+    through the exact same `scheduleEntries`/`toScheduleEntry` validation
+    `getFullSchedule` already used, not a second data source. Splitting
+    that validation across two files would risk the flat and grouped views
+    silently disagreeing about which matches are even valid.
+  - **Malformed series metadata:** `Match.competition` is typed as a
+    required object, but — the same compile-time-only guarantee as every
+    other field this pattern treats defensively — a real feed can send a
+    match with a null/missing `competition`, or one missing `id`/`name`.
+    `safeCompetition()` guards this: a match that fails the check is
+    excluded from series grouping entirely (there's no correct group for
+    it, and guessing would risk silently merging unrelated series under a
+    placeholder name). This does not remove the match from the app — it
+    can still surface on a per-team tab, which has no dependency on
+    `competition` at all. Tested with 10 real broken inputs (`npx tsx`):
+    null competition, `{}`, empty-string `id`/`name`, wrong-typed `id`/
+    `name`, a bare string instead of an object, and the field missing
+    entirely — all 10 excluded cleanly, no crash.
+  - **Completion and ordering computed from an unbounded set, display
+    stays windowed:** whether a series has any match left to play, and its
+    TRUE earliest match date (for ordering), are both computed from every
+    valid match for that competition in the dataset — not just the ones
+    inside the normal ~1-year display window. This matters for two
+    reasons: a series whose first match is barely inside the window but
+    has a still-upcoming match just outside it must not be misjudged
+    "fully concluded"; and a series's position among others must not shift
+    day to day as its own matches complete, only as measured against its
+    real first-ever match date. What's actually rendered per qualifying
+    series is still the normal windowed set — the unbounded lookup decides
+    qualification and ordering only, never what's shown. Verified with a
+    real test: three synthetic series inserted out of order came back
+    sorted ascending by true start date; a synthetic series' position was
+    confirmed unchanged after one of its non-earliest matches completed
+    (13 pass, interface-level, alongside the malformed-input cases above).
+  - **Recomputation:** no caching, same as the rest of this file — a
+    synthetic series was confirmed to drop from `getSeriesGroupedSchedule()`
+    the moment ALL of its matches complete, and to reappear (at the same
+    ordering position) once a match becomes upcoming again, both via direct
+    repeated calls and via `useScheduleTab` (temporarily exported,
+    `react-test-renderer`) switching away from and back to "All" — 5/5 pass,
+    confirming the hook re-fetches fresh rather than reusing its mount-time
+    result.
+  - **No-op placeholder:** none needed yet, same reasoning as above.
 
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead

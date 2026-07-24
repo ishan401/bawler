@@ -1,4 +1,4 @@
-import type { Match, TeamCode } from "./types";
+import type { Competition, Match, TeamCode } from "./types";
 import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES } from "./mockData";
 
 // ============================================================================
@@ -242,6 +242,177 @@ export async function getTeamSchedule(
 ): Promise<ScheduleEntry[]> {
   if (typeof teamCode !== "string" || teamCode.length === 0) return [];
   return scheduleEntries(teamCode, opts);
+}
+
+// ============================================================================
+// Series/tournament grouping for the "All" tab -- v1.0.112 (see DECISIONS-LOG.md)
+// ============================================================================
+// The "All" tab groups matches by series/tournament (`Match.competition`)
+// instead of a flat chronological list, and only shows a series that is
+// ongoing or upcoming -- a series where every match has already been
+// played drops out of "All" entirely. Per-team tabs are NOT part of this
+// change; `getTeamSchedule` above and its flat, month-grouped, past-
+// included rendering in app/schedule/page.tsx are untouched.
+//
+// WHY THIS BELONGS IN THIS FILE, NOT A SEPARATE ADAPTER: this is a second
+// SHAPE of the same underlying schedule data (`ScheduleEntry`), not a
+// second data source -- it reads through the exact same `scheduleEntries`
+// validation this file already does for `getFullSchedule`/
+// `getTeamSchedule`, so a match with a missing date, unrecognized status,
+// or non-boolean `fixtureConfirmed` is excluded/marked-TBD identically
+// either way. Splitting that validation across two files would risk the
+// two "All" views (flat vs. grouped) silently disagreeing about which
+// matches are even valid.
+//
+// MALFORMED SERIES METADATA: `Match.competition` is typed as a required
+// `Competition` object, but -- same compile-time-only guarantee as every
+// other field this codebase treats defensively (see `toScheduleEntry`
+// above, `sanitizeHexColor()` in lib/teamAccentColor.ts) -- a real feed
+// can send a match with a null/missing competition, or one missing `id`/
+// `name`. `safeCompetition()` below guards this: a match that fails the
+// check is excluded from series grouping entirely (it simply never joins
+// a group -- there's no correct group for it, and guessing would risk
+// silently merging unrelated series under a placeholder name). This does
+// NOT remove the match from the app -- it can still surface on a
+// per-team tab via `getTeamSchedule`, which has no dependency on
+// `competition` at all.
+//
+// "FULLY CONCLUDED" AND STABLE ORDERING, COMPUTED FROM AN UNBOUNDED SET:
+// whether a series has any match left to play, and a series's true
+// earliest match date (used to order the groups), are both computed from
+// EVERY valid match for that competition in the dataset -- not just the
+// ones inside the ~1-year display window `getFullSchedule` normally
+// applies. Two reasons:
+//   - Completion: a series with its very first match barely inside the
+//     display window but a still-upcoming match just outside it must not
+//     be misjudged "fully concluded" just because the window cut off the
+//     match that would have proven otherwise.
+//   - Stable ordering: the product requirement is that a series's
+//     position among other series doesn't shift day to day as its own
+//     matches complete -- only its TRUE first-ever match date should
+//     anchor its position, not whichever of its matches currently happens
+//     to be earliest-remaining inside the display window.
+// `UNBOUNDED_WINDOW_DAYS` (100 years) stands in for "no window" without
+// the NaN/Infinity edge cases a literal `Infinity` window would risk in
+// `scheduleEntries`'s date-range arithmetic. What's actually RENDERED per
+// qualifying series is still the normal ~1-year display window (or
+// `opts.windowDays` if the caller overrides it) -- unbounded lookups are
+// used only to decide qualification and ordering, never to decide what a
+// user sees on screen.
+//
+// RECOMPUTATION: like `getFullSchedule`/`getTeamSchedule`, this does no
+// caching -- every call re-derives groups fresh from the current match
+// data. As a series's last remaining live/upcoming match flips to
+// "post-match", the very next call to `getSeriesGroupedSchedule()` drops
+// that series from the result; as a new match is added to a brand-new
+// competition, the next call picks it up and places it by true start
+// date. app/schedule/page.tsx's `useScheduleTab` re-fetches on every
+// switch back to the "All" tab, the same recompute trigger already
+// established for the flat view.
+// ============================================================================
+
+const UNBOUNDED_WINDOW_DAYS = 36500; // ~100 years -- stands in for "no window," see comment above
+
+/**
+ * Validates a match's `competition` field defensively (same posture as
+ * `safeTeamCode`/`toScheduleEntry` above) and returns the full
+ * `Competition` object if usable, or `undefined` if it's missing, not an
+ * object, or missing the `id`/`name` fields a series group needs.
+ */
+function safeCompetition(match: Match): Competition | undefined {
+  const c: unknown = (match as unknown as Record<string, unknown>).competition;
+  if (!isObjectLike(c)) return undefined;
+  if (typeof c.id !== "string" || c.id.length === 0) return undefined;
+  if (typeof c.name !== "string" || c.name.length === 0) return undefined;
+  return c as unknown as Competition;
+}
+
+export interface SeriesGroup {
+  competition: Competition;
+  /** This series' matches within the display window, chronologically
+   * sorted -- live, upcoming, AND already-played matches together, since
+   * "upcoming and ongoing only" applies to whether the SERIES qualifies,
+   * not to which of its individual matches are shown once it does. */
+  entries: ScheduleEntry[];
+}
+
+/**
+ * The "All" tab's sanctioned data source: every currently-ongoing or
+ * not-yet-started series/tournament, each with all of its own matches
+ * (past, live, and upcoming) inside the display window, ordered by each
+ * series' true earliest match date ascending -- a fully-concluded series
+ * (every one of its matches already played) is excluded entirely. See the
+ * module comment above for why completion/ordering are computed from an
+ * unbounded match set while the entries actually shown stay windowed.
+ *
+ * Returns a Promise -- async from day one, same as every other exported
+ * function in this file.
+ */
+export async function getSeriesGroupedSchedule(opts?: ScheduleOptions): Promise<SeriesGroup[]> {
+  const [displayEntries, allEntries] = await Promise.all([
+    getFullSchedule(opts),
+    getFullSchedule({ windowDays: UNBOUNDED_WINDOW_DAYS }),
+  ]);
+
+  interface CompetitionState {
+    competition: Competition;
+    startMs: number;
+    hasRemaining: boolean; // true if ANY of its matches (unbounded) is live or upcoming
+  }
+  const state = new Map<string, CompetitionState>();
+
+  for (const entry of allEntries) {
+    const competition = safeCompetition(entry.match);
+    if (!competition) continue; // malformed/missing competition metadata -- excluded from grouping
+
+    const startMs = Date.parse(entry.match.startTimeIso); // already validated finite by scheduleEntries
+    const existing = state.get(competition.id);
+    if (!existing) {
+      state.set(competition.id, {
+        competition,
+        startMs,
+        hasRemaining: entry.bucket !== "past",
+      });
+    } else {
+      existing.startMs = Math.min(existing.startMs, startMs);
+      if (entry.bucket !== "past") existing.hasRemaining = true;
+    }
+  }
+
+  // Qualifying = at least one live/upcoming match anywhere in the dataset.
+  // A competition with zero valid matches never entered `state` at all and
+  // is correctly absent already.
+  const qualifyingIds = new Set(
+    [...state.entries()].filter(([, s]) => s.hasRemaining).map(([id]) => id)
+  );
+
+  const entriesByCompetition = new Map<string, ScheduleEntry[]>();
+  for (const entry of displayEntries) {
+    const competition = safeCompetition(entry.match);
+    if (!competition || !qualifyingIds.has(competition.id)) continue;
+    const arr = entriesByCompetition.get(competition.id);
+    if (arr) {
+      arr.push(entry);
+    } else {
+      entriesByCompetition.set(competition.id, [entry]);
+    }
+  }
+
+  const groups: SeriesGroup[] = [];
+  for (const id of qualifyingIds) {
+    const entries = entriesByCompetition.get(id);
+    if (!entries || entries.length === 0) continue; // qualifies, but nothing inside the display window
+    entries.sort((a, b) => Date.parse(a.match.startTimeIso) - Date.parse(b.match.startTimeIso));
+    groups.push({ competition: state.get(id)!.competition, entries });
+  }
+
+  groups.sort((a, b) => {
+    const diff = state.get(a.competition.id)!.startMs - state.get(b.competition.id)!.startMs;
+    if (diff !== 0) return diff;
+    return a.competition.id.localeCompare(b.competition.id); // deterministic tie-break
+  });
+
+  return groups;
 }
 
 /**

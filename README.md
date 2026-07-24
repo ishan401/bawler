@@ -1,9 +1,9 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.111)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.112)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
 **Live:** [bawler-gold.vercel.app](https://bawler-gold.vercel.app)
-**Status:** UI complete (v1.0.111 mock) — real data integration next.
+**Status:** UI complete (v1.0.112 mock) — real data integration next.
 **Stack:** Next.js 14 · React 18 · TypeScript · Tailwind CSS · Vercel
 
 ---
@@ -108,9 +108,11 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 ## Schedule tab (`/schedule`)
 
-- **Tab row (v1.0.111)** — "All" (default, every live/upcoming/past match app-wide, ascending date order, grouped by month, spanning ~1 year) plus one tab per team selected in Filter (nations or franchise teams both count, see `myTeamCodes()` in `lib/followPrefs.ts`). Tapping a team's tab narrows the same list to just that team's matches; tapping "All" returns to everything. Zero teams selected shows "All" only, with no team tabs — same content either way, since "All" never depended on follow state. Reactive to Filter changes while Schedule is open (`onFollowPrefsChanged`), same as the homepage's "for you" row; falls back to "All" if the active tab's team gets unfollowed.
+- **Tab row** — "All" (default) plus one tab per team selected in Filter (nations or franchise teams both count, see `myTeamCodes()` in `lib/followPrefs.ts`). Zero teams selected shows "All" only, with no team tabs. Reactive to Filter changes while Schedule is open (`onFollowPrefsChanged`), same as the homepage's "for you" row; falls back to "All" if the active tab's team gets unfollowed.
+- **"All" tab (v1.0.112)** — grouped by series/tournament (`Match.competition`), not a flat list: each group is headed by the series name (e.g. "IPL 2026"), ordered by that series' true start date ascending, with the ordering held stable throughout the series' run rather than shifting as its own matches complete. Only a series that's ongoing or upcoming appears — a fully-concluded series (every match already played) drops out of "All" entirely — and a qualifying series shows ALL of its matches, past included, so a tournament you're following mid-run reads as one continuous story.
+- **A team tab** — unchanged, deliberately deferred from the v1.0.112 redesign: a flat, chronological, month-grouped list of exactly that team's matches (live/upcoming/past all included, no series grouping, no completed-series exclusion). Tapping a team's tab narrows to just that team; tapping "All" returns to the series-grouped view.
 - Match cards look identical regardless of which tab is active — no color-coding by result (the v1.0.110 win/loss colored left-border strip and colored text were both removed in v1.0.111); the "Won"/"Lost" text label itself still reflects the active tab's team perspective, just uncolored.
-- **`lib/teamSchedule.ts`** — the sanctioned async interface (`getFullSchedule()` for "All", `getTeamSchedule(teamCode)` for a team tab, sharing one internal validator); see "Key data rules" below and `ARCHITECTURE.md` for the full real-data-readiness treatment (malformed-fixture handling, the ~1-year window).
+- **`lib/teamSchedule.ts`** — the sanctioned async interface: `getSeriesGroupedSchedule()` for "All" (series-grouped, ongoing/upcoming only), `getTeamSchedule(teamCode)` for a team tab (flat, everything), both sharing the same underlying match validator (`scheduleEntries`/`toScheduleEntry`). See "Key data rules" below and `ARCHITECTURE.md` for the full real-data-readiness treatment (malformed-fixture handling, malformed-series-metadata handling, the ~1-year display window vs. the unbounded lookup used for series qualification/ordering).
 - `/schedule/[competitionId]` and `/schedule/[competitionId]/[teamCode]` still exist as drill-down routes reachable from `MiniStandings`, but are no longer linked from the main Schedule tab itself.
 
 ## Table page (`/table`)
@@ -197,6 +199,6 @@ lib/
 ├── followPrefs.ts      # FollowPrefs model, qualifyMatch()/isTier1Match(), sanitizeFollowPrefs(), localStorage persistence + change event
 ├── followNudge.ts      # empty-state Filter nudge (first-N-sessions, dismissible)
 ├── heroSelection.ts    # selectHeroMatch() — 3-tier deterministic hero-match rule (prominence, live stakes, live runway)
-├── teamSchedule.ts      # getFullSchedule()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All + per-team tabs
+├── teamSchedule.ts      # getSeriesGroupedSchedule()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All (series-grouped) + per-team (flat) tabs
 └── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
 ```

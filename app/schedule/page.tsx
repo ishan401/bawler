@@ -5,26 +5,47 @@ import { useEffect, useMemo, useState } from "react";
 import { ALL_TEAMS } from "@/lib/mockData";
 import type { Team } from "@/lib/types";
 import { getFollowPrefs, onFollowPrefsChanged, myTeamCodes, emptyFollowPrefs, type FollowPrefs } from "@/lib/followPrefs";
-import { getFullSchedule, getTeamSchedule, groupScheduleByMonth, type ScheduleEntry } from "@/lib/teamSchedule";
+import {
+  getSeriesGroupedSchedule,
+  getTeamSchedule,
+  groupScheduleByMonth,
+  type ScheduleEntry,
+  type SeriesGroup,
+} from "@/lib/teamSchedule";
 
 // ============================================================================
-// Schedule tab — v1.0.110, simplified v1.0.111
+// Schedule tab — v1.0.110, simplified v1.0.111, "All" re-grouped by series v1.0.112
 // ============================================================================
-// One view, always: a tab row of "All" (default, every match app-wide, in
-// ascending date order, grouped by month) plus one tab per team the user
-// has selected in Filter (nations + franchise teams both count -- see
-// lib/followPrefs.ts's `myTeamCodes()`). Tapping a team tab narrows the
-// SAME list to just that team's matches; tapping "All" shows everything
-// again. A user with no teams selected just sees "All" with no team tabs
-// at all -- same content either way, since "All" never depended on
-// whether anyone follows anything.
+// A tab row of "All" (default) plus one tab per team the user has selected
+// in Filter (nations + franchise teams both count -- see
+// lib/followPrefs.ts's `myTeamCodes()`). A user with no teams selected
+// just sees "All" with no team tabs at all.
 //
-// v1.0.111 dropped the earlier two-view split (an all-competitions picker
+// The two tab kinds render DIFFERENTLY on purpose, as of v1.0.112:
+//   - "All": every ongoing-or-upcoming series/tournament app-wide, grouped
+//     under its own heading (series name), ordered by that series' true
+//     start date ascending and held stable as matches complete -- see
+//     `getSeriesGroupedSchedule` in lib/teamSchedule.ts. A series where
+//     every match has already been played drops out of "All" entirely;
+//     one that still qualifies shows ALL its matches, past included, so a
+//     tournament you're following mid-run reads as one continuous story
+//     rather than losing its results the moment they're final.
+//   - A team tab: unchanged from v1.0.111 -- a flat, month-grouped,
+//     chronological list of exactly that team's matches (past, live, and
+//     upcoming), with no series grouping and no completed-series
+//     exclusion. This split is deliberate, not an oversight: per-team
+//     tabs are explicitly deferred, not redesigned, by this change (see
+//     DECISIONS-LOG.md).
+// Tapping "All" and tapping a team tab therefore each fetch through their
+// own sanctioned interface (`getSeriesGroupedSchedule` vs.
+// `getTeamSchedule`) -- see `useScheduleTab` below.
+//
+// v1.0.111 dropped an earlier two-view split (an all-competitions picker
 // for zero-follows, a separate merged-multi-team view for one-or-more
 // follows) and the win/loss colored left-border strip on a narrowed tab's
-// match cards -- see DECISIONS-LOG.md for why. What's left is simpler on
-// purpose: one component, one list style, a tab row that only changes
-// which team (if any) filters it.
+// match cards -- see DECISIONS-LOG.md for why. That simplification is
+// untouched by v1.0.112: no colored strip on any tab, "All" is still the
+// same content regardless of follow state.
 //
 // Hydration safety: `followPrefs` starts as `emptyFollowPrefs()` (the same
 // value both the server render and the client's first render see, since
@@ -59,7 +80,8 @@ export default function SchedulePage() {
     }
   }, [teamCodes, activeTab]);
 
-  const { entries, loading } = useScheduleTab(activeTab);
+  const { entries, seriesGroups, loading } = useScheduleTab(activeTab);
+  const isAllTab = activeTab === "all";
 
   const tabTeams = useMemo(
     () =>
@@ -70,8 +92,13 @@ export default function SchedulePage() {
     [teamCodes]
   );
 
-  const groups = useMemo(() => groupScheduleByMonth(entries), [entries]);
-  const focusTeamCode = activeTab === "all" ? undefined : activeTab;
+  // Team tabs only -- "All" renders `seriesGroups` directly instead (see
+  // module comment). `entries` for "All" is still the flattened,
+  // already-qualifying-series-only list, used for the header count and
+  // the empty-state check below, not for month grouping.
+  const monthGroups = useMemo(() => (isAllTab ? [] : groupScheduleByMonth(entries)), [entries, isAllTab]);
+  const focusTeamCode = isAllTab ? undefined : activeTab;
+  const isEmpty = !loading && (isAllTab ? seriesGroups.length === 0 : monthGroups.length === 0);
 
   return (
     <main className="min-h-screen pb-24">
@@ -80,7 +107,7 @@ export default function SchedulePage() {
         <p className="text-[10px] text-text-dim mt-0.5">
           {loading
             ? "Loading…"
-            : activeTab === "all"
+            : isAllTab
             ? `${entries.length} matches · next ~12 months`
             : `${entries.length} matches · ${tabTeams.find(t => t.code === activeTab)?.shortName ?? activeTab}, next ~12 months`}
         </p>
@@ -91,7 +118,7 @@ export default function SchedulePage() {
           components/MatchTabs.tsx) since the number of team tabs is
           unbounded -- a user could follow a dozen teams. */}
       <div className="px-4 flex items-stretch gap-4 overflow-x-auto no-scrollbar border-b border-line">
-        <TabButton label="All" active={activeTab === "all"} onClick={() => setActiveTab("all")} />
+        <TabButton label="All" active={isAllTab} onClick={() => setActiveTab("all")} />
         {tabTeams.map(team => (
           <TabButton
             key={team.code}
@@ -103,21 +130,37 @@ export default function SchedulePage() {
       </div>
 
       <div className="px-3 mt-3 space-y-4">
-        {!loading && groups.length === 0 && (
-          <p className="text-center py-16 text-text-dim text-sm">No matches in the next year</p>
+        {isEmpty && (
+          <p className="text-center py-16 text-text-dim text-sm">
+            {isAllTab ? "No ongoing or upcoming series" : "No matches in the next year"}
+          </p>
         )}
-        {groups.map(group => (
-          <div key={group.label}>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-1">
-              {group.label}
-            </p>
-            <div className="space-y-1.5">
-              {group.entries.map(entry => (
-                <ScheduleRow key={entry.match.id} entry={entry} focusTeamCode={focusTeamCode} />
-              ))}
-            </div>
-          </div>
-        ))}
+
+        {isAllTab
+          ? seriesGroups.map(group => (
+              <div key={group.competition.id}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-1">
+                  {group.competition.name}
+                </p>
+                <div className="space-y-1.5">
+                  {group.entries.map(entry => (
+                    <ScheduleRow key={entry.match.id} entry={entry} focusTeamCode={focusTeamCode} />
+                  ))}
+                </div>
+              </div>
+            ))
+          : monthGroups.map(group => (
+              <div key={group.label}>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-dim mb-1.5 px-1">
+                  {group.label}
+                </p>
+                <div className="space-y-1.5">
+                  {group.entries.map(entry => (
+                    <ScheduleRow key={entry.match.id} entry={entry} focusTeamCode={focusTeamCode} />
+                  ))}
+                </div>
+              </div>
+            ))}
       </div>
     </main>
   );
@@ -125,41 +168,60 @@ export default function SchedulePage() {
 
 /**
  * Fetches the schedule for whichever tab is active through the one
- * sanctioned interface (`getFullSchedule`/`getTeamSchedule`,
- * lib/teamSchedule.ts), using the same hydration-safe
- * useState(placeholder)+useEffect pattern established for every other
- * async real-data-readiness accessor in this codebase (see
- * `NationalRankBadge` in components/MatchCard.tsx, `useMatchAccentColors`
- * in components/Scorecard.tsx).
+ * sanctioned interface for that tab kind -- `getSeriesGroupedSchedule` for
+ * "All", `getTeamSchedule` for a team code (lib/teamSchedule.ts) -- using
+ * the same hydration-safe useState(placeholder)+useEffect pattern
+ * established for every other async real-data-readiness accessor in this
+ * codebase (see `NationalRankBadge` in components/MatchCard.tsx,
+ * `useMatchAccentColors` in components/Scorecard.tsx).
  *
- * v1.0.111: the active tab is already a plain string ("all" or a team
- * code) -- a primitive value, not an object or array -- so the effect can
- * depend on it directly with no extra key-derivation step. This is a real
- * simplification over v1.0.110's `useTeamSchedule`, which had to guard
- * against a new array-reference-with-same-values on every render; a
- * single string doesn't have that problem, so there's nothing to get
- * wrong here the way the accent-color hook's dependency array once did.
+ * The active tab is a plain string ("all" or a team code) -- a primitive
+ * value, not an object or array -- so the effect can depend on it
+ * directly with no key-derivation step, the same simplification
+ * documented for v1.0.111 in ARCHITECTURE.md.
+ *
+ * v1.0.112: "All" and a team tab now fetch genuinely different SHAPES
+ * (`seriesGroups` vs. a flat `entries` list), not just different
+ * team-filtered slices of the same shape -- see the module comment above
+ * for why. Both branches still re-fetch fresh on every switch back to
+ * their tab (no caching across calls), so a match that completes, or a
+ * series that fully concludes, is reflected the next time a user lands on
+ * that tab, not stuck on whatever was true at first load.
  */
-function useScheduleTab(tab: string): { entries: ScheduleEntry[]; loading: boolean } {
-  const [state, setState] = useState<{ tab: string; entries: ScheduleEntry[]; loading: boolean }>({
-    tab: "",
-    entries: [],
-    loading: true,
-  });
+function useScheduleTab(tab: string): {
+  entries: ScheduleEntry[];
+  seriesGroups: SeriesGroup[];
+  loading: boolean;
+} {
+  const [state, setState] = useState<{
+    tab: string;
+    entries: ScheduleEntry[];
+    seriesGroups: SeriesGroup[];
+    loading: boolean;
+  }>({ tab: "", entries: [], seriesGroups: [], loading: true });
 
   useEffect(() => {
     let cancelled = false;
     setState(s => ({ ...s, loading: true }));
-    const fetch = tab === "all" ? getFullSchedule() : getTeamSchedule(tab);
-    fetch.then(entries => {
-      if (!cancelled) setState({ tab, entries, loading: false });
-    });
+
+    if (tab === "all") {
+      getSeriesGroupedSchedule().then(seriesGroups => {
+        if (cancelled) return;
+        setState({ tab, entries: seriesGroups.flatMap(g => g.entries), seriesGroups, loading: false });
+      });
+    } else {
+      getTeamSchedule(tab).then(entries => {
+        if (cancelled) return;
+        setState({ tab, entries, seriesGroups: [], loading: false });
+      });
+    }
+
     return () => {
       cancelled = true;
     };
   }, [tab]);
 
-  return { entries: state.entries, loading: state.loading };
+  return { entries: state.entries, seriesGroups: state.seriesGroups, loading: state.loading };
 }
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
