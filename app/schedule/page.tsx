@@ -138,7 +138,11 @@ function MyTeamsScheduleView({ teamCodes }: { teamCodes: string[] }) {
       <header className="sticky top-0 z-30 bg-bg/90 backdrop-blur border-b border-line px-4 py-4">
         <h1 className="text-base font-extrabold tracking-tight">Schedule</h1>
         <p className="text-[10px] text-text-dim mt-0.5">
-          {loading ? "Loading your teams…" : `${entries.length} matches · your teams, next ~12 months`}
+          {loading
+            ? "Loading your teams…"
+            : activeChip === "all"
+            ? `${entries.length} matches · your teams, next ~12 months`
+            : `${visible.length} matches · ${chipTeams.find(t => t.code === activeChip)?.shortName ?? activeChip}, next ~12 months`}
         </p>
       </header>
 
