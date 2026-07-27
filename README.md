@@ -101,7 +101,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 - Bio, country flag, role, batting/bowling style, ICC rankings
 - Format tabs: Test / ODI / T20I / {franchiseLeague} (label is dynamic per player e.g. "IPL", "BBL")
 - Batting + bowling stats grids; sub-components return null when no data
-- **Recent-form graph** (v1.0.117, real-data-derived v1.0.118) — one point per innings/spell across the player's last 10 for the selected format tab, read directly from real `Match.innings[].battingCard`/`bowlingCard` records (no hand-typed side-field); same thin-line/dot-marker visual language as `BatterSparkline`; colored via `lib/teamAccentColor.ts`'s single-team `resolveTeamAccentColor()`. Renders nothing for a player/format with zero settled matches; never pads to 10 if fewer real innings exist
+- **Recent-form graph** (v1.0.117, real-data-derived v1.0.118) — one point per innings/spell across the player's last 10 for the selected format tab, read directly from real `Match.innings[].battingCard`/`bowlingCard` records (no hand-typed side-field); same thin-line/dot-marker visual language as `BatterSparkline`; colored via `lib/teamAccentColor.ts`'s single-team `resolveTeamAccentColor()` (unchanged by the styling update below). Renders nothing for a player/format with zero settled matches; never pads to 10 if fewer real innings exist. **v1.0.119:** upgraded from an axis-less sparkline to a labeled small line chart -- Y-axis value labels + ~4-5 light gridlines, scale computed per player/metric (never a fixed range -- a bowler's 0-10 wicket ceiling and a batter's hundreds-of-runs range get genuinely different scales); minimal X-axis with only "N ago"/"Most recent" endpoint labels
 - **Achievements callout** (v1.0.117, real-data-derived v1.0.118) — one line per qualifying recent achievement (Man of the Match count, Man of the Series), stacking as many as apply; correct singular/plural ("award" vs "awards"); the whole section is omitted, not shown empty, when nothing qualifies. Read directly from real `Match.result.manOfMatch`/`manOfTournament` records across the player's last 10 distinct settled matches. Both sections read through `lib/playerForm.ts`'s `getRecentForm()`/`getPlayerAchievements()` — the only sanctioned reads (the old hand-typed `RecentFormWindow` field was removed entirely). Deliberately excludes a player's upcoming matches (playing XI isn't confirmed early enough to show responsibly)
 - Clickable from Scorecard rows and CommentaryFeed wicket cards
 - `PLAYER_ALIASES` map resolves alternate IDs from live data
@@ -182,7 +182,7 @@ components/
 │   └── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
 └── Player profile
     ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout
-    ├── RecentFormGraph.tsx    # last-10 innings/spells sparkline-style graph, colored via lib/teamAccentColor.ts
+    ├── RecentFormGraph.tsx    # last-10 innings/spells labeled small line chart (v1.0.119: Y-axis + gridlines, scale per player/metric via computeYAxisTop()/buildYAxisTicks(), minimal two-endpoint X-axis -- supersedes the earlier axis-less sparkline styling), colored via lib/teamAccentColor.ts
     └── PlayerAchievements.tsx # recent achievement lines (MOM count, Man of the Series); renders nothing if none apply
 ```
 

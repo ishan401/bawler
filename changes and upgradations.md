@@ -3,6 +3,22 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.119] 2026-07-27
+
+### Recent-form graph: labeled axis chart supersedes sparkline styling
+
+#### Context
+- Product decision superseding v1.0.117's original call: the graph deliberately matched `BatterSparkline`'s axis-less style because it was scoped for a dense scorecard row. It now lives in its own dedicated section of the player page, so a properly labeled small line chart is more useful there. `BatterSparkline` itself is unchanged.
+
+#### Changed -- `components/RecentFormGraph.tsx`
+- Added a Y-axis with value labels and ~4-5 light horizontal gridlines, scaled per player/metric via two new exported pure functions: `computeYAxisTop(maxValue)` (scale always starts at 0; top is that player's own highest plotted value rounded up to a clean ceiling -- unit of 5/10/25/50/100 chosen by magnitude, never a fixed per-format constant) and `buildYAxisTicks(top)` (4-5 evenly spaced ticks, rounded labels, de-duplicated defensively).
+- `computeYAxisTop(0)` returns 4, not 0 -- an all-zero window (ducks/wicketless spells) is real data and still needs a non-degenerate axis.
+- Added a minimal X-axis: "N ago" / "Most recent" endpoints only (N matches the point count already in the header), no per-point labels/dates/opponent names. Single-point case gets one centered "Most recent" label.
+- Line color (team accent), per-point dots, and single-point rendering are otherwise unchanged.
+
+#### Verified
+- `npx tsx`, 44/44 pass: zero-max case, single-point case, exact-round-number values at each tier boundary, largest realistic values (real dataset max 142, plus 200/267/400 stress cases), bowler-vs-batter scale divergence (top 5 vs top 150). `tsc --noEmit`/`npm run build` clean. `git diff --stat` shows exactly 1 file changed.
+
 ## [1.0.118] 2026-07-27
 
 ### Player recent-form/achievements: rebuilt on real match data, not a hand-typed field

@@ -519,6 +519,69 @@ it with any confidence would be misleading.
   — correctly showing nothing, because there's genuinely nothing to show,
   not because a side-field was never populated.
 
+- **Axis styling, v1.0.119 -- supersedes the original sparkline call:**
+  v1.0.117 deliberately matched `Scorecard.tsx`'s `BatterSparkline` --
+  axis-less, dot-and-line only -- because it was designed to sit in a
+  dense scorecard row. That reasoning stopped applying once the graph
+  moved to its own dedicated section of the player page with room to
+  spare, so v1.0.119 replaced it with a properly labeled small line
+  chart: a Y-axis with value labels and ~4-5 light horizontal gridlines,
+  and a minimal X-axis showing only the two endpoints ("N ago" / "Most
+  recent", where N is the same point count already stated in the header
+  above the chart -- no per-point labels, no dates, no opponent names).
+  `BatterSparkline` itself is untouched; this was never a shared
+  component.
+- **Y-axis scale computed per player and per metric, never fixed:** two
+  new pure functions in `RecentFormGraph.tsx`, exported directly (not a
+  "temporarily exported for testing" case -- these are genuinely
+  reusable utilities, not React state): `computeYAxisTop(maxValue)` and
+  `buildYAxisTicks(top)`. The scale always starts at 0; the top is the
+  window's own highest plotted value, rounded up to a clean ceiling
+  (5/10/25/50/100, chosen by the value's own magnitude tier -- `<=10` uses
+  a unit of 5, `<=50` uses 10, `<=100` uses 25, `<=250` uses 50, else
+  100). This is the direct fix for the exact problem a fixed scale would
+  create: a bowler's wickets-per-innings has a hard real ceiling of 10,
+  while a batter's runs can run into the hundreds -- sharing one scale
+  would flatten every bowler's graph to a sliver near zero, or crush a
+  batter's real variation into a few pixels. Nothing here reads
+  `metric` to pick a format-specific constant; the same function handles
+  both, driven only by that specific player's own plotted values.
+- **Zero is real data, not missing data:** `computeYAxisTop(0)` returns 4
+  rather than 0 -- an unbroken run of ducks or wicketless spells is a
+  genuine, valid recent-form window, and a 0-to-0 scale would collapse
+  every gridline onto the same line. Non-finite/negative inputs (`NaN`,
+  `Infinity`, a negative value that should never occur but isn't worth
+  crashing over) fall back to the same zero-case path rather than
+  producing a broken or inverted axis.
+- **Tick de-duplication is a real guard, not just a comment:**
+  `buildYAxisTicks` rounds each of the 4-5 evenly spaced tick values to
+  the nearest whole number for display (runs/wickets are always
+  integers) and drops any tick whose rounded label collides with one
+  already placed, so two ticks can never render the same number stacked
+  on each other. In practice this never fires given the clean tops
+  `computeYAxisTop` produces (verified directly by testing every tier
+  boundary), but the guard is exercised by the edge-case tests below, not
+  left as an untested assumption.
+- **Single-point rendering unchanged in spirit, upgraded in practice:**
+  a player with exactly one recorded innings/spell still renders one dot
+  -- same as v1.0.117 -- but now against the full labeled axis rather
+  than a bare, context-less dot, and with a single centered "Most
+  recent" X-axis label rather than a contradictory "1 ago" / "Most
+  recent" pair (there is no second point to be "ago" relative to).
+- **Real edge-case tests, not a description of expected behavior**
+  (`npx tsx`, 44/44 pass): highest value in the window is 0 (top=4, no
+  duplicate ticks); exactly one data point (scale still derives correctly
+  from that single value); a value that already sits exactly on a round
+  number within its own tier's unit (10 -> top 10, the real per-innings
+  wicket ceiling; 20 -> top 20; 50 -> top 50; 100 -> top 100; 250 -> top
+  250 -- each tier boundary checked on its own unit, not assumed clean
+  across tiers); the largest realistic values (142, the real dataset's
+  actual highest single-innings score; 200; 267; 400 -- confirming large
+  scores round to a clean ceiling instead of an ugly or misleading one);
+  and a direct side-by-side confirming a bowler's scale (max 3 wickets ->
+  top 5) and a batter's scale (max 142 runs -> top 150) are genuinely
+  different, not a shared fixed range.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor
