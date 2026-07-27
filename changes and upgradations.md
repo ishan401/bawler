@@ -3,6 +3,32 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.118] 2026-07-27
+
+### Player recent-form/achievements: rebuilt on real match data, not a hand-typed field
+
+#### Context
+- A diagnostic (Crawley's page showing "Last 6 Innings" instead of 10) found the root cause: v1.0.117's `testRecentForm.values` was 6 hand-typed numbers with no relationship to any real match, while the same dataset separately held 4+ real per-match `battingCard` entries for Crawley the feature never read. Only 2 of 21 seeded players had any hand-authored recent-form data at all.
+
+#### Removed -- `lib/types.ts`, `lib/mockData.ts`
+- `RecentFormWindow` interface and all four `PlayerProfile` fields (`testRecentForm`/`odiRecentForm`/`t20iRecentForm`/`franchiseRecentForm`) deleted entirely. Grep-confirmed zero live references remain (only two historical explanation comments).
+
+#### Rewritten -- `lib/playerForm.ts`
+- `getRecentForm(player, format)` / `getPlayerAchievements(player, format)` keep the exact same public interface and return shapes as v1.0.117 -- zero changes needed in `RecentFormGraph.tsx`/`PlayerAchievements.tsx`. Internally now derives both from real `Match.innings[].battingCard`/`bowlingCard` and `Match.result.manOfMatch`/`manOfTournament`, matched to players via `resolvePlayerSlug()` (reused from `lib/mockData.ts`).
+- Settled matches = usable result (`hasUsableResult()`) across `ALL_PAST_MATCHES` + `ALL_LIVE_MATCHES`, never filtered by `match.status` (preserves `FEATURED_MATCH`'s real data despite its `status: "live"` label).
+- Deterministic sort by `(startTimeIso, match.id, innings number)` -- never trusts the source array's own newest-first ordering, which breaks once a single match contributes multiple innings.
+- Achievements count last-10 *distinct matches* (deduped by `match.id`); the graph plots last-10 innings/spells (per-entry) -- two different populations, matching the product spec's wording.
+- Opponent name derived from the specific match's own `battingTeam`/`bowlingTeam`, not the player's static profile field. `namesMatch()` checks both full name and short name (the dataset credits the same player's award both ways in different matches).
+
+#### Changed -- `components/PlayerProfileView.tsx`
+- Extracted the fetch-on-tab-change logic into a standalone, exported `usePlayerFormState(player, format)` hook with zero `next/navigation` dependency, so it's directly mountable with `react-test-renderer` (same precedent as `useScheduleTab`/`useMatchAccentColors`).
+
+#### Verified
+- Real-data coverage: 15/21 seeded players now show real recent-form data in some format (up from 2). Crawley's Test tab: `[12,45,8,76,23,61]` (fake) -> `[34,51]` (real, from `ashes-2526-3rd-test`). Bumrah's Test tab: `[2,3,1,4,0,2,5,1,3,2]` (fake) -> empty on Test, but `[3,2]` wickets on T20I and `[2]` on franchise (real spells the old feature never surfaced anywhere).
+- Malformed-data robustness (`npx tsx`, 8 cases: numeric playerId, missing innings, non-array battingCard, negative/NaN runs, missing result, garbage winner, inconsistent-case award name, null startTimeIso) -- no crashes, correct exclusion/inclusion in all 8.
+- Recomputation on real mutation, both at the adapter level (new match + MOM credit appears next call; removing the credit removes just the achievement, not the form point) and the hook level (`react-test-renderer`: tab-switch doesn't leak stale values, remount-after-mutation reflects the new data immediately).
+- Full regression: `git diff --stat` shows exactly 4 files changed; `Scorecard.tsx`/`FollowSheet.tsx`/`teamAccentColor.ts`/`teamData.ts` untouched. `tsc --noEmit`/`npm run build` clean.
+
 ## [1.0.117] 2026-07-24
 
 ### Player profile: recent-form graph + achievements callout

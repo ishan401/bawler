@@ -382,10 +382,11 @@ too, not just the UI on top of it.
     subtly-different card style for the same `ScheduleEntry` shape.
   - **No-op placeholder:** none needed yet, same reasoning as above.
 
-**Worked example — player recent form + achievements (v1.0.117):**
+**Worked example — player recent form + achievements (v1.0.117, data
+source rebuilt v1.0.118):**
 
-The player profile page (`/player/[id]`) gained two new format-scoped
-sections below its existing stats grid: a recent-form graph (one point per
+The player profile page (`/player/[id]`) has two format-scoped sections
+below its existing stats grid: a recent-form graph (one point per
 innings/spell across the player's last 10 for whichever format tab is
 selected) and an achievements callout (one line per qualifying recent
 award, e.g. Man of the Match count, Man of the Series). Explicitly out of
@@ -393,73 +394,130 @@ scope for both, by product decision: anything about a player's upcoming
 matches — playing XI isn't confirmed until close to a match, so surfacing
 it with any confidence would be misleading.
 
-- **Split:** `PlayerProfile` gained `testRecentForm`/`odiRecentForm`/
-  `t20iRecentForm`/`franchiseRecentForm` (`lib/types.ts`'s
-  `RecentFormWindow`), mirroring the exact shape `testStats`/`odiStats`/
-  `t20iStats`/`franchiseStats` already used — one optional field per
-  format, not one overloaded field disambiguated by role. Each window
-  holds a chronological `values: number[]` (real recorded entries only,
-  never padded to a fixed length) plus an optional `achievements` object
-  (`manOfMatchAwards?: number`, `manOfSeriesAwards?: { opponent, dateLabel
-  }[]`).
-- **Interface:** `lib/playerForm.ts` exports `getRecentForm(player, format)`
-  and `getPlayerAchievements(player, format)` as the only sanctioned reads
-  of those four fields — no component reads `player.testRecentForm` etc.
-  directly. Achievement text formatting (including singular/plural
-  resolution) lives inside `getPlayerAchievements()` itself, not in the
-  component — the same "get the string right at the source, not at every
-  render site" reasoning as `formatLastResult()` in `lib/teamSchedule.ts`.
-- **Promises from day one:** both functions return Promises today,
-  resolving synchronously from the in-memory mock `PlayerProfile`. Consumed
-  in `components/PlayerProfileView.tsx` via the same hydration-safe
-  `useState(null)` + `useEffect` pattern as every other adapter in this
-  file — `useEffect` keyed on `[player, activeTab]`, explicitly resetting
-  state to empty/`null` synchronously BEFORE the async calls resolve (plus
-  a `cancelled` guard) so a fast tab switch can never leave the PREVIOUS
-  format's graph, achievements, or team color visible while the new
-  format's data is still in flight. Verified directly: switching test →
-  odi → t20i → franchise on Bumrah's page never shows one tab's data on
-  another (`npx tsx`, format-scoping test in the malformed-data harness
-  below).
-- **Reused, not reimplemented, the existing accent-color pipeline:** the
-  graph is themed by the player's own team, with no second team anywhere
-  in view to collide against — the one genuine exception to "every real
-  caller has both teams in scope" that `lib/teamAccentColor.ts`'s own
-  header comment called out as not yet having a call site. Rather than
-  duplicating the hairline-contrast/secondary-fallback/cyan-fallback logic,
-  `lib/teamAccentColor.ts` gained one new export, `resolveTeamAccentColor
-  (team)`, which is exactly `resolveTeamColorTier(team).color` — the same
-  private per-team step every match call site already resolves through,
-  now also reachable for a context that never had a collision question to
-  begin with. `resolveMatchAccentColors` is unchanged and still the right
-  call for any context with two teams in view. Live-verified against two
-  real fallback cases already present in the mock dataset rather than
-  fabricated ones: England (Zak Crawley's national team) needs the full
-  cyan fallback (neither color clears the contrast minimum), and India
-  (Bumrah's national team) resolves to its gold secondary, not its real
-  blue primary.
-- **No-op placeholder:** `refreshPlayerForm()` in `lib/playerForm.ts`, same
-  reasoning as `refreshRankings()`/`refreshRecentForm`-shaped placeholders
-  elsewhere in this pattern.
+- **v1.0.117's mistake, corrected in v1.0.118:** the original build added a
+  hand-typed `RecentFormWindow` field directly on `PlayerProfile`
+  (`testRecentForm`/`odiRecentForm`/`t20iRecentForm`/`franchiseRecentForm`,
+  each a manually-authored `values: number[]`) instead of deriving from the
+  match records this app already has. This passed every test written
+  against it at the time because the tests only exercised the field itself
+  — they never checked whether the field's numbers had any relationship to
+  a player's actual recorded matches. They didn't: Crawley's mock
+  `testRecentForm.values` was 6 hand-typed numbers while the same dataset
+  separately held 4+ real per-match `battingCard` entries for him that the
+  feature never read. The lesson generalized into DECISIONS-LOG.md v1.0.118:
+  a field name that describes real data is not the same guarantee as a
+  field that's actually *derived* from real data — the type system and a
+  passing test suite can't tell the two apart, only tracing the field back
+  to its origin can.
+- **Data source, v1.0.118:** `RecentFormWindow` and all four fields were
+  deleted from `lib/types.ts`/`lib/mockData.ts` entirely (grep-confirmed
+  zero live references — the only hits left are the historical explanation
+  comments in `lib/types.ts` and `lib/playerForm.ts`). `lib/playerForm.ts`
+  now derives both the graph and the achievements callout directly from
+  `Match.innings[].battingCard`/`bowlingCard` and `Match.result.manOfMatch`/
+  `manOfTournament` — the exact same records `Scorecard.tsx` and the career
+  stats grids already read. No per-player recent-form authoring exists
+  anywhere in the mock data anymore; a player either has real match
+  history or shows nothing.
+- **Interface, unchanged in shape:** `lib/playerForm.ts` still exports
+  `getRecentForm(player, format)` and `getPlayerAchievements(player,
+  format)` as the only sanctioned reads, returning the same public shapes
+  (`RecentFormSeries { points, metric }`, `AchievementLine { text }`) as
+  before — only the internal derivation changed. `components/
+  RecentFormGraph.tsx` and `components/PlayerAchievements.tsx` needed zero
+  code changes for this rebuild, which is the direct payoff of routing
+  everything through a sanctioned interface in the first place: the
+  data-source swap was entirely contained inside the adapter.
+- **"Settled" means a usable result, never the `status` label:** the new
+  adapter gathers innings/spell entries from `ALL_PAST_MATCHES` **and**
+  `ALL_LIVE_MATCHES`, filtered by a private `hasUsableResult(match)` check
+  (real, attributable `result.winner` — `"draw"`/`"tie"`/`"no-result"` or
+  one of the match's own two team codes), and never filters on
+  `match.status`. This matters concretely: `FEATURED_MATCH` is deliberately
+  kept at `status: "live"` so it stays in the homepage's live carousel,
+  despite being a fully completed match with real batting/bowling cards
+  and real award credits (Andre Russell's Man of the Match, Virat Kohli's
+  Man of the Series). Filtering on `status` would have silently dropped
+  that match's real data for every player in it.
+- **Deterministic chronological ordering, not the source array's own
+  sort:** `ALL_PAST_MATCHES` is sorted newest-first for a different reason
+  (recent-first schedule lists), so the adapter never relies on it for
+  order. Every extracted entry carries its own `startTimeIso`, and the
+  full set is explicitly sorted ascending by `(startTimeIso, match.id as
+  tiebreak, innings number)` before any `slice(-10)` — verified this
+  matters with a constructed case where a single Test match contributes
+  two innings to the same player: grouping-by-match-then-reversing gives
+  the wrong order, sorting every entry independently by its own timestamp
+  doesn't.
+- **Two different "last 10" populations, matching the product's own
+  wording:** the graph plots the last 10 innings/spells (per-entry — one
+  Test match can contribute 2); the achievements callout counts the last
+  10 *distinct matches* (deduped by `match.id`). Building both from one
+  undifferentiated list would silently conflate them.
+- **Opponent derivation uses the match's own recorded team, not the
+  player's current profile field:** an achievement line's opponent name
+  comes from the specific match's own `battingTeam`/`bowlingTeam` on the
+  entry that qualified it, not `player.teamCode`/`franchiseCode` — a
+  profile field says who a player plays for today, not who they played
+  for in a specific historical match.
+- **Name matching handles real inconsistent data:** the same dataset
+  credits the same player's award two different ways across different
+  matches ("Virat Kohli" in one `manOfTournament`, "V Kohli" in another).
+  `namesMatch()` checks both `player.name` and `player.shortName`, trimmed
+  and case-insensitive, rather than assuming the mock data is internally
+  consistent about which form it uses.
+- **Reused, not reimplemented, the existing accent-color pipeline and
+  player-identity resolution:** unchanged from v1.0.117 — `resolveTeamAccentColor(team)` for
+  theming, `resolvePlayerSlug()` from `lib/mockData.ts` for matching a raw
+  match-record `playerId` (which appears in several inconsistent real
+  forms, e.g. `"J Bumrah"`/`"jbumrah"`/`"zcrwly"`) back to a canonical
+  player id, rather than reinventing name matching inside the new adapter.
+- **Promises from day one, testable hook extracted for real remount
+  testing:** both functions still return Promises, consumed via a
+  hydration-safe `useState(null)` + `useEffect` pattern. For v1.0.118 this
+  logic was pulled out of `PlayerProfileView.tsx`'s component body into a
+  standalone, exported `usePlayerFormState(player, format)` hook with zero
+  dependency on `next/navigation`'s `useRouter` — the same "temporarily
+  export a private hook for testing" precedent as `useScheduleTab`
+  (`app/schedule/page.tsx`) and `useMatchAccentColors` (`components/
+  Scorecard.tsx`) — so it can be mounted, remounted, and driven through
+  format-tab switches directly with `react-test-renderer` without mocking
+  the app router.
+- **No-op placeholder:** `refreshPlayerForm()` in `lib/playerForm.ts`,
+  unchanged.
 - **Malformed-data hardening, tested with real broken inputs (`npx tsx`,
-  34/34 pass):** fewer than 10 recorded innings (returns exactly that many,
-  never padded with fake zeros); `values` not an array; individual entries
-  that are `null`/`NaN`/negative/wrong-typed (dropped, valid entries kept);
-  more than 10 entries (takes the most recent 10); a malformed `metric`
-  value (defaults to `"runs"`); zero innings recorded for a format at all
-  (empty series — the graph renders nothing, not a broken chart);
-  `manOfMatchAwards` that's zero/negative/`NaN`/wrong-typed (no line, never
-  "Won 0 Man of the Match awards"); `manOfSeriesAwards` not an array; and
-  individual malformed award entries within an otherwise-valid array
-  (skipped one at a time, without dropping the other valid entries in the
-  same array). Also confirmed against the real shipped mock data: Bumrah's
-  Test tab (a full 10-spell window, 3 MOM awards, 2 Man of the Series
-  lines — all three stacking, not just the single most impressive one),
-  his ODI tab (1 MOM award, singular "award" not "awards" — the same class
-  of microcopy bug fixed in the Filter sheet's "N selected" badges
-  earlier), his T20I tab (no recentForm authored yet — zero points, no
-  crash), and Crawley's Test tab (6 real innings, zero achievements — the
-  whole callout section correctly omitted rather than shown empty).
+  8 cases):** a numeric `playerId` where a string was expected; a match
+  with no `innings` array at all; a `battingCard` that's an object instead
+  of an array; individually malformed entries (negative or `NaN` runs)
+  inside an otherwise-valid card; a match with no `result` object; a
+  match with a `result.winner` that names neither team (garbage result,
+  correctly excluded by `hasUsableResult`); a real award name with
+  inconsistent case/whitespace (still matched, still credited); and a
+  match with a `null` `startTimeIso` (excluded, not crashed). All eight
+  handled without throwing, and every case excluded or included exactly as
+  it should have.
+- **Recomputation, tested with a real before/after mutation, not a
+  description:** direct adapter calls before and after (1) appending a
+  brand-new completed match with a fresh Man of the Match credit — new
+  runs value and new achievement line both appeared on the very next call
+  — and (2) flipping that same match's `result` to remove the MOM credit
+  — the achievement line disappeared while the runs entry itself stayed,
+  confirming the two are read independently rather than one stale
+  snapshot covering both. At the hook level (`react-test-renderer`,
+  temporarily exported `usePlayerFormState`): mounted on Root's Test tab
+  (real data), switched to ODI (no real Root ODI history — confirmed the
+  Test tab's values did NOT leak through as stale state), switched back to
+  Test (confirmed it reloaded the real data, not an empty carryover from
+  ODI), then unmounted, mutated `ALL_PAST_MATCHES` with a new match, and
+  mounted fresh — the new mount reflected the mutation immediately, not a
+  cached snapshot from before the unmount.
+- **Real-data coverage, post-rebuild:** 15 of the 21 seeded players now
+  show at least one real recent-form point in some format (up from 2
+  before this rebuild, both of which were reading the disconnected
+  hand-typed field rather than real records). The other 6 have zero
+  matches with usable per-innings data in the mock dataset for any format
+  — correctly showing nothing, because there's genuinely nothing to show,
+  not because a side-field was never populated.
 
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
