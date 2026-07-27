@@ -65,10 +65,26 @@ import { CYAN } from "./tokens";
 // not just curve-fit to these two cases -- it's a real, citable boundary
 // that happens to land exactly where the calibration cases need it to.
 //
-// Every real call site (TeamToggle, TestInningsChips, InningsCard, all in
-// components/Scorecard.tsx) always has both teams in scope, so
-// `resolveMatchAccentColors` is what they should call -- there's no
-// single-team-only entry point exported from this module.
+// Every real call site inside a MATCH context (TeamToggle, TestInningsChips,
+// InningsCard, all in components/Scorecard.tsx) always has both teams in
+// scope, so `resolveMatchAccentColors` is what they should call.
+//
+// v1.0.117 added the one genuine exception: the player profile page's
+// recent-form graph (components/PlayerProfileView.tsx) themes a SINGLE
+// player's team, with no second team anywhere in view to collide against
+// -- there's no match here at all, just one player and one team. For
+// exactly that case, `resolveTeamAccentColor(team)` below exports the
+// per-team-only half of this pipeline (real primary -> secondary fallback
+// -> platform cyan, the same hairline-stroke contrast check as everything
+// else in this file) WITHOUT the cross-team collision step, since collision
+// is a two-team question this context never has. It calls the same
+// internal `resolveTeamColorTier` every match call site already goes
+// through -- no resolution logic is duplicated, just exposed through a
+// second, narrower entry point for a context that genuinely has no
+// partner team. Any consumer that DOES have two teams in view must still
+// use `resolveMatchAccentColors` -- this new function is not a shortcut
+// around the collision check for match contexts, only the sanctioned path
+// for contexts that never had a collision question to begin with.
 //
 // No exception exists for the wicket-red teams (Zimbabwe, Perth Scorchers,
 // Punjab Kings) at any step -- the same math applies to them as to anyone
@@ -344,9 +360,11 @@ function sanitizeHexColor(raw: unknown): string | undefined {
 
 /** Per-team-only resolution (v1.0.105): real `primaryColor` if it clears the
  * hairline-stroke minimum against the card background, else `secondaryColor`
- * if THAT clears it, else the platform cyan. Deliberately not exported --
- * see the module comment above for why every real caller needs the
- * match-aware `resolveMatchAccentColors` instead. */
+ * if THAT clears it, else the platform cyan. Not exported directly -- every
+ * MATCH-context caller needs the match-aware `resolveMatchAccentColors`
+ * instead; `resolveTeamAccentColor` below is the one sanctioned wrapper for
+ * genuinely single-team (no-collision-partner) contexts, see the module
+ * comment above (v1.0.117). */
 function resolveTeamColorTier(team: Team): ResolvedTeamColor {
   const primary = sanitizeHexColor(team.primaryColor);
   if (primary && contrastRatio(primary, CARD_BG) >= MIN_CONTRAST) {
@@ -442,4 +460,24 @@ export async function resolveMatchAccentColors(teamA: Team, teamB: Team): Promis
     return { [teamA.code]: CYAN, [teamB.code]: b.color };
   }
   return { [teamA.code]: a.color, [teamB.code]: CYAN };
+}
+
+/**
+ * Resolves ONE team's accent color with no second team to collide against
+ * -- the sanctioned entry point for genuinely single-team contexts (v1.0.117;
+ * see the module comment above for why this exists alongside, not instead
+ * of, `resolveMatchAccentColors`). Internally this is exactly
+ * `resolveTeamColorTier(team).color` -- real primary if it clears the same
+ * hairline-stroke contrast minimum every match call site uses, else
+ * secondary if that clears it, else the platform cyan. No new resolution
+ * logic lives here; this only exposes the existing per-team step through a
+ * second, narrower export.
+ *
+ * Async for the same reason `resolveMatchAccentColors` is (v1.0.108): a real
+ * color-data source is necessarily a network call, so this stays written
+ * against that shape today even though it resolves synchronously from an
+ * in-memory mock `Team` object.
+ */
+export async function resolveTeamAccentColor(team: Team): Promise<string> {
+  return resolveTeamColorTier(team).color;
 }

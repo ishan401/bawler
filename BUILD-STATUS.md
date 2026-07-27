@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.116 (deployed)
+**Current version:** v1.0.117 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -95,6 +95,8 @@
 - ✅ Clickable from Scorecard rows and CommentaryFeed wicket cards
 - ✅ `PLAYER_ALIASES` map resolves alternate IDs; `resolvePlayerSlug()` in Scorecard
 - ✅ 21 player profiles seeded in mock data
+- ✅ **Recent-form graph** (v1.0.117) — one point per innings (batting) or bowling spell, across the player's last 10 for whichever format tab is selected; same thin-line/dot-marker visual language as `BatterSparkline`, colored via `lib/teamAccentColor.ts`'s new single-team `resolveTeamAccentColor()` export (no reimplemented color logic — reuses the same hairline-contrast/secondary-fallback/cyan-fallback pipeline every match card already uses). Renders nothing for a format with zero recorded innings; shows however many innings actually exist (never padded to 10) via `lib/playerForm.ts`'s `getRecentForm()`
+- ✅ **Achievements callout** (v1.0.117) — one line per qualifying recent achievement (Man of the Match count, Man of the Series awards), stacking as many as genuinely apply; correct singular/plural microcopy ("Won 1 Man of the Match award" vs "...awards"); whole section omitted (not an empty state) when nothing qualifies for the selected format. Uses the `special` design token, same as other achievement/premium chips elsewhere in the app. Data via `lib/playerForm.ts`'s `getPlayerAchievements()` — the only sanctioned read of the new per-format `RecentFormWindow` fields on `PlayerProfile`. Deliberately excludes anything about a player's upcoming matches (playing XI isn't confirmed early enough to show it responsibly)
 
 ### Match page — Live tab
 
@@ -523,6 +525,7 @@
 
 | Version | Highlight |
 |---|---|
+| **v1.0.117** | Added a recent-form graph and achievements callout to player profiles (`/player/[id]`), both scoped to the selected format tab -- graph reuses the existing team-accent-color pipeline via a new single-team `resolveTeamAccentColor()` export (no reimplemented contrast/fallback logic); achievements stack multiple qualifying lines with correct singular/plural microcopy and omit entirely when nothing qualifies. New `lib/playerForm.ts` adapter, async from day one, 34/34 malformed-data tests pass (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.116** | Sorted `FollowSheet`'s Nations tab by ICC membership tier -- full members first, associates after, alphabetical within each group -- via the existing `getTeamMembershipStatus()` adapter (no hardcoded name list); nations with unresolved status trail in their own fail-safe group rather than being misclassified or dropped. Scoped to the Nations sort only (DECISIONS-LOG.md) |
 | **v1.0.115** | Unified `FollowSheet`'s selection-state UI (checkbox checkmarks, per-category "N selected" badges, "Update (N)" button) from a dedicated purple to the platform's standard cyan accent, matching the single active/selected color used elsewhere. Scoped to the sheet only -- the `six` ball-outcome purple and the `follow` token's other consumers (bottom-nav Filter icon, homepage "FOR YOU" nudge) are unchanged (DECISIONS-LOG.md) |
 | **v1.0.114** | Fixed Schedule tab row ordering: followed-team tabs now sort nations before franchise/league teams (alphabetical within each group), instead of one flat alphabetical pass across both that could put a franchise team like CSK ahead of a nation like IND. Uses the same `Team.type` categorization Filter's Nations/Teams sections already rely on (DECISIONS-LOG.md) |

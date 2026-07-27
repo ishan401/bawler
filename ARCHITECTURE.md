@@ -382,6 +382,85 @@ too, not just the UI on top of it.
     subtly-different card style for the same `ScheduleEntry` shape.
   - **No-op placeholder:** none needed yet, same reasoning as above.
 
+**Worked example — player recent form + achievements (v1.0.117):**
+
+The player profile page (`/player/[id]`) gained two new format-scoped
+sections below its existing stats grid: a recent-form graph (one point per
+innings/spell across the player's last 10 for whichever format tab is
+selected) and an achievements callout (one line per qualifying recent
+award, e.g. Man of the Match count, Man of the Series). Explicitly out of
+scope for both, by product decision: anything about a player's upcoming
+matches — playing XI isn't confirmed until close to a match, so surfacing
+it with any confidence would be misleading.
+
+- **Split:** `PlayerProfile` gained `testRecentForm`/`odiRecentForm`/
+  `t20iRecentForm`/`franchiseRecentForm` (`lib/types.ts`'s
+  `RecentFormWindow`), mirroring the exact shape `testStats`/`odiStats`/
+  `t20iStats`/`franchiseStats` already used — one optional field per
+  format, not one overloaded field disambiguated by role. Each window
+  holds a chronological `values: number[]` (real recorded entries only,
+  never padded to a fixed length) plus an optional `achievements` object
+  (`manOfMatchAwards?: number`, `manOfSeriesAwards?: { opponent, dateLabel
+  }[]`).
+- **Interface:** `lib/playerForm.ts` exports `getRecentForm(player, format)`
+  and `getPlayerAchievements(player, format)` as the only sanctioned reads
+  of those four fields — no component reads `player.testRecentForm` etc.
+  directly. Achievement text formatting (including singular/plural
+  resolution) lives inside `getPlayerAchievements()` itself, not in the
+  component — the same "get the string right at the source, not at every
+  render site" reasoning as `formatLastResult()` in `lib/teamSchedule.ts`.
+- **Promises from day one:** both functions return Promises today,
+  resolving synchronously from the in-memory mock `PlayerProfile`. Consumed
+  in `components/PlayerProfileView.tsx` via the same hydration-safe
+  `useState(null)` + `useEffect` pattern as every other adapter in this
+  file — `useEffect` keyed on `[player, activeTab]`, explicitly resetting
+  state to empty/`null` synchronously BEFORE the async calls resolve (plus
+  a `cancelled` guard) so a fast tab switch can never leave the PREVIOUS
+  format's graph, achievements, or team color visible while the new
+  format's data is still in flight. Verified directly: switching test →
+  odi → t20i → franchise on Bumrah's page never shows one tab's data on
+  another (`npx tsx`, format-scoping test in the malformed-data harness
+  below).
+- **Reused, not reimplemented, the existing accent-color pipeline:** the
+  graph is themed by the player's own team, with no second team anywhere
+  in view to collide against — the one genuine exception to "every real
+  caller has both teams in scope" that `lib/teamAccentColor.ts`'s own
+  header comment called out as not yet having a call site. Rather than
+  duplicating the hairline-contrast/secondary-fallback/cyan-fallback logic,
+  `lib/teamAccentColor.ts` gained one new export, `resolveTeamAccentColor
+  (team)`, which is exactly `resolveTeamColorTier(team).color` — the same
+  private per-team step every match call site already resolves through,
+  now also reachable for a context that never had a collision question to
+  begin with. `resolveMatchAccentColors` is unchanged and still the right
+  call for any context with two teams in view. Live-verified against two
+  real fallback cases already present in the mock dataset rather than
+  fabricated ones: England (Zak Crawley's national team) needs the full
+  cyan fallback (neither color clears the contrast minimum), and India
+  (Bumrah's national team) resolves to its gold secondary, not its real
+  blue primary.
+- **No-op placeholder:** `refreshPlayerForm()` in `lib/playerForm.ts`, same
+  reasoning as `refreshRankings()`/`refreshRecentForm`-shaped placeholders
+  elsewhere in this pattern.
+- **Malformed-data hardening, tested with real broken inputs (`npx tsx`,
+  34/34 pass):** fewer than 10 recorded innings (returns exactly that many,
+  never padded with fake zeros); `values` not an array; individual entries
+  that are `null`/`NaN`/negative/wrong-typed (dropped, valid entries kept);
+  more than 10 entries (takes the most recent 10); a malformed `metric`
+  value (defaults to `"runs"`); zero innings recorded for a format at all
+  (empty series — the graph renders nothing, not a broken chart);
+  `manOfMatchAwards` that's zero/negative/`NaN`/wrong-typed (no line, never
+  "Won 0 Man of the Match awards"); `manOfSeriesAwards` not an array; and
+  individual malformed award entries within an otherwise-valid array
+  (skipped one at a time, without dropping the other valid entries in the
+  same array). Also confirmed against the real shipped mock data: Bumrah's
+  Test tab (a full 10-spell window, 3 MOM awards, 2 Man of the Series
+  lines — all three stacking, not just the single most impressive one),
+  his ODI tab (1 MOM award, singular "award" not "awards" — the same class
+  of microcopy bug fixed in the Filter sheet's "N selected" badges
+  earlier), his T20I tab (no recentForm authored yet — zero points, no
+  crash), and Crawley's Test tab (6 real innings, zero achievements — the
+  whole callout section correctly omitted rather than shown empty).
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor

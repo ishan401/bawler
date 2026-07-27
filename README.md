@@ -101,6 +101,8 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 - Bio, country flag, role, batting/bowling style, ICC rankings
 - Format tabs: Test / ODI / T20I / {franchiseLeague} (label is dynamic per player e.g. "IPL", "BBL")
 - Batting + bowling stats grids; sub-components return null when no data
+- **Recent-form graph** (v1.0.117) — one point per innings/spell across the player's last 10 for the selected format tab, same thin-line/dot-marker visual language as `BatterSparkline`; colored via `lib/teamAccentColor.ts`'s single-team `resolveTeamAccentColor()` (reuses the existing hairline-contrast/secondary-fallback/cyan-fallback pipeline, no new color logic). Renders nothing for a format with zero recorded innings; never pads to 10 if fewer exist
+- **Achievements callout** (v1.0.117) — one line per qualifying recent achievement (Man of the Match count, Man of the Series), stacking as many as apply; correct singular/plural ("award" vs "awards"); the whole section is omitted, not shown empty, when nothing qualifies. Both sections read through `lib/playerForm.ts`'s `getRecentForm()`/`getPlayerAchievements()` — the only sanctioned reads of the new per-format `RecentFormWindow` data on `PlayerProfile`. Deliberately excludes a player's upcoming matches (playing XI isn't confirmed early enough to show responsibly)
 - Clickable from Scorecard rows and CommentaryFeed wicket cards
 - `PLAYER_ALIASES` map resolves alternate IDs from live data
 
@@ -179,7 +181,9 @@ components/
 │   ├── FollowSheet.tsx        # Filter feature: two-column category + search/multi-select sheet
 │   └── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
 └── Player profile
-    └── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs
+    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout
+    ├── RecentFormGraph.tsx    # last-10 innings/spells sparkline-style graph, colored via lib/teamAccentColor.ts
+    └── PlayerAchievements.tsx # recent achievement lines (MOM count, Man of the Series); renders nothing if none apply
 ```
 
 ---
@@ -201,5 +205,7 @@ lib/
 ├── followNudge.ts      # empty-state Filter nudge (first-N-sessions, dismissible)
 ├── heroSelection.ts    # selectHeroMatch() — 3-tier deterministic hero-match rule (prominence, live stakes, live runway)
 ├── teamSchedule.ts      # getSeriesGroupedSchedule()/getMatchesForCompetition()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All (series rows), dedicated series page, + per-team (flat) tabs
+├── teamAccentColor.ts   # resolveMatchAccentColors() (two-team, collision-aware) + resolveTeamAccentColor() (single-team, v1.0.117) — real-data-ready team-color resolution, hairline-contrast + secondary/cyan fallback
+├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117) — real-data-ready per-format last-10 innings/spells + achievements adapter behind the player profile page
 └── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
 ```

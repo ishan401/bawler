@@ -1,14 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PlayerProfile, FormatStats } from "@/lib/types";
+import type { PlayerProfile, FormatStats, PlayerFormatKey } from "@/lib/types";
+import { ALL_TEAMS } from "@/lib/mockData";
+import { resolveTeamAccentColor } from "@/lib/teamAccentColor";
+import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type AchievementLine } from "@/lib/playerForm";
+import { CYAN } from "@/lib/tokens";
+import RecentFormGraph from "./RecentFormGraph";
+import PlayerAchievements from "./PlayerAchievements";
 
 interface Props {
   player: PlayerProfile;
 }
 
-type FormatKey = "test" | "odi" | "t20i" | "franchise";
+// Centralized in lib/types.ts as PlayerFormatKey (v1.0.117) so this view and
+// lib/playerForm.ts share one definition instead of two that could drift.
+type FormatKey = PlayerFormatKey;
 
 const FORMAT_LABELS: Record<FormatKey, string> = {
   test: "TEST",
@@ -135,6 +143,56 @@ export default function PlayerProfileView({ player }: Props) {
 
   const rankings = player.iccRankings;
 
+  // ── Recent form + achievements (v1.0.117) ────────────────────────────
+  // Both come through the sanctioned lib/playerForm.ts interface, never by
+  // reading player.testRecentForm/etc. directly -- see that file's header
+  // comment for the full real-data-readiness writeup. Format-scoped, same
+  // as `stats` above: switching tabs re-fetches for the newly active
+  // format, never reuses the previous tab's series/achievements/color.
+  //
+  // Explicitly NOT here: anything about this player's upcoming matches --
+  // playing XI isn't confirmed until close to a match, so surfacing it
+  // with any confidence would be misleading. This section only ever looks
+  // backward at recorded innings/spells and awards.
+  const [recentForm, setRecentForm] = useState<RecentFormSeries | null>(null);
+  const [achievementLines, setAchievementLines] = useState<AchievementLine[]>([]);
+  // Sensible loading default -- matches the platform's own default accent,
+  // never rendered long enough to matter today since the mock adapters
+  // resolve synchronously, but correct even if a future real fetch is slow.
+  const [teamColor, setTeamColor] = useState<string>(CYAN);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Reset immediately, before the async calls below resolve -- so a fast
+    // tab switch never leaves the PREVIOUS tab's graph, achievements, or
+    // team color visible while the new tab's data is still in flight.
+    setRecentForm(null);
+    setAchievementLines([]);
+    (async () => {
+      const [series, lines] = await Promise.all([
+        getRecentForm(player, activeTab),
+        getPlayerAchievements(player, activeTab),
+      ]);
+      // International formats theme off the player's national team;
+      // "franchise" themes off their league team. A player missing the
+      // relevant code (e.g. no franchiseCode) or whose code doesn't
+      // resolve to a real Team falls straight to the platform cyan --
+      // the same "no usable color" fallback resolveTeamAccentColor already
+      // applies to a team with no usable color of its own.
+      const teamCode = activeTab === "franchise" ? player.franchiseCode : player.teamCode;
+      const team = teamCode ? ALL_TEAMS[teamCode] : undefined;
+      const color = team ? await resolveTeamAccentColor(team) : CYAN;
+      if (!cancelled) {
+        setRecentForm(series);
+        setAchievementLines(lines);
+        setTeamColor(color);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [player, activeTab]);
+
   return (
     <div className="min-h-screen bg-bg-base flex flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -225,6 +283,18 @@ export default function PlayerProfileView({ player }: Props) {
                 <BowlingStats stats={stats} />
               </div>
             )}
+
+            {/* Recent form graph + achievements callout (v1.0.117) --
+                both format-scoped to activeTab, independent of `stats`
+                above (rendered as siblings, not nested inside `stats &&`)
+                since a future real feed could in principle have one
+                without the other. Each renders nothing on its own when
+                it has nothing real to show -- see RecentFormGraph.tsx and
+                PlayerAchievements.tsx for exactly what triggers that. */}
+            <div className="px-4 space-y-3 mt-3">
+              {recentForm && <RecentFormGraph points={recentForm.points} metric={recentForm.metric} color={teamColor} />}
+              <PlayerAchievements lines={achievementLines} />
+            </div>
           </>
         )}
       </div>

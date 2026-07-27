@@ -3,6 +3,30 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.117] 2026-07-24
+
+### Player profile: recent-form graph + achievements callout
+
+#### Context
+- Added two new sections to the player profile page (`/player/[id]`), below the existing stats grid, both scoped to whichever format tab (Test/ODI/T20I/franchise) is currently selected: a recent-form graph (one point per innings/spell across the player's last 10) and an achievements callout (one line per qualifying recent award). Explicitly out of scope: anything about a player's upcoming matches -- playing XI isn't confirmed close enough to a match to show it with any confidence.
+
+#### New -- `lib/playerForm.ts`
+- `getRecentForm(player, format)` / `getPlayerAchievements(player, format)` -- the only sanctioned reads of four new `PlayerProfile` fields (`testRecentForm`/`odiRecentForm`/`t20iRecentForm`/`franchiseRecentForm`, `lib/types.ts`'s `RecentFormWindow`), mirroring the existing `testStats`/`odiStats`/etc. per-format shape. Async from day one; defensive against missing windows, non-array `values`, malformed individual entries, more-than-10 entries, and malformed achievement counts/arrays.
+- Singular/plural resolved in code ("Won 1 Man of the Match award" vs "Won 3 Man of the Match awards") -- same class of fix as the Filter sheet's count badges.
+
+#### Changed -- `lib/teamAccentColor.ts`
+- New export `resolveTeamAccentColor(team)` -- the existing per-team hairline-contrast/secondary-fallback/cyan-fallback step (`resolveTeamColorTier`), now also reachable for genuinely single-team contexts with no second team to collide against. No resolution logic duplicated; `resolveMatchAccentColors` and every match-context call site unchanged.
+
+#### New components
+- `components/RecentFormGraph.tsx` -- thin smoothed line + a dot at every point, same visual language as `BatterSparkline`, colored via the caller's already-resolved team color.
+- `components/PlayerAchievements.tsx` -- one line per achievement using the `special` design token; renders nothing when there's nothing to show.
+
+#### Changed -- `components/PlayerProfileView.tsx`
+- Fetches both plus the resolved team color together, keyed on `[player, activeTab]`, resetting to empty/null before each fetch so a fast tab switch never shows stale data from the previous format.
+
+#### Verified
+- `npx tsx`, 34/34 pass: fewer-than-10 padding, missing/malformed data, zero-innings format, MOM pluralization, multi-achievement stacking, malformed MOS entries, and format-scoping (no bleed-through between tabs). Sanity-checked against real mock data (Bumrah, Crawley). `tsc --noEmit`/`npm run build` clean.
+
 ## [1.0.116] 2026-07-24
 
 ### Sort Filter/Follow sheet's Nations tab by ICC membership tier

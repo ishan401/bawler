@@ -14974,6 +14974,40 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     t20iStats:  { matches: 75, wickets: 89, bestBowling: "4/14", bowlingAvg: 18.4, economy: 6.22 },
     franchiseLeague: "IPL",
     franchiseStats: { matches: 135, wickets: 172, bestBowling: "5/27", bowlingAvg: 21.1, economy: 6.97, fiveWickets: 1 },
+    // Recent form + achievements (v1.0.117, lib/playerForm.ts). Test: a
+    // full 10-spell window, 3 Man of the Match awards (plural microcopy
+    // case) plus two Man of the Series awards, stacking as multiple lines.
+    // ODI: fewer than 10 recorded spells and exactly 1 MOM award --
+    // exercises the singular-pluralization case ("Won 1 Man of the Match
+    // award", not "awards"). T20I: deliberately no
+    // recentForm authored at all yet -- exercises the "zero innings
+    // recorded for this format" empty-graph case on a real, reachable tab.
+    // Franchise (MI): a normal mid-length window, no achievements.
+    testRecentForm: {
+      values: [2, 3, 1, 4, 0, 2, 5, 1, 3, 2],
+      metric: "wickets",
+      achievements: {
+        manOfMatchAwards: 3,
+        manOfSeriesAwards: [
+          { opponent: "South Africa", dateLabel: "July 2026" },
+          { opponent: "Australia", dateLabel: "November 2025" },
+        ],
+      },
+    },
+    // ODI also exercises the singular-pluralization case: exactly 1 MOM
+    // award should read "Won 1 Man of the Match award" (no trailing "s"),
+    // not "awards".
+    odiRecentForm: {
+      values: [1, 2, 0, 3, 1],
+      metric: "wickets",
+      achievements: {
+        manOfMatchAwards: 1,
+      },
+    },
+    franchiseRecentForm: {
+      values: [1, 2, 3, 0, 2, 1, 4],
+      metric: "wickets",
+    },
   },
 
   "s-gill": {
@@ -15210,6 +15244,16 @@ export const PLAYERS: Record<string, PlayerProfile> = {
     bio: "England's swashbuckling opener who set the template for Bazball with his 267 against Pakistan in 2020. Crawley bats with an infectious freedom — he takes on short balls, drives on the up, plays outrageous ramps and reverse sweeps. His intent in the first hour of an innings transforms the game's tempo.",
     iccRankings: { testBatting: 13 },
     testStats:  { matches: 48, innings: 88, runs: 2893, highScore: "267", battingAvg: 34.0, battingStrikeRate: 61.2, hundreds: 6, fifties: 14 },
+    // Recent form + achievements (v1.0.117, lib/playerForm.ts). Test: only
+    // 6 recorded innings this format (fewer than 10 -- must show exactly
+    // 6, never padded) and zero achievements (the whole callout must be
+    // omitted, not shown empty). Also has no odiRecentForm/t20iRecentForm/
+    // franchiseRecentForm at all -- consistent with having no odiStats/
+    // t20iStats/franchiseStats either, so those tabs don't exist for him.
+    testRecentForm: {
+      values: [12, 45, 8, 76, 23, 61],
+      metric: "runs",
+    },
   },
 
 };
