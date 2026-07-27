@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 import { SPIN } from "@/lib/tokens";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface PartnershipBatter { name: string; runs: number; balls: number; fours: number; sixes: number; }
 interface PartnershipInfo { batters: PartnershipBatter[]; totalRuns: number; totalBalls: number; totalFours: number; totalSixes: number; }
@@ -196,7 +197,7 @@ function PartnershipFooter({ ball, partnership, match }: {
           {partnership.batters.map((b, i) => (
             <span key={b.name} className="flex items-baseline gap-0.5 shrink-0">
               {i > 0 && <span className="text-white/20 text-[10px] mx-1">·</span>}
-              <span className="text-[11px] font-semibold text-white/55">{b.name.split(" ").pop()}</span>
+              <span className="text-[11px] font-semibold text-white/55">{formatPlayerName(b.name)}</span>
               <span className="text-[13px] font-extrabold num text-white/85 leading-none ml-0.5">{b.runs}</span>
               <span className="text-[11px] text-white/35">({b.balls})</span>
               {b.fours > 0 && <span className="text-[10px] font-bold text-[#60A5FA] ml-0.5">{b.fours}×4</span>}

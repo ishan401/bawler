@@ -6,6 +6,7 @@ import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
 import { ballsPerSet, absoluteBallNumber, inningsProgressLabel, situationLabel } from "@/lib/formatUtils";
 import { extractMatchEvents } from "@/lib/events";
 import { APP_VERSION_LABEL } from "@/lib/version";
+import { formatPlayerName } from "@/lib/playerName";
 import ScoreBar from "@/components/ScoreBar";
 import MiniInsightsBar from "@/components/MiniInsightsBar";
 import BallGIF from "@/components/BallGIF";
@@ -536,7 +537,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           for (let i = 0; i < byteStr.length; i++) arr[i] = byteStr.charCodeAt(i);
           const blob = new Blob([arr], { type: "image/png" });
           const file = new File([blob], "bawler-matchup.png", { type: "image/png" });
-          const text = `${matchupShareTarget.batterName} vs ${matchupShareTarget.bowlerName} · bawler-gold.vercel.app`;
+          const text = `${formatPlayerName(matchupShareTarget.batterName)} vs ${formatPlayerName(matchupShareTarget.bowlerName)} · bawler-gold.vercel.app`;
           if (navigator.share && navigator.canShare?.({ files: [file] })) {
             await navigator.share({ files: [file], title: "Bawler Matchup", text });
           } else {

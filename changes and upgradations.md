@@ -3,6 +3,27 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.120] 2026-07-27
+
+### Player display names: centralized formatting utility, `lastName()` fragility resolved
+
+#### Context
+- Two confirmed display deviations (top stat pills surname-only, profile headers full-name) plus the underlying parsing fragility flagged much earlier in this project (naive last-space splitting breaking real multi-part surnames) -- fixed together as one centralized utility instead of patching display on top of unresolved parsing.
+
+#### New -- `lib/playerName.ts`
+- `parsePlayerName(raw)` / `formatPlayerName(raw)` -- the only sanctioned name-splitting/display logic in the codebase. Registry-first (PLAYERS `shortName` wins), then algorithmic derivation for anyone not registered: multi-word surnames/particles ("de", "van", "der", "von", "du", capitalized "Al"), suffixes ("Jr.", "III", stripped not rendered), hyphenated surnames (free via whitespace-only splitting), single-name players (no invented initial), inconsistent capitalization (fixed only when needed -- genuine mixed case like "McGurk" never mangled), stray whitespace, and "Surname, First" comma format.
+
+#### Consolidated, not duplicated
+- Removed `getPlayerShortName`/`nameToShortNameMap` from `lib/mockData.ts` (historical comment left in place).
+- Found and folded in a second independent implementation, `normaliseName()` in `lib/transformers.ts`'s API-ingestion boundary (same fragility, plus comma-format handling) -- absorbed into `parsePlayerName`; `normalizeBall()` now calls `formatPlayerName` directly. Fixed `transformSportRadarPlayer`'s `shortName` field (was a bare last-token guess).
+
+#### Migrated -- ~15 real display call sites
+- `MiniInsightsBar.tsx` (top pills), `PlayerProfileView.tsx` (profile header), `Scorecard.tsx` (batting/bowling cards + MOM/MOS banners), `MatchupCard.tsx`/`MatchupShareCard.tsx` (matchup rows), `MomentStoryCard.tsx`, `DigestTab.tsx` (8 sites, `lastName()` removed), `BallGIF.tsx` (partnership label only), `CommentaryFeed.tsx`/`DeliveryCard.tsx` (narrative sentences, `oneLiner` free text left alone), `OverSummary.tsx`, `LineupsCard.tsx`, `MatchView.tsx` (share caption).
+- Deliberately left alone: `DigestTab.tsx`'s MOM color-matching heuristic and `Scorecard.tsx`'s `=== motm` equality check -- name-matching, not name-display, a different concern.
+
+#### Verified
+- `npx tsx`, 49/49 pass across 10 categories (particles, suffixes, hyphens, single-name, capitalization, whitespace, null-safety, registry-first, real mock-data strings, comma format). `tsc --noEmit`/`npm run build` clean. Grep-confirmed no remaining inline name-splitting outside the one documented out-of-scope matching heuristic. Updated the pre-existing committed `scripts/edge-case-check.ts` (its old expectations literally encoded the deferred non-fix as "correct").
+
 ## [1.0.119] 2026-07-27
 
 ### Recent-form graph: labeled axis chart supersedes sparkline styling

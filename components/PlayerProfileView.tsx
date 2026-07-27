@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PlayerProfile, FormatStats, PlayerFormatKey } from "@/lib/types";
 import { ALL_TEAMS } from "@/lib/mockData";
+import { formatPlayerName } from "@/lib/playerName";
 import { resolveTeamAccentColor } from "@/lib/teamAccentColor";
 import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type AchievementLine } from "@/lib/playerForm";
 import { CYAN } from "@/lib/tokens";
@@ -223,7 +224,7 @@ export default function PlayerProfileView({ player }: Props) {
             </svg>
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="font-extrabold text-text-primary leading-tight truncate">{player.name}</h1>
+            <h1 className="font-extrabold text-text-primary leading-tight truncate">{formatPlayerName(player.name)}</h1>
             <p className="text-[11px] text-text-dim">{player.nationality}</p>
           </div>
           {/* Role badge */}

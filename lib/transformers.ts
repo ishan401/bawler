@@ -21,48 +21,22 @@ import type {
   FormatStats,
   TestSession,
 } from "./types";
+import { formatPlayerName } from "./playerName";
 
 // ============================================================================
-// Name normalisation — applied at every API boundary so partnership tracker,
-// matchup lookup, and player links all use a consistent format.
+// Name normalisation — v1.0.120: moved to lib/playerName.ts
+// ============================================================================
 //
-// APIs send names in wildly different formats:
-//   "Virat Kohli"  /  "V Kohli"  /  "kohli, v"  /  "V. Kohli"
-// We normalise to "First-Initial Surname" (e.g. "V Kohli") throughout.
-// ============================================================================
-
-/**
- * Normalise a player name to "I Surname" format.
- * Works for:
- *   "Virat Kohli"       → "V Kohli"
- *   "V Kohli"           → "V Kohli"   (already short)
- *   "kohli, virat"      → "V Kohli"   (comma-last format)
- *   "Pat Cummins"       → "P Cummins"
- *   "Mohammed Siraj"    → "M Siraj"
- */
-export function normaliseName(raw: string): string {
-  if (!raw) return raw;
-  const s = raw.trim();
-  // Handle "Surname, Firstname" format
-  if (s.includes(",")) {
-    const [last, first] = s.split(",").map(p => p.trim());
-    const initial = first.charAt(0).toUpperCase();
-    const surname = last.charAt(0).toUpperCase() + last.slice(1).toLowerCase();
-    return `${initial} ${surname}`;
-  }
-  const parts = s.split(/\s+/);
-  if (parts.length === 1) return s; // single name — return as-is
-  // Already initialised ("V Kohli") — first part is one char
-  if (parts[0].length === 1 || (parts[0].length === 2 && parts[0].endsWith("."))) {
-    const initial = parts[0].replace(".", "");
-    const surname = parts.slice(1).join(" ");
-    return `${initial} ${surname}`;
-  }
-  // Full name — take first initial + last word as surname
-  const initial = parts[0].charAt(0).toUpperCase();
-  const surname = parts[parts.length - 1];
-  return `${initial} ${surname}`;
-}
+// This used to hold its own `normaliseName()`, a second, independent
+// implementation of the exact same concern lib/playerName.ts's
+// `formatPlayerName()` now centralizes -- and it had the identical
+// last-token fragility ("de Villiers" -> "Villiers"), since a real API
+// boundary is exactly where messy real-world names first enter this app.
+// Consolidated so there is one sanctioned name-formatting function, not
+// two that could (and did) disagree. `formatPlayerName()` also now
+// handles this function's "Surname, First" comma format, so nothing
+// about the ingestion contract was lost -- only the fragility was.
+// Applied inside `normalizeBall()` below, same call sites as before.
 
 // ============================================================================
 // Ball normalisation — canonical entry point for real-data robustness
@@ -85,7 +59,7 @@ export function normaliseName(raw: string): string {
 //                         just set runs=4 or runs=6. normalizeBall() derives
 //                         them when the explicit flags are absent.
 //
-//   5. Player names     — normaliseName() applied automatically.
+//   5. Player names     — formatPlayerName() applied automatically (was normaliseName()).
 // ============================================================================
 
 /**
@@ -226,9 +200,9 @@ export function normalizeBall(raw: RawBallInput): Ball {
     ballInOver,
     timestampIso:  raw.timestampIso ?? new Date().toISOString(),
     batterId:      raw.batterId ?? raw.batterName,
-    batterName:    normaliseName(raw.batterName),
+    batterName:    formatPlayerName(raw.batterName),
     bowlerId:      raw.bowlerId ?? raw.bowlerName,
-    bowlerName:    normaliseName(raw.bowlerName),
+    bowlerName:    formatPlayerName(raw.bowlerName),
     runs,
     extras,
     extraType,
@@ -1165,14 +1139,17 @@ export function transformSportRadarPlayer(raw: SportRadarRawPlayer): PlayerProfi
   const batting = p.statistics?.batting ?? [];
   const bowling = p.statistics?.bowling ?? [];
 
-  // Normalise "Kohli, Virat" → "Virat Kohli"
+  // Normalise "Kohli, Virat" → "Virat Kohli". shortName now goes through
+  // formatPlayerName() too (v1.0.120) -- the old `nameParts[length-1]`
+  // was a bare last-token guess ("Kohli", not "V Kohli"), the exact same
+  // fragility this whole module's name-formatting was consolidated to fix.
   const nameParts = p.name.split(",").map(s => s.trim()).reverse();
   const fullName = nameParts.join(" ");
 
   return {
     id: p.id,                               // "sr:player:858454"
     name: fullName,
-    shortName: nameParts[nameParts.length - 1] ?? fullName,
+    shortName: formatPlayerName(fullName) || fullName,
     dateOfBirth: p.date_of_birth,
     nationality: p.nationality ?? "Unknown",
     role: parseSRRole(p.type),

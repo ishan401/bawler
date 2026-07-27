@@ -1,5 +1,6 @@
 import React from "react";
 import type { Match } from "@/lib/types";
+import { formatPlayerName } from "@/lib/playerName";
 
 export default function LineupsCard({ match }: { match: Match }) {
   const playersA = getXI(match, "A");
@@ -60,7 +61,7 @@ function PlayerColumn({
             {players.map((name, i) => (
               <div key={i} className="text-xs text-text-primary leading-tight flex items-center gap-2">
                 <span className="text-text-dim num w-4 shrink-0 text-right">{i + 1}</span>
-                <span>{name}</span>
+                <span>{formatPlayerName(name)}</span>
               </div>
             ))}
           </div>

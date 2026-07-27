@@ -582,6 +582,120 @@ it with any confidence would be misleading.
   top 5) and a batter's scale (max 142 runs -> top 150) are genuinely
   different, not a shared fixed range.
 
+**Worked example — centralized player display-name formatting (v1.0.120):**
+
+The player-name-display fragility flagged early in this project (`lastName()`
+naively splitting on the last space, breaking "de Silva" into "Silva") had
+only been half-fixed before now: `getPlayerShortName()` (`lib/mockData.ts`)
+checked the PLAYERS registry's hand-verified `shortName` first, but for
+anyone not in that local registry it gave up and returned the full name
+unchanged -- a safe fallback, but a deferred one. Meanwhile the actual
+*display convention* was inconsistent across the app on top of that: the
+Live/Score top stat pills showed surname-only ("Kohli"), player profile
+headers showed the full name ("Zak Crawley"), and roughly a dozen other
+call sites (scorecards, matchup rows, moments cards, commentary,
+lineups, ball animations, the native share caption) each independently
+picked their own convention -- some full name, some `.split(" ").pop()`
+surname-only, some already-short registry strings.
+
+- **One centralized module, two layers of the same problem solved
+  together:** `lib/playerName.ts` is now the ONLY place in the codebase
+  that splits a name string. `parsePlayerName(raw)` derives the actual
+  initial/surname/suffix parts; `formatPlayerName(raw)` is the single
+  sanctioned display function every component calls, resolving the
+  app-wide "Initial Surname" convention (e.g. "V Kohli") -- not two
+  separate decisions (which format to show, and how to parse a name to
+  produce it) left for each call site to make independently, which is
+  exactly how the format drifted in the first place.
+- **Registry-first, same principle as before, no longer a dead end for
+  everyone else:** `formatPlayerName` still checks the PLAYERS registry's
+  hand-verified `shortName` first (by either the player's full `name` or
+  existing `shortName`, case-insensitive) -- an authoritative field
+  always wins over an algorithm. But a raw name NOT in the registry no
+  longer falls back to a non-answer: `parsePlayerName` genuinely derives
+  a correct "Initial Surname" form instead.
+- **Particle detection, not a fixed "always lowercase" or "always
+  capitalized" rule:** a contiguous run of recognized particle words
+  ("de", "van", "der", "von", "du", ... and the capitalized-convention
+  "Al") immediately before the final surname token folds into the
+  surname ("AB de Villiers" -> "A de Villiers", "Rassie van der Dussen"
+  -> "R van der Dussen", "Shakib Al Hasan" -> "S Al Hasan"). The first
+  token is never folded in, even if it happens to spell a particle word,
+  so a genuine first name like "Del" or "Van" is never eaten.
+- **Suffixes stripped before surname derivation, never rendered:** "Jr.",
+  "III", etc. are recognized and separated out (available on the parsed
+  result for any caller that wants them) but never included in the
+  canonical display -- a concise player label has no use for "Jr.", and
+  keeping suffixes out avoids one ever being mistaken for a second
+  surname word.
+- **Hyphenated surnames handled for free:** splitting only ever happens
+  on whitespace, never on hyphens, so "J Fraser-McGurk" (a real name
+  already in this app's own squad data) needs no special-case logic at
+  all.
+- **Single-name players return that one name, nothing invented:** no
+  first/last split is forced onto a player recorded under one name --
+  `hasSingleName: true`, empty `initial`, and the display function
+  returns the name as-is rather than gluing on a fabricated initial.
+- **Capitalization fixed only when it actually needs fixing:** an
+  ALL-CAPS or all-lowercase word gets normalized to Title Case (with
+  small, explicit Mc/Mac/O' surname-prefix rules so "MCGURK" becomes
+  "McGurk", not the "Mcgurk" plain Title Case would produce); a word
+  that's already genuine mixed case ("McGurk", "DeVilliers") is left
+  completely untouched, because naively re-title-casing an
+  already-correct real surname is how you'd silently break it.
+- **Comma / "Surname, First" feed format consolidated in, not left as a
+  second implementation:** `lib/transformers.ts` had its own,
+  independent `normaliseName()` at its API-ingestion boundary -- same
+  last-token fragility, plus its own comma-format handling ("Kohli,
+  Virat" -> "V Kohli"). Rather than leaving two competing
+  name-formatters, `parsePlayerName` now reverses a comma-format input
+  into plain order up front and reuses every other rule (particles,
+  suffixes, hyphens, casing) uniformly; `normalizeBall()` calls
+  `formatPlayerName` directly. `transformSportRadarPlayer`'s `shortName`
+  field (previously a bare last-token guess, `nameParts[length-1]`) was
+  fixed the same way.
+- **~15 real display call sites migrated, not just the two named in the
+  original report:** the top stat pills (`MiniInsightsBar.tsx`) and
+  player profile headers (`PlayerProfileView.tsx`) were the two
+  confirmed deviations, but auditing "any other place displaying a
+  player's name" surfaced roughly a dozen more with the same problem:
+  `Scorecard.tsx` (batting/bowling card names, Man of Match/Series
+  banners), `MatchupCard.tsx`/`MatchupShareCard.tsx` (matchup rows, both
+  the header names and the previously-inconsistent surname-only insight
+  text), `MomentStoryCard.tsx` (moments cards), `DigestTab.tsx` (the
+  Digest narrative text this whole area started from), `BallGIF.tsx`
+  (the partnership name label -- NOT the separate avatar-monogram
+  initials chip, a genuinely different UI affordance left alone),
+  `CommentaryFeed.tsx`/`DeliveryCard.tsx` (narrative ball descriptions --
+  `ball.oneLiner` free-text prose deliberately left untouched, since a
+  name embedded in arbitrary pre-authored prose isn't a structured field
+  this function can safely rewrite), `OverSummary.tsx`, `LineupsCard.tsx`
+  (Playing XI list), and `MatchView.tsx`'s native-share caption text.
+- **Deliberately out of scope, and why:** `DigestTab.tsx`'s Man-of-Match
+  team-color heuristic (`b.playerName.toLowerCase().split(" ").pop()`)
+  and `Scorecard.tsx`'s `row.playerName === motm` equality checks are
+  name-*matching* logic, not name-*display* logic -- a different concern
+  (already partially addressed for achievements by `lib/playerForm.ts`'s
+  `namesMatch()`) that this pass didn't touch, so as not to conflate two
+  different bugs under one fix.
+- **Real messy-name tests, not a description of expected behavior**
+  (`npx tsx`, 49/49 pass): multi-word surnames/particles (9 cases,
+  including real strings already in this app's own mock data); suffixes
+  (7 cases); hyphenated surnames (4 cases, including the all-caps and
+  all-lowercase variants of a real squad name); single-name players (5
+  cases); inconsistent capitalization (6 cases, including confirming a
+  genuinely correct mixed-case surname is never mangled); stray
+  whitespace (3 cases, including tabs/newlines); null/undefined/empty
+  safety (5 cases); registry-first resolution (4 cases, including a
+  nickname-style registry shortName winning over the generic algorithm);
+  real messy strings pulled directly from this app's own existing mock
+  data (3 cases -- "A. Russell"'s stray period, "G. Coetzee"); and the
+  newly-consolidated comma-format (3 cases).
+- **Grep-confirmed single source of truth:** after migration, the only
+  remaining `.split(" ")`-style name logic anywhere in the codebase is
+  the one deliberately-out-of-scope matching heuristic named above; every
+  other display site imports `formatPlayerName` from `lib/playerName.ts`.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor

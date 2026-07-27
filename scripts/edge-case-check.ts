@@ -4,7 +4,7 @@
 //   3. null/zero 1st-innings runs → win-prob target handling
 // Not part of the app; run with `npx tsx scripts/edge-case-check.ts`.
 
-import { getPlayerShortName } from "../lib/mockData";
+import { formatPlayerName } from "../lib/playerName";
 import { deriveTestSessions } from "../lib/transformers";
 import { calculateWinProbForMatch } from "../lib/winProb";
 import { normalizeMatch } from "../lib/dataValidation";
@@ -23,27 +23,29 @@ function check(label: string, cond: boolean, detail: string) {
 // ============================================================================
 // 1. Multi-part surname
 // ============================================================================
-console.log("\n--- 1. Multi-part surname (lastName / getPlayerShortName) ---");
+console.log("\n--- 1. Multi-part surname (formatPlayerName, lib/playerName.ts) ---");
 
-// Not in the PLAYERS registry: should return the FULL name unchanged, never
-// a wrong guessed split like "Silva" or "Dussen".
-const unknownCompound = getPlayerShortName("Dimuth de Silva");
+// v1.0.120: this used to be the deferred half of the fix -- a compound
+// surname not in the PLAYERS registry returned the FULL name unchanged
+// rather than a wrong guessed split. It now genuinely derives the correct
+// "Initial Surname" form algorithmically instead of giving up.
+const unknownCompound = formatPlayerName("Dimuth de Silva");
 check(
-  "unknown compound surname returns full name (no guessed split)",
-  unknownCompound === "Dimuth de Silva",
+  "unknown compound surname now correctly derives \"D de Silva\" (not a guessed split, not a non-answer)",
+  unknownCompound === "D de Silva",
   `got ${JSON.stringify(unknownCompound)}`
 );
 
-const unknownCompound2 = getPlayerShortName("Rassie van der Dussen");
+const unknownCompound2 = formatPlayerName("Rassie van der Dussen");
 check(
-  "unknown compound surname (3-part) returns full name unchanged",
-  unknownCompound2 === "Rassie van der Dussen",
+  "unknown 3-part compound surname correctly derives \"R van der Dussen\"",
+  unknownCompound2 === "R van der Dussen",
   `got ${JSON.stringify(unknownCompound2)}`
 );
 
 // A player that IS in the registry with a genuine short surname should
 // still resolve to the registry's explicit shortName (not a split guess).
-const known = getPlayerShortName("Virat Kohli");
+const known = formatPlayerName("Virat Kohli");
 check(
   "known player resolves via registry shortName",
   known === "V Kohli",
@@ -51,8 +53,8 @@ check(
 );
 
 // null/undefined/empty safety (previous behavior preserved)
-check("null input returns empty string", getPlayerShortName(null) === "", `got ${JSON.stringify(getPlayerShortName(null))}`);
-check("undefined input returns empty string", getPlayerShortName(undefined) === "", `got ${JSON.stringify(getPlayerShortName(undefined))}`);
+check("null input returns empty string", formatPlayerName(null) === "", `got ${JSON.stringify(formatPlayerName(null))}`);
+check("undefined input returns empty string", formatPlayerName(undefined) === "", `got ${JSON.stringify(formatPlayerName(undefined))}`);
 
 // ============================================================================
 // 2. Rain-delay-sized gap in Test ball timestamps

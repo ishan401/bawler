@@ -17,7 +17,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
 import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
-import { PLAYERS, slugifyPlayer, getPlayerShortName } from "@/lib/mockData";
+import { PLAYERS, slugifyPlayer } from "@/lib/mockData";
+import { formatPlayerName } from "@/lib/playerName";
 import { NarrativeThresholds, DEFAULT_NARRATIVE_THRESHOLDS, getNarrativeThresholds } from "@/lib/narrativeThresholds";
 import { calculateWinProbForMatch } from "@/lib/winProb";
 
@@ -123,16 +124,6 @@ function initials(name: string | null | undefined): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Real-data readiness fix: this used to split the full name on spaces and
-// take the last token, which breaks on real multi-part surnames ("de Silva",
-// "van der Dussen"). It now delegates to the PLAYERS registry's explicit
-// `shortName` field (see getPlayerShortName in lib/mockData.ts) and falls
-// back to the untouched full name — never a guessed split — when a player
-// isn't in the local registry.
-function lastName(fullName: string | null | undefined): string {
-  return getPlayerShortName(fullName);
-}
-
 function isExtras(b: Ball): boolean {
   return b.extraType === "wd" || b.extraType === "nb";
 }
@@ -178,14 +169,14 @@ function buildNarrative(
   const span = format === "ODI" ? "block" : format === "Test" ? "session" : "over";
   const big  = format === "ODI" ? t.bigOverRunsODI : format === "Test" ? t.bigOverRunsTest : t.bigOverRunsDefault;
 
-  if (runs === 0 && wickets === 0) return `${lastName(bowler)} maiden`;
+  if (runs === 0 && wickets === 0) return `${formatPlayerName(bowler)} maiden`;
   if (wickets >= t.wicketsCollapse) return `${wickets} wickets — collapse!`;
   if (wickets === 2) return `Two wickets, ${runs} conceded`;
   if (runs >= big)
     return sixes >= t.sixesInFlow ? `${sixes} sixes, ${fours} fours — carnage` : `Big ${span} — ${runs} runs`;
-  if (wickets === 1 && runs >= t.runsWithWicketNotable) return `${runs} & a wicket — ${lastName(bowler)}`;
-  if (wickets === 1) return `${lastName(bowler)} strikes`;
-  if (sixes >= t.sixesInFlow) return `${sixes} sixes — ${lastName(keyBall?.batterName) || 'Batter'} in flow`;
+  if (wickets === 1 && runs >= t.runsWithWicketNotable) return `${runs} & a wicket — ${formatPlayerName(bowler)}`;
+  if (wickets === 1) return `${formatPlayerName(bowler)} strikes`;
+  if (sixes >= t.sixesInFlow) return `${sixes} sixes — ${formatPlayerName(keyBall?.batterName) || 'Batter'} in flow`;
   if (fours >= t.foursFlowing) return `${fours} fours — boundaries flowing`;
   if (runs <= t.tightOverRuns && wickets === 0) return `Tight ${span} — ${runs} conceded`;
   return `${runs} scored`;
@@ -198,8 +189,8 @@ function buildOverSummary(
   bowlerName: string, keyBall: Ball | null, variant: number,
   t: NarrativeThresholds["overSummary"] = DEFAULT_NARRATIVE_THRESHOLDS.overSummary
 ): string {
-  const bowler = lastName(bowlerName) || "Bowler";
-  const batter = lastName(keyBall?.batterName) || "Batter";
+  const bowler = formatPlayerName(bowlerName) || "Bowler";
+  const batter = formatPlayerName(keyBall?.batterName) || "Batter";
   const v = ((variant % 3) + 3) % 3;
 
   if (runs === 0 && wickets === 0)
@@ -285,7 +276,7 @@ function buildSessionLine(
   const sessName = SESS_LABELS[e.sess.session] ?? e.sess.session;
   const r = e.card.runs;
   const w = e.card.wickets;
-  const bl = lastName(e.card.bowlerName);
+  const bl = formatPlayerName(e.card.bowlerName);
   const range = e.card.overRange;
   const prefix = `${sessName} (${range}): `;
   const wordWkts = `${w} wicket${w !== 1 ? "s" : ""}`;
@@ -373,7 +364,7 @@ function buildDayReport(
   }
   const [topBowlerName, topBowlerWkts] = [...bowlerWkts.entries()]
     .sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
-  const topBowler = lastName(topBowlerName);
+  const topBowler = formatPlayerName(topBowlerName);
 
   const v = day % 3;
 

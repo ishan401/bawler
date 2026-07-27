@@ -4,6 +4,7 @@
 // No hover states, no interactive elements.
 
 import type { MatchupStats, MatchFormat } from "@/lib/types";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface MatchupShareCardProps {
   stats: MatchupStats | null;
@@ -26,6 +27,10 @@ export default function MatchupShareCard({
   bowlingTeamColor,
   format,
 }: MatchupShareCardProps) {
+  // Display-only formatted forms -- raw batterName/bowlerName props are
+  // untouched in case a caller relies on their exact raw form elsewhere.
+  const batterDisplay = formatPlayerName(batterName);
+  const bowlerDisplay = formatPlayerName(bowlerName);
   const avg = stats
     ? stats.timesOut === 0 ? "∞" : (stats.runsScored / stats.timesOut).toFixed(1)
     : null;
@@ -79,7 +84,7 @@ export default function MatchupShareCard({
             {battingTeamName}
           </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: battingTeamColor, lineHeight: 1 }}>
-            {batterName}
+            {batterDisplay}
           </div>
           <div style={{ fontSize: 10, color: "#FFFFFF40", marginTop: 3 }}>BATTER</div>
         </div>
@@ -100,7 +105,7 @@ export default function MatchupShareCard({
             {bowlingTeamName}
           </div>
           <div style={{ fontSize: 22, fontWeight: 900, color: bowlingTeamColor, lineHeight: 1 }}>
-            {bowlerName}
+            {bowlerDisplay}
           </div>
           <div style={{ fontSize: 10, color: "#FFFFFF40", marginTop: 3 }}>BOWLER</div>
         </div>
@@ -143,9 +148,9 @@ export default function MatchupShareCard({
               {primaryDismissal && stats.timesOut > 0 && (
                 <div style={{ fontSize: 12, color: "#CBD5E1", lineHeight: 1.5, marginBottom: stats.dangerDelivery ? 8 : 0 }}>
                   <span style={{ color: "#F87171", fontWeight: 700 }}>■ </span>
-                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{bowlerName.split(" ").pop()}</span>
+                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{bowlerDisplay}</span>
                   {" has dismissed "}
-                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{batterName.split(" ").pop()}</span>
+                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{batterDisplay}</span>
                   {" "}
                   <span style={{ color: "#F87171", fontWeight: 800 }}>{stats.timesOut}×</span>
                   {" — "}
@@ -158,11 +163,11 @@ export default function MatchupShareCard({
               {stats.timesOut === 0 && (
                 <div style={{ fontSize: 12, color: "#CBD5E1", lineHeight: 1.5, marginBottom: stats.dangerDelivery ? 8 : 0 }}>
                   <span style={{ color: "#4ADE80", fontWeight: 700 }}>✦ </span>
-                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{batterName.split(" ").pop()}</span>
+                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{batterDisplay}</span>
                   {" has "}
                   <span style={{ color: "#4ADE80", fontWeight: 800 }}>never</span>
                   {" been dismissed by "}
-                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{bowlerName.split(" ").pop()}</span>
+                  <span style={{ color: "#F1F5F9", fontWeight: 600 }}>{bowlerDisplay}</span>
                 </div>
               )}
               {stats.dangerDelivery && (

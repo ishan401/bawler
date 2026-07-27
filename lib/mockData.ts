@@ -15215,42 +15215,23 @@ export const PLAYERS: Record<string, PlayerProfile> = {
 };
 
 // ============================================================================
-// Player display-name resolution (real-data readiness fix)
+// Player display-name resolution -- v1.0.120: moved to lib/playerName.ts
 // ============================================================================
-
-let _nameToShortNameCache: Map<string, string> | null = null;
-
-function nameToShortNameMap(): Map<string, string> {
-  if (_nameToShortNameCache) return _nameToShortNameCache;
-  const map = new Map<string, string>();
-  for (const p of Object.values(PLAYERS)) {
-    if (p?.name && p?.shortName) map.set(p.name, p.shortName);
-  }
-  _nameToShortNameCache = map;
-  return map;
-}
-
-/**
- * Resolve the short/display form of a player's name for narrative text
- * (e.g. "V Kohli") from an explicit, authoritative per-player field —
- * never by algorithmically guessing from splitting the full name string.
- *
- * Real multi-part surnames ("de Silva", "van der Dussen", "du Plessis")
- * break a naive "take the last space-separated token" heuristic: that
- * approach would return "Silva" / "Dussen" / "Plessis" — wrong, and
- * confidently so. This instead looks the player up in the PLAYERS
- * reference registry (which carries a hand-verified `shortName` per
- * player) by matching the given full name against each entry's `name`.
- *
- * If a player isn't in the local registry (e.g. a real feed sends a
- * player we don't have reference data for yet), this deliberately does
- * NOT fall back to a name-splitting guess — it returns the full name
- * unchanged. A slightly longer label is a far safer failure mode than a
- * confidently wrong short name.
- */
-export function getPlayerShortName(fullName: string | null | undefined): string {
-  if (!fullName) return "";
-  const trimmed = fullName.trim();
-  if (!trimmed) return "";
-  return nameToShortNameMap().get(trimmed) ?? trimmed;
-}
+//
+// This used to hold `getPlayerShortName()`, an earlier real-data-readiness
+// fix for the same `lastName()` fragility this project flagged early on:
+// it checked the PLAYERS registry's hand-verified `shortName` field first
+// (never guessing from a naive `.split(" ")`), but for a player NOT in
+// this local registry it gave up and returned the full name unchanged --
+// a safe fallback, but a deferred one, not an actual fix.
+//
+// v1.0.120 resolved that deferral: `lib/playerName.ts`'s
+// `formatPlayerName()` keeps this exact "registry first" principle, but
+// now genuinely derives an initial + surname for anyone not in the
+// registry too -- multi-word surnames/particles, suffixes, hyphenated
+// surnames, single names, bad capitalization, stray whitespace, all
+// handled -- instead of a non-answer. It's also the single sanctioned
+// name-display function for the WHOLE app now (stat pills, profile
+// headers, scorecards, matchup rows, moments cards, commentary,
+// lineups), not just the Digest narrative text this function used to be
+// scoped to. See ARCHITECTURE.md and DECISIONS-LOG.md v1.0.120.

@@ -2,6 +2,7 @@
 import { memo } from "react";
 
 import type { Match, InsightV2, WinProbPoint } from "@/lib/types";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface MiniInsightsBarProps {
   match: Match;
@@ -102,7 +103,7 @@ function deriveMiniInsights(
       chips.push({
         value: `${s.runs}(${s.balls})`,
         valueColor: s.runs >= 50 ? "text-boundary" : "text-text-primary",
-        label: (strikerName.split(" ").pop() ?? strikerName) + "*",
+        label: formatPlayerName(strikerName) + "*",
       });
     }
     if (nonStrikerName) {
@@ -110,7 +111,7 @@ function deriveMiniInsights(
       chips.push({
         value: `${s.runs}(${s.balls})`,
         valueColor: s.runs >= 50 ? "text-boundary" : "text-text-primary",
-        label: nonStrikerName.split(" ").pop() ?? nonStrikerName,
+        label: formatPlayerName(nonStrikerName),
       });
     }
 
@@ -124,7 +125,7 @@ function deriveMiniInsights(
         chips.push({
           value: `${bowlerStats.wickets}/${bowlerStats.runsConceded}`,
           valueColor: bowlerStats.wickets >= 2 ? "text-cyan" : "text-text-primary",
-          label: currentBowlerName.split(" ").pop() ?? currentBowlerName,
+          label: formatPlayerName(currentBowlerName),
         });
       }
     }

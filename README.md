@@ -140,7 +140,7 @@ Horizontal tab selector across 8 competitions:
 - **`match.status === "post-match"`** (not `match.result` alone) is authoritative for DigestTab's summary card — real `result` renders the full card, a missing `result` post-match either derives a minimal one (unambiguous non-Test 2-innings case) or renders an explicit "final result pending" card; per-session `isComplete` flags are likewise only trusted while `isLive`, overridden once the match ends (DECISIONS-LOG.md FY22-FY23)
 - **`match.championship`** drives the TABLE button for Test matches (WTC); falls back to `match.competition`
 - **`normalizeMatch()`** (`lib/dataValidation.ts`) — validation/adapter layer at the data boundary; collects errors (blocking) + warnings (non-blocking) instead of letting malformed data flow silently into narrative/win-prob functions
-- **`getPlayerShortName()`** (`lib/mockData.ts`) — always use this instead of splitting a full-name string; looks up each player's own registry `shortName` field, falls back to the unmodified full name for an unregistered player rather than guessing
+- **`formatPlayerName()`** (`lib/playerName.ts`, v1.0.120) — the ONLY sanctioned way to render a player's name anywhere in the app; always use this instead of splitting a name string inline. Registry-first (hand-verified `shortName` wins), then a real parser (`parsePlayerName()`) for multi-word surnames/particles, suffixes, hyphenated surnames, single names, bad capitalization, stray whitespace, and comma feed format — instead of the old `getPlayerShortName()`'s deferred fallback (unmodified full name for an unregistered compound surname) or a naive last-token guess
 
 ---
 
@@ -207,5 +207,6 @@ lib/
 ├── teamSchedule.ts      # getSeriesGroupedSchedule()/getMatchesForCompetition()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All (series rows), dedicated series page, + per-team (flat) tabs
 ├── teamAccentColor.ts   # resolveMatchAccentColors() (two-team, collision-aware) + resolveTeamAccentColor() (single-team, v1.0.117) — real-data-ready team-color resolution, hairline-contrast + secondary/cyan fallback
 ├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118) — per-format last-10 innings/spells + achievements adapter, reading real battingCard/bowlingCard/manOfMatch/manOfTournament records behind the player profile page
+├── playerName.ts        # parsePlayerName()/formatPlayerName() (v1.0.120) — the single sanctioned player display-name formatter app-wide; registry-first, algorithmic fallback for particles/suffixes/hyphens/single-names/casing/whitespace/comma-format
 └── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
 ```

@@ -2,6 +2,7 @@
 import { memo, useState } from "react";
 import type { MatchFormat } from "@/lib/types";
 import { getMatchupStats } from "@/lib/mockMatchups";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface MatchupCardProps {
   batterName: string;
@@ -36,6 +37,10 @@ function MatchupCard({
 }: MatchupCardProps) {
   const [expanded, setExpanded] = useState(false);
   const stats = getMatchupStats(batterName, bowlerName, format);
+  // Display-only -- the lookup above stays keyed on the raw batterName/
+  // bowlerName strings exactly as the mock matchup dataset expects.
+  const batterDisplay = formatPlayerName(batterName);
+  const bowlerDisplay = formatPlayerName(bowlerName);
 
   // Merge career H2H with live match counters so every stat updates in real-time
   const totalBalls = (stats?.ballsFaced ?? 0) + liveBalls;
@@ -62,15 +67,15 @@ function MatchupCard({
           <button
             onClick={() => setExpanded(true)}
             className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
-            aria-label={`${batterName} vs ${bowlerName} — tap for head-to-head`}
+            aria-label={`${batterDisplay} vs ${bowlerDisplay} — tap for head-to-head`}
           >
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
             <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
-              {batterName}
+              {batterDisplay}
             </span>
             <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
             <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
-              {bowlerName}
+              {bowlerDisplay}
             </span>
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
           </button>
@@ -106,11 +111,11 @@ function MatchupCard({
         >
           <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
           <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
-            {batterName}
+            {batterDisplay}
           </span>
           <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
           <span className="text-[13px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
-            {bowlerName}
+            {bowlerDisplay}
           </span>
           <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
         </button>

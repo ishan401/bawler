@@ -7,6 +7,7 @@ import { ballLabel } from "@/lib/formatUtils";
 import MiniBallGIF from "./MiniBallGIF";
 import { OUTCOME, outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
 import { SPIN } from "@/lib/tokens";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface DeliveryCardProps {
   ball: Ball;
@@ -73,9 +74,9 @@ function CompactRow({
 function compactLineFor(ball: Ball): string {
   // Short one-liner — no "balls" abbreviation needed here, just the essentials
   if (ball.extras > 0 && ball.extraType) {
-    return `${ball.bowlerName} ${ball.extraType.toUpperCase()} to ${ball.batterName}`;
+    return `${formatPlayerName(ball.bowlerName)} ${ball.extraType.toUpperCase()} to ${formatPlayerName(ball.batterName)}`;
   }
-  return ball.oneLiner ?? `${ball.bowlerName} to ${ball.batterName}, ${ball.runs} ${ball.runs === 1 ? "run" : "runs"}`;
+  return ball.oneLiner ?? `${formatPlayerName(ball.bowlerName)} to ${formatPlayerName(ball.batterName)}, ${ball.runs} ${ball.runs === 1 ? "run" : "runs"}`;
 }
 
 // ============================================================================
@@ -109,13 +110,13 @@ function FullCard({
             <div className="flex items-baseline gap-1.5 text-[10px] text-text-secondary min-w-0">
               <span className="num font-bold text-text-primary shrink-0">{ballLabel(ball, format)}</span>
               <span className="text-text-dim">·</span>
-              <span className="truncate">{ball.bowlerName} → {ball.batterName}</span>
+              <span className="truncate">{formatPlayerName(ball.bowlerName)} → {formatPlayerName(ball.batterName)}</span>
             </div>
           </div>
 
           {/* One-liner */}
           <p className="text-[12.5px] text-text-primary leading-snug">
-            {ball.oneLiner ?? `${ball.bowlerName} to ${ball.batterName}, ${ball.runs}.`}
+            {ball.oneLiner ?? `${formatPlayerName(ball.bowlerName)} to ${formatPlayerName(ball.batterName)}, ${ball.runs}.`}
           </p>
 
           {/* Extra narrative paragraph */}

@@ -1,5 +1,6 @@
 import type { Ball, MatchFormat } from "@/lib/types";
 import { setLabel, ballsPerSet } from "@/lib/formatUtils";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface OverSummaryProps {
   over: number;
@@ -29,7 +30,7 @@ export default function OverSummary({ over, balls, bowlerName, format = "T20" }:
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-text-dim">
           {setLabel(format)} {over}
         </span>
-        <span className="text-[10px] num text-text-secondary">{bowlerName}</span>
+        <span className="text-[10px] num text-text-secondary">{formatPlayerName(bowlerName)}</span>
         {/* 6 dots */}
         <div className="flex gap-1">
           {balls.slice(0, bps).map((b, i) => (

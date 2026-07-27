@@ -3,6 +3,7 @@ import { memo } from "react";
 
 import type { Match, Ball, InsightV2 } from "@/lib/types";
 import { setLabel } from "@/lib/formatUtils";
+import { formatPlayerName } from "@/lib/playerName";
 import DeliveryCard from "./DeliveryCard";
 import OverSummary from "./OverSummary";
 import InlineNote from "./InlineNote";
@@ -161,11 +162,11 @@ function extraNarrativeFor(ball: Ball): string | undefined {
   // Wickets — always get an extra paragraph
   if (ball.isWicket) {
     const dismissal = ball.dismissalType ?? "out";
-    return `${ball.batterName} ${dismissal} ${ball.dismissalType === "bowled" ? `to a ${formatLength(ball.bowlingLength)} ball that found the gate.` : `— ${ball.bowlerName} celebrates a key breakthrough.`}`;
+    return `${formatPlayerName(ball.batterName)} ${dismissal} ${ball.dismissalType === "bowled" ? `to a ${formatLength(ball.bowlingLength)} ball that found the gate.` : `— ${formatPlayerName(ball.bowlerName)} celebrates a key breakthrough.`}`;
   }
   // Sixes — extra paragraph
   if (ball.isBoundary6) {
-    return `Cleared the rope ${shotDirection(ball)} — ${ball.batterName} is finding the timing.`;
+    return `Cleared the rope ${shotDirection(ball)} — ${formatPlayerName(ball.batterName)} is finding the timing.`;
   }
   // Boundaries in tight situations
   // Deterministic: use ball ID character sum — avoids hydration mismatch from Math.random()

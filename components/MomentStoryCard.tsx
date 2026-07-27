@@ -4,6 +4,7 @@ import type { Ball, Match, WinProbPoint } from "@/lib/types";
 import { totalBallsForFormat } from "@/lib/winProb";
 import { ballLabel, absoluteBallNumber, totalBallsFor } from "@/lib/formatUtils";
 import { SPIN } from "@/lib/tokens";
+import { formatPlayerName } from "@/lib/playerName";
 
 interface MomentStoryCardProps {
   ball: Ball;
@@ -155,9 +156,9 @@ export default function MomentStoryCard({
         {/* Bowler → Batter */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{ball.bowlerName}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{formatPlayerName(ball.bowlerName)}</span>
             <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>→</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{ball.batterName}</span>
+            <span style={{ fontSize: 14, fontWeight: 800, color: "#F8FAFC" }}>{formatPlayerName(ball.batterName)}</span>
           </div>
           <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>
             {ballLabel(ball, match.format)}
@@ -233,7 +234,7 @@ export default function MomentStoryCard({
               )}
             </div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>
-              {ball.bowlerName} to {ball.batterName}
+              {formatPlayerName(ball.bowlerName)} to {formatPlayerName(ball.batterName)}
             </div>
           </div>
           {/* Win prob delta badge */}

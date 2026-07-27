@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import type { Match, Innings, BattingEntry, BowlingEntry, Team, Ball } from "@/lib/types";
 import Link from "next/link";
 import { ALL_TEAMS, resolvePlayerSlug, PLAYERS } from "@/lib/mockData";
+import { formatPlayerName } from "@/lib/playerName";
 import { teamInningsOccurrence } from "@/lib/formatUtils";
 import { resolveMatchAccentColors, hexToRgbTriplet } from "@/lib/teamAccentColor";
 import { CYAN } from "@/lib/tokens";
@@ -197,13 +198,13 @@ export default function Scorecard({ match }: ScorecardProps) {
       {motm && (
         <div className="card px-3 py-2 flex items-center gap-2">
           <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Match</span>
-          <span className="text-sm font-extrabold text-yellow-400">{motm}</span>
+          <span className="text-sm font-extrabold text-yellow-400">{formatPlayerName(motm)}</span>
         </div>
       )}
       {mots && (
         <div className="card px-3 py-2 flex items-center gap-2">
           <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim shrink-0">Man of Series</span>
-          <span className="text-sm font-extrabold text-special">{mots}</span>
+          <span className="text-sm font-extrabold text-special">{formatPlayerName(mots)}</span>
         </div>
       )}
     </div>
@@ -580,17 +581,18 @@ function PlayerNameLink({
   nameColor: string;
 }) {
   const slug = resolvePlayerSlug(playerId);
+  const displayName = formatPlayerName(playerName);
   if (PLAYERS[slug]) {
     return (
       <Link
         href={`/player/${slug}`}
         className={`font-medium ${nameColor} underline decoration-dotted underline-offset-2 decoration-white/30`}
       >
-        {playerName}
+        {displayName}
       </Link>
     );
   }
-  return <span className={`font-medium ${nameColor}`}>{playerName}</span>;
+  return <span className={`font-medium ${nameColor}`}>{displayName}</span>;
 }
 
 function BatterRow({
