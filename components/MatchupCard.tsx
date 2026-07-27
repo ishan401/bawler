@@ -1,8 +1,9 @@
 "use client";
 import { memo, useState } from "react";
-import type { MatchFormat } from "@/lib/types";
+import type { Match, MatchFormat, WinProbPoint } from "@/lib/types";
 import { getMatchupStats } from "@/lib/mockMatchups";
 import { formatPlayerName } from "@/lib/playerName";
+import { getLeadingTeamWinProb } from "@/lib/winProb";
 
 interface MatchupCardProps {
   batterName: string;
@@ -17,15 +18,36 @@ interface MatchupCardProps {
   liveMatchFours?: number;
   liveMatchSixes?: number;
   onShare?: () => void;
+  /** Match + win-prob points feed the emphasized "WIN PROB" readout that now
+   *  lives on the collapsed teaser row (v1.0.121) — see header comment. */
+  match: Match;
+  winProbPoints: WinProbPoint[];
+  onExpandWinProb: () => void;
 }
 
 /**
  * MatchupCard — collapses to a one-line teaser by default (team-colour dot +
  * batter + "vs" + team-colour dot + bowler + chevron, ~40px tall) so it costs
- * almost no space for viewers who don't care about H2H depth. Tapping expands
- * it in place to the full stat breakdown; tapping again collapses it back.
- * All data / live-merge / share logic below is unchanged — this is purely a
- * display-state wrapper around the existing content.
+ * almost no space for viewers who don't care about H2H depth. Tapping the
+ * batter/bowler side (or the chevron) expands it in place to the full stat
+ * breakdown; tapping again collapses it back. All data / live-merge / share
+ * logic below is unchanged — this is purely a display-state wrapper around
+ * the existing content.
+ *
+ * v1.0.121: the teaser row also now carries the emphasized win-probability
+ * readout ("WIN PROB" label + bold "TEAM 87%" value) on its right side,
+ * replacing the small "TEAM XX%" pill that used to live inline in
+ * MiniInsightsBar's stat-chip row. That old pill duplicated this same
+ * matchup-adjacent context in two places at once; this consolidates it into
+ * one spot with real visual weight instead. The win-prob value/label tap
+ * target is deliberately separate from the batter/bowler tap target — it
+ * opens the full-screen win-prob chart (onExpandWinProb) rather than
+ * expanding the H2H card, exactly like the old pill did. The value is a
+ * fixed, plain white — never team-colored — because a team's real color can
+ * misleadingly read as "losing" when it's red-toned, can flicker
+ * distractingly as a close finish swings back and forth, and multiple
+ * simultaneous matches can collide on the same color fallback and lose all
+ * meaning. Plain white stands out through size/weight, not hue.
  */
 function MatchupCard({
   batterName, bowlerName,
@@ -34,6 +56,7 @@ function MatchupCard({
   liveBalls = 0, liveRuns = 0, liveOuts = 0, liveDots = 0,
   liveMatchFours = 0, liveMatchSixes = 0,
   onShare,
+  match, winProbPoints, onExpandWinProb,
 }: MatchupCardProps) {
   const [expanded, setExpanded] = useState(false);
   const stats = getMatchupStats(batterName, bowlerName, format);
@@ -41,6 +64,10 @@ function MatchupCard({
   // bowlerName strings exactly as the mock matchup dataset expects.
   const batterDisplay = formatPlayerName(batterName);
   const bowlerDisplay = formatPlayerName(bowlerName);
+  // null when there's no real win-prob point yet (e.g. malformed/empty data)
+  // -- the teaser row below hides the WIN PROB block entirely in that case
+  // rather than rendering a broken or fake percentage.
+  const winProb = getLeadingTeamWinProb(match, winProbPoints);
 
   // Merge career H2H with live match counters so every stat updates in real-time
   const totalBalls = (stats?.ballsFaced ?? 0) + liveBalls;
@@ -64,6 +91,9 @@ function MatchupCard({
     return (
       <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
         <div className="flex items-center gap-1.5 px-3 py-2">
+          {/* Batter vs bowler — tap-to-expand-H2H affordance is now just the
+              chevron (text label dropped, v1.0.121); the tap target itself
+              is unchanged, still the whole name region + the chevron. */}
           <button
             onClick={() => setExpanded(true)}
             className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
@@ -79,7 +109,26 @@ function MatchupCard({
             </span>
             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
           </button>
-          <span className="text-[9px] text-text-dim shrink-0">tap for H2H</span>
+
+          {/* Win probability — real visual weight, fixed white value (never
+              team-colored, see header comment), own tap target (opens the
+              full-screen chart, same interaction the old pill had). Hidden
+              entirely rather than rendering broken/empty text when there's
+              no real win-prob point yet. shrink-0 + the flex-1/min-w-0/
+              truncate combo on the batter/bowler button above guarantees
+              this side can never be crowded or overlapped -- the name side
+              ellipsizes first. */}
+          {winProb && (
+            <button
+              onClick={onExpandWinProb}
+              className="shrink-0 flex flex-col items-end leading-none px-0.5"
+              aria-label={`Win probability ${winProb.label} ${winProb.pct}% — open win probability chart`}
+            >
+              <span className="text-[7px] font-bold uppercase tracking-widest text-text-dim">Win Prob</span>
+              <span className="text-[13px] font-extrabold text-white num">{winProb.label} {winProb.pct}%</span>
+            </button>
+          )}
+
           <button
             onClick={() => setExpanded(true)}
             className="shrink-0 text-text-dim p-0.5"

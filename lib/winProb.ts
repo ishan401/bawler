@@ -143,6 +143,29 @@ function clamp01(v: number) {
   return Math.max(0, Math.min(1, v));
 }
 
+// ── Leading-team win-prob summary (v1.0.121) ────────────────────────────────
+// Single accessor for "who's ahead and by how much, in display form" — used
+// by the matchup-row emphasized win-prob readout (MatchupCard). Centralized
+// here so there's one place that decides how a raw WinProbPoint list becomes
+// a leader label + percentage, rather than each display site re-deriving it
+// (this replaces logic that used to live inline inside MiniInsightsBar's
+// now-removed win-prob chip).
+// Returns null (not a fake 50/50) when there's no real point to read yet —
+// callers must treat that as "nothing to show," not a broken state.
+export function getLeadingTeamWinProb(
+  match: Match,
+  points: WinProbPoint[]
+): { label: string; pct: number } | null {
+  if (points.length === 0) return null;
+  const last = points[points.length - 1];
+  const pctA = Math.round(last.winProbTeamA * 100);
+  const leaderIsA = pctA >= 50;
+  return {
+    pct: leaderIsA ? pctA : 100 - pctA,
+    label: leaderIsA ? match.teamA.shortName : match.teamB.shortName,
+  };
+}
+
 function formatDelta(delta: number, teamACode: string): string {
   const pct = Math.round(delta * 100);
   if (pct === 0) return "no shift";

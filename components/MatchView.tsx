@@ -580,8 +580,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         <MiniInsightsBar
           match={truncatedMatch}
           insights={visibleInsights}
-          winProbPoints={winProbPoints}
-          onExpandWinProb={() => setShowProbModal(true)}
         />
         <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} showDigest={showDigest} firstTab={firstTab} />
       </div>
@@ -709,6 +707,9 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                       liveMatchFours={liveMatchupCounters.fours}
                       liveMatchSixes={liveMatchupCounters.sixes}
                       onShare={triggerMatchupShare}
+                      match={truncatedMatch}
+                      winProbPoints={winProbPoints}
+                      onExpandWinProb={() => setShowProbModal(true)}
                     />
                   </div>
                 )}

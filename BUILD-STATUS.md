@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.120 (deployed)
+**Current version:** v1.0.121 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -121,8 +121,8 @@
   - ✅ Background tint by outcome (unified palette) — no whitish wash (perspective fix)
   - ✅ Cross-fade between clips (280ms); smooth bg transition between balls (600ms)
 - ✅ **Moments strip** — two-zone chips (badge + over top; label + 2-line context bottom). Dedicated pulsing "Live" chip was **removed in v1.0.45** — the existing "Back to live" text link already covers that affordance; two live-status indicators was redundant.
-- ✅ **Matchup card** (v1.0.47) — defaults to a collapsed one-line teaser (team-coloured dot + batter vs bowler + chevron, ~40px); tap to expand in place to the full H2H card (unchanged content: format-aware stats, career H2H + live counters, label-value row, danger delivery line, shareable PNG). Collapsing by default trades always-visible depth for screen space — see DECISIONS-LOG.md.
-- ✅ **Win-prob chip** (v1.0.46) — win probability moved out of the standalone MiniWinProb card into a leading-team-code + % chip inside the mini-insights bar; tap to expand the full WinProbChart modal (unchanged). `MiniWinProb.tsx` is no longer rendered anywhere and is now orphaned dead code (see cleanup list below).
+- ✅ **Matchup card** (v1.0.47, win-prob readout added v1.0.121) — defaults to a collapsed one-line teaser (team-coloured dot + batter vs bowler + chevron, ~40px); tap the name region or chevron to expand in place to the full H2H card (unchanged content: format-aware stats, career H2H + live counters, label-value row, danger delivery line, shareable PNG). The teaser row's right side now also carries an emphasized win-probability readout — small "WIN PROB" label above a bold, fixed-white "TEAM 87%" value (never team-colored, deliberately — see DECISIONS-LOG.md v1.0.121), its own tap target opening the full-screen WinProbChart modal. Collapsing by default trades always-visible depth for screen space — see DECISIONS-LOG.md.
+- ✅ **Win-prob readout** (moved v1.0.121) — win probability no longer duplicates into a small "TEAM XX%" chip inside the mini-insights bar; that chip was removed entirely (along with its now-unused `MiniInsightsBar` props) and the figure now lives with real visual weight inside the Matchup card's teaser row instead, via the new `getLeadingTeamWinProb()` accessor in `lib/winProb.ts`. `MiniWinProb.tsx` remains unrendered dead code, unrelated to this move (see cleanup list below).
 - ~~AI metrics tiles~~ — **retired in v1.0.23** (see DECISIONS-LOG.md SD3); row removed entirely, replaced by projected score + CRR in ScoreBar. `AIMetrics.tsx` + `lib/metrics.ts` are now orphaned dead code (see cleanup list below).
 - ✅ Win-prob chart modal — full-screen, two team lines, hue-accurate via `brightColor()`
 
@@ -229,7 +229,7 @@
 
 ### Nice-to-have
 - [ ] Vitest + RTL tests on `BallGIF`, `DeliveryCard`, `MatchView`
-- [ ] Remove legacy unused components (`ViewSwitcher`, `MomentsCollapsible`, `PressureGauge`, `ProjectedScore`, `DemoControls`, `InsightsPanel`, `AIMetrics.tsx` + `lib/metrics.ts` [orphaned since v1.0.23's AI-metrics-row removal, confirmed unreferenced anywhere in the codebase], `MiniWinProb.tsx` [orphaned since v1.0.46 moved win-prob into the mini-insights bar chip])
+- [ ] Remove legacy unused components (`ViewSwitcher`, `MomentsCollapsible`, `PressureGauge`, `ProjectedScore`, `DemoControls`, `InsightsPanel`, `AIMetrics.tsx` + `lib/metrics.ts` [orphaned since v1.0.23's AI-metrics-row removal, confirmed unreferenced anywhere in the codebase], `MiniWinProb.tsx` [orphaned since v1.0.46 moved win-prob into the mini-insights bar chip, which was itself replaced in v1.0.121 by the Matchup card's emphasized readout])
 - [ ] Service worker for offline-cached last-seen match state
 - [ ] WCAG colour-contrast audit on `text-dim` values
 - [ ] Lighthouse-mobile to 95+ (currently ~88)
@@ -525,6 +525,7 @@
 
 | Version | Highlight |
 |---|---|
+| **v1.0.121** | Win probability consolidated to one location: removed the duplicate "TEAM XX%" pill from `MiniInsightsBar`'s stat-chip row (and its now-orphaned props/dead `reverse` rendering branch); Matchup card's teaser row dropped its "tap for H2H" text (chevron alone is now the affordance) and gained an emphasized "WIN PROB" label + bold, fixed-white "TEAM 87%" value on the right, with its own tap target opening the same full-screen WinProbChart modal. New `getLeadingTeamWinProb()` accessor in `lib/winProb.ts` centralizes the leader-derivation logic. Verified against the longest real batter/bowler display-name pair in the mock dataset (no overlap); 8/8 real edge-case tests pass; exactly 4 files changed (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.120** | Centralized player display-name formatting: new `lib/playerName.ts` (`parsePlayerName()`/`formatPlayerName()`) resolves the `lastName()` fragility flagged early in this project -- multi-word surnames/particles, suffixes, hyphenated surnames, single names, bad capitalization, stray whitespace, comma feed format. Registry-first, algorithmic fallback instead of a non-answer. Consolidated a second competing implementation (`lib/transformers.ts`'s old `normaliseName()`) into the same module. Migrated ~15 real display call sites (stat pills, profile headers, scorecards, matchup rows, moments cards, Digest narrative, lineups, share captions) to the single sanctioned function. 49/49 real messy-name tests pass; grep-confirmed no remaining inline name-splitting (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.119** | Upgraded the recent-form graph from an axis-less sparkline to a labeled small line chart -- Y-axis value labels + ~4-5 gridlines, scale computed per player/metric (`computeYAxisTop()`/`buildYAxisTicks()`, never a shared fixed range), minimal "N ago"/"Most recent" X-axis. Supersedes v1.0.117's original sparkline-matching decision now that the graph has its own dedicated page section. Team colors, dots, and achievements callout unchanged. 44/44 axis-scaling edge-case tests pass; exactly 1 file changed (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.118** | Rebuilt the player recent-form graph and achievements callout to read real match data instead of v1.0.117's hand-typed `testRecentForm`-style fields (now deleted entirely, grep-confirmed). `lib/playerForm.ts` derives both from real `battingCard`/`bowlingCard`/`manOfMatch`/`manOfTournament` records already powering `Scorecard.tsx`. Same public interface, zero component changes needed. 15/21 players now show real data (up from 2); tested with real malformed-data injection and real before/after mutation, including a `react-test-renderer` remount/tab-switch test (ARCHITECTURE.md, DECISIONS-LOG.md) |

@@ -77,12 +77,12 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 ## Match page (top to bottom on mobile)
 
 1. **ScoreBar** (sticky) — score, chase context, innings info
-2. **MiniInsightsBar** — scrolling insight ticker; win probability lives here as one chip (leading team + %, tap opens the full-screen `WinProbChart` modal) — there's no separate always-visible win-prob element on this page. (`components/MiniWinProb.tsx` exists in the tree but isn't rendered anywhere — dead code, not this chip.)
+2. **MiniInsightsBar** — scrolling insight ticker: striker/non-striker figures + current bowler figures. Win probability no longer lives here as of v1.0.121 — the chip was removed (it duplicated the figure already shown in MatchupCard's teaser row below); see item 7. (`components/MiniWinProb.tsx` exists in the tree but isn't rendered anywhere — dead code, unrelated to this move.)
 3. **MatchTabs** — Live / Scorecard / **Digest** / Info / Table for a still-live (or upcoming) match; a finished match (`match.status === "post-match"`) swaps slot 1 to **Digest** instead of Live, same total tab count (Table only when the competition has standings; swipe or tap, book-page-turn animation)
 4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
 5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
 6. **PartnershipFooter** — live partnership: total runs/balls + per-batter stats, resets on wicket
-7. **MatchupCard** — always-on batter vs bowler H2H (career + live match merged); shareable PNG
+7. **MatchupCard** — always-on batter vs bowler H2H (career + live match merged); shareable PNG. Collapsed teaser row's right side carries an emphasized win-probability readout since v1.0.121 ("WIN PROB" label + bold, fixed-white "TEAM 87%" value, own tap target -> full-screen `WinProbChart` modal) — the "tap for H2H" text label was dropped in the same change (chevron alone is now that affordance); this is the app's one and only win-prob display on the Live tab.
 8. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
 9. **CommentaryFeed** — ball-by-ball cards with insight overlays
 
@@ -163,7 +163,7 @@ components/
 │   ├── ScoreBar.tsx           # sticky score header
 │   ├── BallGIF.tsx            # hero two-clip SVG delivery replay; PartnershipFooter
 │   ├── MomentsStrip.tsx       # horizontal key events timeline
-│   ├── MiniWinProb.tsx        # NOT RENDERED ANYWHERE -- dead code; the real win-prob chip lives in MiniInsightsBar, see "Match page" above
+│   ├── MiniWinProb.tsx        # NOT RENDERED ANYWHERE -- dead code; the real win-prob readout lives in MatchupCard's teaser row (moved there from MiniInsightsBar in v1.0.121), see "Match page" above
 │   ├── WinProbChart.tsx       # full-screen modal chart
 │   ├── AIMetrics.tsx          # 4-tile metrics row
 │   ├── CommentaryFeed.tsx     # ball-by-ball cards + insight overlays

@@ -696,6 +696,79 @@ surname-only, some already-short registry strings.
   the one deliberately-out-of-scope matching heuristic named above; every
   other display site imports `formatPlayerName` from `lib/playerName.ts`.
 
+**Worked example — win-probability display consolidated into one emphasized readout (v1.0.121):**
+
+Win probability was rendering in two places on the Live tab simultaneously:
+a small "TEAM XX%" pill inline among `MiniInsightsBar`'s batter/bowler stat
+chips, and the matchup row directly beneath it. Two live renderings of the
+same number at once is a duplication bug, not a styling choice -- the fix
+consolidates to one location with real visual weight, rather than patching
+either rendering site in isolation.
+
+- **One new accessor instead of the same derivation duplicated at a new
+  call site:** `lib/winProb.ts` gained `getLeadingTeamWinProb(match,
+  points)`, extracted directly from the logic the old chip had inline
+  (read the last point's `winProbTeamA`, round it, attribute it to
+  whichever team is `>=50`). `MatchupCard.tsx` calls this rather than
+  re-deriving "who's leading and by how much" a second time at the new
+  display site -- the same interface-first principle as every other
+  adapter in this document. Returns `null` (never a fake 50/50) when
+  `points` is empty, so a caller renders nothing rather than a
+  misleading placeholder percentage.
+- **Removed the old chip entirely, including its now-orphaned plumbing:**
+  `MiniInsightsBar.tsx` lost chip 4 (win-prob) along with the
+  `winProbPoints`/`onExpandWinProb` props that existed only to feed it,
+  and the `MiniChip.reverse` flag + its conditional rendering branch in
+  `Chip()` -- that flag's only consumer was the win-prob chip's
+  label-before-value order, so once the chip was gone the flag was dead
+  code with no caller, not a harmless leftover to keep around.
+- **Text label dropped, tap affordance kept:** the matchup row's "tap for
+  H2H" text is gone; the chevron icon alone is now the visual cue, and
+  the actual tap targets (the batter/bowler name region, and the
+  chevron) are functionally unchanged -- only the label disappeared, to
+  free up room for the new win-prob readout.
+- **Fixed white value -- a rejected alternative, documented, not an
+  oversight:** the new "WIN PROB" readout renders its value in plain
+  `text-white`, deliberately never the leading team's real color. Three
+  concrete failure modes of team-coloring it were considered and
+  rejected: a team's real color can misleadingly read as "losing" when
+  it happens to be red-toned, unrelated to who's actually ahead; the
+  color would flicker distractingly as the leader swings during a close
+  finish; and multiple simultaneous live matches could land on the same
+  color via `teamAccentColor`'s existing fallback/collision logic and
+  lose all meaning. Size and boldness carry the visual weight instead of
+  hue, which has none of those three problems.
+- **Own tap target, preserved interaction:** the win-prob value/label is
+  its own button, separate from the batter/bowler-vs-H2H-expand button
+  beside it, and opens the same full-screen `WinProbChart` modal
+  (`onExpandWinProb`) the old pill opened -- the interaction carries over
+  unchanged, only its home on the page moved.
+- **Layout safety is structural, not just visually checked:** the
+  batter/bowler button uses `flex-1 min-w-0` with `truncate` on both name
+  spans; the win-prob block is `shrink-0` with a fixed intrinsic width.
+  The name side always yields (ellipsizes) before it can crowd the
+  win-prob side, by flexbox construction -- verified against the actual
+  longest-combined-display-name batter/bowler pair anywhere in the mock
+  dataset ("I Kishan" vs "V Chakravarthy", 22 combined characters,
+  occurring in the live `ipl2026-m37-kkrvmi` match) rather than a
+  hypothetical worst case.
+- **No-matchup state -- confirmed already-correct, not newly patched:**
+  `MatchView.tsx` only renders `MatchupCard` when there's a real current
+  ball + innings (`matchupInfo` non-null); pre-match and
+  no-ball-by-ball-data states never reach this component at all, and
+  were already handled by the separate bespoke "Win Probability" block
+  in that branch (untouched, out of scope here). Inside `MatchupCard`,
+  `getLeadingTeamWinProb` returning `null` hides the WIN PROB block
+  cleanly rather than rendering broken text, defensively covering a
+  malformed/empty `winProbPoints` array even where it isn't expected to
+  occur.
+- **Real edge-case tests, not a description of expected behavior**
+  (`npx tsx`, 8/8 pass): empty points array -> `null`; team A leading;
+  team B leading (percentage correctly flipped to `100 - pctA`); an
+  exact 50/50 tie (boundary case); a multi-point array where only the
+  LAST point is read, confirming earlier swings don't leak through; a
+  rounding case (`0.865` -> `87%`); and near-certain wins for each team.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor

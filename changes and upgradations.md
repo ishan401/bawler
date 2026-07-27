@@ -3,6 +3,27 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.121] 2026-07-27
+
+### Win probability: emphasized in the matchup row, removed from the duplicate stat-chip pill
+
+#### Context
+- Win probability was rendering twice at once on the Live tab: a small "TEAM XX%" pill inline in `MiniInsightsBar`'s stat chips, and the matchup row directly beneath it. Consolidated into one location with real visual weight instead of patching either rendering site.
+
+#### Removed -- `components/MiniInsightsBar.tsx`
+- The win-prob chip (and the `winProbPoints`/`onExpandWinProb` props that only fed it) is gone. The `MiniChip.reverse` flag and its label-before-value rendering branch in `Chip()` were removed too -- that chip was the flag's only consumer, so it would have been dead code otherwise.
+
+#### Changed -- `components/MatchupCard.tsx`
+- Collapsed teaser row dropped its "tap for H2H" text label; the chevron icon alone is now the tap-to-expand-H2H affordance (tap targets themselves unchanged).
+- Added an emphasized win-probability readout on the row's right side: small muted "WIN PROB" label above a larger, bold value ("IND 87%"). Fixed, plain white -- deliberately never team-colored (a team's real color can misread as "losing" when red-toned, can flicker distractingly in a close finish, and can collide across simultaneous matches sharing a fallback color). Own tap target, opens the same full-screen `WinProbChart` modal the old pill opened.
+- Hidden entirely (not broken/blank text) when there's no real win-prob point yet.
+
+#### New -- `lib/winProb.ts`
+- `getLeadingTeamWinProb(match, points)` -- centralizes "who's leading and by how much," extracted from the old chip's inline logic. Returns `null` (not a fake 50/50) on an empty points array.
+
+#### Verified
+- `npx tsx`, 8/8 edge-case tests pass (empty points, team A/B leading, exact tie, multi-point uses only the last point, rounding, near-certain wins both directions). Checked against the longest real batter/bowler display-name pair in the mock dataset ("I Kishan" vs "V Chakravarthy", live `ipl2026-m37-kkrvmi` match) -- no crowding/overlap. `tsc --noEmit`/`npm run build` clean; `scripts/version-check.ts` passes; exactly 4 files changed.
+
 ## [1.0.120] 2026-07-27
 
 ### Player display names: centralized formatting utility, `lastName()` fragility resolved

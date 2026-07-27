@@ -1,14 +1,12 @@
 "use client";
 import { memo } from "react";
 
-import type { Match, InsightV2, WinProbPoint } from "@/lib/types";
+import type { Match, InsightV2 } from "@/lib/types";
 import { formatPlayerName } from "@/lib/playerName";
 
 interface MiniInsightsBarProps {
   match: Match;
   insights: InsightV2[];
-  winProbPoints: WinProbPoint[];
-  onExpandWinProb: () => void;
 }
 
 /**
@@ -16,12 +14,16 @@ interface MiniInsightsBarProps {
  * below the chase-context line in the ScoreBar.
  *
  * Each chip is at-a-glance: a short label + a punchy number. Every chip
- * (batters, bowler, win-prob) shares the same fixed max-width + ellipsis
- * truncation so a long player name or deep-innings score string can
- * never overflow or wrap the row.
+ * (currently: striker, non-striker, current bowler) shares the same fixed
+ * max-width + ellipsis truncation so a long player name or deep-innings
+ * score string can never overflow or wrap the row.
+ *
+ * v1.0.121: the win-probability chip that used to live here was removed —
+ * that figure now renders with real visual weight inside MatchupCard's
+ * matchup row instead of as a small pill duplicated in two places.
  */
-function MiniInsightsBar({ match, insights, winProbPoints, onExpandWinProb }: MiniInsightsBarProps) {
-  const chips = deriveMiniInsights(match, insights, winProbPoints, onExpandWinProb);
+function MiniInsightsBar({ match, insights }: MiniInsightsBarProps) {
+  const chips = deriveMiniInsights(match, insights);
   if (chips.length === 0) return null;
   return (
     <div className="px-4 py-2 bg-bg/85 backdrop-blur border-b border-line flex items-center gap-2 overflow-x-auto scrollbar-thin">
@@ -33,30 +35,22 @@ function MiniInsightsBar({ match, insights, winProbPoints, onExpandWinProb }: Mi
 }
 
 function Chip({ chip }: { chip: MiniChip }) {
+  // `onClick` is now vestigial (no remaining chip sets it, since the
+  // win-prob chip that used it was removed in v1.0.121 — see below) but is
+  // left in place rather than stripped, since a future chip may legitimately
+  // want a tap target and the click-handling branch below is still correct.
   const Tag = chip.onClick ? "button" : "div";
-  const content = chip.reverse
-    ? (
-      <>
-        <span className="text-[10px] font-extrabold text-text-primary shrink-0 truncate max-w-[42px]">{chip.label}</span>
-        <span className={`text-[10px] font-extrabold num truncate ${chip.valueColor}`}>{chip.value}</span>
-      </>
-    )
-    : (
-      <>
-        <span className={`text-[10px] font-extrabold num shrink-0 truncate max-w-[52px] ${chip.valueColor}`}>{chip.value}</span>
-        <span className="text-[9px] text-text-secondary truncate min-w-0">{chip.label}</span>
-      </>
-    );
 
   return (
     <Tag
       onClick={chip.onClick}
-      aria-label={chip.onClick ? `${chip.label} ${chip.value} — open win probability chart` : undefined}
+      aria-label={chip.onClick ? `${chip.label} ${chip.value}` : undefined}
       className={`shrink-0 flex items-baseline gap-1 px-2 py-1 rounded-md border border-line bg-bg-surface max-w-[118px] overflow-hidden ${
         chip.onClick ? "active:scale-95 transition-transform" : ""
       }`}
     >
-      {content}
+      <span className={`text-[10px] font-extrabold num shrink-0 truncate max-w-[52px] ${chip.valueColor}`}>{chip.value}</span>
+      <span className="text-[9px] text-text-secondary truncate min-w-0">{chip.label}</span>
       {chip.onClick && (
         <svg width="8" height="8" viewBox="0 0 16 16" fill="none" className="shrink-0 text-text-dim ml-0.5">
           <path d="M3 5L8 11L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -71,15 +65,11 @@ interface MiniChip {
   valueColor: string;
   label: string;
   onClick?: () => void;
-  /** When true, renders label before value (e.g. "IND 89%") instead of the default value-first order. */
-  reverse?: boolean;
 }
 
 function deriveMiniInsights(
   match: Match,
-  _insights: InsightV2[],
-  winProbPoints: WinProbPoint[],
-  onExpandWinProb: () => void
+  _insights: InsightV2[]
 ): MiniChip[] {
   const chips: MiniChip[] = [];
   const live = match.innings[match.innings.length - 1];
@@ -131,19 +121,10 @@ function deriveMiniInsights(
     }
   }
 
-  // Chip 4: leading team's win probability — tap to open the full-screen chart
-  if (winProbPoints.length > 0) {
-    const last = winProbPoints[winProbPoints.length - 1];
-    const pctA = Math.round(last.winProbTeamA * 100);
-    const leaderIsA = pctA >= 50;
-    chips.push({
-      value: `${leaderIsA ? pctA : 100 - pctA}%`,
-      valueColor: "text-cyan",
-      label: leaderIsA ? match.teamA.shortName : match.teamB.shortName,
-      onClick: onExpandWinProb,
-      reverse: true,
-    });
-  }
+  // Win-probability chip removed (v1.0.121) — the leading-team win-prob
+  // figure now lives with real visual weight in MatchupCard's matchup row
+  // (see MatchupCard.tsx) instead of duplicating it here as a small pill.
+  // See DECISIONS-LOG.md v1.0.121 for the reasoning.
 
   return chips;
 }
