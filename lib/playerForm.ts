@@ -1,159 +1,400 @@
-import type { PlayerProfile, PlayerFormatKey, RecentFormWindow } from "./types";
+import type { Match, PlayerProfile, PlayerFormatKey } from "./types";
+import { ALL_PAST_MATCHES, ALL_LIVE_MATCHES, resolvePlayerSlug } from "./mockData";
 
 // ============================================================================
-// Player recent form + achievements adapter — v1.0.117
+// Player recent form + achievements adapter — v1.0.117, rebuilt v1.0.118
 // ============================================================================
-// Same real-data-readiness pattern as lib/teamData.ts (membership status /
-// rankings) and lib/teamAccentColor.ts (accent color resolution) — see
-// ARCHITECTURE.md's "interface-first pattern" for the full writeup. Applied
-// here:
+// v1.0.117 originally read a separate, hand-typed per-format field
+// (PlayerProfile.testRecentForm/odiRecentForm/t20iRecentForm/
+// franchiseRecentForm) that had no relationship to a player's actual
+// recorded matches — it was manually authored demo data, and different
+// players ended up with different, arbitrary array lengths purely because
+// of how much was typed in, not because of anything real about their
+// match history. v1.0.118 removed that field entirely (grep-confirmed zero
+// references anywhere in the codebase — see DECISIONS-LOG.md) and rebuilt
+// this adapter to derive BOTH the recent-form graph and the achievements
+// callout directly from real per-match data: the same `Match`/`Innings`/
+// `BattingEntry`/`BowlingEntry` records, and the same `match.result.
+// manOfMatch`/`manOfTournament` fields, that already power `Scorecard.tsx`
+// and every career stats grid on this page. No second, disconnected data
+// source exists anymore for this feature.
 //
-//   1. Split: raw per-format storage lives on PlayerProfile as
-//      testRecentForm/odiRecentForm/t20iRecentForm/franchiseRecentForm
-//      (lib/types.ts's RecentFormWindow) — one player-innings/spell series
-//      plus its achievements, per format, mirroring how testStats/odiStats/
-//      etc. already split FormatStats by format.
+// Same real-data-readiness pattern as every other adapter in this
+// codebase (see ARCHITECTURE.md):
+//   1. Split: nothing new to split here — the fields this reads
+//      (Match.innings[].battingCard/bowlingCard, Match.result.manOfMatch/
+//      manOfTournament) already existed and are already the sanctioned
+//      shape; this adapter is a new DERIVATION over them, not a new field.
 //   2. Sanctioned accessor: getRecentForm()/getPlayerAchievements() below
-//      are the ONLY reads of those four fields anywhere in the codebase.
-//      No component reads player.testRecentForm etc. directly.
-//   3. Async from day one: both return Promises today, resolving
-//      synchronously from the in-memory mock PlayerProfile — a real
-//      per-player stats feed is a network call, so every call site is
-//      already written against that shape.
-//   4. No-op placeholder: refreshPlayerForm() below, for the same reason
-//      lib/teamData.ts's refreshRankings() exists — a future real sync
-//      mechanism has a stable function to implement instead of a call site
-//      that has to be invented from scratch.
+//      are the only place that walks match/innings/card data for this
+//      specific purpose. No component reads Match/Innings/BattingEntry/
+//      BowlingEntry directly for recent-form purposes.
+//   3. Async from day one: both return Promises, resolving synchronously
+//      from in-memory mock arrays today — the same shape a real per-player
+//      stats endpoint would need.
+//   4. No-op placeholder: refreshPlayerForm() below.
 //
 // Explicitly NOT in scope, anywhere in this file or its consumers: a
 // player's upcoming matches. Playing XI isn't confirmed until close to a
 // match, so showing a player's next fixture with any confidence would be
-// misleading — this adapter only ever looks backward at recorded innings/
-// spells and awards, never forward.
+// misleading — this adapter only ever looks backward at matches with a
+// genuinely settled result, never forward.
 // ============================================================================
 
 export type { PlayerFormatKey };
 
 /** One plotted point on the recent-form graph — runs (batting) or wickets
- * (bowling) for one innings/spell. Deliberately just `{ value }`, not the
- * richer `RecentFormWindow` shape — components consume the resolved,
- * already-validated series, never the raw window. */
+ * (bowling) for one innings/spell. */
 export interface RecentFormPoint {
   value: number;
 }
 
 export interface RecentFormSeries {
   /** Chronological oldest -> newest, real recorded entries only, length
-   * 0-10. NEVER padded with fake zeros to reach 10 — a player with 4
-   * recorded innings this format has a 4-point series, not a 10-point one
-   * with 6 fabricated zeros. */
+   * 0-10. NEVER padded with fake zeros to reach 10. */
   points: RecentFormPoint[];
   metric: "runs" | "wickets";
 }
 
-/** One pre-formatted achievement line, singular/plural already resolved.
- * Callers render `.text` directly — no further string assembly needed. */
+/** One pre-formatted achievement line, singular/plural already resolved. */
 export interface AchievementLine {
   text: string;
 }
 
-function rawWindow(player: PlayerProfile, format: PlayerFormatKey): RecentFormWindow | undefined {
-  if (format === "test") return player.testRecentForm;
-  if (format === "odi") return player.odiRecentForm;
-  if (format === "t20i") return player.t20iRecentForm;
-  return player.franchiseRecentForm;
+// ----------------------------------------------------------------------------
+// Defensive read helpers — every field this file touches is typed as
+// required/non-optional on Match/Innings/BattingEntry/BowlingEntry, but
+// that's a compile-time-only guarantee (the same gap lib/dataValidation.ts's
+// header comment and lib/teamAccentColor.ts's sanitizeHexColor() already
+// document for other fields) — a real feed, or a hand-edited mock entry,
+// can still send something malformed at runtime. Nothing below trusts a
+// field's type without checking it first.
+// ----------------------------------------------------------------------------
+
+function isObjectLike(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function isFiniteNonNegative(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0;
+}
+
+function resultField(match: Match, field: "manOfMatch" | "manOfTournament"): string | undefined {
+  const r: unknown = (match as unknown as Record<string, unknown>).result;
+  if (!isObjectLike(r)) return undefined;
+  const v = r[field];
+  return typeof v === "string" && v.trim() ? v : undefined;
 }
 
 /**
- * A player's last-10-innings/spells series for one format, for the recent-
- * form graph. Format-scoped — switching the profile page's format tab and
- * calling this again with the new format returns that format's own window,
- * never a stale mix of two formats.
+ * True if `match.result` is a genuinely usable completed outcome — the
+ * same defensive shape as lib/teamSchedule.ts's own (private)
+ * hasUsableResult(), written independently here since each adapter in
+ * this codebase owns its own data-boundary checks rather than importing
+ * another adapter's private helper.
  *
- * Defensive against every malformed shape a real feed could send instead
- * of a clean number array:
- *   - No window recorded for this format at all (`undefined`) -> empty
- *     series. This is the normal, expected state for a format the mock
- *     dataset (or eventually a real feed) hasn't populated recent-form
- *     data for yet — NOT an error, and callers should render nothing
- *     rather than a broken/empty-looking graph.
- *   - `values` not an array -> empty series, same as above.
- *   - Individual entries that aren't finite, non-negative numbers (a
- *     malformed feed sending `null`, `NaN`, a string, or a negative value)
- *     are dropped rather than crashing the whole series or rendering as a
- *     broken point.
- *   - Fewer than 10 real entries -> returns exactly however many exist.
- *     Never padded to a fixed length of 10.
- *   - More than 10 real entries (shouldn't happen given the "last 10"
- *     contract, but handled anyway) -> takes the most recent 10.
- *   - `metric` anything other than exactly `"wickets"` (including a
- *     malformed value) defensively resolves to `"runs"` rather than
- *     crashing a Y-axis label lookup.
+ * Deliberately checks the actual RESULT, not the `status` label.
+ * `FEATURED_MATCH` (lib/mockData.ts) is a real, live example of why: it's
+ * kept at `status: "live"` on purpose so it stays visible in the
+ * homepage's live carousel, even though it's a fully finished match with
+ * a complete result and full ball-by-ball data. Gating on `status` alone
+ * would incorrectly exclude a real player's real recorded performance in
+ * that match — exactly the kind of "trust the label, not the truth" bug
+ * this codebase has already caught and fixed elsewhere (the live-badge/
+ * "LIVE" carveout in DECISIONS-LOG.md v1.0.67 for the same reason).
+ */
+function hasUsableResult(match: Match): boolean {
+  const r: unknown = (match as unknown as Record<string, unknown>).result;
+  if (!isObjectLike(r) || typeof r.winner !== "string" || r.winner.length === 0) return false;
+  if (r.winner === "draw" || r.winner === "tie" || r.winner === "no-result") return true;
+  return r.winner === match.teamA?.code || r.winner === match.teamB?.code;
+}
+
+/**
+ * Every match this adapter is willing to treat as "settled" — genuinely
+ * concluded matches with a usable result, drawn from both
+ * ALL_PAST_MATCHES and ALL_LIVE_MATCHES (for the FEATURED_MATCH-shaped
+ * case above). Deliberately never ALL_UPCOMING_MATCHES — an upcoming
+ * match has no innings data at all yet, and even if it somehow did, its
+ * outcome hasn't happened, which is exactly the kind of forward-looking
+ * uncertainty this feature is scoped to avoid.
+ */
+function settledMatches(): Match[] {
+  return [...ALL_PAST_MATCHES, ...ALL_LIVE_MATCHES].filter(hasUsableResult);
+}
+
+function matchesFormatCategory(match: Match, format: PlayerFormatKey): boolean {
+  if (format === "test") return match.format === "Test";
+  if (format === "odi") return match.format === "ODI";
+  if (format === "t20i") return match.format === "T20I";
+  // franchise: anything that ISN'T one of the three international formats
+  // above (domestic/league T20, The Hundred, etc.) — the same "franchise
+  // = not international" boundary lib/spotlight.ts's isLeagueOrDomestic
+  // check draws from the Competition side; this draws it from the format
+  // string instead, since Test/ODI/T20I never appear on a league match.
+  return match.format !== "Test" && match.format !== "ODI" && match.format !== "T20I";
+}
+
+/**
+ * Loose name match against a player's full name OR short name — real
+ * award data in this mock dataset is genuinely inconsistent about which
+ * form it uses for the same player (e.g. one match's `manOfTournament` is
+ * "Virat Kohli", another's is "V Kohli" — both are the same real person).
+ * Trimmed, case-insensitive. Returns false for anything that isn't a
+ * non-empty string, so a malformed award field never crashes this check.
+ */
+function namesMatch(recorded: unknown, player: PlayerProfile): boolean {
+  if (typeof recorded !== "string" || !recorded.trim()) return false;
+  const norm = (s: string) => s.trim().toLowerCase();
+  const r = norm(recorded);
+  return r === norm(player.name) || r === norm(player.shortName);
+}
+
+interface PlayerInningsEntry {
+  value: number;
+  isBowling: boolean;
+  startTimeIso: string;
+  inningsNumber: number;
+  match: Match;
+  /** The team code this specific entry credits the player to for THIS
+   * match (`innings.battingTeam` or `.bowlingTeam`) — used later to derive
+   * an achievement line's opponent from the real per-match record, not
+   * from the player's current, possibly-stale `teamCode`/`franchiseCode`
+   * profile field. */
+  playerTeamCode: string | undefined;
+}
+
+/**
+ * Every real recorded batting/bowling appearance for one player in one
+ * format category, across every settled match app-wide — via the same
+ * `resolvePlayerSlug()` identity resolution `PlayerNameLink` (components/
+ * Scorecard.tsx) already uses to turn a battingCard/bowlingCard row's
+ * `playerId` into a canonical `PLAYERS` registry key. That resolver is
+ * also what already tolerates this dataset's inconsistent playerId forms
+ * ("J Bumrah" vs "jbumrah" vs "zcrwly") — nothing here re-derives that
+ * matching logic.
+ *
+ * Sorted deterministically ascending (oldest -> newest): by match date
+ * first, then match id (a stable tiebreak for two matches sharing a
+ * timestamp), then innings number within the same match — so a Test
+ * batter's 1st-innings knock always sorts before their 2nd-innings knock
+ * in the SAME match, regardless of which order the underlying arrays
+ * happen to store things in. Never trusts `ALL_PAST_MATCHES`' own sort
+ * order for this — it sorts newest-first for a different purpose (recent-
+ * first schedule lists) and mixing that assumption in here would silently
+ * break the moment that array's own sort ever changed.
+ */
+function extractPlayerEntries(player: PlayerProfile, format: PlayerFormatKey): PlayerInningsEntry[] {
+  const entries: PlayerInningsEntry[] = [];
+  for (const match of settledMatches()) {
+    if (!matchesFormatCategory(match, format)) continue;
+    if (typeof match.startTimeIso !== "string" || !match.startTimeIso) continue;
+    if (!Array.isArray(match.innings)) continue;
+
+    for (const inningsRaw of match.innings as unknown[]) {
+      if (!isObjectLike(inningsRaw)) continue;
+      const inningsNumber = isFiniteNonNegative(inningsRaw.number) ? (inningsRaw.number as number) : 0;
+
+      if (Array.isArray(inningsRaw.battingCard)) {
+        const battingTeam = typeof inningsRaw.battingTeam === "string" ? inningsRaw.battingTeam : undefined;
+        for (const entryRaw of inningsRaw.battingCard as unknown[]) {
+          if (!isObjectLike(entryRaw)) continue;
+          if (typeof entryRaw.playerId !== "string" || !entryRaw.playerId) continue;
+          if (resolvePlayerSlug(entryRaw.playerId) !== player.id) continue;
+          if (!isFiniteNonNegative(entryRaw.runs)) continue;
+          entries.push({
+            value: entryRaw.runs as number,
+            isBowling: false,
+            startTimeIso: match.startTimeIso,
+            inningsNumber,
+            match,
+            playerTeamCode: battingTeam,
+          });
+        }
+      }
+
+      if (Array.isArray(inningsRaw.bowlingCard)) {
+        const bowlingTeam = typeof inningsRaw.bowlingTeam === "string" ? inningsRaw.bowlingTeam : undefined;
+        for (const entryRaw of inningsRaw.bowlingCard as unknown[]) {
+          if (!isObjectLike(entryRaw)) continue;
+          if (typeof entryRaw.playerId !== "string" || !entryRaw.playerId) continue;
+          if (resolvePlayerSlug(entryRaw.playerId) !== player.id) continue;
+          if (!isFiniteNonNegative(entryRaw.wickets)) continue;
+          entries.push({
+            value: entryRaw.wickets as number,
+            isBowling: true,
+            startTimeIso: match.startTimeIso,
+            inningsNumber,
+            match,
+            playerTeamCode: bowlingTeam,
+          });
+        }
+      }
+    }
+  }
+
+  entries.sort((a, b) => {
+    const dateCmp = a.startTimeIso.localeCompare(b.startTimeIso);
+    if (dateCmp !== 0) return dateCmp;
+    if (a.match.id !== b.match.id) return a.match.id.localeCompare(b.match.id);
+    return a.inningsNumber - b.inningsNumber;
+  });
+  return entries;
+}
+
+/**
+ * Decides whether the graph plots runs or wickets for a player/format that
+ * has BOTH kinds of recorded entries (an all-rounder). Bowlers show
+ * wickets; everyone else shows runs. A player with only ONE discipline
+ * recorded for this format uses whichever one actually exists, regardless
+ * of their listed `role` — real recorded data wins over a static label.
+ */
+function pickMetric(entries: PlayerInningsEntry[], player: PlayerProfile): "runs" | "wickets" {
+  const hasBatting = entries.some(e => !e.isBowling);
+  const hasBowling = entries.some(e => e.isBowling);
+  if (hasBowling && !hasBatting) return "wickets";
+  if (hasBatting && !hasBowling) return "runs";
+  if (hasBatting && hasBowling) return player.role === "bowler" ? "wickets" : "runs";
+  return "runs"; // no entries at all -- irrelevant, points will be empty
+}
+
+/**
+ * A player's last-10-innings/spells series for one format, derived from
+ * real match data. Format-scoped — switching the profile page's format
+ * tab and calling this again with the new format returns that format's
+ * own series, never a stale mix of two formats.
+ *
+ * Defensive against every malformed shape a real feed (or a hand-edited
+ * mock match) could send: a match with no innings data, an innings that
+ * isn't a real object, a battingCard/bowlingCard that isn't an array, an
+ * individual entry with a non-string `playerId` or a non-finite/negative
+ * `runs`/`wickets` value — all skipped without crashing or corrupting the
+ * rest of the series.
+ *
+ * A player with zero settled matches in this format returns an empty
+ * series — correctly, because there is genuinely nothing to show, not
+ * because a side-field was never populated (see DECISIONS-LOG.md v1.0.118
+ * for the diagnostic that led to this rebuild).
  */
 export async function getRecentForm(
   player: PlayerProfile,
   format: PlayerFormatKey
 ): Promise<RecentFormSeries> {
-  const raw = rawWindow(player, format);
-  if (!raw || !Array.isArray(raw.values)) {
-    return { points: [], metric: "runs" };
+  const entries = extractPlayerEntries(player, format);
+  const metric = pickMetric(entries, player);
+  const relevant = entries.filter(e => (metric === "wickets") === e.isBowling);
+  const last10 = relevant.slice(-10);
+  return {
+    points: last10.map(e => ({ value: e.value })),
+    metric,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// Achievements
+// ----------------------------------------------------------------------------
+
+/** "2026-07-08T10:00:00.000Z" -> "July 2026". Returns "" for anything that
+ * doesn't parse to a real date, so a malformed timestamp degrades to
+ * omitting the date clause rather than rendering "Invalid Date". */
+function formatDateLabel(startTimeIso: unknown): string {
+  if (typeof startTimeIso !== "string") return "";
+  const d = new Date(startTimeIso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+/**
+ * The opponent team's full name for an achievement line — derived from
+ * the SAME per-match entry that put this match in the player's window
+ * (its recorded `battingTeam`/`bowlingTeam`), never from the player's
+ * static `teamCode`/`franchiseCode` profile field. A profile field says
+ * who a player plays for TODAY; a specific old match record is the real
+ * source of truth for which side they were actually on IN THAT MATCH.
+ * Returns undefined if the side can't be confidently determined (a
+ * malformed/missing team code on either the entry or the match) — callers
+ * omit the "vs X" clause entirely rather than guessing wrong.
+ */
+function opponentName(match: Match, playerTeamCode: string | undefined): string | undefined {
+  if (!playerTeamCode) return undefined;
+  if (match.teamA?.code === playerTeamCode) return match.teamB?.fullName;
+  if (match.teamB?.code === playerTeamCode) return match.teamA?.fullName;
+  return undefined;
+}
+
+interface DistinctMatchEntry {
+  match: Match;
+  playerTeamCode: string | undefined;
+}
+
+/**
+ * The player's last N DISTINCT settled matches for one format — not the
+ * same population as getRecentForm()'s last-10-innings/spells. Achievements
+ * are match-level (Man of the Match) or series-level (Man of the Series),
+ * scoped to "last 10 matches" (the product's own framing), while the graph
+ * is scoped to "last 10 innings/spells" — a Test player who bats in both
+ * innings of one match contributes 2 points to the graph's population but
+ * only 1 match to this one. Built from the same extractPlayerEntries() list
+ * (already ascending-chronological), deduped by match id while preserving
+ * that order, so the last N here are genuinely the most recent N distinct
+ * matches.
+ */
+function lastNDistinctMatches(player: PlayerProfile, format: PlayerFormatKey, n = 10): DistinctMatchEntry[] {
+  const entries = extractPlayerEntries(player, format);
+  const byId = new Map<string, DistinctMatchEntry>();
+  for (const e of entries) {
+    if (!byId.has(e.match.id)) {
+      byId.set(e.match.id, { match: e.match, playerTeamCode: e.playerTeamCode });
+    }
   }
-  const metric: "runs" | "wickets" = raw.metric === "wickets" ? "wickets" : "runs";
-  const points = raw.values
-    .filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0)
-    .slice(-10)
-    .map(value => ({ value }));
-  return { points, metric };
+  return [...byId.values()].slice(-n);
 }
 
 /**
  * A player's recent achievement lines for one format — one line per
  * qualifying achievement, stacking as many as genuinely apply (never just
  * the single most impressive one). Returns an empty array when nothing
- * qualifies; callers must render nothing at all in that case — no
- * placeholder, no empty state, the whole section simply doesn't exist for
- * that player/format.
+ * qualifies; callers must render nothing at all in that case.
  *
- * Two achievement kinds today, both independently optional and additive:
- *   - Man of the Match count within the last-10 window -> one line, with
- *     singular/plural resolved correctly ("Won 1 Man of the Match award"
- *     vs "Won 3 Man of the Match awards" — never "Won 1 Man of the Match
- *     awards"). Omitted entirely if the count is missing, zero, negative,
- *     or not a finite number.
- *   - Man of the Series awards -> one line PER award (an array, not a
- *     count), so a player with two qualifying series in the window gets
- *     two separate lines, not one. Each entry is validated independently —
- *     a malformed entry (missing/blank `opponent`) is skipped rather than
- *     producing a garbled line or dropping the other valid entries in the
- *     same array.
+ * Two achievement kinds, both derived from `Match.result` fields that
+ * already exist and already power Scorecard.tsx's own "Man of Match"/
+ * "Man of Series" banners (`manOfMatch`/`manOfTournament`) — no new award
+ * data source:
+ *   - Man of the Match count within the player's last 10 DISTINCT
+ *     matches -> one line, singular/plural resolved in code ("Won 1 Man
+ *     of the Match award" vs "Won 3 Man of the Match awards").
+ *   - Man of the Series (`manOfTournament` — labelled "Man of Series" here
+ *     to match Scorecard.tsx's own existing banner text for the same
+ *     field) -> one line PER qualifying match in the window, so multiple
+ *     awards stack as multiple lines rather than collapsing to one.
+ *
+ * Name matching uses namesMatch() (full name or short name, case-
+ * insensitive) rather than requiring an exact string match, since this
+ * mock dataset genuinely records the same player's name two different
+ * ways across different matches ("Virat Kohli" vs "V Kohli").
  */
 export async function getPlayerAchievements(
   player: PlayerProfile,
   format: PlayerFormatKey
 ): Promise<AchievementLine[]> {
-  const raw = rawWindow(player, format);
+  const window = lastNDistinctMatches(player, format, 10);
   const lines: AchievementLine[] = [];
 
-  const momCount = raw?.achievements?.manOfMatchAwards;
-  if (typeof momCount === "number" && Number.isFinite(momCount) && momCount > 0) {
-    const n = Math.floor(momCount);
+  const momCount = window.filter(w => namesMatch(resultField(w.match, "manOfMatch"), player)).length;
+  if (momCount > 0) {
     lines.push({
-      text: `Won ${n} Man of the Match ${n === 1 ? "award" : "awards"} in last 10 matches`,
+      text: `Won ${momCount} Man of the Match ${momCount === 1 ? "award" : "awards"} in last 10 matches`,
     });
   }
 
-  const mosAwards = raw?.achievements?.manOfSeriesAwards;
-  if (Array.isArray(mosAwards)) {
-    for (const award of mosAwards) {
-      if (!award || typeof award.opponent !== "string" || !award.opponent.trim()) continue;
-      const opponent = award.opponent.trim();
-      const dateLabel = typeof award.dateLabel === "string" ? award.dateLabel.trim() : "";
-      lines.push({
-        text: dateLabel
-          ? `Man of the Series vs ${opponent}, ${dateLabel}`
-          : `Man of the Series vs ${opponent}`,
-      });
-    }
+  for (const w of window) {
+    if (!namesMatch(resultField(w.match, "manOfTournament"), player)) continue;
+    const opponent = opponentName(w.match, w.playerTeamCode);
+    const dateLabel = formatDateLabel(w.match.startTimeIso);
+    let text = "Man of the Series";
+    if (opponent) text += ` vs ${opponent}`;
+    if (dateLabel) text += `, ${dateLabel}`;
+    lines.push({ text });
   }
 
   return lines;
@@ -161,9 +402,9 @@ export async function getPlayerAchievements(
 
 /**
  * Placeholder for a real recent-form/achievements sync mechanism — no-op
- * today, same reasoning as lib/teamData.ts's refreshRankings(). Exists so a
- * future feature has a stable function to call instead of one that has to
- * be invented when real data actually arrives.
+ * today, same reasoning as lib/teamData.ts's refreshRankings(). Exists so
+ * a future feature has a stable function to call instead of one that has
+ * to be invented when real data actually arrives.
  */
 export function refreshPlayerForm(): Promise<void> {
   return Promise.resolve();

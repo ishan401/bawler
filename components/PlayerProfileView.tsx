@@ -120,6 +120,61 @@ function RankingPill({ label, rank }: { label: string; rank?: number }) {
   );
 }
 
+/**
+ * Fetches a player's recent-form series, achievement lines, and resolved
+ * team accent color together, re-fetching whenever `player` or `format`
+ * changes -- never reusing the previous tab's (or previous player's)
+ * snapshot. Explicitly reset to empty/default SYNCHRONOUSLY before the
+ * async calls resolve (plus a `cancelled` guard against a stale resolve
+ * landing after a fast switch), so a tab change or remount never shows
+ * stale data even for one frame.
+ *
+ * International formats (test/odi/t20i) theme off the player's national
+ * team; "franchise" themes off their league team. A player missing the
+ * relevant code, or whose code doesn't resolve to a real Team in
+ * ALL_TEAMS, falls straight to the platform cyan -- the same "no usable
+ * color" fallback resolveTeamAccentColor() already applies to a team with
+ * no usable color of its own.
+ *
+ * Deliberately private to this file under normal circumstances (matching
+ * useScheduleTab/useMatchAccentColors elsewhere in this codebase) but has
+ * no next/navigation dependency, so it's exported here for the
+ * react-test-renderer recomputation tests -- see DECISIONS-LOG.md v1.0.118.
+ */
+export function usePlayerFormState(
+  player: PlayerProfile,
+  format: PlayerFormatKey
+): { recentForm: RecentFormSeries | null; achievementLines: AchievementLine[]; teamColor: string } {
+  const [recentForm, setRecentForm] = useState<RecentFormSeries | null>(null);
+  const [achievementLines, setAchievementLines] = useState<AchievementLine[]>([]);
+  const [teamColor, setTeamColor] = useState<string>(CYAN);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRecentForm(null);
+    setAchievementLines([]);
+    (async () => {
+      const [series, lines] = await Promise.all([
+        getRecentForm(player, format),
+        getPlayerAchievements(player, format),
+      ]);
+      const teamCode = format === "franchise" ? player.franchiseCode : player.teamCode;
+      const team = teamCode ? ALL_TEAMS[teamCode] : undefined;
+      const color = team ? await resolveTeamAccentColor(team) : CYAN;
+      if (!cancelled) {
+        setRecentForm(series);
+        setAchievementLines(lines);
+        setTeamColor(color);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [player, format]);
+
+  return { recentForm, achievementLines, teamColor };
+}
+
 export default function PlayerProfileView({ player }: Props) {
   const router = useRouter();
   const roleColor = ROLE_COLORS[player.role];
@@ -143,55 +198,15 @@ export default function PlayerProfileView({ player }: Props) {
 
   const rankings = player.iccRankings;
 
-  // ── Recent form + achievements (v1.0.117) ────────────────────────────
-  // Both come through the sanctioned lib/playerForm.ts interface, never by
-  // reading player.testRecentForm/etc. directly -- see that file's header
-  // comment for the full real-data-readiness writeup. Format-scoped, same
-  // as `stats` above: switching tabs re-fetches for the newly active
-  // format, never reuses the previous tab's series/achievements/color.
-  //
-  // Explicitly NOT here: anything about this player's upcoming matches --
-  // playing XI isn't confirmed until close to a match, so surfacing it
-  // with any confidence would be misleading. This section only ever looks
-  // backward at recorded innings/spells and awards.
-  const [recentForm, setRecentForm] = useState<RecentFormSeries | null>(null);
-  const [achievementLines, setAchievementLines] = useState<AchievementLine[]>([]);
-  // Sensible loading default -- matches the platform's own default accent,
-  // never rendered long enough to matter today since the mock adapters
-  // resolve synchronously, but correct even if a future real fetch is slow.
-  const [teamColor, setTeamColor] = useState<string>(CYAN);
-
-  useEffect(() => {
-    let cancelled = false;
-    // Reset immediately, before the async calls below resolve -- so a fast
-    // tab switch never leaves the PREVIOUS tab's graph, achievements, or
-    // team color visible while the new tab's data is still in flight.
-    setRecentForm(null);
-    setAchievementLines([]);
-    (async () => {
-      const [series, lines] = await Promise.all([
-        getRecentForm(player, activeTab),
-        getPlayerAchievements(player, activeTab),
-      ]);
-      // International formats theme off the player's national team;
-      // "franchise" themes off their league team. A player missing the
-      // relevant code (e.g. no franchiseCode) or whose code doesn't
-      // resolve to a real Team falls straight to the platform cyan --
-      // the same "no usable color" fallback resolveTeamAccentColor already
-      // applies to a team with no usable color of its own.
-      const teamCode = activeTab === "franchise" ? player.franchiseCode : player.teamCode;
-      const team = teamCode ? ALL_TEAMS[teamCode] : undefined;
-      const color = team ? await resolveTeamAccentColor(team) : CYAN;
-      if (!cancelled) {
-        setRecentForm(series);
-        setAchievementLines(lines);
-        setTeamColor(color);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [player, activeTab]);
+  // Recent form + achievements (v1.0.117, rebuilt on real match data
+  // v1.0.118) -- extracted to a standalone hook below (usePlayerFormState)
+  // so it has no dependency on next/navigation's useRouter, making it
+  // directly mountable with react-test-renderer for the recomputation
+  // tests in DECISIONS-LOG.md v1.0.118 without needing to mock the app
+  // router. Same "temporarily export a private hook for testing" precedent
+  // as useScheduleTab (app/schedule/page.tsx) and useMatchAccentColors
+  // (components/Scorecard.tsx).
+  const { recentForm, achievementLines, teamColor } = usePlayerFormState(player, activeTab);
 
   return (
     <div className="min-h-screen bg-bg-base flex flex-col">

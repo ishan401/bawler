@@ -457,19 +457,6 @@ export interface PlayerProfile {
   t20iStats?: FormatStats;
   franchiseStats?: FormatStats;
   franchiseLeague?: string;  // "IPL" | "BBL" | "PSL" | "SA20" | "The Hundred" | "CPL" | "MLC" etc.
-
-  // ── Recent form + achievements (v1.0.117) ──────────────────────────────
-  // Raw per-format storage for the player profile page's recent-form graph
-  // and achievements callout. NOT read directly by any component -- the
-  // ONLY sanctioned read path is lib/playerForm.ts's getRecentForm()/
-  // getPlayerAchievements(), the same "split fields + sanctioned accessor"
-  // shape as Team.membershipStatus/rankings (lib/teamData.ts) and
-  // Team.primaryColor/secondaryColor (lib/teamAccentColor.ts). See
-  // ARCHITECTURE.md for the full pattern writeup and why this exists.
-  testRecentForm?: RecentFormWindow;
-  odiRecentForm?: RecentFormWindow;
-  t20iRecentForm?: RecentFormWindow;
-  franchiseRecentForm?: RecentFormWindow;
 }
 
 // The same four-tab vocabulary PlayerProfileView already used locally --
@@ -478,29 +465,21 @@ export interface PlayerProfile {
 // and risking drift.
 export type PlayerFormatKey = "test" | "odi" | "t20i" | "franchise";
 
-/**
- * One player's last-10 window for one format: the per-innings (batting) or
- * per-spell (bowling) values the recent-form graph plots, plus whichever
- * award-based achievements apply within that same window. `values` is
- * chronological oldest -> newest, real recorded entries only -- NEVER
- * padded to a fixed length of 10; a player with only 4 recorded innings
- * this format has a `values` array of length 4, not 10 with fake zeros.
- * `getRecentForm()` (lib/playerForm.ts) takes the most recent 10 of
- * whatever's actually here.
- */
-export interface RecentFormWindow {
-  values: number[];
-  metric: "runs" | "wickets";
-  achievements?: {
-    // Count of Man of the Match awards within this recent window. Omit or
-    // leave 0/undefined if none -- getPlayerAchievements() only emits a
-    // line when this is a real positive number.
-    manOfMatchAwards?: number;
-    // Each entry is its own achievement line -- zero or more, most recent
-    // first is the convention but not enforced (rendered in array order).
-    manOfSeriesAwards?: { opponent: string; dateLabel: string }[];
-  };
-}
+// ============================================================================
+// v1.0.117 originally added a hand-typed `RecentFormWindow` field
+// (testRecentForm/odiRecentForm/t20iRecentForm/franchiseRecentForm) here --
+// a separate, manually-authored array of "last 10" numbers per player, with
+// no relationship to that player's actual recorded matches. v1.0.118
+// removed it entirely (grep-confirmed zero references anywhere in the
+// codebase): lib/playerForm.ts's getRecentForm()/getPlayerAchievements()
+// now derive both the graph and the achievements callout directly from
+// real per-match data already living on Match/Innings/BattingEntry/
+// BowlingEntry -- the exact same records that already power Scorecard.tsx
+// and the career stats grids -- instead of a second, disconnected mock
+// field that could (and did) show a different number of entries than the
+// player's real match history actually has. See ARCHITECTURE.md and
+// DECISIONS-LOG.md v1.0.118 for the full writeup.
+// ============================================================================
 
 // ============================================================================
 // Matchup stats — batter vs bowler career H2H
