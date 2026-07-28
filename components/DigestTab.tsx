@@ -848,7 +848,15 @@ function buildFullMatchSummaryCard(
     manOfMatchPhotoUrl: (() => {
       if (!result.manOfMatch) return null;
       const slug = slugifyPlayer(result.manOfMatch);
-      return (PLAYERS[slug] as { photoUrl?: string })?.photoUrl ?? null;
+      // v1.0.128 fix: this read a field called `photoUrl`, which does not
+      // exist anywhere on PlayerProfile -- the real, typed field
+      // (lib/types.ts) is `imageUrl` (same field YourPlayersStrip.tsx
+      // already reads correctly). The old cast to `{ photoUrl?: string }`
+      // was a type-level lie that always resolved to `undefined ?? null`,
+      // so this avatar was permanently stuck on the initials fallback --
+      // it would have STAYED stuck even once real photo data started
+      // populating `imageUrl`, since it was never looking at that field.
+      return (PLAYERS[slug] as { imageUrl?: string })?.imageUrl ?? null;
     })(),
     manOfMatchColor,
     narrative: buildMatchNarrative({ ...match, result }),

@@ -2798,3 +2798,20 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`, real mock data, cross-checked against Score tab figures: Kohli/Rohit/Gill Test graphs now show `[121]`/`[83]`/`[110]`. England regression (Root, Stokes, Crawley, Duckett) unchanged in shape, now also correctly including this match's closed 1st innings. India bowlers' still-open current spell correctly excluded. Kohli's T20I graph regression-checked unchanged. Achievements spot-checked unaffected.
+
+## [1.0.128] 2026-07-28
+
+### Fix: Man of the Match avatar in Digest summary card was reading a nonexistent field, permanently stuck on initials
+
+#### Context
+- Requested confirmation that player avatars check for a real photo URL first and fall back to initials, so real data flowing in later needs zero code changes. Audited every avatar render site in the codebase.
+
+#### Confirmed correct, no change
+- `components/YourPlayersStrip.tsx` -- already does photo-first-fallback-to-initials correctly (`imageUrl` check + `onError` handler).
+
+#### Fixed -- `components/DigestTab.tsx`
+- The Man of the Match avatar's derivation read `PLAYERS[slug]?.photoUrl` -- a field that doesn't exist on `PlayerProfile` (the real field is `imageUrl`). This was a type-level lie that always resolved to `null`, so the avatar was permanently stuck on initials and would have stayed stuck even once real photo data arrived, since it was never reading the right field. Fixed to read `imageUrl`. Verified end-to-end: populated `imageUrl` on a real player with zero further code changes, re-ran `buildCards()`, confirmed the avatar's URL picked it up automatically.
+
+#### Flagged, not changed
+- `components/PlayerProfileView.tsx`'s header has no avatar element at all today (not a fallback bug -- there's simply no photo/initials UI there yet). Flagged as a design decision rather than added unilaterally.
+- `components/BallGIF.tsx`'s inline initials labels during the ball animation are a different, space-constrained design context -- not a photo-capable avatar, left as-is.
