@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.121 (deployed)
+**Current version:** v1.0.122 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -525,6 +525,7 @@
 
 | Version | Highlight |
 |---|---|
+| **v1.0.122** | Fix: sticky header (ScoreBar) attributed the wrong score to each team whenever a Test follow-on broke strict innings alternation -- e.g. India's 450/8 showing next to England's tag and vice versa. Header now reads `lastInnA`/`lastInnB` (each team's own latest innings by `battingTeam`, already correctly computed in the file but never rendered) instead of positional `innings[0]`/`innings[last]`. 18/18 real tests pass across white-ball, normal Test, follow-on either direction, early-Test one-team-batted, declaration-vs-all-out, and drawn/abandoned states; exactly 1 file changed, Score tab untouched (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.121** | Win probability consolidated to one location: removed the duplicate "TEAM XX%" pill from `MiniInsightsBar`'s stat-chip row (and its now-orphaned props/dead `reverse` rendering branch); Matchup card's teaser row dropped its "tap for H2H" text (chevron alone is now the affordance) and gained an emphasized "WIN PROB" label + bold, fixed-white "TEAM 87%" value on the right, with its own tap target opening the same full-screen WinProbChart modal. New `getLeadingTeamWinProb()` accessor in `lib/winProb.ts` centralizes the leader-derivation logic. Verified against the longest real batter/bowler display-name pair in the mock dataset (no overlap); 8/8 real edge-case tests pass; exactly 4 files changed (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.120** | Centralized player display-name formatting: new `lib/playerName.ts` (`parsePlayerName()`/`formatPlayerName()`) resolves the `lastName()` fragility flagged early in this project -- multi-word surnames/particles, suffixes, hyphenated surnames, single names, bad capitalization, stray whitespace, comma feed format. Registry-first, algorithmic fallback instead of a non-answer. Consolidated a second competing implementation (`lib/transformers.ts`'s old `normaliseName()`) into the same module. Migrated ~15 real display call sites (stat pills, profile headers, scorecards, matchup rows, moments cards, Digest narrative, lineups, share captions) to the single sanctioned function. 49/49 real messy-name tests pass; grep-confirmed no remaining inline name-splitting (ARCHITECTURE.md, DECISIONS-LOG.md) |
 | **v1.0.119** | Upgraded the recent-form graph from an axis-less sparkline to a labeled small line chart -- Y-axis value labels + ~4-5 gridlines, scale computed per player/metric (`computeYAxisTop()`/`buildYAxisTicks()`, never a shared fixed range), minimal "N ago"/"Most recent" X-axis. Supersedes v1.0.117's original sparkline-matching decision now that the graph has its own dedicated page section. Team colors, dots, and achievements callout unchanged. 44/44 axis-scaling edge-case tests pass; exactly 1 file changed (ARCHITECTURE.md, DECISIONS-LOG.md) |

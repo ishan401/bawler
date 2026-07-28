@@ -3,6 +3,20 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.122] 2026-07-28
+
+### Fix: sticky header showed swapped team/score in Test matches with a follow-on
+
+#### Context
+- Live bug on `ind-eng-test-2026-d3-live`: header showed "ENG 450/8 vs 92/4 IND" -- India's first-innings 450/8 attributed to England, England's live follow-on 92/4 attributed to India. The Score tab already showed this correctly, isolating the bug to the header's own display composition.
+
+#### Fixed -- `components/ScoreBar.tsx`
+- The header's two score slots now render `lastInnA`/`lastInnB` (each team's own latest innings, looked up by `battingTeam`) instead of `i1`/`i2` (`innings[0]`/`innings[last]`, purely positional). `lastInnA`/`lastInnB` were already computed correctly in this file but never actually rendered -- the fix wires up code that already existed.
+- `i1`/`i2` are kept for their other correct use in the same file (white-ball chase-context line, projected-score line), unchanged.
+
+#### Verified
+- `npx tsx`, 18/18 pass against constructed fixtures covering all 6 required states: white-ball either team batting first, normal 4-innings Test, follow-on enforced by either team (proving no hardcoded team-order assumption), early Test with only one team batted, declaration vs all-out, and a drawn/abandoned Test with no 2nd innings. `git diff --stat` shows exactly 1 file changed; `Scorecard.tsx` untouched. `tsc --noEmit`/`npm run build` clean.
+
 ## [1.0.121] 2026-07-27
 
 ### Win probability: emphasized in the matchup row, removed from the duplicate stat-chip pill

@@ -769,6 +769,71 @@ either rendering site in isolation.
   LAST point is read, confirming earlier swings don't leak through; a
   rounding case (`0.865` -> `87%`); and near-certain wins for each team.
 
+**Worked example — sticky header team/score attribution bug, follow-on case (v1.0.122):**
+
+The match-page header (`ScoreBar.tsx`) was pairing each team's name with the
+wrong score whenever a Test match had a follow-on: India enforced the
+follow-on, so the innings sequence became `[IND inn1, ENG inn1, ENG inn2]`
+instead of strictly alternating `[A, B, A, B]` — and the header showed
+"ENG 450/8 vs 92/4 IND," attributing India's first-innings total to England
+and England's in-progress follow-on innings to India. The Score tab
+(`Scorecard.tsx`) already showed this correctly, which was the tell: the bug
+was a display-composition bug in one specific component, not a data problem.
+
+- **Root cause: correct logic existed, but was never wired to the display.**
+  `ScoreBar.tsx` already computed `lastInnA`/`lastInnB` by filtering
+  `innings` on `battingTeam === teamA.code` / `teamB.code` — the exact
+  correct pattern, matching what `Scorecard.tsx` and `MatchCard.tsx`'s
+  `LiveMatchCard` already used. But the actual header JSX never read those
+  variables; it rendered `i1` (`innings[0]`) next to team A's name and `i2`
+  (`innings[innings.length - 1]`) next to team B's name — a purely
+  positional pairing that happens to produce the right answer whenever
+  array position and team identity line up (single-innings white-ball
+  matches, or a normal alternating Test), and produces the swapped answer
+  the instant they don't (a follow-on, or any innings[0] belonging to
+  team B because they won the toss and batted first).
+- **The fix is a one-line swap per slot, not a new algorithm.** The header's
+  two score slots now render `lastInnA`/`lastInnB` — the already-correct,
+  already-computed values — instead of `i1`/`i2`. `i1`/`i2` themselves are
+  kept, but only for what they were always legitimately used for
+  elsewhere in the same file: the white-ball chase-context line (target/
+  need/RRR) and the projected-score line, both inherently chronological
+  concepts ("the team batting right now," "the team that batted first")
+  that are correctly resolved to a team name via explicit `battingTeam ===`
+  checks wherever they're actually displayed — never via position.
+- **Same real-data-readiness principle as everywhere else in this
+  document:** the fix reads each innings' own `battingTeam` field — the
+  same field the Score tab, the homepage live card, and the win-prob model
+  all already treat as ground truth — rather than assuming anything about
+  array order, alternation, or which team "usually" bats first. This means
+  it requires zero changes once real match data replaces mock data: real
+  innings records carry the same `battingTeam` linkage, so the fix is
+  correct by construction rather than by coincidence of today's mock
+  fixtures.
+- **Real tests against constructed fixtures for all 6 required states, not
+  just the reported live case** (`npx tsx`, 18/18 pass): white-ball with
+  team A batting first; white-ball with team B batting first (proves no
+  bat-first assumption); a normal 4-innings Test with no follow-on; the
+  follow-on case with team A enforcing it on team B (today's live bug);
+  the SAME follow-on case with team B enforcing it on team A instead
+  (proves no hardcoded assumption about which team follows on); an early
+  Test where only one team has batted (the other team's slot resolves to
+  `undefined`, which the existing `{lastInnA && (...)}` /
+  `{lastInnB && (...)}` guards already render as "no score shown," not
+  blank/undefined/garbage text); an innings ending by declaration at a
+  non-round wicket count vs. one ending all-out at 10, confirming the
+  header reflects whatever the record actually says rather than assuming a
+  fixed wicket count; and a drawn/abandoned Test where one team never gets
+  a 2nd innings at all.
+- **Verified scope:** `git diff --stat` against the pre-v1.0.122 commit
+  shows exactly one file changed — `components/ScoreBar.tsx`.
+  `Scorecard.tsx` (the Score tab, which already attributed teams
+  correctly) and `MatchCard.tsx` (the homepage live card, already fixed
+  the same way in an earlier version — confirmed by inspection, not
+  re-fixed here) are both untouched, so this fix reuses the same
+  already-correct pattern rather than inventing a second one.
+  `tsc --noEmit`/`npm run build` clean.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor

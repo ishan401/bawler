@@ -23,7 +23,23 @@ function ScoreBar({ match }: ScoreBarProps) {
   const isTest = match.format === "Test";
 
   // ── Innings attribution by battingTeam (never by position) ───────────────
-  // Real data: visiting team bats first whenever they win the toss and elect to bat.
+  // v1.0.122 root-cause fix: this file used to compute lastInnA/lastInnB
+  // correctly (by battingTeam, same pattern Scorecard.tsx already used
+  // correctly for the Score tab) but then never actually rendered them --
+  // the header itself pulled its two displayed scores from `i1`/`i2` below,
+  // which are purely positional (`innings[0]`, `innings[innings.length-1]`).
+  // That's indistinguishable from correct in a normal alternating Test or a
+  // single-innings white-ball match, because position and team happen to
+  // line up. It breaks the moment a follow-on is enforced: the innings
+  // sequence becomes [A1, B1, B2] (team A's 2nd innings never happens), so
+  // `i2` -- "last in the array" -- is team B's innings, but it was being
+  // rendered in the slot next to team A's name/dot. `lastInnA`/`lastInnB`
+  // below are what the header actually needs for its two fixed visual
+  // slots: whichever is each team's own most recent innings, looked up by
+  // the innings' real `battingTeam` field -- the same source of truth
+  // Scorecard.tsx already reads correctly -- never by array index, order,
+  // or an alternating-position assumption. Works identically regardless of
+  // which team bats first or which team (if either) follows on.
   const innA = innings.filter(i => i.battingTeam === teamA.code);
   const innB = innings.filter(i => i.battingTeam === teamB.code);
   const lastInnA = innA[innA.length - 1];
@@ -33,8 +49,15 @@ function ScoreBar({ match }: ScoreBarProps) {
   const lastInn = innings[innings.length - 1];
   const teamACurrentlyBatting = lastInn?.battingTeam === teamA.code;
 
-  // For ScoreBar: show current innings scores at top
-  // In limited-overs matches, simple 1st/2nd innings
+  // `i1`/`i2` are deliberately CHRONOLOGICAL (first-batted / most-recent),
+  // not per-team -- they feed the chase-context line (target/need/RRR) and
+  // the projected-score line below, both of which are white-ball-only
+  // concepts (`!isTest` gates) that are inherently about batting ORDER
+  // ("the team chasing right now"), not about which named team that is.
+  // Do NOT use these for the header's team-labeled score slots above --
+  // that's exactly the bug this fix corrects. Where team identity actually
+  // matters for these two lines (e.g. "IND need 21 off 22"), the code
+  // below already resolves it via `battingTeam ===` checks, not position.
   const i1 = innings[0];
   const i2 = innings.length >= 2 ? innings[innings.length - 1] : null;
 
@@ -63,15 +86,15 @@ function ScoreBar({ match }: ScoreBarProps) {
 
         <div className="flex-1 flex items-center justify-center gap-3 text-sm">
           <Team code={match.teamA.shortName} color={match.teamA.primaryColor} batting={teamACurrentlyBatting} />
-          {i1 && (
+          {lastInnA && (
             <span className="num font-bold text-text-primary">
-              {i1.runs}<span className="text-text-dim font-normal">/{i1.wickets}</span>
+              {lastInnA.runs}<span className="text-text-dim font-normal">/{lastInnA.wickets}</span>
             </span>
           )}
           <span className="text-text-dim">vs</span>
-          {i2 && (
+          {lastInnB && (
             <span className="num font-bold text-cyan">
-              {i2.runs}<span className="text-text-dim font-normal">/{i2.wickets}</span>
+              {lastInnB.runs}<span className="text-text-dim font-normal">/{lastInnB.wickets}</span>
             </span>
           )}
           <Team code={match.teamB.shortName} color={match.teamB.primaryColor} batting={!teamACurrentlyBatting && innings.length > 0} />
