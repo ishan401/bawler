@@ -2146,7 +2146,7 @@ export default function DigestTab({ match, allBalls }: Props) {
       return cards.filter(c => {
         // always pinned -- lead-in/turning-point/performance/recap cards
         // aren't scoped to any one day
-        if (c.kind === "match-summary" || c.kind === "pending-result" ||
+        if (c.kind === "match-summary" || c.kind === "pending-result" || c.kind === "live-summary" ||
             c.kind === "turning-point" || c.kind === "performance" || c.kind === "simple-recap") return true;
         if (c.kind === "session")     return c.day === activeDay;
         if (c.kind === "day-summary") return c.day === activeDay;
@@ -2156,7 +2156,7 @@ export default function DigestTab({ match, allBalls }: Props) {
     // non-Test: filter by innings
     if (activeInnings === null) return cards;
     return cards.filter(c =>
-      c.kind === "match-summary" || c.kind === "pending-result" ||  // always pinned
+      c.kind === "match-summary" || c.kind === "pending-result" || c.kind === "live-summary" ||  // always pinned
       c.kind === "turning-point" || c.kind === "performance" || c.kind === "simple-recap" ||
       (c.kind === "over-group" && c.inningsNumber === activeInnings)
     );
