@@ -16,11 +16,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Match, Ball, MatchFormat, Innings, TestSession } from "@/lib/types";
 import { deriveTestSessions } from "@/lib/transformers";
-import { teamInningsOccurrence, ordinal } from "@/lib/formatUtils";
+import { teamInningsOccurrence, ordinal, ballsPerSet } from "@/lib/formatUtils";
 import { PLAYERS, slugifyPlayer } from "@/lib/mockData";
 import { formatPlayerName } from "@/lib/playerName";
 import { NarrativeThresholds, DEFAULT_NARRATIVE_THRESHOLDS, getNarrativeThresholds } from "@/lib/narrativeThresholds";
-import { calculateWinProbForMatch } from "@/lib/winProb";
+import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
+import { isMatchConclusivelyOver } from "@/lib/matchStatus";
 
 // ============================================================================
 // Notable-vs-routine drama gates
@@ -569,6 +570,40 @@ export interface PendingResultCard {
   }[];
 }
 
+/** Shown instead of MatchSummaryCard while a match is genuinely still
+ *  live and hasn't concluded yet (see buildMatchSummaryCard /
+ *  lib/matchStatus.ts's isMatchConclusivelyOver) -- v1.0.124. Exists so
+ *  this card slot is NEVER stuck choosing between "a false FULL TIME
+ *  verdict" and "nothing at all": current scores, plus (for a limited-
+ *  overs chase in progress) the same need/balls-left/required-run-rate
+ *  figures ScoreBar's own header already computes, so this can never
+ *  numerically disagree with what the LIVE tab shows for the same match
+ *  at the same moment. `chase` is null for a Test, for a 1st innings with
+ *  no target yet, or once the chase has actually concluded (needs <= 0)
+ *  -- that last case briefly can happen between a chase-winning ball
+ *  landing and `result` catching up; showing nothing there is correct,
+ *  not a gap, since the real FULL TIME card takes over the very next
+ *  recompute. */
+export interface LiveSummaryCard {
+  kind: "live-summary";
+  id: string;
+  format: MatchFormat;
+  inningsScores: {
+    label: string;
+    runs: number;
+    wickets: number;
+    overs: number;
+    declared: boolean;
+    teamColor: string;
+  }[];
+  chase: {
+    battingTeamName: string;
+    need: number;
+    ballsLeft: number;
+    rrr: number | null;
+  } | null;
+}
+
 /** A single "turning point" callout -- the one ball, match-wide, with the
  *  largest win-probability swing. Computed once across the whole match
  *  (not per-session/day), only for the post-match Digest, and only when
@@ -615,7 +650,7 @@ export interface SimpleRecapCard {
 
 export type DigestCardData =
   | OverGroupCard | SessionCard | DaySummaryCard | MatchSummaryCard | PendingResultCard
-  | TurningPointCard | PerformanceCard | SimpleRecapCard;
+  | LiveSummaryCard | TurningPointCard | PerformanceCard | SimpleRecapCard;
 
 // ── over-group builder (T20 / ODI / Test fallback) ────────────────────────────
 
@@ -870,16 +905,71 @@ function buildPendingResultCard(match: Match): PendingResultCard {
   };
 }
 
-// `match.status` is the authoritative signal here too: a real feed offers
-// no guarantee that `result` lands in the same update as `status` flipping
-// to "post-match". While still live, no result yet is normal (no card).
-// Once the match is no longer live, silently returning null would look
-// identical to a bug -- so once the match isn't live, a card of some kind
-// is always produced: the real result, a safely-derived minimal one, or an
-// explicit "pending" state.
-function buildMatchSummaryCard(match: Match, isLive: boolean): MatchSummaryCard | PendingResultCard | null {
-  if (match.result) return buildFullMatchSummaryCard(match, match.result);
-  if (isLive) return null;
+// Chase math for the in-progress state below -- the exact same
+// target/need/ballsLeft/rrr derivation ScoreBar.tsx's header already
+// computes for the live match page, so this card can never numerically
+// disagree with what LIVE shows for the same match at the same moment.
+// Test matches and anything without a real chase in progress return
+// null -- there's no equivalent single "need X off Y" figure for those.
+function buildChaseContext(match: Match): LiveSummaryCard["chase"] {
+  if (match.format === "Test" || match.innings.length < 2) return null;
+  const inn1 = match.innings[0];
+  const inn2 = match.innings[match.innings.length - 1];
+  if (typeof inn1?.runs !== "number" || typeof inn2?.runs !== "number") return null;
+
+  const target = inn1.runs + 1;
+  const need = target - inn2.runs;
+  if (need <= 0) return null; // chase already won -- FULL TIME card takes over next recompute
+
+  const totalBalls = totalBallsForFormat(match);
+  const ballsBowled = Math.round((inn2.overs ?? 0) * ballsPerSet(match.format));
+  const ballsLeft = Math.max(0, totalBalls - ballsBowled);
+  if (ballsLeft <= 0) return null; // overs exhausted -- defending team's win, not a chase in progress
+
+  const battingTeam = inn2.battingTeam === match.teamA.code ? match.teamA : match.teamB;
+  const rrr = (need / ballsLeft) * ballsPerSet(match.format);
+  return { battingTeamName: battingTeam.shortName, need, ballsLeft, rrr: Math.round(rrr * 100) / 100 };
+}
+
+// Shown instead of MatchSummaryCard while the match is genuinely still
+// live and hasn't concluded (see LiveSummaryCard's own doc comment) --
+// current scores plus chase context if there is one, never a verdict.
+function buildLiveSummaryCard(match: Match): LiveSummaryCard {
+  const { innings, teamA, teamB } = match;
+  return {
+    kind: "live-summary",
+    id: `live-summary-${match.id}`,
+    format: match.format,
+    inningsScores: innings.map(inn => ({
+      label: teamInningsOccurrence(innings, inn) > 1 ? `${inn.battingTeam} (2nd Inn)` : inn.battingTeam,
+      runs: inn.runs, wickets: inn.wickets, overs: inn.overs,
+      declared: inn.declared ?? false,
+      teamColor: inn.battingTeam === teamA.code ? teamA.primaryColor : teamB.primaryColor,
+    })),
+    chase: buildChaseContext(match),
+  };
+}
+
+// `match.status` alone was the ORIGINAL authoritative signal here (a real
+// feed offers no guarantee that `result` lands in the same update as
+// `status` flipping to "post-match"), but that's no longer sufficient on
+// its own -- v1.0.124 -- because `status` can legitimately stay "live"
+// past the point a match's simulated/mocked ball-by-ball data has fully
+// played out (see lib/mockData.ts's FEATURED_MATCH). `result` itself is
+// therefore checked FIRST via lib/matchStatus.ts's isMatchConclusivelyOver
+// (result present AND the observable current innings state actually backs
+// that up, not just "a result object happens to exist") -- this is the
+// literal fix for the reported bug, where a match.result had leaked
+// through from a not-yet-truncated snapshot while play was genuinely still
+// in progress. Once a match isn't conclusively over yet, `isLive` decides
+// between two honest non-verdict states: a live in-progress card while
+// still live, or (once the match has stopped being live but `result` still
+// hasn't landed and can't be safely derived) the existing "pending" card --
+// silently returning null there would look identical to a bug, so a card
+// of some kind is always produced once the match isn't live.
+function buildMatchSummaryCard(match: Match, isLive: boolean): MatchSummaryCard | PendingResultCard | LiveSummaryCard | null {
+  if (isMatchConclusivelyOver(match)) return buildFullMatchSummaryCard(match, match.result!);
+  if (isLive) return buildLiveSummaryCard(match);
   const derived = deriveMinimalMatchResult(match);
   if (derived) return buildFullMatchSummaryCard(match, derived, true);
   return buildPendingResultCard(match);
@@ -1157,9 +1247,13 @@ export function buildCards(
   } else {
     cards = buildOverGroupCards(match, allBalls, isLive, cache, t);
   }
-  // Prepend match summary card (pinned at top, post-match only). `isLive`
-  // is passed through so a finished-but-not-yet-`result`-populated match
-  // gets a derived/pending card instead of silently no card at all.
+  // Prepend match summary card (pinned at top) -- v1.0.124: this now
+  // ALSO renders while genuinely live (an honest in-progress state, never
+  // a verdict -- see LiveSummaryCard), not just post-match. `isLive` is
+  // passed through so buildMatchSummaryCard can tell "still live, no
+  // result yet" (in-progress card) apart from "finished but result never
+  // landed" (derived/pending card) apart from "genuinely concluded"
+  // (the real FULL TIME card) -- never silently no card at all.
   const summary = buildMatchSummaryCard(match, isLive);
   if (summary) cards = [summary, ...cards];
   return cards;
@@ -1725,6 +1819,52 @@ const PendingResultCardView = React.memo(function PendingResultCardView({ card }
   );
 });
 
+// Shown in place of MatchSummaryCardView while the match is genuinely
+// still live and hasn't concluded (see LiveSummaryCard's doc comment /
+// buildMatchSummaryCard) -- v1.0.124. Deliberately styled close to
+// PendingResultCardView (same neutral, non-verdict framing) but labeled
+// "In Progress" rather than "Match Finished", and never shows a
+// resultLine -- there isn't one yet, by definition, whenever this card is
+// the one being rendered.
+
+const LiveSummaryCardView = React.memo(function LiveSummaryCardView({ card }: { card: LiveSummaryCard }) {
+  return (
+    <div className="rounded-xl overflow-hidden border border-line/40" data-digest-card>
+      <div className="px-3 pt-3 pb-2.5">
+        <span className="text-[9px] font-black uppercase tracking-[0.15em] px-1.5 py-0.5 rounded bg-live/15 text-live flex items-center gap-1.5 w-fit">
+          <span className="live-dot w-1.5 h-1.5 rounded-full bg-live inline-block" />
+          {card.format} · In Progress
+        </span>
+        {card.chase && (
+          <p className="text-[13px] font-bold text-text-secondary mt-1.5">
+            {card.chase.battingTeamName} need {card.chase.need} off {card.chase.ballsLeft} ball{card.chase.ballsLeft === 1 ? "" : "s"}
+            {card.chase.rrr !== null && <span className="text-text-dim font-semibold"> · RRR {card.chase.rrr.toFixed(2)}</span>}
+          </p>
+        )}
+      </div>
+      {card.inningsScores.length > 0 && (
+        <div className="px-3 pb-3 pt-2 flex flex-col gap-1 border-t border-line/30">
+          {card.inningsScores.map((inn, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: inn.teamColor }} />
+                <span className="text-[11px] font-bold text-text-secondary">{inn.label}</span>
+                {inn.declared && (
+                  <span className="text-[8px] font-black text-amber-400/80 uppercase tracking-wider">d</span>
+                )}
+              </div>
+              <span className="text-[13px] font-black num text-text-primary">
+                {inn.runs}<span className="text-text-dim font-semibold text-[11px]">/{inn.wickets}</span>
+                <span className="text-[10px] font-medium text-text-dim ml-1.5">({inn.overs} ov)</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 // ── TurningPointCardView ─────────────────────────────────────────────────────
 
 const TurningPointCardView = React.memo(function TurningPointCardView({ card }: { card: TurningPointCard }) {
@@ -2057,6 +2197,8 @@ export default function DigestTab({ match, allBalls }: Props) {
             return <MatchSummaryCardView key={card.id} card={card} />;
           if (card.kind === "pending-result")
             return <PendingResultCardView key={card.id} card={card} />;
+          if (card.kind === "live-summary")
+            return <LiveSummaryCardView key={card.id} card={card} />;
           if (card.kind === "turning-point")
             return <TurningPointCardView key={card.id} card={card} />;
           if (card.kind === "performance")

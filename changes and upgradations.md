@@ -3,6 +3,33 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.124] 2026-07-28
+
+### Fix: Digest showed a premature "FULL TIME / won by X" verdict for a genuinely in-progress chase
+
+#### Context
+- Live bug on `ipl2026-m37-kkrvmi` (MI vs KKR): while KKR was genuinely still batting mid-chase (LIVE tab: "need 49 off 41 balls"), Digest's match-summary card simultaneously read "T20 · FULL TIME -- KKR won by 4 wickets" AND "KKR fell 49 short" -- two contradictory verdicts for the same current moment, from two different data sources disagreeing with each other.
+
+#### Fixed -- `components/MatchView.tsx`
+- `truncatedMatch` (the live-playback snapshot fed to every tab) was spreading `result` through from the untouched original match object unconditionally, even while `innings` were correctly truncated to the current simulated position. For a match kept at `status: "live"` forever with a permanently baked-in final `result` (`FEATURED_MATCH`, by design, for the homepage carousel), that meant the "final" result was ALWAYS present, at every point mid-chase. Now only passes `result` through once playback has genuinely caught up to the real end of the recorded ball data (or immediately for a match with no ball-by-ball data at all).
+
+#### New -- `lib/matchStatus.ts`
+- `isMatchConcluded(match)` -- the one shared "has this match genuinely finished" check every completion-dependent narrative platform-wide should use instead of independently inferring it from score/wickets/overs.
+- `observableStateSupportsConclusion(match)` -- defense-in-depth cross-check for a normal two-innings limited-overs match: confirms the CURRENT observable innings state (target reached / all out / overs exhausted) actually backs up what `result` claims, before trusting a verdict. No opinion (trusts `result` alone) for Tests and anything without exactly two recorded innings.
+- `isMatchConclusivelyOver(match)` -- combines both; what `buildMatchSummaryCard` now gates on.
+
+#### Changed -- `components/DigestTab.tsx`
+- `buildMatchSummaryCard` now checks `isMatchConclusivelyOver` FIRST (previously checked `match.result` truthiness before even looking at `isLive`). New `LiveSummaryCard` state -- shown while genuinely live and unconcluded, replacing what used to be no card at all: current scores plus, for a limited-overs chase in progress, the exact need/balls-left/RRR math `ScoreBar.tsx`'s own header already computes.
+
+#### Audited, confirmed already correct, no changes
+- `lib/teamSchedule.ts`, `components/ScheduleRow.tsx` -- both already gate on `match.status === "post-match"` before ever consulting `result`. `components/MatchCard.tsx`'s `PastMatchCard`/`SpotlightMatchCard` -- only ever fed already-past matches. `components/MomentStoryCard.tsx` -- no completion narrative at all. `DigestTab.tsx`'s own post-match-only card builders -- only invoked once genuinely finished.
+
+#### Found, flagged, not changed
+- `components/MatchCard.tsx`'s `liveStatusOf()` -- same anti-pattern, but confirmed dead code (zero call sites). `lib/playerForm.ts`'s `settledMatches()` -- reads the same raw, untruncated match array this bug's root cause lived in, for player recent-form stats (numeric, not a display narrative) -- flagged as a related follow-up candidate.
+
+#### Verified
+- `npx tsx`, 26/26 pass: genuinely completed chase (no regression), the exact reported bug case, failed chase both before/after result lands (all-out + overs-exhausted), the exact target-reached transition boundary, a Test in progress, a tie, an abandoned/no-result match, and a simulated live "loop" (FULL TIME -> reverts to in-progress -> FULL TIME again) confirming fresh recomputation, not freezing. `git diff --stat` shows exactly 2 files modified + 1 new file. `tsc --noEmit`/`npm run build` clean.
+
 ## [1.0.123] 2026-07-28
 
 ### Fix: win-probability fallback view was team-colored, out of sync with the platform-wide neutral-color decision

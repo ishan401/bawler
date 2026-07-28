@@ -900,6 +900,85 @@ full-screen modal header had the identical anti-pattern.
   `DigestTab.tsx` untouched, matching the confirmed scope exactly.
   `tsc --noEmit`/`npm run build` clean.
 
+**Worked example — one shared "is this actually over" check, not each display independently guessing from score (v1.0.124):**
+
+The Digest tab's match-summary card showed a "FULL TIME / [Team] won by X
+wickets" verdict for a match that was genuinely still live and mid-chase
+(`ipl2026-m37-kkrvmi`) — with its own narrative text simultaneously
+reading the correct, still-in-progress score, producing two directly
+contradictory lines in the same card.
+
+- **The bug wasn't really about score inference — it was a leaked
+  "future" value in a snapshot meant to represent "right now."**
+  `MatchView.tsx`'s `truncatedMatch` correctly slices `innings` down to
+  the current simulated live-playback position, but was built via
+  `{ ...match, innings }` — spreading `match` first meant `result`
+  (the match's EVENTUAL/final outcome) carried through completely
+  unchanged, even while `innings` were genuinely mid-playback. For a
+  match kept at `status: "live"` forever with a permanently baked-in
+  final `result` (`FEATURED_MATCH`, by deliberate design, so it stays in
+  the homepage's live carousel), that meant `truncatedMatch.result` was
+  ALWAYS the final object, at every point in the simulated chase — not
+  just once the chase genuinely concluded.
+- **Fix at the source, not at every consumer.** `truncatedMatch` now only
+  passes `result` through once playback has genuinely caught up to the
+  real end of the recorded ball data (`activeBallIdx >= allBalls.length -
+  1`), or immediately for a match with no ball-by-ball data at all
+  (nothing being truncated in the first place). Every downstream consumer
+  of this object can now trust `result` at face value — the fix lives in
+  the one place responsible for the snapshot being honest, not scattered
+  across every place that reads it.
+- **New shared accessor anyway, for defense in depth and discoverability**
+  — `lib/matchStatus.ts`'s `isMatchConcluded(match)` (`result != null`) is
+  the one function every completion-dependent narrative platform-wide
+  should call, rather than each independently re-deriving "is this over."
+  Paired with `observableStateSupportsConclusion(match)` — deliberately
+  scoped exactly like this file's existing `deriveMinimalMatchResult`
+  (components/DigestTab.tsx): for a normal two-innings limited-overs
+  match, independently cross-checks that the CURRENTLY OBSERVABLE innings
+  state (target reached, all out, or overs exhausted) actually backs up
+  what `result` claims, before a verdict is trusted — a real, cheap
+  safety net in case a similar staleness bug is ever reintroduced
+  elsewhere, not just reliance on upstream discipline. Returns "no
+  opinion" for Tests and anything without exactly two recorded innings,
+  the same conservative boundary `deriveMinimalMatchResult` already
+  draws, for the same reason: draws, ties, follow-on wins, and
+  declarations aren't verifiable from the scoreline alone.
+- **An honest in-progress state, not "nothing," while genuinely
+  unconcluded.** The summary card slot used to render nothing at all
+  while live with no result yet. It now shows a real in-progress card —
+  current scores, plus (for a limited-overs chase) the exact same
+  need/balls-left/required-run-rate math `ScoreBar.tsx`'s own live header
+  already computes, so it can never numerically disagree with what LIVE
+  shows for the same match at the same moment.
+- **Audited every other completion-narrative render site before deciding
+  scope**, the same discipline as the v1.0.123 win-prob audit: Schedule's
+  "Last: X won by Y" line and per-row result text were both found to
+  already gate on `match.status === "post-match"` (via a `bucket`
+  concept) before ever consulting `result` — safe by construction, not
+  touched. A homepage-card function (`liveStatusOf`) was found to contain
+  the identical anti-pattern but has zero call sites anywhere — flagged,
+  not fixed, since nothing renders it. A player recent-form function
+  (`lib/playerForm.ts`'s `settledMatches`) was found to read the SAME
+  problematic raw, untruncated match array this bug's root cause lived
+  in, based on a comment that's now stale for the same underlying reason
+  — flagged as a related, explicitly out-of-scope follow-up candidate,
+  since it aggregates numeric stats rather than rendering a "FULL
+  TIME"/"won by X" narrative.
+- **Real tests against constructed fixtures for all 6 required states,
+  plus a recomputation/loop check** (`npx tsx`, 26/26 pass): a genuinely
+  completed chase with balls to spare (no regression); the exact reported
+  bug case (leaked result, chase genuinely mid-innings); a failed chase
+  both before and after the real result lands, covering all-out and
+  overs-exhausted endings; the exact ball-by-ball transition boundary
+  (one ball before vs. the instant the target is reached); a Test
+  genuinely in progress; a tie and an abandoned/no-result match; and a
+  simulated "loop" (FULL TIME → reverts to in-progress → FULL TIME again)
+  confirming this recomputes fresh on every tick rather than freezing.
+- **Verified scope:** `git diff --stat` against the pre-v1.0.124 commit
+  shows exactly 2 files modified (`MatchView.tsx`, `DigestTab.tsx`) plus 1
+  new file (`lib/matchStatus.ts`). `tsc --noEmit`/`npm run build` clean.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor

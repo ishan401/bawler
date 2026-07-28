@@ -274,8 +274,31 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         });
       }
     }
-    return { ...match, innings };
-  }, [match, activeBallIdx]);
+
+    // `result` (and anything else keyed off "has this match actually
+    // concluded") must NOT just spread through from `match` unchanged --
+    // that field describes the match's EVENTUAL/final outcome, which is
+    // only true right now if playback has genuinely caught up to the real
+    // end of the recorded ball data. `match.status` can't be used as that
+    // signal instead: FEATURED_MATCH is deliberately kept at
+    // `status: "live"` forever (see lib/mockData.ts) so it stays visible
+    // in the homepage's live carousel even once its scripted chase has
+    // fully played out, and the `liveBallIdx` ticking interval above
+    // loops back into the final ~10 balls forever rather than stopping --
+    // meaning this component is asked to render a genuinely mid-playback
+    // snapshot most of the time, punctuated by brief moments where
+    // playback happens to reach the real last ball. Every consumer this
+    // truncated match flows into (DigestTab's match-summary card, in
+    // particular -- see lib/matchStatus.ts's isMatchConcluded()) treats
+    // `result != null` as "the match is over" -- so this is the one place
+    // responsible for making sure that's only ever true when it's
+    // actually true for what's currently visible. A match with no
+    // ball-by-ball data at all (allBalls.length === 0) was never being
+    // truncated in the first place -- `result` there is already whatever
+    // the raw record says, trusted as-is, same as always.
+    const allBallsConsumed = allBalls.length === 0 || activeBallIdx >= allBalls.length - 1;
+    return { ...match, innings, result: allBallsConsumed ? match.result : undefined };
+  }, [match, activeBallIdx, allBalls]);
 
   const winProbPoints = useMemo(() => calculateWinProbForMatch(truncatedMatch), [truncatedMatch]);
   const events = useMemo(() => extractMatchEvents(truncatedMatch), [truncatedMatch]);
