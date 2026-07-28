@@ -22,6 +22,7 @@ import { formatPlayerName } from "@/lib/playerName";
 import { NarrativeThresholds, DEFAULT_NARRATIVE_THRESHOLDS, getNarrativeThresholds } from "@/lib/narrativeThresholds";
 import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
 import { isMatchConclusivelyOver } from "@/lib/matchStatus";
+import PlayerAvatar from "./PlayerAvatar";
 
 // ============================================================================
 // Notable-vs-routine drama gates
@@ -116,13 +117,6 @@ function groupSize(format: MatchFormat): number {
   if (format === "ODI") return 5;
   if (format === "Test") return 10;
   return 1;
-}
-
-function initials(name: string | null | undefined): string {
-  if (!name) return "?";
-  const parts = name.trim().split(" ").filter(Boolean);
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 function isExtras(b: Ball): boolean {
@@ -1730,29 +1724,18 @@ const MatchSummaryCardView = React.memo(function MatchSummaryCardView({ card }: 
       {/* ── Man of Match ── */}
       {card.manOfMatch && (
         <div className="px-3 py-2.5 border-b border-line/30 flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shrink-0 text-[10px] font-black"
-            style={{
-              background: `${card.manOfMatchColor}28`,
-              border: `1.5px solid ${card.manOfMatchColor}70`,
-              color: card.manOfMatchColor,
-            }}
-          >
-            {card.manOfMatchPhotoUrl ? (
-              <img
-                src={card.manOfMatchPhotoUrl}
-                alt={card.manOfMatch ?? ""}
-                className="w-full h-full object-cover"
-                onError={e => {
-                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                  (e.currentTarget.parentElement as HTMLElement).dataset.fallback = "true";
-                }}
-              />
-            ) : null}
-            <span className={card.manOfMatchPhotoUrl ? "hidden" : ""}>
-              {initials(card.manOfMatch)}
-            </span>
-          </div>
+          {/* v1.0.129: photo/initials fallback now lives in the shared
+              <PlayerAvatar> (also used by YourPlayersStrip.tsx and the
+              player profile header) -- this card only supplies its own
+              team-tinted color styling on top of it. */}
+          <PlayerAvatar
+            name={card.manOfMatch ?? "?"}
+            imageUrl={card.manOfMatchPhotoUrl}
+            sizePx={32}
+            ringColor={`${card.manOfMatchColor}70`}
+            textColor={card.manOfMatchColor}
+            backgroundColor={`${card.manOfMatchColor}28`}
+          />
           <div>
             <p className="text-[8px] font-black uppercase tracking-widest text-amber-400 mb-0.5">Player of the Match</p>
             <p className="text-[12px] font-bold text-text-primary">{card.manOfMatch}</p>

@@ -1223,3 +1223,56 @@ by coincidence, from an unrelated, separately-concluded past Test).
   dataset at all (settled or otherwise) — this fix is untestable for
   India/ODI until real or additional mock ODI data exists; flagged rather
   than assumed fine.
+
+**Worked example — one shared avatar component, three callers, not three separate implementations — v1.0.129:**
+
+Ask: add a player avatar to the profile page header (previously had none
+at all), reusing the exact photo-first-fallback-to-initials pattern
+already correct in `YourPlayersStrip.tsx`, rather than writing a third
+independent copy — explicitly flagged as the same duplication risk that
+let the Digest tab's Man of the Match avatar drift onto a nonexistent
+`photoUrl` field in the first place (v1.0.128).
+
+- **New `components/PlayerAvatar.tsx`** is now the ONE place that owns
+  "how a player's avatar renders" — `imageUrl` first, initials-in-a-circle
+  fallback (derived via the same `parsePlayerName()` every other display
+  site already uses), and a React-state-driven `onError` handler for a
+  broken/unreachable URL at runtime, not just an empty field. It takes a
+  raw `name: string` rather than a full `PlayerProfile`, so a caller with
+  only a display-name string (`Match.result.manOfMatch`) doesn't need to
+  resolve a full player object just to render an avatar.
+- **Deliberately role/format-agnostic.** Nothing in `PlayerAvatar` reads
+  `role`, `battingStyle`, or any format-scoped field — every visual
+  customization a caller needs (the strip's favourited-amber ring, the
+  Digest card's team-tinted background, the profile header's role-tinted
+  ring) is passed in as plain `ringColor`/`textColor`/`backgroundColor`
+  props, sized via one `sizePx` prop. This is what makes "works
+  identically for a batter, bowler, or all-rounder" true by construction
+  rather than by convention — there's no branch to forget for a role that
+  wasn't tested.
+- **Three call sites, one implementation**: `YourPlayersStrip.tsx`'s
+  `PlayerChip` (48px, favourited-amber ring), `DigestTab.tsx`'s Man of the
+  Match card (32px, team-color ring/background — this call site's local
+  `initials()` helper and CSS-attribute-toggle broken-image hack were
+  both deleted outright, not left dead alongside the new component), and
+  the new `PlayerProfileView.tsx` header avatar (56px, role-tinted ring/
+  background, matching the same role-color convention the adjacent role
+  badge already uses, so the two feel like one coherent header rather
+  than two unrelated color choices).
+- **Real-data-ready by construction, not by inspection**: since all three
+  callers now read the same `imageUrl` field through the same component,
+  a real photo URL populating `PlayerProfile.imageUrl` flows to every
+  avatar on the platform simultaneously — there's no second call site
+  that could independently drift onto a wrong field name the way
+  `DigestTab.tsx` once did.
+- **Real test, not a description** (`npx tsx`, `react-test-renderer`
+  installed pinned to the project's actual React version — `18.3.1`, not
+  latest — via `npm install --no-save`, removed after): photo present
+  renders an `<img>`, no initials span; no photo renders initials, no
+  `<img>`; a photo present but failing (`onError` fired programmatically)
+  falls back to initials at runtime, not just when the field is empty;
+  initials correctness across several real name shapes; identical
+  structure regardless of an arbitrarily-labeled "role" passed alongside
+  it (confirming role-agnosticism); all three real call-site sizes (32/
+  48/56px) scale correctly; a `backgroundColor` override (the Digest/
+  profile-header case) applies correctly.

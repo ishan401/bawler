@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.128 (deployed)
+**Current version:** v1.0.129 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -566,6 +566,7 @@
 | **v1.0.126** | Fixed 3 bugs in the "Your Players" strip: live-detection missed players in a follow-on Test (new shared `getCurrentInnings()` in `lib/matchStatus.ts`, reused by `ScoreBar.tsx` and rewritten `lib/playerActivity.ts` to read the full current-innings battingCard/bowlingCard instead of just the last ball's 2 participants); a name-format regression (2 data-authoring bugs in `lib/mockData.ts`'s `shortName` fields, `b-azam`/`a-iqbal`); and a reported sort-order symptom investigated but not reproduced as an independent bug -- traced to the live-detection fix above (DECISIONS-LOG.md) |
 | **v1.0.127** | Fixed recent-form graphs missing for India's Test batters (Kohli, Rohit Sharma, Gill) despite real settled data existing -- root cause was `lib/playerForm.ts`'s "settled" gate operating at the match level instead of the innings level, discarding an entire still-in-progress match's already-finished earlier innings. New `eligibleEntriesFor()` decides per innings via the shared `getCurrentInnings()` lookup; a dismissed batter's entry in a still-open current innings now counts, a still-accumulating bowling spell doesn't. Platform-wide audit found the identical gap for 2 T20I bowlers; ODI untestable for India (zero mock data) (DECISIONS-LOG.md) |
 | **v1.0.128** | Audited every player-avatar render site for photo-first-fallback-to-initials readiness. `YourPlayersStrip.tsx` already correct. Fixed `DigestTab.tsx`'s Man of the Match avatar, which read a nonexistent `photoUrl` field (the real field is `imageUrl`) -- it was permanently stuck on initials and would have stayed stuck even with real photo data. Flagged (not changed): `PlayerProfileView.tsx`'s header has no avatar element at all; `BallGIF.tsx`'s inline initials are a different design context (DECISIONS-LOG.md) |
+| **v1.0.129** | Added a player avatar to the profile page header (previously had none), via a new shared `components/PlayerAvatar.tsx` reused by the "Your Players" strip and the Digest tab's Man of the Match card too -- one implementation of photo-first-fallback-to-initials instead of three, role/format-agnostic, real-data-ready via the same `imageUrl` field everywhere. Old per-site initials helpers and a CSS-hack broken-image fallback removed (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 

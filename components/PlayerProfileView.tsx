@@ -11,6 +11,7 @@ import { getFavouritePlayers, onFavouritesChanged, toggleFavouritePlayer } from 
 import { CYAN } from "@/lib/tokens";
 import RecentFormGraph from "./RecentFormGraph";
 import PlayerAchievements from "./PlayerAchievements";
+import PlayerAvatar from "./PlayerAvatar";
 
 interface Props {
   player: PlayerProfile;
@@ -243,6 +244,24 @@ export default function PlayerProfileView({ player }: Props) {
               <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
+          {/* v1.0.129: reuses the same shared <PlayerAvatar> as
+              YourPlayersStrip.tsx and the Digest tab's MOM card -- photo-
+              first, fall back to initials, real-data-ready via the same
+              imageUrl field, with zero role/format special-casing. Sized
+              larger than the strip's 48px chip since this is the page's
+              primary visual anchor, ring/text tinted with the same
+              per-role color already used for the role badge to its
+              right, so the two feel like one coherent header rather than
+              two unrelated color choices. */}
+          <PlayerAvatar
+            name={player.name}
+            imageUrl={player.imageUrl}
+            sizePx={56}
+            ringColor={roleColor}
+            textColor={roleColor}
+            backgroundColor={`${roleColor}22`}
+            borderWidthPx={2}
+          />
           <div className="flex-1 min-w-0">
             <h1 className="font-extrabold text-text-primary leading-tight truncate">{formatPlayerName(player.name)}</h1>
             <p className="text-[11px] text-text-dim">{player.nationality}</p>

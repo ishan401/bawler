@@ -7,7 +7,8 @@ import { getFollowPrefs, onFollowPrefsChanged, emptyFollowPrefs, type FollowPref
 import { getFavouritePlayers, onFavouritesChanged, isPlayerFavourited } from "@/lib/playerFavourites";
 import { liveActivitySignature } from "@/lib/playerActivity";
 import { getYourPlayers, type YourPlayerEntry } from "@/lib/yourPlayers";
-import { formatPlayerName, parsePlayerName } from "@/lib/playerName";
+import { formatPlayerName } from "@/lib/playerName";
+import PlayerAvatar from "./PlayerAvatar";
 
 // ============================================================================
 // "Your Players" homepage strip — v1.0.125
@@ -68,47 +69,26 @@ export function useYourPlayers(liveMatches: Match[]): YourPlayerEntry[] {
   );
 }
 
-function initialsFor(player: YourPlayerEntry["player"]): string {
-  const parsed = parsePlayerName(player.name);
-  const first = parsed.initial || parsed.surname[0] || "?";
-  const second = parsed.surname[0] || "";
-  return (first + second).toUpperCase().slice(0, 2);
-}
-
 function PlayerChip({ entry }: { entry: YourPlayerEntry }) {
   const { player, isFavourited } = entry;
-  // Tracks image-load failure explicitly via state rather than a CSS
-  // attribute-selector hack, so the initials fallback reliably shows the
-  // instant `onError` fires -- no photo URL is populated anywhere in this
-  // mock dataset today (PlayerProfile.imageUrl is optional and unused
-  // elsewhere in the app), so this path is exercised by real-data
-  // readiness, not by anything currently on screen.
-  const [imgFailed, setImgFailed] = useState(false);
-  const showPhoto = !!player.imageUrl && !imgFailed;
+  // v1.0.129: the photo/initials fallback itself now lives in the shared
+  // <PlayerAvatar>, reused (not re-implemented) by the Digest tab's MOM
+  // card and the player profile page header -- this component only owns
+  // the favourited-ring styling on top of it, via ringColor/textColor.
   return (
     <Link
       href={`/player/${player.id}`}
       className="tap-scale flex flex-col items-center gap-1 shrink-0 w-16"
     >
       <div className="relative">
-        <div
-          className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center text-[13px] font-extrabold bg-surface"
-          style={{
-            border: isFavourited ? "2px solid #FBBF24" : "1.5px solid var(--line)",
-            color: isFavourited ? "#FBBF24" : "var(--text-dim)",
-          }}
-        >
-          {showPhoto ? (
-            <img
-              src={player.imageUrl}
-              alt={formatPlayerName(player.name)}
-              className="w-full h-full object-cover"
-              onError={() => setImgFailed(true)}
-            />
-          ) : (
-            <span>{initialsFor(player)}</span>
-          )}
-        </div>
+        <PlayerAvatar
+          name={player.name}
+          imageUrl={player.imageUrl}
+          sizePx={48}
+          ringColor={isFavourited ? "#FBBF24" : "var(--line)"}
+          textColor={isFavourited ? "#FBBF24" : "var(--text-dim)"}
+          borderWidthPx={isFavourited ? 2 : 1.5}
+        />
         {isFavourited && (
           <span
             className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] bg-bg-base"

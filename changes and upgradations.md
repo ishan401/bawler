@@ -2815,3 +2815,25 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Flagged, not changed
 - `components/PlayerProfileView.tsx`'s header has no avatar element at all today (not a fallback bug -- there's simply no photo/initials UI there yet). Flagged as a design decision rather than added unilaterally.
 - `components/BallGIF.tsx`'s inline initials labels during the ball animation are a different, space-constrained design context -- not a photo-capable avatar, left as-is.
+
+## [1.0.129] 2026-07-28
+
+### New: player avatar in profile page header, via one shared avatar component reused platform-wide
+
+#### Context
+- The profile page header had no avatar at all. Requested reuse of the exact same photo-first-fallback-to-initials pattern already correct in the "Your Players" strip, as ONE shared component consumed everywhere, rather than a third independent implementation -- the same duplication risk that let the Digest tab's MOM avatar drift onto a wrong field name (v1.0.128).
+
+#### New -- `components/PlayerAvatar.tsx`
+- `imageUrl` first, initials-in-a-circle fallback (via `parsePlayerName()`), React-state-driven `onError` handling for a broken/unreachable URL at runtime. Takes a raw `name: string`, not a full `PlayerProfile` -- works for the Digest card's display-name-only case too. Role/format-agnostic: every visual customization (ring/text/background color, size) is a plain prop, nothing branches on `role`.
+
+#### Changed -- `components/YourPlayersStrip.tsx`
+- `PlayerChip` now renders `<PlayerAvatar sizePx={48} .../>` with the favourited-amber ring passed in as props. Old inline `initialsFor()` helper and fallback markup removed.
+
+#### Changed -- `components/DigestTab.tsx`
+- Man of the Match card now renders `<PlayerAvatar sizePx={32} .../>` with the card's own team-tinted color passed in as props (unchanged visual treatment). Old local `initials()` helper and CSS-attribute-toggle broken-image hack both removed.
+
+#### Changed -- `components/PlayerProfileView.tsx`
+- New avatar in the sticky header, 56px, placed between the back button and the name/nationality block, ring/text/background tinted with the same per-role color (`ROLE_COLORS`) already used by the adjacent role badge.
+
+#### Tests
+- `npx tsx`, real `react-test-renderer` (pinned to the project's installed React 18.3.1): photo renders `<img>`, no photo renders initials, `onError` falls back to initials at runtime, initials correctness across several names, identical structure regardless of role label, correct size scaling at all 3 real call-site sizes (32/48/56px), `backgroundColor` override applies correctly.

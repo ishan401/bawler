@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.128)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.129)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -180,9 +180,10 @@ components/
 │   ├── BottomSheet.tsx        # shared swipe-to-dismiss sheet (extracted from LiveCarousel); optional footer slot
 │   ├── FollowSheet.tsx        # Filter feature: two-column category + search/multi-select sheet
 │   ├── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
-│   └── YourPlayersStrip.tsx   # (v1.0.125, follow-on live-detection fix + name-format data-bug fix v1.0.126) "Your Players" homepage chip strip; exports useYourPlayers() hook (favourited+live sort, reactive to followPrefs/favourites/live-match changes); renders null at zero selected players
+│   └── YourPlayersStrip.tsx   # (v1.0.125, follow-on live-detection fix + name-format data-bug fix v1.0.126, avatar extracted to shared PlayerAvatar.tsx v1.0.129) "Your Players" homepage chip strip; exports useYourPlayers() hook (favourited+live sort, reactive to followPrefs/favourites/live-match changes); renders null at zero selected players
+├── PlayerAvatar.tsx           # (v1.0.129) shared photo-first-fallback-to-initials avatar -- imageUrl -> initials via parsePlayerName(), onError-driven runtime fallback; role/format-agnostic (size + ring/text/background colors are plain props); the ONE avatar implementation reused by YourPlayersStrip.tsx, DigestTab.tsx's MOM card, and PlayerProfileView.tsx's header
 └── Player profile
-    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout, favourite star toggle (v1.0.125)
+    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout, favourite star toggle (v1.0.125), header avatar via shared PlayerAvatar.tsx (v1.0.129)
     ├── RecentFormGraph.tsx    # last-10 innings/spells labeled small line chart (v1.0.119: Y-axis + gridlines, scale per player/metric via computeYAxisTop()/buildYAxisTicks(), minimal two-endpoint X-axis -- supersedes the earlier axis-less sparkline styling), colored via lib/teamAccentColor.ts
     └── PlayerAchievements.tsx # recent achievement lines (MOM count, Man of the Series); renders nothing if none apply
 ```
