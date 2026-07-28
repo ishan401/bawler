@@ -1,8 +1,22 @@
 import type { Match, PlayerProfile, PlayerFormatKey } from "./types";
 import { ALL_PAST_MATCHES, ALL_LIVE_MATCHES, resolvePlayerSlug } from "./mockData";
+import { getCurrentInnings } from "./matchStatus";
 
 // ============================================================================
-// Player recent form + achievements adapter — v1.0.117, rebuilt v1.0.118
+// Player recent form + achievements adapter — v1.0.117, rebuilt v1.0.118,
+// per-innings granularity fix v1.0.126.1
+// ============================================================================
+// v1.0.126.1: the "settled" gate used to operate at the MATCH level only
+// (candidateMatches() -> hasUsableResult filter) -- wrong granularity for
+// any multi-innings match that's still genuinely live. India's only Test
+// in this mock dataset is Day 3 of a follow-on with no result yet, so the
+// old gate dropped EVERY entry from it, including India's fully-complete
+// 1st innings (Kohli 121, Rohit 83, Gill 110 -- already 2 innings in the
+// past by the time anyone's looking) and England's own already-closed 1st
+// innings from the SAME match. See eligibleEntriesFor() below for the
+// actual per-innings replacement -- it's decided per innings via the same
+// getCurrentInnings() lookup ScoreBar.tsx/lib/playerActivity.ts already
+// share, not a new independent notion of "current."
 // ============================================================================
 // v1.0.117 originally read a separate, hand-typed per-format field
 // (PlayerProfile.testRecentForm/odiRecentForm/t20iRecentForm/
@@ -111,16 +125,79 @@ function hasUsableResult(match: Match): boolean {
 }
 
 /**
- * Every match this adapter is willing to treat as "settled" — genuinely
- * concluded matches with a usable result, drawn from both
- * ALL_PAST_MATCHES and ALL_LIVE_MATCHES (for the FEATURED_MATCH-shaped
- * case above). Deliberately never ALL_UPCOMING_MATCHES — an upcoming
- * match has no innings data at all yet, and even if it somehow did, its
- * outcome hasn't happened, which is exactly the kind of forward-looking
- * uncertainty this feature is scoped to avoid.
+ * Every match this adapter is willing to draw entries from at all,
+ * regardless of whether the MATCH overall has concluded — drawn from both
+ * ALL_PAST_MATCHES and ALL_LIVE_MATCHES. Deliberately never
+ * ALL_UPCOMING_MATCHES — an upcoming match has no innings data at all yet.
+ *
+ * v1.0.126.1 fix: this used to be filtered down to hasUsableResult(match)
+ * only (i.e. the whole match must have a final result) before any of its
+ * innings were even looked at. That's wrong at the wrong granularity — a
+ * multi-innings match (any Test, or a T20/ODI mid-chase) can have entire
+ * INNINGS that are already 100% finished and real (the team was bowled
+ * out, or simply moved on to a later innings) while the MATCH ITSELF is
+ * still genuinely live and unresolved. India's only Test appearance in
+ * this mock dataset (`ind-eng-test-2026-d3-live`) is exactly this shape:
+ * Day 3, England on the follow-on, no `result` yet -- so the OLD
+ * match-level gate silently dropped Kohli's 121, Rohit's 83, and Gill's
+ * 110 from India's fully-complete 1st innings, even though that innings
+ * had already ended two innings ago. It also silently dropped ENGLAND's
+ * own already-closed 1st-innings entries (Root, Crawley, Duckett,
+ * Stokes' first knock) from THIS SAME match -- their Test graphs still
+ * showed something only because they separately have entries from an
+ * unrelated, genuinely concluded past Test (the Ashes). See
+ * `eligibleEntriesFor()` below for the actual per-innings decision this
+ * was replaced with -- the fix is granularity, not a name/team special
+ * case, so it applies identically to every team and format.
  */
-function settledMatches(): Match[] {
-  return [...ALL_PAST_MATCHES, ...ALL_LIVE_MATCHES].filter(hasUsableResult);
+function candidateMatches(): Match[] {
+  return [...ALL_PAST_MATCHES, ...ALL_LIVE_MATCHES];
+}
+
+/**
+ * Per-innings eligibility for recent-form purposes. An innings entry
+ * (one batter's or bowler's line in one innings) is trustworthy as real,
+ * final, already-happened data if:
+ *
+ *   - it belongs to an innings that ISN'T the match's current/last one
+ *     (`getCurrentInnings()` -- the SAME shared team/innings-linked
+ *     lookup `ScoreBar.tsx` and `lib/playerActivity.ts` already use, per
+ *     the "one function, not two independently-derived copies" rule this
+ *     codebase has already been burned by twice). Any earlier innings is
+ *     closed by construction -- the match moved on to a later one -- so
+ *     nothing about it can still be "in progress."
+ *   - OR the match as a whole already has a usable final result
+ *     (`hasUsableResult`) -- covers both a genuinely concluded past match
+ *     AND the FEATURED_MATCH-shaped case (kept at `status: "live"` on
+ *     purpose, but with a real final result already attached).
+ *   - OR, for the current innings of a still-genuinely-live match with no
+ *     final result yet: a BATTING entry counts only once the player is
+ *     personally dismissed (`out: true` -- their contribution is finished
+ *     even though their team keeps batting, the same "team/innings still
+ *     open doesn't mean THIS number is still changing" reasoning already
+ *     established for the "Your Players" live-detection fix). A BOWLING
+ *     entry never counts here -- an in-progress spell's wicket tally can
+ *     still increase later in the same innings, unlike a dismissed
+ *     batter's already-finished runs total, so it's excluded until the
+ *     innings itself closes (or the match concludes).
+ *
+ * The `balls.length === 0` guard matches `lib/playerActivity.ts`'s own
+ * guard for the same reason: a live match's current innings can have a
+ * fully pre-authored placeholder battingCard/bowlingCard despite zero
+ * recorded balls, and that's never real data, regardless of `out` status.
+ */
+function eligibleEntriesFor(
+  match: Match,
+  innings: { battingCard: unknown; bowlingCard: unknown; balls: unknown[] },
+  isCurrentInnings: boolean
+): { batting: boolean; bowling: boolean } {
+  if (!isCurrentInnings) return { batting: true, bowling: true };
+  if (hasUsableResult(match)) return { batting: true, bowling: true };
+  if (!Array.isArray(innings.balls) || innings.balls.length === 0) return { batting: false, bowling: false };
+  // Still genuinely live, current innings, real balls recorded: batting
+  // entries are checked per-entry (`out === true`) below in the caller;
+  // bowling entries are excluded outright here.
+  return { batting: true, bowling: false };
 }
 
 function matchesFormatCategory(match: Match, format: PlayerFormatKey): boolean {
@@ -186,22 +263,41 @@ interface PlayerInningsEntry {
  */
 function extractPlayerEntries(player: PlayerProfile, format: PlayerFormatKey): PlayerInningsEntry[] {
   const entries: PlayerInningsEntry[] = [];
-  for (const match of settledMatches()) {
+  for (const match of candidateMatches()) {
     if (!matchesFormatCategory(match, format)) continue;
     if (typeof match.startTimeIso !== "string" || !match.startTimeIso) continue;
     if (!Array.isArray(match.innings)) continue;
 
+    const currentInnings = getCurrentInnings(match);
+
     for (const inningsRaw of match.innings as unknown[]) {
       if (!isObjectLike(inningsRaw)) continue;
       const inningsNumber = isFiniteNonNegative(inningsRaw.number) ? (inningsRaw.number as number) : 0;
+      const isCurrentInnings = inningsRaw === (currentInnings as unknown);
+      const eligible = eligibleEntriesFor(
+        match,
+        {
+          battingCard: inningsRaw.battingCard,
+          bowlingCard: inningsRaw.bowlingCard,
+          balls: Array.isArray(inningsRaw.balls) ? (inningsRaw.balls as unknown[]) : [],
+        },
+        isCurrentInnings
+      );
+      // Still-live current innings with real balls: a batting entry only
+      // counts once the player is personally dismissed -- see
+      // eligibleEntriesFor()'s header comment. Every other case (an
+      // already-closed earlier innings, or a match with a final result)
+      // has no such per-entry restriction.
+      const battingRequiresDismissal = eligible.batting && isCurrentInnings && !hasUsableResult(match);
 
-      if (Array.isArray(inningsRaw.battingCard)) {
+      if (eligible.batting && Array.isArray(inningsRaw.battingCard)) {
         const battingTeam = typeof inningsRaw.battingTeam === "string" ? inningsRaw.battingTeam : undefined;
         for (const entryRaw of inningsRaw.battingCard as unknown[]) {
           if (!isObjectLike(entryRaw)) continue;
           if (typeof entryRaw.playerId !== "string" || !entryRaw.playerId) continue;
           if (resolvePlayerSlug(entryRaw.playerId) !== player.id) continue;
           if (!isFiniteNonNegative(entryRaw.runs)) continue;
+          if (battingRequiresDismissal && entryRaw.out !== true) continue;
           entries.push({
             value: entryRaw.runs as number,
             isBowling: false,
@@ -213,7 +309,7 @@ function extractPlayerEntries(player: PlayerProfile, format: PlayerFormatKey): P
         }
       }
 
-      if (Array.isArray(inningsRaw.bowlingCard)) {
+      if (eligible.bowling && Array.isArray(inningsRaw.bowlingCard)) {
         const bowlingTeam = typeof inningsRaw.bowlingTeam === "string" ? inningsRaw.bowlingTeam : undefined;
         for (const entryRaw of inningsRaw.bowlingCard as unknown[]) {
           if (!isObjectLike(entryRaw)) continue;

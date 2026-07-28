@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.126 (deployed)
+**Current version:** v1.0.127 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -564,6 +564,7 @@
 |---|---|
 | **v1.0.110** | Schedule tab redefault: a user with one or more teams selected in Filter now sees Schedule open directly to a merged, chronological, month-grouped list of those teams' matches (All + per-team chip row, narrows in place) instead of the all-competitions picker -- zero teams selected keeps today's behavior. New `lib/teamSchedule.ts` adapter (third real-data-readiness worked example, ARCHITECTURE.md) is the sanctioned async interface, tested against 20 real malformed-fixture inputs and two recomputation scenarios (stale-cache check, hook dependency-array check) (DECISIONS-LOG.md) |
 | **v1.0.126** | Fixed 3 bugs in the "Your Players" strip: live-detection missed players in a follow-on Test (new shared `getCurrentInnings()` in `lib/matchStatus.ts`, reused by `ScoreBar.tsx` and rewritten `lib/playerActivity.ts` to read the full current-innings battingCard/bowlingCard instead of just the last ball's 2 participants); a name-format regression (2 data-authoring bugs in `lib/mockData.ts`'s `shortName` fields, `b-azam`/`a-iqbal`); and a reported sort-order symptom investigated but not reproduced as an independent bug -- traced to the live-detection fix above (DECISIONS-LOG.md) |
+| **v1.0.127** | Fixed recent-form graphs missing for India's Test batters (Kohli, Rohit Sharma, Gill) despite real settled data existing -- root cause was `lib/playerForm.ts`'s "settled" gate operating at the match level instead of the innings level, discarding an entire still-in-progress match's already-finished earlier innings. New `eligibleEntriesFor()` decides per innings via the shared `getCurrentInnings()` lookup; a dismissed batter's entry in a still-open current innings now counts, a still-accumulating bowling spell doesn't. Platform-wide audit found the identical gap for 2 T20I bowlers; ODI untestable for India (zero mock data) (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 

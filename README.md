@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.126)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.127)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -207,7 +207,7 @@ lib/
 ├── heroSelection.ts    # selectHeroMatch() — 3-tier deterministic hero-match rule (prominence, live stakes, live runway)
 ├── teamSchedule.ts      # getSeriesGroupedSchedule()/getMatchesForCompetition()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All (series rows), dedicated series page, + per-team (flat) tabs
 ├── teamAccentColor.ts   # resolveMatchAccentColors() (two-team, collision-aware) + resolveTeamAccentColor() (single-team, v1.0.117) — real-data-ready team-color resolution, hairline-contrast + secondary/cyan fallback
-├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118) — per-format last-10 innings/spells + achievements adapter, reading real battingCard/bowlingCard/manOfMatch/manOfTournament records behind the player profile page
+├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118, per-innings settled-gate fix v1.0.127) — per-format last-10 innings/spells + achievements adapter; eligibility decided per INNINGS via lib/matchStatus.ts's shared getCurrentInnings(), not per match, so an already-closed innings of a still-live match still counts
 ├── playerName.ts        # parsePlayerName()/formatPlayerName() (v1.0.120) — the single sanctioned player display-name formatter app-wide; registry-first, algorithmic fallback for particles/suffixes/hyphens/single-names/casing/whitespace/comma-format
 ├── playerFavourites.ts  # (v1.0.125) favourite-player localStorage store, same shape as followPrefs.ts; toggleFavouritePlayer() one-way-links favouriting to FollowPrefs.players
 ├── playerActivity.ts    # (v1.0.125, follow-on fix v1.0.126) getLiveActivePlayerIds() — "currently batting/bowling" derived from the CURRENT innings' full battingCard+bowlingCard (via lib/matchStatus.ts's shared getCurrentInnings(), same lookup ScoreBar.tsx uses), gated on balls.length > 0; never battingCard/bowlingCard's onStrike (which can leak end-of-innings final state), and never just the single last ball (missed multi-batter-deep follow-on innings pre-v1.0.126)

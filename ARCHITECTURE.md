@@ -1158,3 +1158,68 @@ the two diverge.
   look like "wrong alphabetization" to someone who doesn't know that
   player was internally flagged live. Documented rather than "fixed" a
   second time, since no defect was found on direct, repeated testing.
+
+**Worked example — recent-form's "settled" gate was checking the wrong granularity (match-level instead of innings-level) — v1.0.127:**
+
+Bug report, confirmed live: India's only Test appearance in the mock
+dataset (`ind-eng-test-2026-d3-live`) is genuinely still in progress (Day
+3, England on the follow-on, no `Match.result` yet). `lib/playerForm.ts`'s
+`getRecentForm()` gated its entire entry-extraction pass on
+`hasUsableResult(match)` — a MATCH-level check — before looking at a
+single innings. That's the wrong level: a multi-innings match can have
+entire innings that are 100% finished and real (the team was bowled out,
+or the match simply moved on to a later innings) while the match overall
+remains unresolved. India's 1st innings (Kohli 121, Rohit 83, Gill 110)
+had already been over for two whole innings by the time anyone checked —
+genuinely historical, genuinely finished data — but the match-level gate
+discarded it anyway, along with England's own already-closed 1st-innings
+entries from the SAME match (their Test graphs still showed something only
+by coincidence, from an unrelated, separately-concluded past Test).
+
+- **Fix: decide eligibility per innings, not per match**, via
+  `eligibleEntriesFor()` (new, `lib/playerForm.ts`). An innings that ISN'T
+  the match's current one (`getCurrentInnings()`, `lib/matchStatus.ts` —
+  the SAME shared lookup `ScoreBar.tsx` and `lib/playerActivity.ts`
+  already reuse, never re-derived independently a third time) is closed
+  by construction — the match moved past it — so every entry in it is
+  trustworthy regardless of whether the match overall has a result yet.
+- **The CURRENT innings of a still-unresolved live match gets a narrower,
+  per-entry rule, not a blanket exclusion**: a BATTING entry counts once
+  the player is personally dismissed (`out: true`) — their number is
+  finished even though their team keeps batting, the exact same reasoning
+  already established for the "Your Players" live-detection fix (a
+  dismissed batter's contribution doesn't become less real just because
+  the innings continues). A BOWLING entry in the current innings is
+  excluded outright until the innings closes or the match concludes — a
+  bowler's tally can still increase in a later spell within the same
+  innings, unlike a dismissed batter's already-final runs total, so
+  there's no equivalently safe "personally done" signal to key off for a
+  bowler yet.
+- **Still guarded against the placeholder-innings case**: the current
+  innings' `balls.length === 0` check (same guard `lib/playerActivity.ts`
+  already uses) comes first — a pre-authored placeholder card for an
+  innings that hasn't actually started is never trusted, regardless of
+  any player's `out` status inside it.
+- **A genuinely concluded match (`hasUsableResult`) still trusts its
+  current innings' entries unconditionally**, covering both a normal
+  finished past match and the `FEATURED_MATCH`-shaped case (kept at
+  `status: "live"` on purpose, but with a real final result already
+  attached) — no change from the previous behavior for either.
+- **Real-data compatible by construction**: nothing here keys off a team
+  name, player name, or match ID — it's the same `getCurrentInnings()` +
+  `out`/`balls.length` fields every other live-match feature in this
+  codebase already reads. It applies identically to India, England, or
+  any future team/match shaped this way.
+- **Platform-wide audit performed** (not just the reported match): every
+  live match without a usable result was checked for players with
+  entries in an already-closed innings. Found and fixed: India's Test
+  1st innings (this bug report) and unrelated closed-innings bowling
+  figures in the AUS-vs-IND T20I (`j-hazlewood`, `y-chahal`) that had the
+  identical gap. Also confirmed (deliberately unchanged, per the prior
+  round's explicit user decision to keep the broad "team/innings still
+  open" live-detection rule): Babar Azam and Andre Russell's dismissed-
+  batter entries in their own still-live matches correctly count once
+  they're personally out. ODI format has zero India matches in the mock
+  dataset at all (settled or otherwise) — this fix is untestable for
+  India/ODI until real or additional mock ODI data exists; flagged rather
+  than assumed fine.

@@ -2780,3 +2780,21 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`, 21/21 pass: white-ball match (regression guard), constructed normal Test with no follow-on, real follow-on Test (Stokes now correctly live), constructed white-ball negative control, full real-data 4-tier sort with a first-name-disagreeing player set, full 21-player shortName audit.
+
+## [1.0.127] 2026-07-28
+
+### Fix: recent-form graph missing for India's Test batters (and others) despite real settled data existing
+
+#### Context
+- Kohli/Rohit Sharma/Gill's Test recent-form graphs were empty despite their real, already-happened 1st-innings performances (121/83/110) in the live India-England Test being correctly shown on that match's own Score tab. England's players in the same match, and Kohli's own T20I graph, worked fine -- pointed at a code-level bug rather than a mock-data gap.
+
+#### Fixed -- `lib/playerForm.ts`
+- Root cause: the "settled" gate (`hasUsableResult(match)`) operated at the MATCH level, discarding an entire match's data (including already-finished earlier innings) whenever the match overall hadn't concluded yet. India's only Test in the mock dataset is genuinely still in progress (Day 3, follow-on, no result yet) -- so the whole match, including India's fully-complete 1st innings, was discarded. This also silently affected England's own already-closed 1st-innings entries from the SAME match; Root/Stokes only appeared unaffected because they separately have entries from an unrelated, concluded past Test.
+- New `eligibleEntriesFor()` decides eligibility per INNINGS instead, via the shared `getCurrentInnings()` lookup (`lib/matchStatus.ts`, same one `ScoreBar.tsx`/`lib/playerActivity.ts` use): any innings that isn't the match's current one is closed by construction and fully trusted. For the current innings of a still-unresolved live match: batting entries count once the player is dismissed (`out: true`); bowling entries are excluded until the innings closes or the match concludes (a spell's tally can still grow, unlike a dismissed batter's final total). The existing placeholder-innings guard (`balls.length === 0`) still applies first.
+
+#### Platform-wide audit
+- Found and fixed the identical gap for `j-hazlewood`/`y-chahal`'s closed-innings bowling figures in the AUS-vs-IND T20I -- confirms this was a general match/innings-granularity bug, not India- or Test-specific.
+- ODI: India has zero matches (settled or live) anywhere in the current mock dataset -- this fix is untestable for India/ODI until real or more mock data exists. Noted, not assumed fine.
+
+#### Tests
+- `npx tsx`, real mock data, cross-checked against Score tab figures: Kohli/Rohit/Gill Test graphs now show `[121]`/`[83]`/`[110]`. England regression (Root, Stokes, Crawley, Duckett) unchanged in shape, now also correctly including this match's closed 1st innings. India bowlers' still-open current spell correctly excluded. Kohli's T20I graph regression-checked unchanged. Achievements spot-checked unaffected.
