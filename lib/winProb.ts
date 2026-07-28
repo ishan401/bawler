@@ -166,6 +166,36 @@ export function getLeadingTeamWinProb(
   };
 }
 
+// ── Leading-team win-prob summary from a manual override (v1.0.123) ────────
+// Same "leader label + percentage" shape as getLeadingTeamWinProb above, but
+// derived from Match.liveWinProbOverride instead of a ball-by-ball point
+// list — for the handful of mock matches that ship no ball history at all
+// (the "ball-by-ball data unavailable" fallback view). This mirrors, in one
+// place, the derivation that used to be written inline (and team-colored) in
+// MatchView.tsx's fallback card: every caller of this function then renders
+// the result through the same neutral WinProbBadge component used for the
+// ball-by-ball-derived path, so the two data sources can never visually
+// diverge again.
+// liveWinProbOverride.pct is documented as 0-1 (e.g. 0.56 = 56%), but this
+// tolerates a stray 0-100 value defensively — it does not change which team
+// is deemed to be leading either way.
+// Returns null when there's no override to read — callers must treat that
+// as "nothing to show," not a fake 50/50.
+export function getLeadingTeamFromOverride(
+  match: Match,
+  override: { teamCode: string; pct: number } | undefined
+): { label: string; pct: number } | null {
+  if (!override) return null;
+  const rawPct = override.pct > 1 ? override.pct : override.pct * 100;
+  const overrideIsTeamA = override.teamCode === match.teamA.code;
+  const pctA = Math.round(overrideIsTeamA ? rawPct : 100 - rawPct);
+  const leaderIsA = pctA >= 50;
+  return {
+    pct: leaderIsA ? pctA : 100 - pctA,
+    label: leaderIsA ? match.teamA.shortName : match.teamB.shortName,
+  };
+}
+
 function formatDelta(delta: number, teamACode: string): string {
   const pct = Math.round(delta * 100);
   if (pct === 0) return "no shift";

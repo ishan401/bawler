@@ -834,6 +834,72 @@ was a display-composition bug in one specific component, not a data problem.
   already-correct pattern rather than inventing a second one.
   `tsc --noEmit`/`npm run build` clean.
 
+**Worked example — one shared component for a UI treatment, not two implementations that can drift (v1.0.123):**
+
+The neutral-color decision from v1.0.121 (above) was applied only to
+`MatchupCard.tsx`, the component that prompted it. A second render site for
+the exact same "leading team + win-prob %" readout — the "ball-by-ball data
+unavailable" fallback card in `MatchView.tsx` — had its own independently
+written, still-team-colored implementation, because it was never a shared
+component to begin with, just similar-looking JSX written twice. A third
+instance of the same gap was found by auditing every win-prob render site
+rather than trusting the reported one to be the only one: `WinProbChart.tsx`'s
+full-screen modal header had the identical anti-pattern.
+
+- **The gap wasn't the color choice — it was that there was no single
+  component enforcing it.** `getLeadingTeamWinProb` (v1.0.121) already
+  centralized the *derivation* ("who's leading, by how much"), but the
+  *presentation* of that value — fixed white text, specific type scale —
+  still lived as copy-pasted-looking JSX at each call site. Centralizing
+  a derivation function without centralizing the component that renders
+  its result leaves exactly this seam open: each render site's markup can
+  still drift independently, which is precisely what happened.
+- **Fix: extract the presentation into one real component, not just
+  document a convention.** `components/WinProbBadge.tsx` takes only a
+  `label` and a `pct` — never a color — so there is no parameter any
+  caller could pass to make it team-colored again. A `variant` prop
+  (`compact` / `large`) controls layout size only, never color. Every
+  site that renders "leading team + win-prob %" now renders this one
+  component: `MatchupCard.tsx` (extracted from its own inline JSX, the
+  v1.0.121 reference implementation), `MatchView.tsx`'s fallback card
+  (the reported bug), and `WinProbChart.tsx`'s modal header (found via
+  audit).
+- **A second new accessor for the second data source, same shape as the
+  first.** The fallback card derives its leader from
+  `Match.liveWinProbOverride` (a single static value for mock matches
+  with no ball history), not a `WinProbPoint[]` trend — a genuinely
+  different input, so it needed its own function rather than a forced
+  fit into `getLeadingTeamWinProb`. `getLeadingTeamFromOverride(match,
+  override)` was added to `lib/winProb.ts` with the identical `{ label,
+  pct } | null` return contract, so the component consuming it doesn't
+  need to know or care which of the two accessors produced the value it's
+  rendering.
+- **Audited every render site before deciding scope, rather than fixing
+  only the one reported.** The audit surfaced a real product distinction:
+  some win-prob displays show a single leading team's number (the pattern
+  above, in scope), while others (`MatchCard.tsx`'s homepage cards,
+  `MomentStoryCard.tsx`'s shareable moment cards, `DigestTab.tsx`'s
+  turning-point narrative) intentionally show or narrate BOTH teams at
+  once for comparison — a different display concept where team color
+  carries real comparative signal, not just decoration. Converting those
+  too would have been a materially larger, more visually impactful
+  change with a genuine design tradeoff, so it was confirmed as a
+  separate decision rather than assumed to be in scope by extension.
+- **Real edge-case tests for the new accessor** (`npx tsx`, 12/12 pass):
+  undefined override -> `null`; team A leading and team B leading (0-1
+  scale); the override's named team actually trailing in both directions
+  (confirming the leader flips correctly rather than trusting the
+  override's `teamCode` as the answer); an exact 50/50 tie; near-certain
+  wins both directions; a 0-100-scale value tolerated defensively; a
+  floating-point rounding case; plus 2 regression checks on the
+  pre-existing `getLeadingTeamWinProb` confirming it was unaffected.
+- **Verified scope:** `git diff --stat` against the pre-v1.0.123 commit
+  shows exactly 4 files modified (`MatchView.tsx`, `MatchupCard.tsx`,
+  `WinProbChart.tsx`, `lib/winProb.ts`) plus 1 new file
+  (`WinProbBadge.tsx`) — `MatchCard.tsx`, `MomentStoryCard.tsx`, and
+  `DigestTab.tsx` untouched, matching the confirmed scope exactly.
+  `tsc --noEmit`/`npm run build` clean.
+
 **When starting a new real-data-readiness item** (win probability, delivery
 data, player name parsing, or anything else), start from this pattern instead
 of re-deciding the approach: split the model if needed, write the accessor

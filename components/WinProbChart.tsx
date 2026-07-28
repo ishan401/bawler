@@ -3,6 +3,8 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import type { Match, WinProbPoint, MatchEvent } from "@/lib/types";
 import { SPECIAL } from "@/lib/tokens";
+import { getLeadingTeamWinProb } from "@/lib/winProb";
+import WinProbBadge from "@/components/WinProbBadge";
 
 interface WinProbChartProps {
   match: Match;
@@ -138,7 +140,14 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
 
   const pctA = Math.round(last.winProbTeamA * 100);
   const pctB = 100 - pctA;
-  const leadingTeam = pctA >= pctB ? teamA : teamB;
+  // Leader label + %, same accessor and same neutral WinProbBadge component
+  // used everywhere else this readout appears (see WinProbBadge.tsx) — the
+  // old version colored this number by leadingTeam.primaryColor, which was
+  // the same team-colored anti-pattern reported for the fallback view
+  // (v1.0.123 fix). pctA/pctB above are unchanged and still drive the two
+  // side bars below, which intentionally stay team-colored (a dual-team
+  // comparison, not a single leader readout).
+  const winProb = getLeadingTeamWinProb(match, points);
 
   return (
     <div className="flex flex-col h-full bg-bg">
@@ -178,10 +187,7 @@ export default function WinProbChart({ match, points, events, onClose }: WinProb
                 style={{ width: `${pctA}%`, background: teamA.primaryColor }} />
             </div>
           </div>
-          <div className="text-center px-2 shrink-0">
-            <div className="text-xl font-extrabold num" style={{ color: leadingTeam.primaryColor }}>{Math.max(pctA, pctB)}%</div>
-            <div className="text-[9px] text-text-dim uppercase tracking-widest">{leadingTeam.shortName} lead</div>
-          </div>
+          {winProb && <WinProbBadge variant="large" label={winProb.label} pct={winProb.pct} />}
           <div className="flex-1">
             <div className="flex items-center justify-end gap-2 mb-1">
               <span className="text-sm font-bold text-text-primary">{teamB.shortName}</span>

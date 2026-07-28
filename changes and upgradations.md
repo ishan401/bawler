@@ -3,6 +3,32 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.123] 2026-07-28
+
+### Fix: win-probability fallback view was team-colored, out of sync with the platform-wide neutral-color decision
+
+#### Context
+- Live bug on `ipl2026-l2-rcbvcsk` and `ipl2026-l3-gtvrr` (both "ball-by-ball data unavailable" fallback matches): win prob shown as a team-colored split bar with team-colored percentage text ("56% CSK" in CSK yellow, "28% RR" in RR pink) -- the exact treatment v1.0.121 deliberately rejected for the main live view. That decision was applied only to `MatchupCard.tsx`; this separate fallback block in `MatchView.tsx` was never touched by it. A platform-wide audit found a second, previously-unreported instance of the same anti-pattern in `WinProbChart.tsx`'s full-screen modal header.
+
+#### New -- `components/WinProbBadge.tsx`
+- Single shared component for "leading team + win-prob %," `compact`/`large` variants (layout size only). Takes `label`/`pct`, never a color -- no caller can make it team-colored again.
+
+#### New -- `lib/winProb.ts`
+- `getLeadingTeamFromOverride(match, override)` -- same `{ label, pct } | null` contract as the existing `getLeadingTeamWinProb`, but derived from `Match.liveWinProbOverride` for matches with no ball-by-ball history at all.
+
+#### Fixed -- `components/MatchView.tsx`, `components/WinProbChart.tsx`
+- Both now render `<WinProbBadge>` instead of their own team-colored markup for the single-leading-team readout. `WinProbChart.tsx`'s two side-by-side team-colored comparison bars are unchanged (a different, intentionally dual-team display).
+
+#### Changed -- `components/MatchupCard.tsx`
+- Refactored to consume the new shared `<WinProbBadge>` instead of its own inline JSX (no visual change -- this was already the correct v1.0.121 reference implementation).
+
+#### Audited, confirmed out of scope, no changes
+- `components/MatchCard.tsx` (homepage `WinProbBar`/`LiveWinProbSpark`), `components/MomentStoryCard.tsx` (shareable moment cards), `components/DigestTab.tsx` (turning-point narrative) -- all intentionally show/narrate both teams for comparison, a different display concept from a single leader readout. Confirmed with product owner as a separate decision.
+- `components/MiniWinProb.tsx`, `components/AIMetrics.tsx` -- confirmed dead code, not rendered anywhere.
+
+#### Verified
+- `npx tsx`, 12/12 edge-case tests pass for `getLeadingTeamFromOverride` (undefined override, team A/B leading, override's named team actually trailing in both directions, exact 50/50 tie, near-certain wins both directions, 0-100-scale tolerance, rounding, plus 2 regression checks on `getLeadingTeamWinProb`). `git diff --stat` shows exactly 4 files modified + 1 new file, matching confirmed scope. `tsc --noEmit`/`npm run build` clean.
+
 ## [1.0.122] 2026-07-28
 
 ### Fix: sticky header showed swapped team/score in Test matches with a follow-on

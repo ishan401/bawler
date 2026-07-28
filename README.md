@@ -82,7 +82,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 4. **BallGIF** (hero) — two-clip animated SVG delivery replay (bowler view + overhead field). SpeedChip hidden when speed data is null.
 5. **MomentsStrip** — key events timeline; tap scrubs the whole page to that ball
 6. **PartnershipFooter** — live partnership: total runs/balls + per-batter stats, resets on wicket
-7. **MatchupCard** — always-on batter vs bowler H2H (career + live match merged); shareable PNG. Collapsed teaser row's right side carries an emphasized win-probability readout since v1.0.121 ("WIN PROB" label + bold, fixed-white "TEAM 87%" value, own tap target -> full-screen `WinProbChart` modal) — the "tap for H2H" text label was dropped in the same change (chevron alone is now that affordance); this is the app's one and only win-prob display on the Live tab.
+7. **MatchupCard** — always-on batter vs bowler H2H (career + live match merged); shareable PNG. Collapsed teaser row's right side carries an emphasized win-probability readout since v1.0.121 ("WIN PROB" label + bold, fixed-white "TEAM 87%" value, own tap target -> full-screen `WinProbChart` modal) — the "tap for H2H" text label was dropped in the same change (chevron alone is now that affordance); this is the app's one and only win-prob display on the Live tab. As of v1.0.123 this readout is rendered via a shared `components/WinProbBadge.tsx` component, also reused by the "ball-by-ball data unavailable" fallback card and the full-screen `WinProbChart` modal header — both had drifted back to a team-colored treatment before this fix.
 8. **AIMetrics** — 4 tiles: Projected, Momentum, Acceleration, Next wicket impact (format-aware ball totals)
 9. **CommentaryFeed** — ball-by-ball cards with insight overlays
 

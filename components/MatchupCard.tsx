@@ -4,6 +4,7 @@ import type { Match, MatchFormat, WinProbPoint } from "@/lib/types";
 import { getMatchupStats } from "@/lib/mockMatchups";
 import { formatPlayerName } from "@/lib/playerName";
 import { getLeadingTeamWinProb } from "@/lib/winProb";
+import WinProbBadge from "@/components/WinProbBadge";
 
 interface MatchupCardProps {
   batterName: string;
@@ -111,22 +112,16 @@ function MatchupCard({
           </button>
 
           {/* Win probability — real visual weight, fixed white value (never
-              team-colored, see header comment), own tap target (opens the
-              full-screen chart, same interaction the old pill had). Hidden
-              entirely rather than rendering broken/empty text when there's
-              no real win-prob point yet. shrink-0 + the flex-1/min-w-0/
-              truncate combo on the batter/bowler button above guarantees
-              this side can never be crowded or overlapped -- the name side
+              team-colored — see WinProbBadge.tsx for the shared component
+              and full rationale), own tap target (opens the full-screen
+              chart, same interaction the old pill had). Hidden entirely
+              rather than rendering broken/empty text when there's no real
+              win-prob point yet. shrink-0 + the flex-1/min-w-0/truncate
+              combo on the batter/bowler button above guarantees this side
+              can never be crowded or overlapped -- the name side
               ellipsizes first. */}
           {winProb && (
-            <button
-              onClick={onExpandWinProb}
-              className="shrink-0 flex flex-col items-end leading-none px-0.5"
-              aria-label={`Win probability ${winProb.label} ${winProb.pct}% — open win probability chart`}
-            >
-              <span className="text-[7px] font-bold uppercase tracking-widest text-text-dim">Win Prob</span>
-              <span className="text-[13px] font-extrabold text-white num">{winProb.label} {winProb.pct}%</span>
-            </button>
+            <WinProbBadge label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
           )}
 
           <button

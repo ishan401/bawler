@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/types";
-import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
+import { calculateWinProbForMatch, totalBallsForFormat, getLeadingTeamFromOverride } from "@/lib/winProb";
 import { ballsPerSet, absoluteBallNumber, inningsProgressLabel, situationLabel } from "@/lib/formatUtils";
 import { extractMatchEvents } from "@/lib/events";
 import { APP_VERSION_LABEL } from "@/lib/version";
@@ -23,6 +23,7 @@ import MomentStoryCard from "@/components/MomentStoryCard";
 import StandingsTab from "@/components/StandingsTab";
 import MatchupCard from "@/components/MatchupCard";
 import MatchupShareCard from "@/components/MatchupShareCard";
+import WinProbBadge from "@/components/WinProbBadge";
 import { getMatchupStats } from "@/lib/mockMatchups";
 
 interface MatchViewProps {
@@ -40,8 +41,11 @@ const BALL_DWELL_MS = GIF_LOOP_MS * GIF_REPS_PER_BALL; // 24 sec
  *   Moments (always visible, just below GIF)
  *   Commentary (variable-height ball cards)
  *
- * Win probability lives as a chip in the sticky MiniInsightsBar (leading
- * team + %); tapping it opens the same full-screen WinProbChart as before.
+ * Win probability is rendered via the shared WinProbBadge component (see
+ * components/WinProbBadge.tsx) — the emphasized readout in the matchup row
+ * (MatchupCard, since v1.0.121), or the "Win Probability" card below when
+ * there's no ball-by-ball data to feed a matchup row (v1.0.123). Tapping the
+ * matchup-row badge opens the same full-screen WinProbChart either way.
  */
 export default function MatchView({ match, insights: insightsProp }: MatchViewProps) {
   const allBalls = useMemo(() => match.innings.flatMap(i => i.balls), [match]);
@@ -643,26 +647,21 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   )}
                 </div>
 
-                {/* Win probability */}
-                {match.liveWinProbOverride && (() => {
-                  const rawPct = match.liveWinProbOverride.pct > 1
-                    ? match.liveWinProbOverride.pct
-                    : match.liveWinProbOverride.pct * 100;
-                  const pctA = Math.round(match.liveWinProbOverride.teamCode === match.teamA.code
-                    ? rawPct
-                    : 100 - rawPct);
-                  const pctB = 100 - pctA;
-                  return (
-                    <div className="card px-4 py-3 space-y-2">
+                {/* Win probability — same neutral WinProbBadge used everywhere
+                    else on the platform (see WinProbBadge.tsx). This block
+                    used to be a bespoke, team-colored split bar written only
+                    for this no-ball-by-ball fallback path, which is exactly
+                    how it drifted out of sync with the v1.0.121 neutral-color
+                    decision applied elsewhere (v1.0.123 fix). The leader
+                    derivation itself still lives in one place
+                    (getLeadingTeamFromOverride, lib/winProb.ts) — this
+                    component only renders whatever that function returns. */}
+                {(() => {
+                  const winProb = getLeadingTeamFromOverride(match, match.liveWinProbOverride);
+                  return winProb && (
+                    <div className="card px-4 py-3 space-y-1.5">
                       <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">Win Probability</span>
-                      <div className="flex justify-between text-xs font-extrabold">
-                        <span style={{ color: match.teamA.primaryColor }}>{match.teamA.shortName} {pctA}%</span>
-                        <span style={{ color: match.teamB.primaryColor }}>{pctB}% {match.teamB.shortName}</span>
-                      </div>
-                      <div className="h-2 rounded-full overflow-hidden flex">
-                        <div style={{ width: `${pctA}%`, background: match.teamA.primaryColor }} />
-                        <div style={{ width: `${pctB}%`, background: match.teamB.primaryColor }} />
-                      </div>
+                      <WinProbBadge variant="large" label={winProb.label} pct={winProb.pct} className="!px-0" />
                     </div>
                   );
                 })()}
