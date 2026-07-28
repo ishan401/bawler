@@ -7,6 +7,7 @@ import { ALL_TEAMS } from "@/lib/mockData";
 import { formatPlayerName } from "@/lib/playerName";
 import { resolveTeamAccentColor } from "@/lib/teamAccentColor";
 import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type AchievementLine } from "@/lib/playerForm";
+import { getFavouritePlayers, onFavouritesChanged, toggleFavouritePlayer } from "@/lib/playerFavourites";
 import { CYAN } from "@/lib/tokens";
 import RecentFormGraph from "./RecentFormGraph";
 import PlayerAchievements from "./PlayerAchievements";
@@ -209,6 +210,25 @@ export default function PlayerProfileView({ player }: Props) {
   // (components/Scorecard.tsx).
   const { recentForm, achievementLines, teamColor } = usePlayerFormState(player, activeTab);
 
+  // Favourite toggle (v1.0.125) -- local UI state, but sourced from and
+  // written through lib/playerFavourites.ts, never a component-local-only
+  // flag, so it survives navigation and stays in sync if favourited from
+  // anywhere else. Subscribed the same sibling-component way FollowPrefs
+  // is elsewhere in this app (BottomNav's FollowSheet and this page are
+  // both independent mount points, not parent/child).
+  const [isFavourited, setIsFavourited] = useState(false);
+  useEffect(() => {
+    setIsFavourited(getFavouritePlayers().includes(player.id));
+    return onFavouritesChanged(() => {
+      setIsFavourited(getFavouritePlayers().includes(player.id));
+    });
+  }, [player.id]);
+
+  const handleToggleFavourite = () => {
+    const nowFavourited = toggleFavouritePlayer(player.id);
+    setIsFavourited(nowFavourited);
+  };
+
   return (
     <div className="min-h-screen bg-bg-base flex flex-col">
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -227,6 +247,21 @@ export default function PlayerProfileView({ player }: Props) {
             <h1 className="font-extrabold text-text-primary leading-tight truncate">{formatPlayerName(player.name)}</h1>
             <p className="text-[11px] text-text-dim">{player.nationality}</p>
           </div>
+          {/* Favourite toggle -- favouriting auto-adds this player to the
+              followed "Players" filter selection if not already there
+              (see lib/playerFavourites.ts's toggleFavouritePlayer), so
+              they're guaranteed to appear in the homepage "Your Players"
+              strip the moment they're favourited, not just eventually. */}
+          <button
+            onClick={handleToggleFavourite}
+            className="tap-scale flex items-center justify-center w-8 h-8 rounded-full bg-surface border border-line shrink-0"
+            aria-label={isFavourited ? "Remove from favourites" : "Add to favourites"}
+            aria-pressed={isFavourited}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={isFavourited ? "#FBBF24" : "none"} stroke={isFavourited ? "#FBBF24" : "currentColor"} strokeWidth="1.75">
+              <path d="M12 2.5l3.09 6.26 6.91 1.01-5 4.87 1.18 6.88L12 18.27l-6.18 3.25 1.18-6.88-5-4.87 6.91-1.01L12 2.5z" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
           {/* Role badge */}
           <span
             className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-1 rounded-full shrink-0"

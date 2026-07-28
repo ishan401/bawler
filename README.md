@@ -179,9 +179,10 @@ components/
 │   ├── SplitTeamBg.tsx        # flag images (national) or gradient (franchise)
 │   ├── BottomSheet.tsx        # shared swipe-to-dismiss sheet (extracted from LiveCarousel); optional footer slot
 │   ├── FollowSheet.tsx        # Filter feature: two-column category + search/multi-select sheet
-│   └── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
+│   ├── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
+│   └── YourPlayersStrip.tsx   # (v1.0.125) "Your Players" homepage chip strip; exports useYourPlayers() hook (favourited+live sort, reactive to followPrefs/favourites/live-match changes); renders null at zero selected players
 └── Player profile
-    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout
+    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout, favourite star toggle (v1.0.125)
     ├── RecentFormGraph.tsx    # last-10 innings/spells labeled small line chart (v1.0.119: Y-axis + gridlines, scale per player/metric via computeYAxisTop()/buildYAxisTicks(), minimal two-endpoint X-axis -- supersedes the earlier axis-less sparkline styling), colored via lib/teamAccentColor.ts
     └── PlayerAchievements.tsx # recent achievement lines (MOM count, Man of the Series); renders nothing if none apply
 ```
@@ -208,5 +209,8 @@ lib/
 ├── teamAccentColor.ts   # resolveMatchAccentColors() (two-team, collision-aware) + resolveTeamAccentColor() (single-team, v1.0.117) — real-data-ready team-color resolution, hairline-contrast + secondary/cyan fallback
 ├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118) — per-format last-10 innings/spells + achievements adapter, reading real battingCard/bowlingCard/manOfMatch/manOfTournament records behind the player profile page
 ├── playerName.ts        # parsePlayerName()/formatPlayerName() (v1.0.120) — the single sanctioned player display-name formatter app-wide; registry-first, algorithmic fallback for particles/suffixes/hyphens/single-names/casing/whitespace/comma-format
+├── playerFavourites.ts  # (v1.0.125) favourite-player localStorage store, same shape as followPrefs.ts; toggleFavouritePlayer() one-way-links favouriting to FollowPrefs.players
+├── playerActivity.ts    # (v1.0.125) getLiveActivePlayerIds() — "currently batting/bowling" derived honestly from a live match's last recorded ball, never battingCard/bowlingCard's onStrike (which can leak end-of-innings final state)
+├── yourPlayers.ts        # (v1.0.125) getYourPlayers() — pure 4-tier favourited/live sort for the homepage "Your Players" strip, surname-keyed via playerName.ts
 └── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
 ```

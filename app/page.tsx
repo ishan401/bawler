@@ -27,6 +27,7 @@ import { selectHeroMatch } from "@/lib/heroSelection";
 import { APP_VERSION_LABEL } from "@/lib/version";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
 import CarouselDots from "@/components/CarouselDots";
+import YourPlayersStrip from "@/components/YourPlayersStrip";
 
 // ── Popularity sort ──────────────────────────────────────────────────────────
 const COMP_POP: Record<string, number> = {
@@ -513,6 +514,16 @@ export default function Home() {
               )}
             </section>
           )}
+
+          {/* Your Players — horizontally scrollable chip strip, one per
+              player selected in the Filter sheet's Players tab (v1.0.125).
+              Renders nothing at all (including its own heading) when zero
+              players are selected -- see YourPlayersStrip.tsx. Reads
+              ALL_LIVE_MATCHES directly (the same source liveCarouselMatches
+              above derives from) so a player's "currently live" badge/sort
+              position is driven by the same live match data as everything
+              else on this page, not a second copy of it. */}
+          <YourPlayersStrip liveMatches={ALL_LIVE_MATCHES} />
         </>
       )}
 

@@ -3,6 +3,38 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.125] 2026-07-28
+
+### New: "Your Players" homepage strip -- favourites + honest live-status sort
+
+#### Context
+- Feature request: a horizontally scrollable chip strip on the homepage, directly below Spotlight and above Past/Coming Up -- one chip per player selected in the Filter sheet's "Players" tab. Renders nothing (no heading, no placeholder) when zero players are selected. Tapping a chip opens that player's profile. New favourite star toggle on the player profile header, which auto-adds the player to the followed selection if not already there. Sort: favourited+live, favourited, live, everyone else -- alphabetical by surname within each tier -- and "currently live" must recompute reactively, never go stale.
+
+#### Design decision -- rejected signal
+- `Innings.battingCard`/`bowlingCard`'s `out`/`onStrike` fields looked like the obvious "who's at the crease" source, but direct inspection confirmed they represent the END-OF-INNINGS aggregate and leak through `MatchView.tsx`'s live-ticking `truncatedMatch` unchanged -- the exact same leaked-future-state bug class just fixed in v1.0.124. Not used.
+
+#### New -- `lib/playerActivity.ts`
+- `getLiveActivePlayerIds(matches)` -- derives "currently batting/bowling" from the LAST ball in `match.innings.flatMap(i => i.balls)` for `status === "live"` matches only (same flattening `MatchView.tsx`'s own `allBalls` uses). A live match with no recorded balls contributes nothing -- no guessing. Reuses `lib/mockData.ts`'s existing `resolvePlayerSlug()` for the same batterId/bowlerId-vs-registry-slug ID mismatch `lib/playerForm.ts` already solved.
+- `liveActivitySignature(matches)` -- field-based signature (`matchId:status:lastBallId` joined) for correct `useMemo` dependencies, per the v1.0.109 replace-not-mutate contract.
+
+#### New -- `lib/playerFavourites.ts`
+- Second localStorage store (`bawler:favouritePlayers`), same shape as `lib/followPrefs.ts`. `toggleFavouritePlayer(id)` -- favouriting always adds the player to `FollowPrefs.players` if absent; un-favouriting never removes the follow (one-way linkage, per spec).
+
+#### New -- `lib/yourPlayers.ts`
+- `getYourPlayers(followedIds, favouriteIds, liveMatches)` -- pure 4-tier sort function, no localStorage/React dependency. Surname key via the existing `lib/playerName.ts`'s `parsePlayerName().surname`, never the raw "V Kohli" display string.
+
+#### New -- `components/YourPlayersStrip.tsx`
+- Exported `useYourPlayers(liveMatches)` hook (same "exported private hook" precedent as `usePlayerFormState`/`useScheduleTab`/`useMatchAccentColors`) -- subscribes to both `followPrefs` and favourites `CHANGE_EVENT`s, memoized on primitive field-derived signature strings, not array/object identity. Renders `null` outright at zero entries.
+
+#### Changed -- `app/page.tsx`
+- New `<YourPlayersStrip liveMatches={ALL_LIVE_MATCHES} />` after the Spotlight section, inside the existing `isBooting`-gated fragment.
+
+#### Changed -- `components/PlayerProfileView.tsx`
+- New favourite star toggle in the sticky header (amber-filled when favourited), synced from/through `lib/playerFavourites.ts`.
+
+#### Verified
+- `npx tsx`, `react-test-renderer` (`--no-save`, removed after), 32/32 pass: zero/one/many players, a deliberately disambiguating surname-sort pair ("A Russell" vs "Z Crawley" -- initial-order and surname-order disagree), live/non-live mix, favourited/non-favourited mix, all 4 tiers simultaneously in exact required order, empty-balls live match (honest zero), post-match-status match with real balls (correctly inert), and a `react-test-renderer` re-render proving the sort/live-flag updates on the SAME mounted instance when `liveMatches` changes -- no remount required -- plus the favourite-auto-follow linkage firing reactively via the `CHANGE_EVENT` subscription. `git diff --stat`: 4 new files, 2 modified. `tsc --noEmit`/`npm run build` clean.
+
 ## [1.0.124] 2026-07-28
 
 ### Fix: Digest showed a premature "FULL TIME / won by X" verdict for a genuinely in-progress chase

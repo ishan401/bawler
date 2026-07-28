@@ -996,3 +996,81 @@ never mutate" note for whoever wires up the real feed, the same way v1.0.109
 did for team colors: the dependency-array fix and the data-source contract
 are two separate halves of the same gap, and only one of them is something
 code can actually enforce.
+
+**Worked example — "Your Players" homepage strip: deriving "currently
+live" honestly, not from a field that can represent the future (v1.0.125):**
+
+New homepage section (`components/YourPlayersStrip.tsx`) surfacing every
+player selected in the Filter sheet's Players tab as a chip strip, sorted
+favourited-and-live first, then favourited, then live, then everyone else,
+alphabetical by surname within each tier. The interesting design problem
+wasn't the sort — it was answering "is this player currently batting or
+bowling right now" without repeating the exact leaked-future-state mistake
+just fixed in v1.0.124.
+
+- **Rejected signal, on inspection**: `Innings.battingCard`/`bowlingCard`'s
+  `out`/`onStrike` fields looked like the obvious source, but direct
+  inspection of `FEATURED_MATCH` confirmed they represent the END-OF-INNINGS
+  aggregate — `MatchView.tsx`'s live-ticking `truncatedMatch` recomputes
+  `runs`/`wickets`/`overs` from a truncated ball slice but spreads
+  `battingCard`/`bowlingCard` through UNCHANGED. Trusting `onStrike` there
+  would be the identical bug class: reading a field that can represent a
+  FUTURE/final snapshot as if it were the current one.
+- **Chosen signal**: the last ball in `match.innings.flatMap(i => i.balls)`
+  (`lib/playerActivity.ts`) — the same flattening `MatchView.tsx` already
+  uses for its own `allBalls`. Ball-by-ball data is honestly chronological:
+  a real live feed only ever returns balls bowled so far, so the LAST entry
+  really is "the most recent event," not a peek at the outcome. Gated on
+  `match.status === "live"` — a match with genuine ball data but a
+  different status (finished, upcoming) contributes nothing, and a live
+  match with an empty `balls` array (several exist in this mock dataset)
+  honestly returns "no live players detected" rather than guessing.
+- **ID reconciliation reused, not reinvented.** `Ball.batterId`/`bowlerId`
+  values in this mock dataset are inconsistent with PLAYERS-registry slugs
+  (`"dwarner"`, `"B Duckett"`, `"vkohli"` all appear against registry keys
+  like `"v-kohli"`) — exactly the same mismatch `lib/playerForm.ts` already
+  solved for `battingCard`/`bowlingCard` `playerId`s via
+  `resolvePlayerSlug()` (`lib/mockData.ts`). `lib/playerActivity.ts` calls
+  that same function rather than writing a second reconciliation layer, so
+  both derivations degrade identically for the same unresolvable IDs.
+- **Two independent localStorage stores, deliberately not merged.**
+  `lib/followPrefs.ts`'s `players` array (already existed — the Filter
+  sheet's "Players" tab) and a new `lib/playerFavourites.ts` store are
+  related but distinct: followed drives which players' matches count for
+  "For You"; favourited additionally earns a star badge and outranks a
+  merely-followed player in this strip's sort. One-way linkage, per spec:
+  `toggleFavouritePlayer()` always adds to `FollowPrefs.players` when
+  favouriting (a user can never favourite someone from their profile and
+  not see them in the strip because they forgot the Filter sheet), but
+  un-favouriting never removes the follow — the two aren't symmetric.
+- **Reactive recomputation, hook-level.** `YourPlayersStrip.tsx` exports
+  `useYourPlayers(liveMatches)` (same "temporarily export a private hook
+  for testability" precedent as `usePlayerFormState`/`useScheduleTab`/
+  `useMatchAccentColors`), subscribing to BOTH the follow-prefs and
+  favourites CHANGE_EVENTs (sibling-component problem — the Filter sheet
+  and the player profile page are both mounted separately from the
+  homepage) and memoizing on primitive, field-derived signature strings
+  (`followPrefs.players` sorted+joined, favourites sorted+joined,
+  `liveActivitySignature(liveMatches)` — a `matchId:status:lastBallId`
+  join) rather than on the array/object references themselves — the same
+  "depend on fields, not identity" replace-not-mutate contract v1.0.109
+  established for `useMatchAccentColors`.
+- **Real recomputation test, not a description** (`npx tsx`,
+  `react-test-renderer` installed with `--no-save`/removed after, same
+  precedent as v1.0.109/v1.0.111/v1.0.117): mounted `useYourPlayers` with a
+  live match where the followed player wasn't part of the last ball,
+  re-rendered the SAME component instance with a different `liveMatches`
+  prop where that player now was — confirmed the sort re-ranked them to
+  first place and `isLive` flipped to `true` WITHOUT remounting, then
+  reverted and confirmed it un-ranked cleanly (no stale one-way ratchet).
+  Also verified the favourite-auto-follow linkage reactively: toggling a
+  favourite mid-render (no explicit refetch call) caused the strip to pick
+  up the newly-favourited, newly-auto-followed player on the very next
+  read, via the same CHANGE_EVENT subscription.
+- **Pure sort function kept dependency-free.** `lib/yourPlayers.ts`'s
+  `getYourPlayers(followedIds, favouriteIds, liveMatches)` has no
+  localStorage/React dependency at all — directly unit-testable with
+  constructed inputs, mirroring the `lib/playerForm.ts`/`lib/teamSchedule.ts`
+  split (accessor/hook owns the reactive plumbing, a plain function owns
+  the derivation).
+
