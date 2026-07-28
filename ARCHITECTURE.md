@@ -1074,3 +1074,87 @@ just fixed in v1.0.124.
   split (accessor/hook owns the reactive plumbing, a plain function owns
   the derivation).
 
+
+**Worked example — "Your Players" live-detection root-cause fix: reusing the SAME team/innings-linked lookup, not a second one (v1.0.126):**
+
+Live bug, reported and reproduced: in a genuinely live Test match with an
+enforced follow-on (`ind-eng-test-2026-d3-live`), B Stokes — who had
+clearly batted in the CURRENTLY in-progress follow-on innings (dismissed
+early, but the innings he batted in was still live) — never showed as
+"currently live" in the homepage strip, while J Bumrah (correctly live in
+an unrelated T20I) did. This is the exact same bug CLASS already fixed
+once for `components/ScoreBar.tsx` (v1.0.122, follow-on header-
+attribution) — but this time it was a genuine duplication, not a mirror-
+image case: `lib/playerActivity.ts` (v1.0.125) had its own, independently
+derived notion of "which innings is current" (`match.innings.flatMap(i =>
+i.balls)`, taking the single global last ball) instead of reusing
+ScoreBar's already-correct one, and that duplication is exactly what let
+the two diverge.
+
+- **The narrowing was the bug, not the innings selection.** Flattening
+  every innings' balls together and taking the very last one DOES land on
+  the correct, currently-active innings (a follow-on doesn't change which
+  innings is chronologically last — see `getCurrentInnings`'s own
+  comment below). The bug was reading only that ONE ball's 2 participants
+  as "who's live," silently dropping everyone else who has genuinely
+  played a part in that same still-open innings — for a Test's
+  currently-active innings, that can be 4-6 batters deep, not 2.
+- **Root-cause fix: one shared lookup, not two independently-derived
+  ones.** New `getCurrentInnings(match)` in `lib/matchStatus.ts` —
+  literally the same "last innings in array" expression ScoreBar.tsx
+  already used inline for its own "which team is currently batting"
+  determination (`lastInn`) — is now the ONE function both files call.
+  `components/ScoreBar.tsx` was refactored to import and call it instead
+  of keeping its own copy. `lib/playerActivity.ts`'s live-player detection
+  now reads the CURRENT innings' full `battingCard` + `bowlingCard` (every
+  player with an entry, not just the last ball's 2 participants) —
+  broader in scope, but still exactly team/innings-linked, since a
+  `battingCard`/`bowlingCard` lives inside one specific, correctly-
+  identified `Innings` object.
+- **Explicitly still gated on ball-level evidence.** `getCurrentInnings`
+  itself carries no guard (ScoreBar needs an answer even for a
+  not-yet-started innings, to render the "about to bat" highlight state),
+  but `lib/playerActivity.ts` adds its OWN `current.balls.length > 0`
+  check before trusting that innings' cards — this mock dataset has at
+  least one innings with a fully pre-authored placeholder battingCard/
+  bowlingCard despite zero recorded balls (`ind-eng-test-2026-d3-live`'s
+  own first innings), and reading a card from an innings with no ball-
+  level evidence it's actually started would be exactly the kind of
+  "guess from data that hasn't actually happened" this project has
+  repeatedly ruled out (v1.0.124, v1.0.125).
+- **Deliberately did NOT change what counts as "live" for a match whose
+  overall `status` field is permanently stuck at `"live"` long after it
+  actually finished** (`FEATURED_MATCH`, by mock-data design, so it stays
+  in the homepage carousel). That match's `status === "live"` check is
+  trusted exactly as everywhere else in this codebase — this fix widens
+  WHO counts as involved once a match is already treated as live, it
+  doesn't re-derive whether the match itself has genuinely ended (that's
+  `lib/matchStatus.ts`'s separate `isMatchConclusivelyOver`, for a
+  different feature). In real data this mock-only quirk can't occur at
+  all — a genuinely finished match's `status` stops being `"live"`.
+- **A second, unrelated data bug found during the same investigation, NOT
+  a code bug**: Babar Azam's and Arshad Iqbal's PLAYERS-registry
+  `shortName` fields were hand-authored as `"Babar Azam"` (full name) and
+  `"Arshad"` (bare first name) respectively — neither matches this
+  project's "Initial Surname" convention, and neither is a legitimate
+  nickname exception the way Suryakumar Yadav's `"SKY"` is (that one IS
+  correct, confirmed against its own dedicated, still-passing v1.0.120
+  test case — left untouched). Fixed directly in `lib/mockData.ts` to
+  `"B Azam"` / `"A Iqbal"`. A full-registry audit (parsing every seeded
+  player's real `name` field and comparing against their authored
+  `shortName`) confirmed these were the only 2 real mismatches across all
+  21 seeded players — `lib/playerName.ts`'s `formatPlayerName()` itself
+  needed no change; it was correctly deferring to the (in these 2 cases,
+  wrong) hand-authored registry value exactly as designed.
+- **A third reported symptom ("alphabetizing by first name, not
+  surname") was investigated and NOT reproduced as an independent
+  comparator bug.** `lib/yourPlayers.ts`'s surname-key sort was tested in
+  isolation (4 players guaranteed to share one tier, deliberately
+  surname/first-name-disagreeing) and sorted correctly both before and
+  after this fix. The most likely explanation: the originally-reported
+  ordering was almost certainly this SAME live-detection bug, one level
+  removed — a player unexpectedly (and, before this fix, inconsistently)
+  qualifying as "live" jumps them into a different SORT TIER, which can
+  look like "wrong alphabetization" to someone who doesn't know that
+  player was internally flagged live. Documented rather than "fixed" a
+  second time, since no defect was found on direct, repeated testing.

@@ -2759,3 +2759,24 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - **Root cause**: The match was using `COMPETITIONS.indEngTest2026` (India tour of England 2026, teams ENG + IND) but the ID string incorrectly said "eng-sa" (England vs South Africa) — a copy-paste error from a different match object
 - **Effect**: Match URL is now `/match/ind-eng-test-2026-d3-live`, consistent with competition and team data; avoids confusion when reading match IDs
 
+
+## [1.0.126] 2026-07-28
+
+### Fix: "Your Players" strip — follow-on live-detection miss, name-format regression, sort-order symptom
+
+#### Context
+- Three bugs reported against the v1.0.125 strip: (1) B Stokes, genuinely live in a Test match on the follow-on, wasn't bumped up as live; J Bumrah in a separate live T20I correctly was. (2) Babar Azam's chip showed his full name instead of the platform's Initial+Surname format. (3) non-favourited/non-live players appeared ordered by first name, not surname.
+
+#### Fixed -- `lib/matchStatus.ts` (new), `components/ScoreBar.tsx`, `lib/playerActivity.ts`
+- New shared `getCurrentInnings(match)` -- the same "last innings in the array" lookup `ScoreBar.tsx` already used inline for its own v1.0.122 follow-on fix, now extracted into one function both files call, so the two can't silently re-diverge again.
+- `lib/playerActivity.ts`'s `getLiveActivePlayerIds` rewritten: previously read only the single LAST ball's 2 participants across all flattened innings (missed anyone else batting/bowling in a multi-batter-deep current innings, like Stokes' follow-on). Now reads the current innings' FULL `battingCard` + `bowlingCard`, gated on `current.balls.length > 0` (no guessing from an unstarted innings' pre-authored placeholder card).
+- `FEATURED_MATCH`'s permanently-mislabeled `status: "live"` (deliberate mock-data design) still trusted as-is -- this fix only widens who counts as involved once a match is already live, not whether the match itself is live.
+
+#### Fixed -- `lib/mockData.ts`
+- `b-azam`'s `shortName`: `"Babar Azam"` → `"B Azam"`. `a-iqbal`'s `shortName`: `"Arshad"` → `"A Iqbal"`. Both were data-authoring errors, not parser bugs -- `formatPlayerName()`'s registry-first lookup was working exactly as designed. Full 21-player registry audit confirmed no other mismatches besides the intentional `s-yadav`/"SKY" nickname exception.
+
+#### Investigated, not changed -- `lib/yourPlayers.ts`
+- The reported "sorted by first name" symptom could not be reproduced as an independent comparator defect on repeated isolated testing. Most likely explanation: a downstream symptom of the live-detection bug above -- a player unexpectedly jumping tiers due to inconsistent live-flagging looks like wrong alphabetization to an observer.
+
+#### Tests
+- `npx tsx`, 21/21 pass: white-ball match (regression guard), constructed normal Test with no follow-on, real follow-on Test (Stokes now correctly live), constructed white-ball negative control, full real-data 4-tier sort with a first-name-disagreeing player set, full 21-player shortName audit.

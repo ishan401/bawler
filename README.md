@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.114)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.126)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -160,7 +160,7 @@ Horizontal tab selector across 8 competitions:
 components/
 ├── Match page
 │   ├── MatchView.tsx          # orchestrates all tabs; allBalls flatMap; showDigest flag
-│   ├── ScoreBar.tsx           # sticky score header
+│   ├── ScoreBar.tsx           # sticky score header; current-batting-team derivation via lib/matchStatus.ts's shared getCurrentInnings() (v1.0.126, also reused by lib/playerActivity.ts)
 │   ├── BallGIF.tsx            # hero two-clip SVG delivery replay; PartnershipFooter
 │   ├── MomentsStrip.tsx       # horizontal key events timeline
 │   ├── MiniWinProb.tsx        # NOT RENDERED ANYWHERE -- dead code; the real win-prob readout lives in MatchupCard's teaser row (moved there from MiniInsightsBar in v1.0.121), see "Match page" above
@@ -180,7 +180,7 @@ components/
 │   ├── BottomSheet.tsx        # shared swipe-to-dismiss sheet (extracted from LiveCarousel); optional footer slot
 │   ├── FollowSheet.tsx        # Filter feature: two-column category + search/multi-select sheet
 │   ├── BottomNav.tsx          # persistent Home / Schedule nav + raised Filter trigger (opens FollowSheet)
-│   └── YourPlayersStrip.tsx   # (v1.0.125) "Your Players" homepage chip strip; exports useYourPlayers() hook (favourited+live sort, reactive to followPrefs/favourites/live-match changes); renders null at zero selected players
+│   └── YourPlayersStrip.tsx   # (v1.0.125, follow-on live-detection fix + name-format data-bug fix v1.0.126) "Your Players" homepage chip strip; exports useYourPlayers() hook (favourited+live sort, reactive to followPrefs/favourites/live-match changes); renders null at zero selected players
 └── Player profile
     ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout, favourite star toggle (v1.0.125)
     ├── RecentFormGraph.tsx    # last-10 innings/spells labeled small line chart (v1.0.119: Y-axis + gridlines, scale per player/metric via computeYAxisTop()/buildYAxisTicks(), minimal two-endpoint X-axis -- supersedes the earlier axis-less sparkline styling), colored via lib/teamAccentColor.ts
@@ -210,7 +210,7 @@ lib/
 ├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118) — per-format last-10 innings/spells + achievements adapter, reading real battingCard/bowlingCard/manOfMatch/manOfTournament records behind the player profile page
 ├── playerName.ts        # parsePlayerName()/formatPlayerName() (v1.0.120) — the single sanctioned player display-name formatter app-wide; registry-first, algorithmic fallback for particles/suffixes/hyphens/single-names/casing/whitespace/comma-format
 ├── playerFavourites.ts  # (v1.0.125) favourite-player localStorage store, same shape as followPrefs.ts; toggleFavouritePlayer() one-way-links favouriting to FollowPrefs.players
-├── playerActivity.ts    # (v1.0.125) getLiveActivePlayerIds() — "currently batting/bowling" derived honestly from a live match's last recorded ball, never battingCard/bowlingCard's onStrike (which can leak end-of-innings final state)
+├── playerActivity.ts    # (v1.0.125, follow-on fix v1.0.126) getLiveActivePlayerIds() — "currently batting/bowling" derived from the CURRENT innings' full battingCard+bowlingCard (via lib/matchStatus.ts's shared getCurrentInnings(), same lookup ScoreBar.tsx uses), gated on balls.length > 0; never battingCard/bowlingCard's onStrike (which can leak end-of-innings final state), and never just the single last ball (missed multi-batter-deep follow-on innings pre-v1.0.126)
 ├── yourPlayers.ts        # (v1.0.125) getYourPlayers() — pure 4-tier favourited/live sort for the homepage "Your Players" strip, surname-keyed via playerName.ts
 └── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
 ```

@@ -24,9 +24,48 @@
 // truncated, still-in-progress score).
 // ============================================================================
 
-import type { Match } from "./types";
+import type { Match, Innings } from "./types";
 import { ballsPerSet } from "./formatUtils";
 import { totalBallsForFormat } from "./winProb";
+
+// ----------------------------------------------------------------------------
+// Current innings — shared team/innings-linked lookup (v1.0.126)
+// ----------------------------------------------------------------------------
+// Extracted after a real bug: the homepage "Your Players" strip's live-
+// player detection (lib/playerActivity.ts) reimplemented its own idea of
+// "which innings is current" instead of reusing this exact one, and that
+// duplication is what let it silently diverge -- see DECISIONS-LOG.md
+// v1.0.126 for the full story. `getCurrentInnings` below is now the ONE
+// place that answers "which innings is currently in progress (or most
+// recently started)" -- components/ScoreBar.tsx's `lastInn` (used to
+// decide which team is CURRENTLY batting for the header's highlight
+// state) and lib/playerActivity.ts's live-player detection both call this
+// same function, rather than each keeping their own copy of the
+// "last innings in array" convention.
+//
+// Deliberately "last in array," never filtered/derived by battingTeam or
+// any other attribute: that positional convention was proven safe for
+// "which innings is current" specifically (as opposed to "which score
+// goes in team A's slot vs team B's slot," which IS broken by a follow-on
+// -- see ScoreBar.tsx's `lastInnA`/`lastInnB`, a different, complementary
+// concept) back when the v1.0.122 header-attribution bug was fixed: a
+// follow-on changes which team bats twice, but never changes the fact
+// that the LAST innings appended to the array is chronologically the most
+// recent one, regardless of which team it belongs to. Works identically
+// for a single-innings white-ball match, a normal 4-innings Test, and a
+// Test with a follow-on in progress.
+//
+// No "has this innings actually started" guard here on purpose -- ScoreBar
+// needs an answer even for an innings with zero balls yet (e.g. "team B is
+// about to bat," rendered as the batting-highlight state before the first
+// ball). Callers that need to additionally confirm real ball-level
+// evidence before trusting an innings' aggregate fields (e.g.
+// battingCard/bowlingCard) -- because a not-yet-started innings can still
+// carry a pre-authored placeholder card -- add that check themselves (see
+// lib/playerActivity.ts's `current.balls.length > 0` guard).
+export function getCurrentInnings(match: Match): Innings | undefined {
+  return match.innings[match.innings.length - 1];
+}
 
 /**
  * The one authoritative "has this match genuinely concluded" signal.

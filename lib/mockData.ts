@@ -15126,7 +15126,7 @@ export const PLAYERS: Record<string, PlayerProfile> = {
   // ── Pakistan ─────────────────────────────────────────────────────────────────
 
   "b-azam": {
-    id: "b-azam", name: "Babar Azam", shortName: "Babar Azam",
+    id: "b-azam", name: "Babar Azam", shortName: "B Azam",
     dateOfBirth: "1994-10-15", nationality: "Pakistan",
     teamCode: "PAK",
     role: "batsman", battingStyle: "RHB",
@@ -15183,7 +15183,7 @@ export const PLAYERS: Record<string, PlayerProfile> = {
   // ── Lahore Qalandars ──────────────────────────────────────────────────────
 
   "a-iqbal": {
-    id: "a-iqbal", name: "Arshad Iqbal", shortName: "Arshad",
+    id: "a-iqbal", name: "Arshad Iqbal", shortName: "A Iqbal",
     dateOfBirth: "1996-07-30", nationality: "Pakistan",
     teamCode: "PAK", franchiseCode: "LAH",
     role: "bowler", battingStyle: "RHB", bowlingStyle: "Right-arm fast",

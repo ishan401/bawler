@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Match } from "@/lib/types";
 import { ballsPerSet } from "@/lib/formatUtils";
 import { calculateProjectedScore } from "@/lib/winProb";
+import { getCurrentInnings } from "@/lib/matchStatus";
 
 interface ScoreBarProps {
   match: Match;
@@ -45,8 +46,13 @@ function ScoreBar({ match }: ScoreBarProps) {
   const lastInnA = innA[innA.length - 1];
   const lastInnB = innB[innB.length - 1];
 
-  // Current batting team = last innings in array
-  const lastInn = innings[innings.length - 1];
+  // Current batting team -- via the shared getCurrentInnings() lookup
+  // (lib/matchStatus.ts, v1.0.126), not a second "last innings in array"
+  // computed independently here. lib/playerActivity.ts's live-player
+  // detection now calls the exact same function, so this file's own
+  // "current innings" concept and the homepage strip's can never diverge
+  // again the way they did before v1.0.126.
+  const lastInn = getCurrentInnings(match);
   const teamACurrentlyBatting = lastInn?.battingTeam === teamA.code;
 
   // `i1`/`i2` are deliberately CHRONOLOGICAL (first-batted / most-recent),
