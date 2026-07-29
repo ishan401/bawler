@@ -671,7 +671,7 @@ function BatterRow({
           )}
           {!row.out && row.retiredNotOut && (
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal ?? "retired not out"}</span>
+              <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal ?? "Retired"}</span>
               <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} />
             </div>
           )}

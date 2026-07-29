@@ -2902,3 +2902,16 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`: innings-label fix confirmed on real match data (innings 2 now reads "2nd Inn"); synthetic 3-batter/6-ball scenario exercises retired/out/still-batting as mutually exclusive states; v1.0.131's two regression tests (R Pant truncated-to-first-ball, S Gill truncated-to-own-wicket) and its reappearance audit (0 issues) re-run unchanged; ticker gate re-confirmed true only for live-following + flagged. `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.133] 2026-07-29
+
+### Investigated: R Sharma retirement fixture patch -- structurally declined, evidence attached; "Retired" label shipped
+
+#### Investigated, not implemented -- `lib/mockData.ts`
+- Requested: author a real retirement event for R Sharma in `ind-aus-t20i-2026-m2-live` using the v1.0.132 `retiredNotOut` mechanism, without renumbering subsequent balls. Found this isn't cleanly possible: the `Ball` model has no "non-delivery event" concept, so any inserted entry is counted as a real delivery by whichever `.over` it's given. Verified both failure modes with `npx tsx` against the real shipped functions: attaching the event to the real over (9) silently corrupts the bowler's whole-innings figures (`oversBowled` 3 -> 3.1, economy 10.33 -> 9.79, for zero extra real deliveries); attaching it to an out-of-range sentinel over instead corrupts the live-innings "which over is still in progress" check, prematurely generating a summary card for an over that's only 1/6 bowled. Renumbering (the one approach that would work) wasn't attempted, since that's the exact risk already ruled out twice. Fixture left unchanged; the 3-simultaneous-"not out" visual on this one match persists until a genuine model extension (an innings-level retirement side-channel, sketched but not built) or an authorized renumbering pass.
+
+#### Changed -- `lib/matchStatus.ts`, `components/Scorecard.tsx`
+- The `retiredNotOut` mechanism's dismissal label changed from "retired not out" to "Retired," per request. No visible effect today (zero matches in the mock dataset exercise this state), but any future match that does will now show the shorter label.
+
+#### Tests
+- `npx tsx`: fresh synthetic retirement scenario confirms `dismissal: "Retired"`. `tsc --noEmit`/`npm run build` clean.

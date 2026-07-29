@@ -211,14 +211,14 @@ export function deriveBattingCardFromBalls(
     // dismissalType-based string so a real-data feed with a genuinely
     // out player but no matching original-card text still shows
     // something sensible rather than nothing. A retired (not out)
-    // player gets its own distinct label so it's never confusable with
-    // "not out" -- see Scorecard.tsx BatterRow.
+    // player gets its own distinct "Retired" label so it's never
+    // confusable with "not out" -- see Scorecard.tsx BatterRow.
     const dismissal = out
       ? entry.out
         ? entry.dismissal
         : wicketBall?.dismissalType ?? "out"
       : retiredNotOut
-        ? "retired not out"
+        ? "Retired"
         : undefined;
 
     return {
