@@ -684,7 +684,10 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   return winProb && (
                     <div className="card px-4 py-3 space-y-1.5">
                       <span className="text-[9px] font-bold uppercase tracking-widest text-text-dim">Win Probability</span>
-                      <WinProbBadge variant="large" label={winProb.label} pct={winProb.pct} className="!px-0" />
+                      {/* v1.0.130: no more !px-0 override -- WinProbBadge's
+                          own pill now supplies its own padding, same as
+                          every other call site (see WinProbBadge.tsx). */}
+                      <WinProbBadge variant="large" label={winProb.label} pct={winProb.pct} />
                     </div>
                   );
                 })()}

@@ -2837,3 +2837,28 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`, real `react-test-renderer` (pinned to the project's installed React 18.3.1): photo renders `<img>`, no photo renders initials, `onError` falls back to initials at runtime, initials correctness across several names, identical structure regardless of role label, correct size scaling at all 3 real call-site sizes (32/48/56px), `backgroundColor` override applies correctly.
+
+## [1.0.130] 2026-07-28
+
+### Enhancement: win-probability figure visual prominence (size, pill, pulse)
+
+#### Context
+- The "WIN PROB" readout (matchup row, ball-by-ball-unavailable fallback, full-screen chart header) needed more visual weight -- bigger than the nearby score digits, a distinct badge look, a subtle update animation -- without moving it or touching its established never-team-colored rule.
+
+#### Changed -- `components/WinProbBadge.tsx`
+- Compact variant's value: `text-[13px]` -> `text-[18px]`. Large variant: `text-xl` -> `text-2xl`.
+- Both variants now wrap their text in a shared neutral, translucent pill (`bg-white/[0.06]`, `border-white/10`, `rounded-xl`) instead of plain inline text.
+- Value node gets `key={pct}` + a new `.winprob-pulse` class -- a 180ms scale-only micro-pulse that retriggers automatically whenever the percentage genuinely changes (React remounts the keyed node), never on an unrelated re-render. No color/opacity component, so it can't reintroduce the flicker risk already ruled out for team-coloring this figure.
+
+#### New -- `app/globals.css`
+- `.winprob-pulse` / `@keyframes winprob-pulse` -- `transform: scale(1 -> 1.16 -> 1)`, 180ms.
+
+#### Changed -- `components/MatchView.tsx`
+- Removed the stale `className="!px-0"` override on the fallback card's `WinProbBadge` call -- that existed only to zero out padding on the old plain-text version; the new pill needs its own padding there too, matching the other two call sites.
+
+#### Unchanged
+- `components/MatchupCard.tsx`, `components/WinProbChart.tsx` -- no per-site overrides needed reconciling, since the fix lives entirely in the shared component both already call.
+- The leader/percentage derivation itself (`lib/winProb.ts`) and the color rule (fixed white, never team-colored) -- untouched.
+
+#### Tests
+- `npx tsx`, `react-test-renderer`: confirmed the value node's identity is stable across a re-render with an unchanged `pct` (no pulse retrigger) and changes identity when `pct` genuinely changes (pulse retriggers). Both variants confirmed to render the pill and larger text-size classes. `tsc --noEmit`/`npm run build` clean.

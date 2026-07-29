@@ -196,6 +196,23 @@
 .excitement-glow {
   animation: excitement-pulse 3s ease-in-out infinite;
 }
+
+/* v1.0.130: win-probability value micro-pulse. Shape/scale only -- no
+   color, opacity, or box-shadow change -- so it can never reintroduce the
+   flicker risk the platform-wide "win-prob is never team-colored" decision
+   already ruled out (DECISIONS-LOG.md). Triggered by remounting the value
+   node (`key={pct}`) each time the underlying percentage genuinely
+   changes, so it never fires on a re-render that doesn't actually change
+   the number. */
+@keyframes winprob-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+.winprob-pulse {
+  animation: winprob-pulse 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: inline-block;
+}
 /* --glow-rgb (an "r, g, b" triplet, no `rgb()` wrapper) lets a specific
    instance recolor this glow -- e.g. Scorecard.tsx's not-out box sets it to
    the batting team's accent color. Unset, it falls back to the original

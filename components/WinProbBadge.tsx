@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+
 /**
  * WinProbBadge — the ONE shared presentation for "leading team + win
  * probability %" anywhere on the platform (v1.0.123).
@@ -34,6 +36,25 @@
  * those show both teams at once for comparison/narrative purposes, a
  * genuinely different display concept from "who's leading right now,"
  * and were confirmed out of scope for this consolidation.
+ *
+ * v1.0.130: visual-prominence pass, same neutral-color rule unchanged.
+ * Three changes, all structural/shape, never color:
+ *   1. Larger value text in both variants (bigger than the surrounding
+ *      score digits it sits near in every call site, per this codebase's
+ *      "real visual weight, not hue" answer to making this figure stand
+ *      out -- see the file header above).
+ *   2. The label + value (or value + caption, for `variant="large"`) are
+ *      now wrapped in one soft, translucent, fixed-neutral pill
+ *      (`bg-white/[0.06]` + a hairline `border-white/10`) so the readout
+ *      reads as one distinct badge instead of plain inline text. This
+ *      fill is a relative lightening over whatever background sits behind
+ *      it -- never a team color, never a solid design-token fill that
+ *      could itself start to look "team-colored" by coincidence.
+ *   3. A brief (180ms) scale-only micro-pulse on the value whenever `pct`
+ *      genuinely changes, via `key={pct}` remounting the value node so the
+ *      CSS animation (`.winprob-pulse`, app/globals.css) retriggers only
+ *      on a real update -- never a color pulse, so it cannot reintroduce
+ *      the flicker risk already ruled out for team-coloring this figure.
  */
 
 interface WinProbBadgeProps {
@@ -60,10 +81,23 @@ export default function WinProbBadge({
   const Tag = onClick ? "button" : "div";
   const ariaLabel = onClick ? `Win probability ${label} ${pct}% — open win probability chart` : undefined;
 
+  // Neutral, fixed, translucent pill fill -- a relative lightening over
+  // whatever sits behind it, never a solid token or team color. Shared by
+  // both variants so the "one distinct badge" treatment can't drift apart
+  // the way the color rule itself once did (see file header).
+  const pillClasses = "rounded-xl bg-white/[0.06] border border-white/10";
+
   if (variant === "large") {
     return (
-      <Tag onClick={onClick} className={`text-center px-2 shrink-0 ${className}`} aria-label={ariaLabel}>
-        <div className="text-xl font-extrabold num text-white">{pct}%</div>
+      <Tag
+        onClick={onClick}
+        className={`text-center shrink-0 ${pillClasses} px-3 py-2 ${className}`}
+        aria-label={ariaLabel}
+      >
+        {/* key={pct} remounts this node only when the percentage itself
+            genuinely changes, retriggering the scale-only micro-pulse --
+            never on an unrelated re-render. */}
+        <div key={pct} className="text-2xl font-extrabold num text-white winprob-pulse">{pct}%</div>
         <div className="text-[9px] text-text-dim uppercase tracking-widest">{label} lead</div>
       </Tag>
     );
@@ -72,11 +106,11 @@ export default function WinProbBadge({
   return (
     <Tag
       onClick={onClick}
-      className={`shrink-0 flex flex-col items-end leading-none px-0.5 ${className}`}
+      className={`shrink-0 flex flex-col items-end leading-none ${pillClasses} px-2 py-1 ${className}`}
       aria-label={ariaLabel}
     >
       <span className="text-[7px] font-bold uppercase tracking-widest text-text-dim">Win Prob</span>
-      <span className="text-[13px] font-extrabold text-white num">{label} {pct}%</span>
+      <span key={pct} className="text-[18px] font-extrabold text-white num winprob-pulse">{label} {pct}%</span>
     </Tag>
   );
 }

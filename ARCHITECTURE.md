@@ -1276,3 +1276,39 @@ let the Digest tab's Man of the Match avatar drift onto a nonexistent
   it (confirming role-agnosticism); all three real call-site sizes (32/
   48/56px) scale correctly; a `backgroundColor` override (the Digest/
   profile-header case) applies correctly.
+
+**Worked example — enhancing a shared component's prominence in one place, not per call site — v1.0.130:**
+
+Ask: make the win-probability figure more visually prominent (bigger
+text, a neutral pill background, a brief update pulse) everywhere it
+appears, without touching its color rule or its placement.
+
+- Because this readout was already consolidated into one shared
+  `components/WinProbBadge.tsx` (v1.0.123's own worked example, above),
+  this entire enhancement touched exactly one component file plus one
+  CSS keyframe — not three call sites. This is the payoff of that
+  earlier consolidation: a visual change that needs to apply
+  "consistently everywhere this appears" only has one place to make it.
+- **Shape/scale animation, never color** — the brief update pulse
+  (`.winprob-pulse`, `app/globals.css`) animates `transform: scale()`
+  only. This was a deliberate constraint, not an oversight: the existing
+  platform-wide rule that this figure's color must never respond to team
+  identity or data state (documented above, v1.0.121/v1.0.123) explicitly
+  cites flicker risk on a close, fast-swinging finish as one of the
+  reasons. A scale pulse triggered by a real value change carries none of
+  that risk, since it never touches color, opacity, or anything
+  perceptually tied to "which team, how close."
+- **Trigger via key-remount, not manual effect/state.** `key={pct}` on
+  the value node means React itself decides when to remount (only when
+  the number actually changes) and the CSS animation retriggers as a
+  natural consequence of a fresh DOM node existing — no `useEffect`
+  comparing previous/next `pct`, no manual class-toggle-then-clear timer
+  that could leak or double-fire under React 18 strict-mode's double-
+  invoke-in-dev behavior.
+- **A neutral pill fill must survive appearing over three different
+  backgrounds** (the matchup row's dark card, the "ball-by-ball data
+  unavailable" fallback card, the full-screen chart modal's plain
+  background) without ever looking like a solid, coincidentally-team-
+  colored box. A translucent white overlay (`bg-white/[0.06]`) satisfies
+  this by construction — it's a relative lightening over whatever's
+  underneath, not a fixed absolute color that could clash or coincide.
