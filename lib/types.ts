@@ -143,6 +143,25 @@ export interface Match {
   // guard at its one sanctioned read site, the same as Team's color
   // fields do in lib/teamAccentColor.ts.
   fixtureConfirmed?: boolean;
+  // Real-data-readiness gate (v1.0.131) for MatchView.tsx's `liveBallIdx`
+  // auto-advance/rewind ticker -- the ONLY place on the platform that
+  // artificially advances ball-by-ball playback over time and loops back
+  // into earlier balls once it reaches the end, purely so a mock "live"
+  // match that has no real backing clock never looks finished/frozen (see
+  // that effect's own comment in components/MatchView.tsx). This is a
+  // demo-harness concept with no real-world counterpart: a genuine live
+  // feed reports whatever the match's CURRENT actual state is, and simply
+  // has nothing further to report once it does -- there is no "loop back
+  // into the recent past to keep it looking alive" behavior for real data,
+  // ever. Defaults to false/absent (real-data behavior: the ticker never
+  // engages) for every match. Only the handful of hand-authored mock
+  // fixtures that are deliberately kept at `status: "live"` forever with
+  // no real clock advancing them (see lib/mockData.ts) set this to `true`,
+  // explicitly opting themselves into the simulated playback. A real data
+  // adapter must never set this field, so the moment real live data
+  // replaces a mock fixture, this ticker is automatically inert for it --
+  // no separate migration step required.
+  isMockSimulation?: boolean;
 }
 
 export interface Innings {

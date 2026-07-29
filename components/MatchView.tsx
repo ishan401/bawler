@@ -25,6 +25,7 @@ import MatchupCard from "@/components/MatchupCard";
 import MatchupShareCard from "@/components/MatchupShareCard";
 import WinProbBadge from "@/components/WinProbBadge";
 import { getMatchupStats } from "@/lib/mockMatchups";
+import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker } from "@/lib/matchStatus";
 
 interface MatchViewProps {
   match: Match;
@@ -54,14 +55,26 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const [liveBallIdx, setLiveBallIdx] = useState(Math.max(0, allBalls.length - 1));
   const isLiveFollowing = selectedBallId === null;
 
-  // Auto-advance every BALL_DWELL_MS (24 sec) — only when in live-follow mode
+  // Auto-advance every BALL_DWELL_MS (24 sec), looping back into the last
+  // ~10 balls once playback catches up — only when in live-follow mode AND
+  // only for a match explicitly marked `isMockSimulation: true`
+  // (lib/types.ts). This whole effect is a demo-harness concept with no
+  // real-world counterpart: a genuine live feed reports whatever the
+  // match's actual current state is and has nothing further to report
+  // once it does — there's no "keep looping through recent balls forever
+  // so it doesn't look frozen" behavior for real data, ever. Gating on an
+  // explicit per-match flag (rather than e.g. `match.status === "live"`,
+  // which real live matches will also legitimately be) means this can
+  // never accidentally fire against real data: the flag defaults to
+  // false/absent, and only the handful of mock fixtures deliberately kept
+  // "live" forever with no real clock (see lib/mockData.ts) opt in.
   useEffect(() => {
-    if (!isLiveFollowing) return;
+    if (!shouldRunMockSimulationTicker(match, isLiveFollowing)) return;
     const id = setInterval(() => {
       setLiveBallIdx(idx => (idx >= allBalls.length - 1 ? Math.max(0, allBalls.length - 10) : idx + 1));
     }, BALL_DWELL_MS);
     return () => clearInterval(id);
-  }, [isLiveFollowing, allBalls.length]);
+  }, [isLiveFollowing, allBalls.length, match]);
 
   const activeBallIdx = useMemo(() => {
     if (selectedBallId === null) return liveBallIdx;
@@ -254,10 +267,27 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       remaining -= take;
 
       if (isComplete) {
-        // Innings fully consumed — use authoritative scorecard values
+        // Innings fully consumed — use authoritative scorecard values.
+        // battingCard/bowlingCard are the innings' real final cards here,
+        // which is correct: every ball in this innings is visible, so
+        // "final" and "current playback position" are the same thing.
         innings.push({ ...inn, balls: truncBalls });
       } else {
-        // Viewing mid-innings — derive runs/wickets/overs from truncated balls
+        // Viewing mid-innings — derive runs/wickets/overs AND each
+        // player's card entry from the exact same truncated ball slice.
+        // battingCard/bowlingCard must never be spread through from `inn`
+        // unchanged here: that's the original, END-OF-INNINGS card, and
+        // doing so is exactly what let the header/mini-insights chips
+        // (components/MiniInsightsBar.tsx) and the Scorecard tab show a
+        // batter's FINAL runs/balls/out-status while playback was still
+        // genuinely mid-innings — see DECISIONS-LOG.md v1.0.131 for the
+        // real snapshot (a wicket ball for R Pant appearing alongside a
+        // header still reading his frozen not-out final score) that
+        // exposed this. deriveBattingCardFromBalls/deriveBowlingCardFromBalls
+        // (lib/matchStatus.ts) recompute every mutable field from `truncBalls`
+        // — the same slice `runs`/`wickets`/`overs` below are computed
+        // from — so there is exactly one source of truth for "what does
+        // this innings look like right now," not a partial recompute.
         const hasBalls  = truncBalls.length > 0;
         const runs      = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
         const wickets   = truncBalls.filter(b => b.isWicket).length;
@@ -267,10 +297,12 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           : 0;
         innings.push({
           ...inn,
-          balls:   truncBalls,
-          runs:    hasBalls ? runs    : inn.runs,
-          wickets: hasBalls ? wickets : inn.wickets,
-          overs:   hasBalls ? Math.round(overs * 10) / 10 : inn.overs,
+          balls:       truncBalls,
+          runs:        hasBalls ? runs    : inn.runs,
+          wickets:     hasBalls ? wickets : inn.wickets,
+          overs:       hasBalls ? Math.round(overs * 10) / 10 : inn.overs,
+          battingCard: hasBalls ? deriveBattingCardFromBalls(truncBalls, inn.battingCard) : inn.battingCard,
+          bowlingCard: hasBalls ? deriveBowlingCardFromBalls(truncBalls, inn.bowlingCard, match.format) : inn.bowlingCard,
         });
       }
     }

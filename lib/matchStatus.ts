@@ -24,7 +24,7 @@
 // truncated, still-in-progress score).
 // ============================================================================
 
-import type { Match, Innings } from "./types";
+import type { Match, Innings, Ball, BattingEntry, BowlingEntry, MatchFormat } from "./types";
 import { ballsPerSet } from "./formatUtils";
 import { totalBallsForFormat } from "./winProb";
 
@@ -131,4 +131,160 @@ export function observableStateSupportsConclusion(match: Match): boolean {
  */
 export function isMatchConclusivelyOver(match: Match): boolean {
   return isMatchConcluded(match) && observableStateSupportsConclusion(match);
+}
+
+// ============================================================================
+// Per-player card derivation from a truncated ball list (v1.0.131)
+// ============================================================================
+// v1.0.131: extracted after a real bug where MatchView.tsx's `truncatedMatch`
+// memo correctly recomputed an innings' `runs`/`wickets`/`overs` for the
+// current ball-by-ball scrub position, but spread `battingCard`/`bowlingCard`
+// through completely unchanged from the original, untouched innings object
+// -- so any consumer reading a player's card entry (MiniInsightsBar's
+// striker/bowler header chips, Scorecard's full table -- both receive
+// `truncatedMatch`) always showed that player's END-OF-INNINGS totals,
+// regardless of how far playback had actually progressed. A batter who
+// gets out ball 90 of 120 would show "out" in the header the moment
+// playback reached ball 1, and a batter who finishes not-out at 5(8) would
+// keep showing exactly "5(8)" even while genuinely on strike mid-innings
+// at, say, 2(3) -- the exact mismatch that exposed this (a wicket ball for
+// R Pant while the header still showed his frozen not-out final score).
+//
+// These two functions are the fix: given a truncated ball slice (the exact
+// same slice `truncatedMatch` already computes `runs`/`wickets`/`overs`
+// from) plus the innings' original card as a scaffold (for player identity/
+// ordering -- WHO batted/bowled this innings is a real fact that doesn't
+// change with playback position, only THEIR STATS AT THIS POINT do), derive
+// every mutable per-player field fresh from the same ball slice. One
+// source of truth, no partial recompute: `truncatedMatch` must call both
+// of these any time it truncates `balls`, never spread the original cards
+// through on their own.
+//
+// Deliberately conservative about what counts as "faced": a wide never
+// counts as a ball faced (matches lib/events.ts's `isFaced` convention,
+// the other place ball-by-ball batting stats are independently derived --
+// see that file's header) but a no-ball does, since the striker can
+// legally score off it. `out`/`dismissal` are derived purely from whether
+// THIS player's own ball carries `isWicket: true` within the truncated
+// slice -- never borrowed from the original card's `out` flag, since that
+// flag describes the END of the innings, which may not have happened yet
+// at this playback position (and, per the real-data-readiness note below,
+// may not even be reachable yet for a genuinely live match).
+// ============================================================================
+
+/**
+ * Recompute one innings' battingCard from a (possibly truncated) ball
+ * slice. `originalCard` supplies player identity/order only -- every
+ * mutable field (runs, ballsFaced, fours, sixes, strikeRate, out,
+ * dismissal, onStrike) is derived fresh from `balls`.
+ */
+export function deriveBattingCardFromBalls(
+  balls: Ball[],
+  originalCard: BattingEntry[]
+): BattingEntry[] {
+  const lastBall = balls.length > 0 ? balls[balls.length - 1] : undefined;
+
+  return originalCard.map(entry => {
+    const playerBalls = balls.filter(b => b.batterName === entry.playerName);
+    const ballsFaced = playerBalls.filter(b => b.extraType !== "wd").length;
+    const runs = playerBalls.reduce((s, b) => s + b.runs, 0);
+    const fours = playerBalls.filter(b => b.isBoundary4).length;
+    const sixes = playerBalls.filter(b => b.isBoundary6).length;
+    const wicketBall = playerBalls.find(b => b.isWicket);
+    const out = !!wicketBall;
+    const strikeRate = ballsFaced > 0 ? Math.round((runs / ballsFaced) * 10000) / 100 : 0;
+    const onStrike = !!lastBall && lastBall.batterName === entry.playerName;
+
+    // Prefer the original card's hand-authored dismissal text (e.g. "c
+    // Dhoni b Jadeja") when it's actually consistent with this player
+    // being out here -- the richer fielder/bowler description isn't
+    // reconstructable from a Ball alone. Falls back to a generic
+    // dismissalType-based string so a real-data feed with a genuinely
+    // out player but no matching original-card text still shows
+    // something sensible rather than nothing.
+    const dismissal = out
+      ? entry.out
+        ? entry.dismissal
+        : wicketBall?.dismissalType ?? "out"
+      : undefined;
+
+    return {
+      ...entry,
+      runs,
+      ballsFaced,
+      fours,
+      sixes,
+      strikeRate,
+      out,
+      dismissal,
+      onStrike,
+    };
+  });
+}
+
+/**
+ * Recompute one innings' bowlingCard from a (possibly truncated) ball
+ * slice, same contract as `deriveBattingCardFromBalls` above.
+ * `oversBowled` is reported in cricket notation (e.g. `1.4` = 1 over + 4
+ * balls), matching every hand-authored fixture value already in
+ * lib/mockData.ts -- NOT a true decimal fraction of an over.
+ */
+export function deriveBowlingCardFromBalls(
+  balls: Ball[],
+  originalCard: BowlingEntry[],
+  format: MatchFormat
+): BowlingEntry[] {
+  const bps = ballsPerSet(format);
+
+  return originalCard.map(entry => {
+    const bowlerBalls = balls.filter(b => b.bowlerName === entry.playerName);
+    const legalBalls = bowlerBalls.filter(b => b.extraType !== "wd" && b.extraType !== "nb");
+    const completedOvers = Math.floor(legalBalls.length / bps);
+    const ballsIntoOver = legalBalls.length % bps;
+    const oversBowled = completedOvers + ballsIntoOver / 10;
+    const runsConceded = bowlerBalls.reduce((s, b) => s + b.runs + b.extras, 0);
+    const wickets = bowlerBalls.filter(b => b.isWicket && b.dismissalType !== "run-out").length;
+    const trueOvers = legalBalls.length / bps;
+    const economy = trueOvers > 0 ? Math.round((runsConceded / trueOvers) * 100) / 100 : 0;
+
+    // Maidens: group this bowler's legal balls by over number; a maiden is
+    // a full (bps-ball) over of theirs with zero runs conceded off it.
+    const oversMap = new Map<number, Ball[]>();
+    for (const b of legalBalls) {
+      const arr = oversMap.get(b.over) ?? [];
+      arr.push(b);
+      oversMap.set(b.over, arr);
+    }
+    let maidens = 0;
+    for (const overBalls of oversMap.values()) {
+      if (overBalls.length === bps && overBalls.reduce((s, b) => s + b.runs + b.extras, 0) === 0) {
+        maidens++;
+      }
+    }
+
+    return {
+      ...entry,
+      oversBowled: Math.round(oversBowled * 10) / 10,
+      maidens,
+      runsConceded,
+      wickets,
+      economy,
+    };
+  });
+}
+
+// ============================================================================
+// Mock-simulation ticker gate (v1.0.131)
+// ============================================================================
+// The ONE decision point for "should MatchView.tsx's demo-only liveBallIdx
+// auto-advance/rewind ticker run right now" -- pulled out to a plain,
+// dependency-free function (rather than inlined directly in the effect's
+// guard clause) specifically so it's directly unit-testable without needing
+// to mount MatchView's full component tree. See match.isMockSimulation's
+// doc comment in lib/types.ts for the full real-data-readiness rationale;
+// in short, a real live feed never needs this ticker (it reports current
+// state and has nothing further to report once it does), so this must
+// default to false and only run for fixtures that explicitly opt in.
+export function shouldRunMockSimulationTicker(match: Match, isLiveFollowing: boolean): boolean {
+  return isLiveFollowing && match.isMockSimulation === true;
 }

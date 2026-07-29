@@ -1312,3 +1312,90 @@ appears, without touching its color rule or its placement.
   colored box. A translucent white overlay (`bg-white/[0.06]`) satisfies
   this by construction — it's a relative lightening over whatever's
   underneath, not a fixed absolute color that could clash or coincide.
+
+## Worked example — one truncated-state recompute, not a partial one — v1.0.131
+
+`components/MatchView.tsx`'s `truncatedMatch` memo simulates "what does
+this match look like at ball-by-ball scrub position X" by slicing the raw
+`Innings.balls` array and recomputing `runs`/`wickets`/`overs` from that
+slice. Until v1.0.131, it stopped there: `battingCard`/`bowlingCard` were
+spread through from the original, untouched innings object regardless of
+playback position, so any consumer reading a player's card entry
+(`MiniInsightsBar.tsx`'s striker/bowler header chips, the Scorecard tab —
+both receive `truncatedMatch`, not the raw `match`) showed that player's
+END-OF-INNINGS totals no matter how far scrubbing had actually progressed.
+This is exactly the kind of gap the platform has hit before in this same
+memo (v1.0.124's `result`-leak bug, documented in `lib/matchStatus.ts`):
+truncating SOME of an object's fields for a simulated snapshot while
+leaving others un-truncated silently reintroduces "two different readers
+of the same simulated moment can disagree," because they're not actually
+reading the same moment at all.
+
+The fix, `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls`
+(`lib/matchStatus.ts`), recompute every mutable per-player field from the
+exact same ball slice `runs`/`wickets`/`overs` are already derived from —
+`originalCard` is consulted only for player identity/order (a real fact
+that doesn't change with playback position) and, when a player IS out,
+for its hand-authored dismissal text (a display string not reconstructable
+from a bare `Ball`). Every OTHER field — runs, balls faced, strike rate,
+out/not-out, who's currently on strike — is derived fresh, never borrowed
+from the innings' final state. The lesson generalizes: a "simulate this
+object at an earlier point in time" transform must recompute every field
+whose value depends on "how much of the timeline has happened so far," not
+just the ones the original bug report happened to surface — anything left
+un-recomputed is a latent version of the exact same class of bug, waiting
+for a different consumer to read it.
+
+## Worked example — an authoritative record as ground truth for repairing raw event data — v1.0.131
+
+Cleaning up the fixture data bug that exposed the above gap (a batter
+reappearing as striker on ball-by-ball deliveries recorded after their own
+`isWicket: true` ball) required deciding, for each of 331 individual
+flagged deliveries across 5 innings, whether a given `isWicket` flag was
+real and — if so — who should actually be batting on the balls that follow
+it. Two data sources existed for this and they don't always agree: the
+ball-by-ball log itself (which had the bug) and each innings'
+hand-authored `battingCard` (the aggregate, end-of-innings summary, never
+touched by this bug since it's authored independently). The battingCard
+was treated as ground truth throughout: a wicket flag was only accepted as
+genuine if the card confirms that player finished `out: true` and it's
+their first such flag in the log; once an innings' full quota of
+card-confirmed dismissals is reached, any further name appearing in the
+log gets reattributed to whichever player the card says is a genuine
+not-out finisher, rather than trusting the raw (buggy) log any further.
+This mirrors a pattern already established elsewhere on this platform
+(`hasUsableResult`/`isMatchConcluded`, `lib/matchStatus.ts`): when two
+representations of the same underlying event can drift apart, pick the one
+that's structurally less likely to have drifted — an aggregate authored
+once, as a single fact — as the tiebreaker, rather than trying to make the
+more failure-prone, higher-cardinality source (331 individual ball
+records vs. 5-8 card entries per innings) self-consistent on its own terms.
+
+## Worked example — gating a demo-only simulation behind an explicit, default-off flag — v1.0.131
+
+`MatchView.tsx`'s `liveBallIdx` ticker (auto-advances ball-by-ball
+playback, then loops back into the last ~10 balls once it reaches the end)
+exists purely so a mock "live" match with no real backing clock never
+looks finished. Before v1.0.131 it had no concept of "is this actually
+mock data" — it ran for anything rendered through `MatchView`. This is a
+real-data-readiness gap, not a live bug today (no real feed exists yet to
+trigger it), but the exact kind the platform has repeatedly caught in
+earlier rounds by asking "what happens the day this is real data, not
+mock" before shipping a feature, rather than after.
+
+The fix follows this platform's standard shape for that question: add an
+explicit field (`Match.isMockSimulation`, `lib/types.ts`) that defaults to
+false/absent, document it as something a real data adapter has no reason
+to ever populate, and gate the simulation-only behavior on it explicitly
+rather than on a signal real data will also legitimately have (e.g.
+`match.status === "live"` — a real live match IS live, so gating on status
+alone would have re-enabled the fake rewind for real data the moment it
+arrived). The gating decision itself, `shouldRunMockSimulationTicker`
+(`lib/matchStatus.ts`), is pulled out to a plain function taking
+`(match, isLiveFollowing)` rather than left inlined in the effect's guard
+clause — for the same reason `getCurrentInnings`/`isMatchConcluded` are
+their own functions elsewhere in this file: a single, directly-testable
+decision point that every future consumer (should the ticker ever need
+checking from a second location) calls, instead of re-deriving the same
+condition inline and risking a second copy drifting out of sync with the
+first.

@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.130)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.131)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -159,7 +159,7 @@ Horizontal tab selector across 8 competitions:
 ```
 components/
 ├── Match page
-│   ├── MatchView.tsx          # orchestrates all tabs; allBalls flatMap; showDigest flag
+│   ├── MatchView.tsx          # orchestrates all tabs; allBalls flatMap; showDigest flag; truncatedMatch recomputes battingCard/bowlingCard from the truncated ball slice too (v1.0.131, via lib/matchStatus.ts's deriveBattingCardFromBalls/deriveBowlingCardFromBalls — not just runs/wickets/overs as before); demo-only liveBallIdx auto-advance/rewind ticker now gated behind match.isMockSimulation (default off) via shouldRunMockSimulationTicker(), so it can never engage for real data (v1.0.131)
 │   ├── ScoreBar.tsx           # sticky score header; current-batting-team derivation via lib/matchStatus.ts's shared getCurrentInnings() (v1.0.126, also reused by lib/playerActivity.ts)
 │   ├── BallGIF.tsx            # hero two-clip SVG delivery replay; PartnershipFooter
 │   ├── MomentsStrip.tsx       # horizontal key events timeline

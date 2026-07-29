@@ -2862,3 +2862,24 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`, `react-test-renderer`: confirmed the value node's identity is stable across a re-render with an unchanged `pct` (no pulse retrigger) and changes identity when `pct` genuinely changes (pulse retriggers). Both variants confirmed to render the pill and larger text-size classes. `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.131] 2026-07-29
+
+### Fix: matchup-card diagnostic follow-up — mid-scrub card recompute, fixture cleanup, mock-ticker gate
+
+#### Context
+- Follow-up to a prior diagnostic-only pass on 3 reported matchup-card issues. Fixes the one confirmed code bug, cleans up the fixture data error that exposed it (plus a platform-wide audit for the same pattern), and adds the real-data-readiness guard flagged for the third (mock-only) issue.
+
+#### Fixed -- `lib/matchStatus.ts` / `components/MatchView.tsx`
+- New `deriveBattingCardFromBalls` / `deriveBowlingCardFromBalls` functions recompute every mutable per-player stat (runs, balls faced, out/not-out, strike rate, onStrike, overs bowled, economy, etc.) from a given ball slice.
+- `truncatedMatch`'s mid-innings branch now calls both instead of spreading the original innings' end-of-innings `battingCard`/`bowlingCard` through unchanged -- fixes the header/wicket-badge disagreement (a batter's status now reflects the exact same scrub position everywhere it's read).
+
+#### Fixed -- `lib/mockData.ts`
+- Platform-wide audit found the "batter listed as striker on a ball after their own recorded dismissal" pattern in 5 innings across 3 matches (not just the originally-reported R Pant case). 273 individual ball-field corrections applied (batterName/batterId reattribution, spurious isWicket/dismissalType/nextBatterName/oneLiner cleared), verified against each innings' own authoritative battingCard as ground truth. Re-audit confirms zero remaining instances anywhere in the mock dataset.
+
+#### New -- `lib/types.ts` / `lib/mockData.ts` / `components/MatchView.tsx`
+- `Match.isMockSimulation?: boolean` -- defaults to false/absent (real-data behavior). Set `true` only on the 4 fixtures deliberately kept `status: "live"` forever with a scripted ball log (`FEATURED_MATCH`, `ind-aus-t20i-2026-m2-live`, `ind-eng-test-2026-d3-live`, `psl-2026-lah-kar-live`).
+- New `shouldRunMockSimulationTicker(match, isLiveFollowing)` in `lib/matchStatus.ts` gates `MatchView.tsx`'s `liveBallIdx` auto-advance/rewind ticker -- it can now never engage for a match without the explicit flag.
+
+#### Tests
+- `npx tsx`: truncated ind-aus-t20i-2026-m2-live's ball log to right after R Pant's first ball -- derived card correctly shows `ballsFaced: 1, out: false` (genuinely computed, not the frozen final value); truncated to S Gill's own wicket ball -- derived card already shows `out: true` at that exact moment. Re-ran the reappearance audit against the live patched data: 0 issues (down from 331). `shouldRunMockSimulationTicker` confirmed true only when both live-following AND `isMockSimulation: true`; false for explicit-false, absent, or not-live-following. Confirmed exactly the 4 intended fixtures are flagged. `tsc --noEmit`/`npm run build` clean.

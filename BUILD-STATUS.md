@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.130 (deployed)
+**Current version:** v1.0.131 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -568,6 +568,7 @@
 | **v1.0.128** | Audited every player-avatar render site for photo-first-fallback-to-initials readiness. `YourPlayersStrip.tsx` already correct. Fixed `DigestTab.tsx`'s Man of the Match avatar, which read a nonexistent `photoUrl` field (the real field is `imageUrl`) -- it was permanently stuck on initials and would have stayed stuck even with real photo data. Flagged (not changed): `PlayerProfileView.tsx`'s header has no avatar element at all; `BallGIF.tsx`'s inline initials are a different design context (DECISIONS-LOG.md) |
 | **v1.0.129** | Added a player avatar to the profile page header (previously had none), via a new shared `components/PlayerAvatar.tsx` reused by the "Your Players" strip and the Digest tab's Man of the Match card too -- one implementation of photo-first-fallback-to-initials instead of three, role/format-agnostic, real-data-ready via the same `imageUrl` field everywhere. Old per-site initials helpers and a CSS-hack broken-image fallback removed (DECISIONS-LOG.md) |
 | **v1.0.130** | Win-probability figure visual-prominence pass: larger value text (bigger than the score digits it sits near), both variants now wrapped in one shared neutral translucent pill (never team-colored, per the existing platform rule), and a brief 180ms scale-only micro-pulse on genuine ball-by-ball updates (triggered via `key={pct}` remount, never a color change, so it can't reintroduce the flicker risk already ruled out for team-coloring this figure). All changes live in the one shared `WinProbBadge.tsx` component, so all 3 call sites (matchup row, ball-by-ball-unavailable fallback, full-screen chart) stay consistent automatically (DECISIONS-LOG.md) |
+| **v1.0.131** | Matchup-card diagnostic follow-up: `truncatedMatch` (`MatchView.tsx`) now recomputes `battingCard`/`bowlingCard` from the truncated ball slice via new `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` (`lib/matchStatus.ts`), fixing a header/wicket-badge disagreement bug. Platform-wide audit + fix of the fixture data error that exposed it: 273 ball-field corrections across 5 innings in 3 matches where a dismissed batter kept appearing as striker. New `Match.isMockSimulation` flag (default off) gates `MatchView.tsx`'s demo-only rewind ticker via `shouldRunMockSimulationTicker()` so it can never engage against real data (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 
