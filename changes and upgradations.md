@@ -2978,3 +2978,12 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Hardened -- `components/WinProbBadge.tsx`
 - `variant="boxed"`'s two lines now also carry `truncate max-w-full` as a safety net, so an unusually long team label clips inside the box instead of being able to push it wider.
+
+## [1.0.139] 2026-07-29
+
+#### Changed -- `components/MatchupCard.tsx`
+- Width ratio changed from 50/50 to a fixed 60/40 (matchup box larger), implemented as a CSS Grid (`gridTemplateColumns: "60% 40%"`) rather than `flex: 0 0 60%`/`flex: 0 0 40%` -- flex-basis percentages with zero grow/shrink don't leave room for the row's own gap and would overflow; Grid's gap is accounted for natively. `min-w-0` kept on both grid items (same content-floor risk as flex items).
+- Row's `items-start` changed to `items-stretch` so both boxes always match height (whichever is taller), reversing the previous round's deliberate independent-height behavior per this round's explicit request. Collapsed teaser button gained `h-full` + `justify-center` (alongside existing `items-center`) so it fills and centers within the now-shared height instead of leaving dead space.
+
+#### Verified
+- Real browser `getBoundingClientRect()` checks across two live matches (short names, long wrapping names): consistent 60/40 width ratio and identical box heights in both cases -- reported with exact pixel values in chat.

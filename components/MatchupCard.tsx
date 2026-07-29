@@ -121,12 +121,19 @@ function MatchupCard({
     // text line rather than a fixed amount reserved up front. The
     // dots/"vs"/chevron stay `shrink-0` so they're never the thing that
     // gets squeezed; the two name spans are the only wrap-eligible
-    // content. This only touches this box's own height -- the
-    // independent win-prob box below is never affected by it (see the
-    // `items-start` note further down).
+    // content.
+    //
+    // v1.0.139: `h-full` + `justify-center` added alongside the existing
+    // `items-center` so this button fills and centers within its box's
+    // now-shared height (see the row-level comment below) instead of
+    // sitting top-aligned with dead space beneath it when the sibling
+    // win-prob box (or an expanded H2H card) is taller. `justify-center`
+    // also centers the pairing horizontally, matching the win-prob box's
+    // own centered layout now that both boxes are meant to look like
+    // equal, symmetric siblings.
     <button
       onClick={() => setExpanded(true)}
-      className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 py-2 w-full text-left"
+      className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-3 py-2 w-full h-full text-left"
       aria-label={`${batterDisplay} vs ${bowlerDisplay} — tap for head-to-head`}
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
@@ -241,52 +248,57 @@ function MatchupCard({
     </>
   );
 
-  // ── Row: matchup box + independent win-prob box, side by side ──────────
-  // v1.0.136: `winProb` gates ONLY the win-prob box's presence, exactly as
-  // it gated the old badge's presence in the shared row -- hidden entirely
-  // rather than rendering broken/empty text when there's no real win-prob
-  // point yet (same null-safety as before). The matchup box takes the
-  // remaining width either way, so nothing narrows or breaks when win-prob
-  // data is absent. Critically, the win-prob box's JSX lives in this same
-  // always-rendered return, completely outside `matchupBox`'s `expanded`
-  // branching above -- so toggling `expanded` can only ever change
-  // `matchupBox`'s own content and (naturally, since it goes from a
-  // one-line teaser to a multi-row card, or a one-line to a two-line
-  // teaser for a long name pairing) height. It can never hide, replace, or
-  // resize the win-prob box, and `items-start` below stops the row from
-  // stretching the shorter box to match the taller one.
+  // ── Row: matchup box + win-prob box, side by side ───────────────────────
+  // v1.0.136: `winProb` gates ONLY the win-prob box's presence -- hidden
+  // entirely rather than rendering broken/empty text when there's no real
+  // win-prob point yet. When absent, `matchupBox` renders alone in a plain
+  // full-width block below, so there's no empty leftover grid column.
   //
-  // v1.0.137: both boxes are `flex-1` (`flex: 1 1 0%`), not a fixed 60/40
-  // split -- with exactly two flex children this is supposed to resolve to
-  // a clean 50/50 regardless of either side's content.
+  // v1.0.137/138: width was `flex-1` on both sides, meant to force an
+  // equal 50/50 split regardless of content. In practice `flex-basis: 0%`
+  // alone doesn't override a flex item's default `min-width: auto`, so
+  // long pairing text still floored the matchup box's width above 50%
+  // (measured ~57/43 in-browser) until `min-w-0` was added on top.
   //
-  // v1.0.138: it didn't, in practice -- measured ~57/43 in the browser.
-  // `flex-basis: 0%` alone does NOT override a flex item's default
-  // `min-width: auto`, which browsers compute from the item's own content
-  // (its min-content size -- effectively the width of its longest
-  // unbreakable run of text/inline content). The matchup box's pairing
-  // text is wider at min-content than the win-prob box's short "TEAM XX%"
-  // text, so the matchup box was quietly being floored above 50% by its
-  // own content, exactly the "let content influence outer width" failure
-  // mode this needs to avoid. Fix: `min-w-0` on BOTH boxes, so
-  // `flex: 1 1 0%` is the only thing deciding width, full stop -- no
-  // implicit content-based floor on either side, ever. With that floor
-  // removed, overflow is handled entirely inside the box by the
-  // `flex-wrap` teaser layout (long pairings wrap to a second line
-  // instead of pushing the box wider) rather than by the box growing.
+  // v1.0.139: ratio changed from 50/50 to a fixed 60/40, and switched from
+  // flex percentages to an explicit CSS Grid (`gridTemplateColumns: "60%
+  // 40%"`) rather than `flex: 0 0 60%` / `flex: 0 0 40%`. A zero-grow,
+  // zero-shrink flex-basis pair leaves no room for the row's own `gap` --
+  // percentages there are resolved against the FULL container width, so
+  // 60% + 40% + gap always overflows by exactly the gap's width. CSS
+  // Grid's column tracks are gap-aware by construction, so `60% 40%` plus
+  // `gap-2` always sums to exactly the container width, at any row width.
+  // `min-w-0` is kept on both grid items for the same reason it was
+  // needed under flex: grid items ALSO default to `min-width: auto`, so
+  // without it a long enough pairing could still floor its column above
+  // 60% the same way it floored the flex box above 50%.
+  //
+  // `items-stretch` (was `items-start`) makes both boxes match height --
+  // whichever is taller, driven by content -- instead of each sizing
+  // independently to its own content the way the previous round
+  // deliberately kept them. The matchup teaser button's own `h-full` +
+  // `justify-center` (added above) is what lets it actually fill and
+  // center within that now-shared height instead of leaving dead space
+  // below a short one-line pairing.
+  if (!winProb) {
+    return (
+      <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
+        {matchupBox}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-2 items-start">
+    <div className="grid gap-2 items-stretch" style={{ gridTemplateColumns: "60% 40%" }}>
       <div
-        className="rounded-xl border border-line overflow-hidden flex-1 min-w-0"
+        className="rounded-xl border border-line overflow-hidden min-w-0"
         style={{ background: "#0B101C" }}
       >
         {matchupBox}
       </div>
-      {winProb && (
-        <div className="flex-1 min-w-0">
-          <WinProbBadge variant="boxed" label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
-        </div>
-      )}
+      <div className="min-w-0">
+        <WinProbBadge variant="boxed" label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
+      </div>
     </div>
   );
 }
