@@ -256,22 +256,34 @@ function MatchupCard({
   // resize the win-prob box, and `items-start` below stops the row from
   // stretching the shorter box to match the taller one.
   //
-  // v1.0.137: both boxes are now `flex-1` (equal grow, equal 0% basis),
-  // not a fixed 60/40 split -- with exactly two flex children this always
-  // resolves to a clean 50/50, regardless of either side's content, which
-  // is the actual mechanism that makes "equal width" hold even though the
-  // matchup box's own inner content (name lengths, expanded vs collapsed)
-  // varies. Width is never computed from content on either side.
+  // v1.0.137: both boxes are `flex-1` (`flex: 1 1 0%`), not a fixed 60/40
+  // split -- with exactly two flex children this is supposed to resolve to
+  // a clean 50/50 regardless of either side's content.
+  //
+  // v1.0.138: it didn't, in practice -- measured ~57/43 in the browser.
+  // `flex-basis: 0%` alone does NOT override a flex item's default
+  // `min-width: auto`, which browsers compute from the item's own content
+  // (its min-content size -- effectively the width of its longest
+  // unbreakable run of text/inline content). The matchup box's pairing
+  // text is wider at min-content than the win-prob box's short "TEAM XX%"
+  // text, so the matchup box was quietly being floored above 50% by its
+  // own content, exactly the "let content influence outer width" failure
+  // mode this needs to avoid. Fix: `min-w-0` on BOTH boxes, so
+  // `flex: 1 1 0%` is the only thing deciding width, full stop -- no
+  // implicit content-based floor on either side, ever. With that floor
+  // removed, overflow is handled entirely inside the box by the
+  // `flex-wrap` teaser layout (long pairings wrap to a second line
+  // instead of pushing the box wider) rather than by the box growing.
   return (
     <div className="flex gap-2 items-start">
       <div
-        className="rounded-xl border border-line overflow-hidden flex-1"
+        className="rounded-xl border border-line overflow-hidden flex-1 min-w-0"
         style={{ background: "#0B101C" }}
       >
         {matchupBox}
       </div>
       {winProb && (
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <WinProbBadge variant="boxed" label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
         </div>
       )}

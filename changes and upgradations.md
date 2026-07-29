@@ -2970,3 +2970,11 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Verified
 - `npx tsx` + `react-dom/server`: both boxes render `flex-1` for short- and long-name cases alike; long pairing's full names both present in markup, uncut; win-prob box's markup identical regardless of matchup box content; no-win-prob-data case still gives the matchup box the full row. `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.138] 2026-07-29
+
+#### Fixed -- `components/MatchupCard.tsx`
+- The 50/50 split from v1.0.137 measured ~57/43 in the browser despite both boxes being `flex-1`. Root cause: `flex-basis: 0%` doesn't override a flex item's default `min-width: auto`, which browsers compute from the item's own content -- the matchup box's pairing text has a wider min-content floor than the win-prob box's short text, so it was quietly getting extra width regardless of `flex-1`. Added `min-w-0` to both boxes so `flex: 1 1 0%` is the only thing left deciding width -- content can no longer floor either box above 50%. Overflow now handled entirely inside the (genuinely) constrained matchup box via the existing `flex-wrap` teaser layout.
+
+#### Hardened -- `components/WinProbBadge.tsx`
+- `variant="boxed"`'s two lines now also carry `truncate max-w-full` as a safety net, so an unusually long team label clips inside the box instead of being able to push it wider.

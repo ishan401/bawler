@@ -120,6 +120,12 @@ export default function WinProbBadge({
   }
 
   if (variant === "boxed") {
+    // v1.0.138: `truncate` + `max-w-full` on both lines is a pure safety
+    // net -- this box's width is now fixed by its flex-parent's own
+    // `flex: 1 1 0%` + `min-w-0` (MatchupCard.tsx), never by this content,
+    // so nothing here should ever need to actually influence the box's
+    // width. If it somehow did overflow (an unusually long team label),
+    // it clips inside the box rather than pushing the box wider.
     return (
       <Tag
         onClick={onClick}
@@ -127,8 +133,8 @@ export default function WinProbBadge({
         style={{ background: "#0B101C" }}
         aria-label={ariaLabel}
       >
-        <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim">Win Prob</span>
-        <span key={pct} className="text-[15px] font-extrabold text-white num winprob-pulse">{label} {pct}%</span>
+        <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim truncate max-w-full">Win Prob</span>
+        <span key={pct} className="text-[15px] font-extrabold text-white num winprob-pulse truncate max-w-full">{label} {pct}%</span>
       </Tag>
     );
   }
