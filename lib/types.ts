@@ -178,6 +178,45 @@ export interface Innings {
   declared?: boolean;        // Test: batting team declared
   followOn?: boolean;        // Test: this innings is following on
   sessions?: TestSession[];   // Test: session metadata for Digest grouping
+  // v1.0.134: retirement events, deliberately kept OUT of `balls` -- see
+  // RetirementRecord's own doc comment for why. `lib/matchFeedAdapter.ts`
+  // is responsible for routing any raw feed's retirement signal here,
+  // however that feed represents it internally; nothing should ever push
+  // a retirement into `balls` directly. Empty/absent for every match
+  // today (no mock fixture uses this state yet).
+  retirements?: RetirementRecord[];
+}
+
+// ── Retirement side-channel (v1.0.134) ─────────────────────────────────────
+// A retirement -- voluntary ("retired not out", e.g. injury) or the rarer
+// umpire-given "retired out" -- happens BETWEEN deliveries in real
+// cricket; it consumes no ball. Modeling it as an entry in `Innings.balls`
+// (the way a wicket or a wide is modeled) was tried and rejected: every
+// consumer of `balls` -- over/ball-count bookkeeping in
+// `deriveBowlingCardFromBalls`, "which over is still live" resolution in
+// `components/DigestTab.tsx`'s `buildOverGroupCards` -- assumes each entry
+// is exactly one real delivery counted toward `ballsPerSet(format)`. A
+// fabricated non-delivery entry either inflates a real over's ball count
+// (corrupting that over's bowler's figures) or, given an out-of-range
+// over number instead, gets misidentified as the new "current" over and
+// prematurely closes out the actual current one. See DECISIONS-LOG.md
+// v1.0.133 for the two concrete corruption proofs, and v1.0.134 for this
+// side-channel as the fix: a retirement record that never touches `.over`
+// or `.ballInOver` bookkeeping at all.
+export type RetirementType = "retired-not-out" | "retired-out";
+
+export interface RetirementRecord {
+  playerId: string;
+  playerName: string;
+  type: RetirementType;
+  // id of the last real ball bowled before this retirement took effect,
+  // or undefined if it happened before this innings' first ball. A
+  // pointer into `balls[]` used ONLY to determine whether the retirement
+  // has "happened yet" at a given truncated/live playback position (see
+  // isRetirementVisible() in lib/matchStatus.ts) -- never a Ball itself,
+  // and never resolved by array index (indices shift under truncation;
+  // ids don't).
+  afterBallId?: string;
 }
 
 export interface FielderPosition {
@@ -203,12 +242,17 @@ export interface BattingEntry {
   // out in the middle. Always false when `out` is true. A batter with
   // `retiredNotOut: true` is NOT one of the two current partners and
   // must never get "at the crease" styling (see Scorecard.tsx's
-  // isLiveBatter). Only covers "retired -- not out"; a rarer "retired --
-  // out" (given out by the umpire for retiring without cause) is not
-  // modeled -- that variant would need `out: true` plus a distinct
-  // dismissalType, which Ball.dismissalType's flat "retired" value can't
-  // currently disambiguate from this case.
+  // isLiveBatter).
   retiredNotOut?: boolean;
+  // v1.0.134: the rarer umpire-given "retired -- out" variant (retiring
+  // without valid cause, e.g. exceeding an allowed absence). Unlike
+  // `retiredNotOut`, this DOES count as a genuine dismissal -- `out` is
+  // always true alongside it, and it counts toward the innings' wicket
+  // tally (see countWicketEquivalentRetirements() in lib/matchStatus.ts)
+  // -- but credits no bowler, since it isn't a delivery. Both retirement
+  // fields are derived from `Innings.retirements`, never from `balls`;
+  // see RetirementRecord's doc comment in this file for why.
+  retiredOut?: boolean;
 }
 
 export interface BowlingEntry {
@@ -241,6 +285,14 @@ export interface Ball {
   extras: number;
   extraType?: "wd" | "nb" | "b" | "lb" | "pen";
   isWicket: boolean;
+  // "retired" is kept in this union for backward compatibility with any
+  // existing check against it, but a real ball must never actually carry
+  // it (v1.0.134): `lib/dataValidation.ts`'s `validateBall` hard-rejects
+  // any ball reaching it with `dismissalType: "retired"` -- a retirement
+  // isn't a delivery, and belongs exclusively in `Innings.retirements`
+  // (see RetirementRecord's doc comment, above `Innings`). Route it
+  // through `lib/matchFeedAdapter.ts`'s `ingestMatchFeed()` instead,
+  // however the raw feed represents it.
   dismissalType?: "bowled" | "caught" | "lbw" | "run-out" | "stumped" | "hit-wicket" | "retired";
   isBoundary4: boolean;
   isBoundary6: boolean;

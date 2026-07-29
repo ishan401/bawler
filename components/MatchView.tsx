@@ -25,7 +25,7 @@ import MatchupCard from "@/components/MatchupCard";
 import MatchupShareCard from "@/components/MatchupShareCard";
 import WinProbBadge from "@/components/WinProbBadge";
 import { getMatchupStats } from "@/lib/mockMatchups";
-import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker } from "@/lib/matchStatus";
+import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker, countWicketEquivalentRetirements } from "@/lib/matchStatus";
 
 interface MatchViewProps {
   match: Match;
@@ -290,7 +290,15 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         // this innings look like right now," not a partial recompute.
         const hasBalls  = truncBalls.length > 0;
         const runs      = truncBalls.reduce((s, b) => s + b.runs + b.extras, 0);
-        const wickets   = truncBalls.filter(b => b.isWicket).length;
+        // Live wickets: real ball-derived dismissals PLUS any "retired --
+        // out" event that's happened yet at this exact playback position
+        // (never "retired -- not out", which by definition doesn't count
+        // as a dismissal -- same as real cricket). Retirements live in
+        // `inn.retirements`, never in `balls`, so this can't be folded
+        // into the `.filter(isWicket)` count above it -- see
+        // RetirementRecord's doc comment in lib/types.ts for why.
+        const wickets   = truncBalls.filter(b => b.isWicket).length
+          + countWicketEquivalentRetirements(inn.retirements, truncBalls);
         const lastBall  = truncBalls[truncBalls.length - 1];
         const overs     = lastBall
           ? lastBall.over - 1 + (lastBall.ballInOver + 1) / ballsPerSet(match.format)
@@ -301,7 +309,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           runs:        hasBalls ? runs    : inn.runs,
           wickets:     hasBalls ? wickets : inn.wickets,
           overs:       hasBalls ? Math.round(overs * 10) / 10 : inn.overs,
-          battingCard: hasBalls ? deriveBattingCardFromBalls(truncBalls, inn.battingCard) : inn.battingCard,
+          battingCard: hasBalls ? deriveBattingCardFromBalls(truncBalls, inn.battingCard, inn.retirements) : inn.battingCard,
           bowlingCard: hasBalls ? deriveBowlingCardFromBalls(truncBalls, inn.bowlingCard, match.format) : inn.bowlingCard,
         });
       }

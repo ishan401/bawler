@@ -1399,3 +1399,95 @@ decision point that every future consumer (should the ticker ever need
 checking from a second location) calls, instead of re-deriving the same
 condition inline and risking a second copy drifting out of sync with the
 first.
+
+## Worked example — a real ball-by-ball feed adapter, and a non-delivery event kept structurally separate from the ball array — v1.0.134
+
+Every other real-data-readiness pattern in this document is a READ-side
+interface: `lib/teamData.ts`, `lib/teamSchedule.ts`, and `lib/playerForm.ts`
+each wrap an already-internally-shaped mock field behind an async accessor
+function, so the eventual swap to a real source is a one-file
+implementation change. Match/ball-by-ball data had a different, narrower
+gap: `lib/dataValidation.ts`'s `normalizeMatch()` already existed as a
+runtime validator (RR1, `DECISIONS-LOG.md`) — but it checks that an object
+is a WELL-FORMED instance of Bawler's own `Match`/`Innings`/`Ball` shape,
+field for field. It has no opinion on a real provider's actual wire
+format, which will use its own field names, casing, and event vocabulary,
+not Bawler's internal ones. Nothing in the codebase did that translation.
+
+**The pattern, one level upstream of `normalizeMatch()`:** `lib/
+matchFeedAdapter.ts`'s `ingestMatchFeed(raw, opts?)` is the new, single
+sanctioned entry point for a raw provider payload (`RawFeedMatch` — a
+best-informed assumption about a realistic live-scores API, since no
+live provider is connected yet). It reshapes every field into Bawler's
+naming (`over_number` → `over`, `is_wicket` → `isWicket`, etc. — snake_case
+provider convention chosen deliberately, distinct from Bawler's own
+camelCase, so the translation step is real and not just a type-level
+formality), then delegates to `normalizeMatch()` for the actual field-
+validation logic, which is not duplicated. `normalizeMatch()` itself
+remains callable directly for anything ALREADY Bawler-shaped (a mock
+fixture object, a generated test object) — it's `ingestMatchFeed()` that
+owns the "genuinely raw, differently-shaped external payload" case.
+Nothing should call `normalizeMatch()` directly against real provider
+JSON; nothing should call a provider's raw feed handling logic outside
+`ingestMatchFeed()`.
+
+**The retirement side-channel — why a delivery-shaped array is the wrong
+place for a non-delivery event.** Investigating a request to hand-author a
+retirement event for a specific mock fixture (`DECISIONS-LOG.md` v1.0.133)
+proved, with two concrete before/after test runs, that inserting any kind
+of non-delivery entry into `Innings.balls` corrupts something else: every
+consumer of that array — `deriveBowlingCardFromBalls`'s legal-ball count,
+`buildOverGroupCards`'s "which over is still live" resolution — assumes
+each entry is exactly one delivery counted toward `ballsPerSet(format)`.
+Attaching the event to a real over inflates that over's ball count
+(a bowler's whole-innings `oversBowled`/economy silently shifted despite
+zero extra deliveries bowled); attaching it to an out-of-range sentinel
+over instead gets misidentified as the new "current" over and prematurely
+closes out the genuinely current one.
+
+The fix generalizes past that one fixture: `RetirementRecord` (`lib/
+types.ts`) is a new side-channel type living on `Innings.retirements`,
+structurally separate from `balls` — it carries `playerId`/`playerName`,
+a `type: "retired-not-out" | "retired-out"`, and an `afterBallId` pointer
+(a real ball's own `id`, used only to answer "has this retirement
+happened yet at this playback position," via `isRetirementVisible()` in
+`lib/matchStatus.ts` — never resolved by array index, since indices shift
+under truncation but ids don't). `deriveBattingCardFromBalls` reads a
+player's retirement status from this side-channel, never from `balls`;
+`countWicketEquivalentRetirements()` folds a "retired -- out" occurrence
+into a live wickets count the same way `MatchView.tsx`'s `truncatedMatch`
+already computes it from `balls.filter(isWicket)` — "retired -- not out"
+deliberately never counts, matching real cricket. `ingestMatchFeed()`
+extracts a raw feed's own retirement representation (`RawFeedInnings`
+models this as a `RawFeedRetirementEvent` interleaved inline in the same
+per-innings `events` array as deliveries — the realistic case, since
+several real providers do mix delivery and card-level events in one
+stream) into this side-channel before anything else ever sees it.
+
+**Defense in depth, not just a well-behaved adapter.** `ingestMatchFeed()`
+does the extraction correctly, but a provider's OWN feed could still be
+internally inconsistent (a delivery event that also happens to carry a
+retirement-shaped `dismissal_type`) or a future call site could bypass the
+adapter and call `normalizeMatch()` directly against something already
+containing a "retired" ball. `lib/dataValidation.ts`'s `validateBall` was
+hardened to hard-REJECT (a blocking error, not the warning an ordinary
+unrecognized `dismissalType` gets) any ball reaching it with
+`dismissalType: "retired"` — closing the loophole at the lowest possible
+level, not just the one intended entry point above it. Proven directly:
+constructing a malformed feed with a delivery event also carrying
+`dismissal_type: "retired"` and running it through `ingestMatchFeed()`
+returns `{ ok: false }` with that exact validation error, rather than
+silently accepting a ball that would corrupt over-bookkeeping downstream.
+
+**Mock data's own path is unchanged, deliberately.** `lib/mockData.ts`'s
+hand-authored fixtures (`LIVE_INTERNATIONAL`, `FEATURED_MATCH`, etc.) were
+never run through `normalizeMatch()` either — only `lib/matchGenerator.ts`'s
+procedurally-generated past/future matches are (this predates v1.0.134).
+`ingestMatchFeed()` doesn't change that: hand-authored fixtures are already
+Bawler-shaped literals, so there's nothing for a shape-translation adapter
+to do for them. Confirmed via `npx tsx` that every existing regression
+test from the v1.0.131-133 rounds (truncated-scrub derivation, the
+reappearance audit, the ticker gate) still passes unchanged after this
+round, since not one existing fixture sets `Innings.retirements` — the new
+code path is exercised only by this round's own synthetic feed tests.
+

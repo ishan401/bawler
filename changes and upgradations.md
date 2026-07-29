@@ -2915,3 +2915,30 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`: fresh synthetic retirement scenario confirms `dismissal: "Retired"`. `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.134] 2026-07-29
+
+### New: real ball-by-ball feed ingestion adapter; retirement modeled as an innings-level side-channel (both variants)
+
+#### New -- `lib/matchFeedAdapter.ts`
+- `ingestMatchFeed(raw: RawFeedMatch, opts?)` -- the one sanctioned entry point for a real provider's raw feed, following the same interface-first pattern as `lib/teamData.ts`/`lib/teamSchedule.ts`/`lib/playerForm.ts`. Reshapes a realistic best-informed raw provider shape (snake_case fields, deliveries and retirement events interleaved in one per-innings `events` array -- the realistic case several real providers use) into Bawler's internal `Match`/`Innings`/`Ball` naming, extracts retirement events into the new side-channel (below) before anything else sees them, then delegates to `lib/dataValidation.ts`'s existing `normalizeMatch()` for field validation. Never throws.
+
+#### New -- `lib/types.ts`
+- `RetirementRecord`/`RetirementType` ("retired-not-out" | "retired-out"), `Innings.retirements?: RetirementRecord[]` -- a retirement is never a ball (see DECISIONS-LOG.md v1.0.133's two corruption proofs for why), so it lives in its own side-channel instead, referencing a real ball's `id` (never an array index) to determine when it's taken effect.
+- `BattingEntry.retiredOut?: boolean` -- the rarer umpire-given variant, now modeled alongside the existing `retiredNotOut`. Unlike its sibling, this counts as a genuine dismissal (`out: true`, folds into the wicket tally) but credits no bowler.
+
+#### New -- `lib/matchStatus.ts`
+- `isRetirementVisible(record, balls)`, `countWicketEquivalentRetirements(retirements, balls)` -- the latter counts only visible "retired-out" occurrences, since "retired-not-out" never counts toward wickets.
+- `deriveBattingCardFromBalls` takes an optional third `retirements` param; derives a player's retirement status exclusively from it, never from `balls`.
+
+#### Changed -- `components/MatchView.tsx`
+- `truncatedMatch`'s live wickets calc now adds `countWicketEquivalentRetirements(inn.retirements, truncBalls)` alongside the existing ball-derived count. `deriveBattingCardFromBalls` call site passes `inn.retirements` through.
+
+#### Hardened -- `lib/dataValidation.ts`
+- `validateBall` now hard-rejects (blocking error, not a warning) any ball reaching it with `dismissalType: "retired"` -- closes the loophole even for a call path bypassing `ingestMatchFeed()`. New `validateRetirement()` validates the new `Innings.retirements` field.
+
+#### Unchanged, stated explicitly
+- `lib/mockData.ts`'s hand-authored fixtures don't flow through `ingestMatchFeed()` or `normalizeMatch()` -- they never did (only `lib/matchGenerator.ts`'s generated matches do). No fixture sets `Innings.retirements` today; `components/Scorecard.tsx` needed no changes, since `retiredOut`'s `out: true` already flows through its existing v1.0.132 dismissal-text render branch.
+
+#### Tests
+- `npx tsx`: constructed raw feed with a mid-over "retired-not-out" event through `ingestMatchFeed` -- over ball counts stay exactly 6/6 (not 7), bowling figures clean (`oversBowled: 1`, not `1.1`), `buildOverGroupCards` resolves exactly 2 real-over cards (no phantom), retired batter's card shows `retiredNotOut: true, dismissal: "Retired"`, innings wickets `0`. Second feed with "retired-out": wickets `1`, card shows `out: true, retiredOut: true, dismissal: "Retired out"`. Malformed feed (a delivery event also tagged `dismissal_type: "retired"`) correctly hard-rejected. Full regression re-run of every v1.0.131-133 test: unchanged. `tsc --noEmit`/`npm run build` clean.

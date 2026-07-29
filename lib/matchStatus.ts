@@ -24,7 +24,7 @@
 // truncated, still-in-progress score).
 // ============================================================================
 
-import type { Match, Innings, Ball, BattingEntry, BowlingEntry, MatchFormat } from "./types";
+import type { Match, Innings, Ball, BattingEntry, BowlingEntry, MatchFormat, RetirementRecord } from "./types";
 import { ballsPerSet } from "./formatUtils";
 import { totalBallsForFormat } from "./winProb";
 
@@ -169,18 +169,63 @@ export function isMatchConclusivelyOver(match: Match): boolean {
 // slice -- never borrowed from the original card's `out` flag, since that
 // flag describes the END of the innings, which may not have happened yet
 // at this playback position (and, per the real-data-readiness note below,
-// may not even be reachable yet for a genuinely live match).
+// may not even be reachable yet for a genuinely live match). A
+// RETIREMENT (either variant) is the one exception to "derived purely
+// from balls": it's read from the innings' separate `retirements`
+// side-channel instead, gated by the same truncated-position honesty via
+// `isRetirementVisible()` below -- see RetirementRecord in lib/types.ts
+// for why it's never a ball to begin with.
 // ============================================================================
+
+// ── Retirement side-channel helpers (v1.0.134) ─────────────────────────────
+// A RetirementRecord's `afterBallId` is a pointer into the innings' FULL
+// ball log, not the (possibly truncated) slice being rendered right now --
+// so "has this retirement actually happened yet at the current playback
+// position" is its own small question, answered once here rather than
+// reimplemented at each of this record's two consumers below
+// (deriveBattingCardFromBalls and MatchView.tsx's truncatedMatch wickets
+// count). `afterBallId` unset means "before this innings' first ball" --
+// vanishingly rare in practice, but always immediately visible rather than
+// crashing or hanging on a ball that will never appear.
+
+/** Has `record` "happened yet" within the given (possibly truncated) ball slice? */
+export function isRetirementVisible(record: RetirementRecord, balls: Ball[]): boolean {
+  if (!record.afterBallId) return true;
+  return balls.some(b => b.id === record.afterBallId);
+}
+
+/**
+ * How many of `retirements` are BOTH the "retired -- out" variant (the
+ * only kind that counts toward the innings' wicket tally -- "retired not
+ * out" explicitly does not, same as real cricket) AND already visible
+ * within `balls`. Used by MatchView.tsx's `truncatedMatch` to fold
+ * retirement-out dismissals into its live wickets count, which is
+ * otherwise purely `balls.filter(isWicket).length` -- correct for every
+ * real delivery-based dismissal, but blind to a side-channel event by
+ * construction (see RetirementRecord's doc comment in lib/types.ts for
+ * why retirements never appear in `balls` at all).
+ */
+export function countWicketEquivalentRetirements(
+  retirements: RetirementRecord[] | undefined,
+  balls: Ball[]
+): number {
+  if (!retirements || retirements.length === 0) return 0;
+  return retirements.filter(r => r.type === "retired-out" && isRetirementVisible(r, balls)).length;
+}
 
 /**
  * Recompute one innings' battingCard from a (possibly truncated) ball
  * slice. `originalCard` supplies player identity/order only -- every
  * mutable field (runs, ballsFaced, fours, sixes, strikeRate, out,
- * dismissal, onStrike) is derived fresh from `balls`.
+ * dismissal, onStrike) is derived fresh from `balls`. `retirements` is the
+ * innings' side-channel (see RetirementRecord in lib/types.ts) -- retired
+ * players are derived from THIS, never from `balls`, since a retirement is
+ * never a ball.
  */
 export function deriveBattingCardFromBalls(
   balls: Ball[],
-  originalCard: BattingEntry[]
+  originalCard: BattingEntry[],
+  retirements: RetirementRecord[] = []
 ): BattingEntry[] {
   const lastBall = balls.length > 0 ? balls[balls.length - 1] : undefined;
 
@@ -192,17 +237,27 @@ export function deriveBattingCardFromBalls(
     const sixes = playerBalls.filter(b => b.isBoundary6).length;
     const wicketBall = playerBalls.find(b => b.isWicket);
     const out = !!wicketBall;
-    // A ball tagged dismissalType "retired" without isWicket is a
-    // voluntary retirement (e.g. injury) -- it ends this player's
-    // innings but must never count as a dismissal (isWicket stays false
-    // on that ball by construction, so it never inflates the innings'
-    // wicket tally). Only meaningful when the player isn't already out
-    // some other way. See BattingEntry.retiredNotOut for why this only
-    // covers "retired -- not out", not the rarer "retired -- out".
-    const retiredBall = !out ? playerBalls.find(b => b.dismissalType === "retired") : undefined;
-    const retiredNotOut = !!retiredBall;
+
+    // Only meaningful when the player isn't already genuinely out some
+    // other way, and only once the retirement has actually happened at
+    // this playback position (isRetirementVisible) -- a retirement
+    // scheduled for later in the innings must not retroactively apply to
+    // an earlier scrub position.
+    const retirement = !out
+      ? retirements.find(r => r.playerName === entry.playerName && isRetirementVisible(r, balls))
+      : undefined;
+    const retiredNotOut = retirement?.type === "retired-not-out";
+    const retiredOut = retirement?.type === "retired-out";
+    // "retired -- out" IS a genuine dismissal (counts toward the innings'
+    // wicket tally, per countWicketEquivalentRetirements above) even
+    // though it credits no bowler -- so `out` folds it in here.
+    const finalOut = out || retiredOut;
+
     const strikeRate = ballsFaced > 0 ? Math.round((runs / ballsFaced) * 10000) / 100 : 0;
-    const onStrike = !!lastBall && lastBall.batterName === entry.playerName;
+    // A retired player (either variant) has left the crease just as
+    // surely as a dismissed one -- never still "on strike" even if their
+    // own last ball happens to be the innings' most recent so far.
+    const onStrike = !!lastBall && lastBall.batterName === entry.playerName && !retirement;
 
     // Prefer the original card's hand-authored dismissal text (e.g. "c
     // Dhoni b Jadeja") when it's actually consistent with this player
@@ -210,16 +265,21 @@ export function deriveBattingCardFromBalls(
     // reconstructable from a Ball alone. Falls back to a generic
     // dismissalType-based string so a real-data feed with a genuinely
     // out player but no matching original-card text still shows
-    // something sensible rather than nothing. A retired (not out)
-    // player gets its own distinct "Retired" label so it's never
-    // confusable with "not out" -- see Scorecard.tsx BatterRow.
+    // something sensible rather than nothing. Each retirement variant
+    // gets its own distinct label so neither is ever confusable with
+    // plain "not out" or a normal dismissal -- see Scorecard.tsx
+    // BatterRow (retiredOut reuses the same render branch as a genuine
+    // wicket, since `out` is true for it too; retiredNotOut gets its own
+    // branch, since `out` stays false for it).
     const dismissal = out
       ? entry.out
         ? entry.dismissal
         : wicketBall?.dismissalType ?? "out"
-      : retiredNotOut
-        ? "Retired"
-        : undefined;
+      : retiredOut
+        ? "Retired out"
+        : retiredNotOut
+          ? "Retired"
+          : undefined;
 
     return {
       ...entry,
@@ -228,8 +288,9 @@ export function deriveBattingCardFromBalls(
       fours,
       sixes,
       strikeRate,
-      out,
+      out: finalOut,
       retiredNotOut,
+      retiredOut,
       dismissal,
       onStrike,
     };

@@ -34,13 +34,17 @@
 //   validate every object at the boundary, never past it.
 // ============================================================================
 
-import type { Match, Ball, Innings, Team, Venue, Competition, MatchFormat, MatchStatus } from "./types";
+import type { Match, Ball, Innings, Team, Venue, Competition, MatchFormat, MatchStatus, RetirementRecord } from "./types";
 
 const VALID_FORMATS: MatchFormat[] = ["T20", "T20I", "ODI", "Test", "Hundred"];
 const VALID_STATUSES: MatchStatus[] = ["upcoming", "pre-match", "toss", "live", "innings-break", "post-match"];
 const VALID_COMPETITION_TYPES = ["league", "international", "bilateral", "domestic"];
+// "retired" stays in this list only so validateBall (below) can recognize
+// and REJECT it by name with a clear message, not because a ball may
+// legitimately carry it -- see that rejection for why (v1.0.134).
 const VALID_DISMISSALS = ["bowled", "caught", "lbw", "run-out", "stumped", "hit-wicket", "retired"];
 const VALID_EXTRA_TYPES = ["wd", "nb", "b", "lb", "pen"];
+const VALID_RETIREMENT_TYPES = ["retired-not-out", "retired-out"];
 
 export interface ValidationIssue {
   path: string;
@@ -163,8 +167,40 @@ function validateBall(raw: unknown, path: string, errors: ValidationIssue[], war
   if (raw.extraType !== undefined && raw.extraType !== null && !VALID_EXTRA_TYPES.includes(raw.extraType as string)) {
     warnings.push({ path: `${path}.extraType`, message: `unrecognized extraType ${JSON.stringify(raw.extraType)} — ignoring` });
   }
-  if (raw.dismissalType !== undefined && raw.dismissalType !== null && !VALID_DISMISSALS.includes(raw.dismissalType as string)) {
+  // v1.0.134: a retirement is never a delivery and must never reach this
+  // validator as a ball — see RetirementRecord's doc comment in
+  // lib/types.ts for the two concrete corruptions ("current over"
+  // misresolution, inflated bowling figures) letting one through
+  // silently caused. This is a hard, blocking error (not a warning, the
+  // way an unrecognized dismissalType otherwise is) precisely because a
+  // real feed reporting a retirement inline in its ball-by-ball sequence
+  // is the realistic, expected case, not an edge case — it must be
+  // caught here, loudly, rather than silently accepted and corrupting
+  // over/wicket bookkeeping downstream. The correct path is
+  // lib/matchFeedAdapter.ts's `ingestMatchFeed()`, which extracts exactly
+  // this event out of a raw feed's delivery sequence into
+  // `Innings.retirements` before anything reaches this validator.
+  if (raw.dismissalType === "retired") {
+    errors.push({
+      path: `${path}.dismissalType`,
+      message: `"retired" must never appear on a ball — route retirement events through lib/matchFeedAdapter.ts's ingestMatchFeed() into Innings.retirements instead`,
+    });
+  } else if (raw.dismissalType !== undefined && raw.dismissalType !== null && !VALID_DISMISSALS.includes(raw.dismissalType as string)) {
     warnings.push({ path: `${path}.dismissalType`, message: `unrecognized dismissalType ${JSON.stringify(raw.dismissalType)}` });
+  }
+  return true;
+}
+
+function validateRetirement(raw: unknown, path: string, errors: ValidationIssue[]): raw is RetirementRecord {
+  if (!isObject(raw)) {
+    errors.push({ path, message: `expected an object, got ${typeOf(raw)}` });
+    return false;
+  }
+  requireString(raw.playerId, `${path}.playerId`, errors);
+  requireString(raw.playerName, `${path}.playerName`, errors);
+  requireEnum(raw.type, VALID_RETIREMENT_TYPES, `${path}.type`, errors);
+  if (raw.afterBallId !== undefined && raw.afterBallId !== null && !isString(raw.afterBallId)) {
+    errors.push({ path: `${path}.afterBallId`, message: `expected a string ball id, got ${typeOf(raw.afterBallId)}` });
   }
   return true;
 }
@@ -196,6 +232,14 @@ function validateInnings(raw: unknown, path: string, errors: ValidationIssue[], 
       errors.push({ path: `${path}.balls`, message: `expected an array, got ${typeOf(raw.balls)}` });
     } else {
       raw.balls.forEach((b, i) => validateBall(b, `${path}.balls[${i}]`, errors, warnings));
+    }
+  }
+
+  if (raw.retirements !== undefined) {
+    if (!Array.isArray(raw.retirements)) {
+      errors.push({ path: `${path}.retirements`, message: `expected an array, got ${typeOf(raw.retirements)}` });
+    } else {
+      raw.retirements.forEach((r, i) => validateRetirement(r, `${path}.retirements[${i}]`, errors));
     }
   }
   return true;
