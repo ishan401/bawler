@@ -752,6 +752,12 @@ either rendering site in isolation.
   dataset ("I Kishan" vs "V Chakravarthy", 22 combined characters,
   occurring in the live `ipl2026-m37-kkrvmi` match) rather than a
   hypothetical worst case.
+  **Superseded by v1.0.136-139** (see the worked example further below):
+  the pairing and the win-prob readout no longer share one box at all --
+  this whole "one yields so the other doesn't get crowded" layout was
+  replaced by two independent, fixed-ratio boxes. `truncate` on the name
+  spans was replaced by `flex-wrap` (long pairings wrap to a second line
+  instead of ellipsizing).
 - **No-matchup state -- confirmed already-correct, not newly patched:**
   `MatchView.tsx` only renders `MatchupCard` when there's a real current
   ball + innings (`matchupInfo` non-null); pre-match and
@@ -1491,3 +1497,104 @@ reappearance audit, the ticker gate) still passes unchanged after this
 round, since not one existing fixture sets `Innings.retirements` — the new
 code path is exercised only by this round's own synthetic feed tests.
 
+**Worked example — splitting one shared box into two independent, fixed-ratio boxes (v1.0.136-139):**
+
+The Live tab's matchup/win-prob element started as one box that toggled in
+place between two states: collapsed showed the current batter/bowler pairing
+plus the emphasized win-prob readout sharing one line; tapping it swapped
+the SAME box's content over to the full head-to-head stat breakdown, hiding
+the win-prob number until tapped back. The request was to make these two
+already-working features genuinely independent, laid out side by side —
+this took four rounds to get fully right, and each round's mistake is worth
+recording alongside the fix, since two of the four were real CSS gotchas
+rather than logic bugs.
+
+- **v1.0.136 — the actual split.** `MatchupCard.tsx`'s collapsed/expanded
+  content moved into a local `matchupBox` variable, rendered inside its own
+  bordered box; the win-prob readout became a second, sibling bordered box
+  rendered in the SAME return, structurally outside the `expanded`-gated
+  branch that defines `matchupBox`. This is the one change that actually
+  matters for "independent": toggling `expanded` can only ever reassign
+  `matchupBox`'s own content, never touch the win-prob box's JSX at all,
+  by construction — not by convention or by remembering not to couple
+  them. `WinProbBadge.tsx` gained a fourth variant, `"boxed"`, to fill this
+  new box edge-to-edge (same fixed-white value/label/pulse logic as every
+  other variant — this was a structural addition, not a color one, keeping
+  faith with that component's whole reason for existing, see v1.0.123
+  above). Ratio at this point: a fixed 60% / `flex-1` split.
+- **v1.0.137 — ratio to 50/50, and a real UX gap closed alongside it.**
+  Ratio changed to `flex-1` on both sides (meant to force equal width).
+  Separately, dropping the 60% width meant the collapsed teaser's full
+  "Initial Surname" pairings (`formatPlayerName`'s own output, e.g. "J Root
+  vs K Yadav") had markedly less room than before. Chose `flex-wrap`
+  (long pairings wrap to a second line) over ellipsis-truncation or font
+  shrinking, specifically because a cricket app silently cutting off part
+  of a real player's name reads as a data bug, not an acceptable
+  degradation — the other two options were considered and rejected for
+  that reason, not for lack of trying.
+- **v1.0.138 — `flex-1` alone doesn't mean equal width; measured, not
+  assumed.** The 50/50 from v1.0.137 measured ~57/43 in the browser. Root
+  cause: `flex-basis: 0%` only sets the starting point before grow/shrink
+  is distributed — it does NOT override a flex item's default
+  `min-width: auto`, which browsers compute from the item's own
+  min-content size. The matchup box's pairing text has a wider min-content
+  floor than the win-prob box's short "TEAM XX%" text, so the browser was
+  quietly giving it extra width to satisfy that floor regardless of
+  `flex-1` — exactly the "let content influence outer width" failure mode
+  the whole exercise was meant to avoid, just via a mechanism invisible
+  from reading the `flex-1` class alone. Fix: `min-w-0` on both boxes,
+  confirmed via real `getComputedStyle()`/`getBoundingClientRect()` reads
+  against the deployed page (not a visual read, and not just re-trusting
+  the CSS this time) across two different live matches.
+- **v1.0.139 — ratio to a fixed 60/40, via Grid instead of flex percentages,
+  plus a deliberate reversal on height.** Two changes:
+  1. Ratio request was 60/40, with `flex: 0 0 60%` / `flex: 0 0 40%` given
+     as the literal example. Rejected in favor of CSS Grid
+     (`gridTemplateColumns: "60% 40%"`): a zero-grow/zero-shrink flex-basis
+     pair leaves no room for the row's own `gap`, since percentages there
+     resolve against the FULL container width — `60% + 40% + gap` always
+     overflows by exactly the gap's width with nothing left to shrink and
+     absorb it. Grid's `gap` is accounted for natively in track sizing, so
+     `60% 40%` plus a gap always sums to exactly the container width, at
+     any row width. `min-w-0` was kept on both grid items for the identical
+     reason it was needed under flex in v1.0.138 — grid items ALSO default
+     to `min-width: auto`.
+  2. The row's `items-start` (chosen in v1.0.136 specifically to keep the
+     win-prob box's size independent of the matchup box's own state) became
+     `items-stretch` — a deliberate reversal, made because this round's
+     request explicitly asked for matched heights instead of independent
+     ones. Width-independence-from-content (the `min-w-0` fix) is a
+     separate concern from height-matching and wasn't touched by this
+     reversal. For the matched height to actually show rather than the
+     outer box merely growing around top-aligned content, the collapsed
+     teaser button gained `h-full` (previously `w-full` only) and
+     `justify-center` alongside its existing `items-center`.
+- **Verified with real browser measurements at every stage that needed
+  one, not visual review.** v1.0.138 and v1.0.139 were both shipped only
+  after pulling actual `getComputedStyle()`/`getBoundingClientRect()`
+  values from the live deployed page (Chrome automation), across multiple
+  matches with short and long player-name pairings — including one test
+  where a long pairing was injected directly into the live DOM to force a
+  genuine two-line wrap, confirming the width ratio holds exactly (60/40,
+  e.g. `243.6px` / `162.4px`) and that height-matching works in BOTH
+  directions: a short pairing's box stretches up to match the win-prob
+  box's natural height, and a wrapped long pairing's now-taller box pulls
+  the win-prob box up to match it in turn.
+- **Lesson worth generalizing, not just fixing locally:** two of these four
+  rounds (v1.0.138, v1.0.139's Grid-vs-flex decision) were caused by
+  trusting a CSS property name's apparent meaning (`flex: 1 1 0%` "should"
+  mean equal width; `flex: 0 0 X%` "should" mean a fixed X% column) over
+  actually measuring the rendered result. Any future "make these boxes
+  proportional/equal" layout in this codebase should default to verifying
+  with a real computed-style check before considering it done, the same
+  way this round eventually did — not because Tailwind is unreliable, but
+  because flex/grid sizing algorithms have more implicit defaults
+  (`min-width: auto`, gap handling) than the class names alone suggest.
+- **Scope, each round:** v1.0.136 touched `MatchupCard.tsx` +
+  `WinProbBadge.tsx` (new variant). v1.0.137 and v1.0.138 touched only
+  `MatchupCard.tsx` (v1.0.138 also added a `truncate max-w-full` safety net
+  to `WinProbBadge.tsx`'s `"boxed"` variant, unrelated to the width fix
+  itself). v1.0.139 touched only `MatchupCard.tsx`. No round touched
+  `lib/mockMatchups.ts`, `lib/winProb.ts`, or `lib/playerName.ts` — every
+  round was purely layout/CSS, never a data or derivation change. See
+  DECISIONS-LOG.md for the exact diffs and test output at each version.
