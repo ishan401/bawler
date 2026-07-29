@@ -2961,3 +2961,12 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Verified
 - `npx tsx` + `react-dom/server`: real fixture render shows two sibling bordered boxes with correct 60/40 split, untruncated "V Kohli vs P Cummins" left, "Win Prob" / "IND 95%" right; empty-data case correctly hides the win-prob box and the matchup box reclaims full width; code trace confirms the win-prob box's JSX is never inside the `expanded`-gated branch. `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.137] 2026-07-29
+
+#### Changed -- `components/MatchupCard.tsx`
+- Matchup box and win-prob box are now an even 50/50 split (both `flex-1`) instead of the previous 60/40 -- width is never computed from either box's content, so long names can't crowd the win-prob box.
+- Collapsed teaser's name spans no longer `truncate`/ellipsis-clip -- the teaser button now uses `flex flex-wrap` so a long full-name pairing (e.g. "R van der Dussen vs J Fraser-McGurk") wraps onto a second line instead of getting cut off, while common short pairings stay on one line exactly as before (box height only grows for the rare outlier). Expanded H2H header's own name row is unchanged (out of scope, more crowded line).
+
+#### Verified
+- `npx tsx` + `react-dom/server`: both boxes render `flex-1` for short- and long-name cases alike; long pairing's full names both present in markup, uncut; win-prob box's markup identical regardless of matchup box content; no-win-prob-data case still gives the matchup box the full row. `tsc --noEmit`/`npm run build` clean.

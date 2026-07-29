@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.136 (deployed)
+**Current version:** v1.0.137 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -574,6 +574,7 @@
 | **v1.0.134** | New `lib/matchFeedAdapter.ts` -- the one sanctioned entry point for a real ball-by-ball provider feed, closing the one subsystem (match/live-score data) that had no real-data-readiness boundary function yet. `ingestMatchFeed()` translates a realistic raw provider shape into Bawler's internal types and, critically, extracts any retirement event out of the ball-by-ball sequence into a new `Innings.retirements` side-channel BEFORE it can corrupt over/wicket bookkeeping the way v1.0.133 proved it would as a `balls[]` entry. Also modeled the rarer "retired out" variant (counts as a dismissal, credits no bowler) alongside the existing "retired not out". `lib/dataValidation.ts`'s `validateBall` now hard-rejects a retirement reaching it as a ball, closing the loophole even for a bypassing call path. Proven via `npx tsx`: a mid-over retirement through the adapter leaves over/bowling/current-over bookkeeping untouched, and every prior round's regression test still passes (DECISIONS-LOG.md) |
 | **v1.0.135** | `ind-aus-t20i-2026-m2-live`'s 2nd innings now uses the v1.0.134 `Innings.retirements` side-channel for real: added a `RetirementRecord` for R Sharma (`retired-not-out`, `afterBallId: "ia-2-9.1"` -- his real last ball, not an array index), closing the exact gap flagged in v1.0.132/133 where his innings never had a terminal event. Score tab now shows exactly 2 "not out" batters, not 3; Sharma renders "Retired" (his own requested wording), 106 (49) preserved. `balls[]` untouched. Verified via `npx tsx` against the real fixture (DECISIONS-LOG.md) |
 | **v1.0.136** | `MatchupCard.tsx`'s shared matchup/win-prob teaser row is now two independent bordered boxes side by side instead of one box that swapped content: a 60%-width matchup box (unchanged tap-to-expand H2H behavior) and a separate win-prob box (new `WinProbBadge` `variant="boxed"`) that lives structurally outside the expand/collapse logic, so it can never be hidden/resized when H2H stats open. Verified via real `react-dom/server` renders of the live fixture -- correct 60/40 split, untruncated names, win-prob box absence handled cleanly when there's no data (DECISIONS-LOG.md) |
+| **v1.0.137** | `MatchupCard.tsx`'s two boxes (v1.0.136) are now an even 50/50 split (both `flex-1`, not the previous 60/40) -- width never computed from content on either side. Collapsed teaser's name spans dropped ellipsis-`truncate` in favor of `flex-wrap`: common short pairings stay one line, rare long full-name pairings (e.g. "R van der Dussen vs J Fraser-McGurk") wrap to a second line instead of getting cut off, box height only growing for that outlier. Verified via `react-dom/server`: both boxes equal-width in short- and long-name cases, win-prob box's markup unaffected either way (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 

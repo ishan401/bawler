@@ -105,21 +105,36 @@ function MatchupCard({
     // region and a separate small chevron button were split tap targets
     // sharing the row with the win-prob badge) -- same open-on-tap
     // interaction, now simply scoped to a dedicated box instead of a
-    // shared row. Full "Initial Surname" names (formatPlayerName's own
-    // output, e.g. "J Root") are no longer squeezed by a shared win-prob
-    // sibling, so `truncate` here is a pure safety net for unusually long
-    // names rather than something that fires in normal operation.
+    // shared row.
+    //
+    // v1.0.137: box width dropped from 60% to an even 50/50 split with the
+    // win-prob box, so full "Initial Surname" pairings (e.g. "J Root vs
+    // K Yadav") have less room than before and won't always fit one line.
+    // Chose wrap-to-a-second-line over ellipsis-truncation or font
+    // shrinking: this is the one approach that keeps every name fully
+    // legible (a cricket app truncating or shrinking an actual player's
+    // name to fit a box reads as a bug, not a feature) while still
+    // keeping the box's height completely stable for the common case --
+    // most pairings are short enough to stay on one line exactly as
+    // before, and `flex-wrap` only pushes content onto a second line
+    // for the rare long-name outlier, growing the box by exactly one
+    // text line rather than a fixed amount reserved up front. The
+    // dots/"vs"/chevron stay `shrink-0` so they're never the thing that
+    // gets squeezed; the two name spans are the only wrap-eligible
+    // content. This only touches this box's own height -- the
+    // independent win-prob box below is never affected by it (see the
+    // `items-start` note further down).
     <button
       onClick={() => setExpanded(true)}
-      className="flex items-center gap-1.5 px-3 py-2 w-full text-left"
+      className="flex flex-wrap items-center gap-x-1.5 gap-y-1 px-3 py-2 w-full text-left"
       aria-label={`${batterDisplay} vs ${bowlerDisplay} — tap for head-to-head`}
     >
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
-      <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
+      <span className="text-[12px] font-extrabold leading-none" style={{ color: battingTeamColor }}>
         {batterDisplay}
       </span>
       <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
-      <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
+      <span className="text-[12px] font-extrabold leading-none" style={{ color: bowlingTeamColor }}>
         {bowlerDisplay}
       </span>
       <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
@@ -232,19 +247,25 @@ function MatchupCard({
   // rather than rendering broken/empty text when there's no real win-prob
   // point yet (same null-safety as before). The matchup box takes the
   // remaining width either way, so nothing narrows or breaks when win-prob
-  // data is absent. When both are present, the matchup box is a fixed 60%
-  // and the win-prob box takes the rest, per the requested split. Critically,
-  // the win-prob box's JSX lives in this same always-rendered return,
-  // completely outside `matchupBox`'s `expanded` branching above -- so
-  // toggling `expanded` can only ever change `matchupBox`'s own content and
-  // (naturally, since it goes from a one-line teaser to a multi-row card)
-  // height. It can never hide, replace, or resize the win-prob box, and
-  // `items-start` below stops the row from stretching the shorter box to
-  // match the taller one.
+  // data is absent. Critically, the win-prob box's JSX lives in this same
+  // always-rendered return, completely outside `matchupBox`'s `expanded`
+  // branching above -- so toggling `expanded` can only ever change
+  // `matchupBox`'s own content and (naturally, since it goes from a
+  // one-line teaser to a multi-row card, or a one-line to a two-line
+  // teaser for a long name pairing) height. It can never hide, replace, or
+  // resize the win-prob box, and `items-start` below stops the row from
+  // stretching the shorter box to match the taller one.
+  //
+  // v1.0.137: both boxes are now `flex-1` (equal grow, equal 0% basis),
+  // not a fixed 60/40 split -- with exactly two flex children this always
+  // resolves to a clean 50/50, regardless of either side's content, which
+  // is the actual mechanism that makes "equal width" hold even though the
+  // matchup box's own inner content (name lengths, expanded vs collapsed)
+  // varies. Width is never computed from content on either side.
   return (
     <div className="flex gap-2 items-start">
       <div
-        className={`rounded-xl border border-line overflow-hidden ${winProb ? "w-[60%]" : "flex-1"}`}
+        className="rounded-xl border border-line overflow-hidden flex-1"
         style={{ background: "#0B101C" }}
       >
         {matchupBox}
