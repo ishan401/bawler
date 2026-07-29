@@ -87,59 +87,47 @@ function MatchupCard({
     T20: "T20", T20I: "T20I", ODI: "ODI", Test: "Test", Hundred: "100-ball",
   };
 
-  // ── Collapsed teaser ──────────────────────────────────────────────────────
-  if (!expanded) {
-    return (
-      <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
-        <div className="flex items-center gap-1.5 px-3 py-2">
-          {/* Batter vs bowler — tap-to-expand-H2H affordance is now just the
-              chevron (text label dropped, v1.0.121); the tap target itself
-              is unchanged, still the whole name region + the chevron. */}
-          <button
-            onClick={() => setExpanded(true)}
-            className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
-            aria-label={`${batterDisplay} vs ${bowlerDisplay} — tap for head-to-head`}
-          >
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
-            <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
-              {batterDisplay}
-            </span>
-            <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
-            <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
-              {bowlerDisplay}
-            </span>
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
-          </button>
-
-          {/* Win probability — real visual weight, fixed white value (never
-              team-colored — see WinProbBadge.tsx for the shared component
-              and full rationale), own tap target (opens the full-screen
-              chart, same interaction the old pill had). Hidden entirely
-              rather than rendering broken/empty text when there's no real
-              win-prob point yet. shrink-0 + the flex-1/min-w-0/truncate
-              combo on the batter/bowler button above guarantees this side
-              can never be crowded or overlapped -- the name side
-              ellipsizes first. */}
-          {winProb && (
-            <WinProbBadge label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
-          )}
-
-          <button
-            onClick={() => setExpanded(true)}
-            className="shrink-0 text-text-dim p-0.5"
-            aria-label="Expand matchup card"
-          >
-            <ChevronIcon direction="down" />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Expanded — existing full card content, unchanged ────────────────────
-  return (
-    <div className="rounded-xl border border-line overflow-hidden" style={{ background: "#0B101C" }}>
-
+  // ── Left box: matchup pairing (collapsed teaser or expanded H2H) ───────
+  // v1.0.136: this used to be the ENTIRE row -- one box that toggled in
+  // place between a collapsed teaser (name + win-prob badge sharing one
+  // line) and the expanded H2H card, with the win-prob readout only
+  // visible in the collapsed state. Split into two independent sibling
+  // boxes below: this one owns ONLY the matchup pairing and its
+  // expand/collapse interaction, unchanged in substance from before --
+  // same data, same tap-to-expand, same H2H content -- just no longer
+  // sharing its box with the win-prob readout. `matchupBox` is rendered
+  // inside the shared return at the bottom of this function, alongside
+  // the completely independent win-prob box, so neither can affect the
+  // other's presence or size.
+  const matchupBox = !expanded ? (
+    // ── Collapsed teaser ──
+    // v1.0.136: the whole box is now one tap target (previously the name
+    // region and a separate small chevron button were split tap targets
+    // sharing the row with the win-prob badge) -- same open-on-tap
+    // interaction, now simply scoped to a dedicated box instead of a
+    // shared row. Full "Initial Surname" names (formatPlayerName's own
+    // output, e.g. "J Root") are no longer squeezed by a shared win-prob
+    // sibling, so `truncate` here is a pure safety net for unusually long
+    // names rather than something that fires in normal operation.
+    <button
+      onClick={() => setExpanded(true)}
+      className="flex items-center gap-1.5 px-3 py-2 w-full text-left"
+      aria-label={`${batterDisplay} vs ${bowlerDisplay} — tap for head-to-head`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: battingTeamColor }} />
+      <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: battingTeamColor }}>
+        {batterDisplay}
+      </span>
+      <span className="text-[9px] font-bold text-text-dim shrink-0 px-0.5">vs</span>
+      <span className="text-[12px] font-extrabold leading-none truncate" style={{ color: bowlingTeamColor }}>
+        {bowlerDisplay}
+      </span>
+      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: bowlingTeamColor }} />
+      <ChevronIcon direction="down" />
+    </button>
+  ) : (
+    // ── Expanded — existing full card content, unchanged ──
+    <>
       {/* ── Dual-colour top bar ── */}
       <div className="h-0.5 flex">
         <div className="flex-1" style={{ background: battingTeamColor }} />
@@ -233,6 +221,37 @@ function MatchupCard({
             First {formatLabel[format]} meeting
           </span>
           <span className="text-[10px] text-text-dim">— making history right now</span>
+        </div>
+      )}
+    </>
+  );
+
+  // ── Row: matchup box + independent win-prob box, side by side ──────────
+  // v1.0.136: `winProb` gates ONLY the win-prob box's presence, exactly as
+  // it gated the old badge's presence in the shared row -- hidden entirely
+  // rather than rendering broken/empty text when there's no real win-prob
+  // point yet (same null-safety as before). The matchup box takes the
+  // remaining width either way, so nothing narrows or breaks when win-prob
+  // data is absent. When both are present, the matchup box is a fixed 60%
+  // and the win-prob box takes the rest, per the requested split. Critically,
+  // the win-prob box's JSX lives in this same always-rendered return,
+  // completely outside `matchupBox`'s `expanded` branching above -- so
+  // toggling `expanded` can only ever change `matchupBox`'s own content and
+  // (naturally, since it goes from a one-line teaser to a multi-row card)
+  // height. It can never hide, replace, or resize the win-prob box, and
+  // `items-start` below stops the row from stretching the shorter box to
+  // match the taller one.
+  return (
+    <div className="flex gap-2 items-start">
+      <div
+        className={`rounded-xl border border-line overflow-hidden ${winProb ? "w-[60%]" : "flex-1"}`}
+        style={{ background: "#0B101C" }}
+      >
+        {matchupBox}
+      </div>
+      {winProb && (
+        <div className="flex-1">
+          <WinProbBadge variant="boxed" label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
         </div>
       )}
     </div>

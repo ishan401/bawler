@@ -1833,3 +1833,33 @@ Also corrected the innings' static `battingCard` fallback entry for `rsharma` (t
 - `tsc --noEmit` and `npm run build` both clean.
 
 **Scope**: only `lib/mockData.ts` (this one innings) and a stale-comment update in `lib/types.ts` (the `Innings.retirements` doc comment previously said "no mock fixture uses this state yet" — no longer true). No changes to `lib/matchStatus.ts`, `lib/dataValidation.ts`, `lib/matchFeedAdapter.ts`, or `components/Scorecard.tsx` — all v1.0.134 machinery worked against this real fixture unmodified.
+
+## Split the shared matchup/win-prob row into two independent boxes — v1.0.136 (2026-07-29)
+
+**Context**: `MatchupCard.tsx`'s collapsed teaser used to be one box that shared its single line between the batter/bowler pairing and the "WIN PROB" readout (`WinProbBadge`, v1.0.121/v1.0.130) — tapping the pairing swapped that same box's content over to the full head-to-head stat breakdown, which meant the win-prob number physically disappeared whenever a viewer opened H2H stats. Requested fix: split this into two genuinely independent, side-by-side boxes within the same row footprint, so opening H2H stats can never affect the win-prob box's presence or size.
+
+**Change — `components/MatchupCard.tsx`**: the collapsed/expanded content that used to be the component's entire return is now assigned to a local `matchupBox` variable (still gated on the same `expanded` state, same tap-to-expand interaction, identical H2H stat content -- nothing about that logic changed). The component's actual return is now:
+```tsx
+<div className="flex gap-2 items-start">
+  <div className={`... ${winProb ? "w-[60%]" : "flex-1"}`}>{matchupBox}</div>
+  {winProb && (
+    <div className="flex-1">
+      <WinProbBadge variant="boxed" label={winProb.label} pct={winProb.pct} onClick={onExpandWinProb} />
+    </div>
+  )}
+</div>
+```
+The win-prob box's JSX is a sibling AFTER `{matchupBox}`, entirely outside the ternary that defines `matchupBox` -- toggling `expanded` re-derives `matchupBox`'s content only; the win-prob block is never inside that conditional, so it cannot be hidden, replaced, or resized by it. `items-start` (not `items-stretch`) on the row keeps the win-prob box's height independent too -- when the matchup box expands into its taller multi-row H2H card, the win-prob box keeps its own natural, unstretched height rather than growing to match.
+
+The collapsed teaser button is now the entire left box (previously the name region and a separate small chevron button were split tap targets sharing the row with the win-prob badge) -- same open-on-tap interaction, `aria-label`, and data source, just no longer needing to share hit-area logic with a sibling. Names render via the same `formatPlayerName()` call as before (`batterDisplay`/`bowlerDisplay`), unchanged -- verified below this already produces the requested "Initial Surname" form (e.g. "V Kohli", "J Root") and is idempotent on the already-short strings the mock ball data stores, so there was no separate "abbreviation" bug to fix in that function; the previous cramped look was purely a consequence of the name box sharing its row with the win-prob badge, now resolved by giving it a dedicated 60%-width box.
+
+**Change — `components/WinProbBadge.tsx`**: added a fourth variant, `variant="boxed"`, used only by this new right-hand box. Same fixed-white value, same "WIN PROB" label, same `winprob-pulse` micro-pulse-on-change animation as every other variant (color/pulse logic untouched) -- purely a new structural shape: fills its container edge-to-edge with its own `rounded-xl border border-line` + `#0B101C` background (matching `MatchupCard`'s own box styling) instead of floating as a smaller end-aligned translucent pill inside a shared row. `variant="compact"` (the old shared-row shape) is now unused anywhere in the codebase but left in place rather than deleted, in case a future shared-row context needs it again.
+
+**Verified — real `npx tsx` + `react-dom/server` render against the live fixture**, not a description:
+- `formatPlayerName('R Sharma')` → `"R Sharma"`, `formatPlayerName('V Kohli')` → `"V Kohli"` (idempotent on already-short mock ball-data strings), `formatPlayerName('Joe Root')` → `"J Root"`, `formatPlayerName('Kuldeep Yadav')` → `"K Yadav"` (correctly derives from a full raw name) -- confirms the exact "Initial Surname" format requested, no double-abbreviation.
+- Rendered `MatchupCard` for `ind-aus-t20i-2026-m2-live` with a real win-prob point: markup shows exactly two sibling `rounded-xl border border-line` boxes -- left box `w-[60%]` containing `"V Kohli vs P Cummins"` untruncated, right box containing `"Win Prob"` label + `"IND 95%"` value on its own line, exactly as specified.
+- Rendered again with empty `winProbPoints` (`getLeadingTeamWinProb` returns `null`): the win-prob box is absent entirely (matches the pre-existing "hidden rather than broken" behavior) and the matchup box correctly falls back to `flex-1` (full width) rather than leaving a hole.
+- Code-level trace confirms `WinProbBadge`'s new invocation sits structurally outside the `expanded`-gated `matchupBox` ternary — the only two things that can change the win-prob box are `winProb` (real data changes) and `onExpandWinProb`, never `expanded`.
+- `tsc --noEmit` and `npm run build` both clean.
+
+**Scope**: `components/MatchupCard.tsx` (this is the only call site of `MatchupCard` in the app, confirmed via grep, so this single fix covers every place this row appears -- MatchView.tsx's live ball-by-ball view; no separate fallback-view or Digest-tab instance of this exact row exists). `components/WinProbBadge.tsx` (new `variant="boxed"`, additive only -- `variant="compact"`/`"large"` unchanged). No changes to `lib/mockMatchups.ts`, `lib/winProb.ts`, or `lib/playerName.ts` -- all underlying data/derivation logic is untouched, per the request.

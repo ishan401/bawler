@@ -2950,3 +2950,14 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Verified
 - `npx tsx` against the real fixture: derived card shows Sharma `out: false, retiredNotOut: true, dismissal: "Retired", 106 (49)`; exactly 2 live not-out batters (Kohli, Pant) per Scorecard.tsx's own exclusion rule; retirement visibility flips correctly at `ia-2-9.1`, not before; wickets count unaffected (3, not 4). `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.136] 2026-07-29
+
+#### Changed -- `components/MatchupCard.tsx`
+- The shared matchup/win-prob teaser row is now two independent, side-by-side bordered boxes instead of one box that swapped content: left box (60% width) owns only the batter/bowler pairing and its existing tap-to-expand H2H behavior (unchanged data/interaction); right box (remaining width) owns only the "WIN PROB" readout and is structurally outside the expand/collapse logic, so it can never be hidden, resized, or replaced when the matchup box opens its stats. Names still render via the existing `formatPlayerName()` (e.g. "V Kohli", "J Root") -- the previous cramped look was the shared row, not the name formatting.
+
+#### New -- `components/WinProbBadge.tsx`
+- `variant="boxed"` -- same fixed-white value/label/pulse-on-change behavior as every other variant, new edge-to-edge box shape matching MatchupCard's own box styling, for the new independent win-prob box.
+
+#### Verified
+- `npx tsx` + `react-dom/server`: real fixture render shows two sibling bordered boxes with correct 60/40 split, untruncated "V Kohli vs P Cummins" left, "Win Prob" / "IND 95%" right; empty-data case correctly hides the win-prob box and the matchup box reclaims full width; code trace confirms the win-prob box's JSX is never inside the `expanded`-gated branch. `tsc --noEmit`/`npm run build` clean.

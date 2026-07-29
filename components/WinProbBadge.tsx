@@ -55,6 +55,15 @@ import React from "react";
  *      CSS animation (`.winprob-pulse`, app/globals.css) retriggers only
  *      on a real update -- never a color pulse, so it cannot reintroduce
  *      the flicker risk already ruled out for team-coloring this figure.
+ *
+ * v1.0.136: added `variant="boxed"` for MatchupCard.tsx's dedicated,
+ * independent win-prob box (split out of the old shared matchup/win-prob
+ * row into two side-by-side boxes). This is a fourth structural shape,
+ * not a fourth color rule -- same fixed-white value, same label, same
+ * pulse-on-change animation as every other variant. Its own
+ * `rounded-xl border border-line` + `#0B101C` background matches
+ * MatchupCard's own box styling exactly, so the two boxes read as equal
+ * siblings rather than one solid card next to one translucent pill.
  */
 
 interface WinProbBadgeProps {
@@ -63,13 +72,20 @@ interface WinProbBadgeProps {
   /** Leading team's win probability, 0-100. */
   pct: number;
   /**
-   * "compact" — small label-above-value badge, sized for a matchup row or
-   * an inline card (MatchupCard.tsx, the MatchView.tsx fallback card).
+   * "compact" — small label-above-value badge, sized for an inline card
+   * (the MatchView.tsx no-ball-by-ball fallback card).
    * "large" — big centered number with a "TEAM lead" caption below,
    * sized for a standalone header (WinProbChart.tsx's full-screen modal).
-   * Structural only — both variants render the same fixed white value.
+   * "boxed" — fills its container edge-to-edge with its own border/
+   * background (rather than a smaller pill floating inside a shared row),
+   * for MatchupCard.tsx's dedicated win-prob box (v1.0.136) — that box is
+   * now a fully independent sibling next to the matchup box, not sharing
+   * a row with it, so it needs to look like a standalone box in its own
+   * right rather than a compact end-aligned badge.
+   * Structural only — all three variants render the same fixed white
+   * value + label + pulse-on-change behavior.
    */
-  variant?: "compact" | "large";
+  variant?: "compact" | "large" | "boxed";
   /** When provided, renders as a tappable button (e.g. opens the full win-prob chart). Omit for a static, non-interactive display. */
   onClick?: () => void;
   className?: string;
@@ -99,6 +115,20 @@ export default function WinProbBadge({
             never on an unrelated re-render. */}
         <div key={pct} className="text-2xl font-extrabold num text-white winprob-pulse">{pct}%</div>
         <div className="text-[9px] text-text-dim uppercase tracking-widest">{label} lead</div>
+      </Tag>
+    );
+  }
+
+  if (variant === "boxed") {
+    return (
+      <Tag
+        onClick={onClick}
+        className={`flex flex-col items-center justify-center gap-0.5 w-full h-full rounded-xl border border-line px-2 py-2 ${className}`}
+        style={{ background: "#0B101C" }}
+        aria-label={ariaLabel}
+      >
+        <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim">Win Prob</span>
+        <span key={pct} className="text-[15px] font-extrabold text-white num winprob-pulse">{label} {pct}%</span>
       </Tag>
     );
   }
