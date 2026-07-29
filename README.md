@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.134)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.135)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -141,6 +141,7 @@ Horizontal tab selector across 8 competitions:
 - **`match.championship`** drives the TABLE button for Test matches (WTC); falls back to `match.competition`
 - **`normalizeMatch()`** (`lib/dataValidation.ts`) — validation/adapter layer at the data boundary; collects errors (blocking) + warnings (non-blocking) instead of letting malformed data flow silently into narrative/win-prob functions. Validates an object already shaped like Bawler's own `Match`/`Innings`/`Ball` types — it has no opinion on a real provider's own wire format.
 - **`ingestMatchFeed()`** (`lib/matchFeedAdapter.ts`, v1.0.134) — the one sanctioned entry point for a REAL provider's raw feed (a different shape than `normalizeMatch()` expects). Reshapes a realistic raw payload into Bawler's internal naming and, critically, extracts any retirement event out of each innings' delivery sequence into `Innings.retirements` (see `RetirementRecord` in `lib/types.ts`) before delegating to `normalizeMatch()` — a retirement inserted into `Innings.balls` instead corrupts over/wicket bookkeeping (DECISIONS-LOG.md v1.0.133). `lib/mockData.ts`'s hand-authored fixtures don't go through either function — only `lib/matchGenerator.ts`'s generated matches use `normalizeMatch()` directly.
+- **First real fixture use of the retirement side-channel** (v1.0.135) — `ind-aus-t20i-2026-m2-live`'s 2nd innings sets `Innings.retirements` for R Sharma (`retired-not-out`, `afterBallId` pointing at his real last ball). Score tab correctly shows exactly 2 "not out" batters and renders his row as "Retired", 106 (49) preserved; `Innings.balls` was not touched.
 - **`formatPlayerName()`** (`lib/playerName.ts`, v1.0.120) — the ONLY sanctioned way to render a player's name anywhere in the app; always use this instead of splitting a name string inline. Registry-first (hand-verified `shortName` wins), then a real parser (`parsePlayerName()`) for multi-word surnames/particles, suffixes, hyphenated surnames, single names, bad capitalization, stray whitespace, and comma feed format — instead of the old `getPlayerShortName()`'s deferred fallback (unmodified full name for an unregistered compound surname) or a naive last-token guess
 
 ---

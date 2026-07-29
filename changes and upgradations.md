@@ -2942,3 +2942,11 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Tests
 - `npx tsx`: constructed raw feed with a mid-over "retired-not-out" event through `ingestMatchFeed` -- over ball counts stay exactly 6/6 (not 7), bowling figures clean (`oversBowled: 1`, not `1.1`), `buildOverGroupCards` resolves exactly 2 real-over cards (no phantom), retired batter's card shows `retiredNotOut: true, dismissal: "Retired"`, innings wickets `0`. Second feed with "retired-out": wickets `1`, card shows `out: true, retiredOut: true, dismissal: "Retired out"`. Malformed feed (a delivery event also tagged `dismissal_type: "retired"`) correctly hard-rejected. Full regression re-run of every v1.0.131-133 test: unchanged. `tsc --noEmit`/`npm run build` clean.
+
+## [1.0.135] 2026-07-29
+
+#### Fixed -- `lib/mockData.ts`
+- `ind-aus-t20i-2026-m2-live`'s 2nd innings now has an actual `RetirementRecord` for R Sharma (`type: "retired-not-out"`, `afterBallId: "ia-2-9.1"` -- his real last ball, not an array index). This is the first mock fixture to use the v1.0.134 side-channel, closing the exact gap flagged in v1.0.132/133 (three simultaneously "not out" batters once his innings had fully played out). `balls[]` untouched -- purely a `retirements` array addition. Static `battingCard` fallback entry for `rsharma` updated to match (`retiredNotOut: true`, `dismissal: "Retired"`).
+
+#### Verified
+- `npx tsx` against the real fixture: derived card shows Sharma `out: false, retiredNotOut: true, dismissal: "Retired", 106 (49)`; exactly 2 live not-out batters (Kohli, Pant) per Scorecard.tsx's own exclusion rule; retirement visibility flips correctly at `ia-2-9.1`, not before; wickets count unaffected (3, not 4). `tsc --noEmit`/`npm run build` clean.

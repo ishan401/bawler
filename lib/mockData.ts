@@ -7499,8 +7499,11 @@ export const LIVE_INTERNATIONAL: Match[] = [
           // tab always derives real stats from balls anyway (deriveBattingCardFromBalls), so
           // this stale entry never rendered -- but it must still be internally consistent
           // since it becomes the display source of truth if this match is ever read/rendered
-          // without ball data. Corrected to match the actual balls[] state: 106 off 49, not out.
-          { playerId: "rsharma",  playerName: "R Sharma",   runs: 106, ballsFaced: 49, fours: 10, sixes: 5, strikeRate: 216.33, out: false, dismissal: "not out" },
+          // without ball data.
+          // v1.0.135: now that his innings closes via the retirements side-channel (see
+          // above), this fallback entry is updated to match: retiredNotOut true, "Retired"
+          // (not "Retired not out" -- that specific wording was a deliberate product call).
+          { playerId: "rsharma",  playerName: "R Sharma",   runs: 106, ballsFaced: 49, fours: 10, sixes: 5, strikeRate: 216.33, out: false, retiredNotOut: true, dismissal: "Retired" },
           { playerId: "sgilchr", playerName: "S Gill",      runs: 28, ballsFaced: 21, fours: 3, sixes: 1, strikeRate: 133.3, out: true,  dismissal: "c Head b Hazlewood" },
           { playerId: "vkohli",   playerName: "V Kohli",    runs: 61, ballsFaced: 42, fours: 6, sixes: 2, strikeRate: 145.2, out: false, dismissal: "not out", onStrike: true },
           { playerId: "siyer",    playerName: "S Iyer",     runs: 11, ballsFaced: 9,  fours: 1, sixes: 0, strikeRate: 122.2, out: true,  dismissal: "lbw b Maxwell" },
@@ -7513,6 +7516,16 @@ export const LIVE_INTERNATIONAL: Match[] = [
           { playerId: "pcum",    playerName: "P Cummins",    oversBowled: 3.2, maidens: 0, runsConceded: 29, wickets: 0, economy: 8.7 },
           { playerId: "gmax",    playerName: "G Maxwell",    oversBowled: 4,   maidens: 0, runsConceded: 34, wickets: 1, economy: 8.5 },
           { playerId: "mlabusc", playerName: "M Labuschagne",oversBowled: 2,   maidens: 0, runsConceded: 15, wickets: 0, economy: 7.5 },
+        ],
+        // v1.0.135: closes out R Sharma's innings via the retirement side-channel
+        // (added v1.0.134) instead of leaving it implicit. Deliberately NOT a
+        // balls[] entry -- afterBallId references his real last ball's id
+        // (ia-2-9.1) rather than an array index, so nothing about the existing
+        // over/ball sequence (including over 9's bowling figures) is touched.
+        // deriveBattingCardFromBalls reads this to render "Retired" and to stop
+        // treating him as a live/on-strike batter once ia-2-9.1 has been bowled.
+        retirements: [
+          { playerId: "rsharma", playerName: "R Sharma", type: "retired-not-out", afterBallId: "ia-2-9.1" },
         ],
       },
     ],

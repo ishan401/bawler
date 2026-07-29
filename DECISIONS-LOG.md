@@ -1810,3 +1810,26 @@ Both failure modes trace to the same root cause: retirement, in real cricket, ha
 - `tsc --noEmit` and `npm run build` both clean throughout.
 
 **Verified scope**: new file `lib/matchFeedAdapter.ts`. Changed: `lib/types.ts` (`RetirementRecord`/`RetirementType`, `Innings.retirements`, `BattingEntry.retiredOut`), `lib/matchStatus.ts` (`isRetirementVisible`, `countWicketEquivalentRetirements`, extended `deriveBattingCardFromBalls`), `components/MatchView.tsx` (wickets calc + call site), `lib/dataValidation.ts` (hardened `validateBall`, new `validateRetirement`), plus the version bump. `lib/mockData.ts` untouched this round. `components/Scorecard.tsx` untouched this round (its v1.0.132 rendering already covers `retiredOut` for free via `out: true`).
+
+## R Sharma retirement applied to live demo fixture, using the v1.0.134 side-channel — v1.0.135 (2026-07-29)
+
+**Context**: v1.0.134 built the `Innings.retirements` side-channel and `RetirementRecord` type but shipped with zero mock fixtures actually using it — the AUS vs IND T20I live demo (`ind-aus-t20i-2026-m2-live`) still left R Sharma's innings open-ended (106 off 49, no terminal event), which is the exact gap flagged back in v1.0.132/133: the Score tab could show three simultaneously "not out" batters once his balls had all played out, since nothing in the data ever closed his innings.
+
+**Change — `lib/mockData.ts`, innings 2 of `ind-aus-t20i-2026-m2-live`**: added
+```ts
+retirements: [
+  { playerId: "rsharma", playerName: "R Sharma", type: "retired-not-out", afterBallId: "ia-2-9.1" },
+],
+```
+`afterBallId` points at the real id of his actual last ball (`ia-2-9.1`, over 9 ball 1 — the same over already used in v1.0.133's corruption proof, coincidentally) rather than an array index, per the mechanism's own design. `balls[]` was not touched, renumbered, or reshuffled — this is purely an addition to the side-channel array, which is exactly the point of having it. The next ball in the array, `ia-2-9.2`, is V Kohli's, confirming the retirement sits correctly between Sharma's last delivery and the next batter's first.
+
+Also corrected the innings' static `battingCard` fallback entry for `rsharma` (the one used only if this match is ever read/rendered without ball data) to match: added `retiredNotOut: true` and changed `dismissal` from `"not out"` to `"Retired"`, so the fallback and the live-derived path agree. Per the user's explicit wording preference, the display text is `"Retired"`, not `"Retired not out"`.
+
+**Verified — real `npx tsx` test against the shipped fixture and functions, not a description**:
+- `deriveBattingCardFromBalls` run with the innings' full ball sequence (all 16.2 overs) and the new `retirements` array: R Sharma derives `out: false, retiredNotOut: true, dismissal: "Retired", runs: 106, ballsFaced: 49` — stats preserved exactly, terminal state now explicit.
+- Applying the same exclusion rule `components/Scorecard.tsx` already uses for live-batter styling (`!row.out && !row.retiredNotOut && row.ballsFaced > 0`) to the full derived card yields exactly 2 batters: V Kohli (40, 33) and R Pant (9, 13) — not 3. Sharma is correctly excluded via `retiredNotOut`, not via `out`.
+- Truncated the ball sequence at exactly `ia-2-9.1` (the moment his retirement takes effect) and confirmed the derivation flips to `retiredNotOut: true` at that exact point, not before: one ball earlier (`ia-2-9.0`), Sharma still derives as an ordinary not-out batter (`retiredNotOut: false`), proving `afterBallId`-gated visibility (`isRetirementVisible`, v1.0.134) works correctly on this real fixture, not just synthetic test data.
+- `countWicketEquivalentRetirements` confirms this event never inflates the wicket count (`retired-not-out` is excluded by design) — the innings' 3 real wickets are unaffected.
+- `tsc --noEmit` and `npm run build` both clean.
+
+**Scope**: only `lib/mockData.ts` (this one innings) and a stale-comment update in `lib/types.ts` (the `Innings.retirements` doc comment previously said "no mock fixture uses this state yet" — no longer true). No changes to `lib/matchStatus.ts`, `lib/dataValidation.ts`, `lib/matchFeedAdapter.ts`, or `components/Scorecard.tsx` — all v1.0.134 machinery worked against this real fixture unmodified.

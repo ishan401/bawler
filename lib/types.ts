@@ -182,8 +182,8 @@ export interface Innings {
   // RetirementRecord's own doc comment for why. `lib/matchFeedAdapter.ts`
   // is responsible for routing any raw feed's retirement signal here,
   // however that feed represents it internally; nothing should ever push
-  // a retirement into `balls` directly. Empty/absent for every match
-  // today (no mock fixture uses this state yet).
+  // a retirement into `balls` directly. v1.0.135: first mock fixture to use
+  // this is ind-aus-t20i-2026-m2-live's 2nd innings (R Sharma, retired-not-out).
   retirements?: RetirementRecord[];
 }
 
