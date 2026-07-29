@@ -198,6 +198,17 @@ export interface BattingEntry {
   out: boolean;
   dismissal?: string;
   onStrike?: boolean;
+  // v1.0.132: distinguishes "left the innings without being dismissed"
+  // (voluntary retirement -- e.g. injury) from a batter genuinely still
+  // out in the middle. Always false when `out` is true. A batter with
+  // `retiredNotOut: true` is NOT one of the two current partners and
+  // must never get "at the crease" styling (see Scorecard.tsx's
+  // isLiveBatter). Only covers "retired -- not out"; a rarer "retired --
+  // out" (given out by the umpire for retiring without cause) is not
+  // modeled -- that variant would need `out: true` plus a distinct
+  // dismissalType, which Ball.dismissalType's flat "retired" value can't
+  // currently disambiguate from this case.
+  retiredNotOut?: boolean;
 }
 
 export interface BowlingEntry {

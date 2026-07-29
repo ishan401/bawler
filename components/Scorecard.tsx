@@ -614,15 +614,20 @@ function BatterRow({
 }) {
   const isMotm = motm && row.playerName === motm;
   const isMots = mots && row.playerName === mots;
-  // "At the crease right now" -- not dismissed, and has actually faced a
-  // ball (excludes an incoming batter's still-empty placeholder row).
-  const isLiveBatter = !row.out && row.ballsFaced > 0;
+  // "At the crease right now" -- not dismissed, not retired, and has
+  // actually faced a ball (excludes an incoming batter's still-empty
+  // placeholder row). A retired-not-out batter has left the innings just
+  // as surely as a dismissed one, even though `out` is false for them --
+  // without excluding retiredNotOut here, they'd wrongly get the live
+  // glow/asterisk/"not out" treatment alongside the two genuine current
+  // partners (see BattingEntry.retiredNotOut).
+  const isLiveBatter = !row.out && !row.retiredNotOut && row.ballsFaced > 0;
 
   const nameColor = isMots
     ? "text-special"
     : isMotm
     ? "text-yellow-400"
-    : row.out
+    : row.out || row.retiredNotOut
     ? "text-text-secondary"
     : "text-text-primary";
 
@@ -648,7 +653,7 @@ function BatterRow({
         >
           <div className="flex items-center gap-1.5">
             <PlayerNameLink playerId={row.playerId} playerName={row.playerName} nameColor={nameColor} />
-            {row.onStrike && !row.out && (
+            {row.onStrike && !row.out && !row.retiredNotOut && (
               <span className="text-[9px] font-bold tracking-widest" style={{ color: teamColor }}>*</span>
             )}
             {isMotm && (
@@ -661,6 +666,12 @@ function BatterRow({
           {row.out && row.dismissal && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal}</span>
+              <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} />
+            </div>
+          )}
+          {!row.out && row.retiredNotOut && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal ?? "retired not out"}</span>
               <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} />
             </div>
           )}

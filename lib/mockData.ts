@@ -7493,7 +7493,14 @@ export const LIVE_INTERNATIONAL: Match[] = [
       },
         ],
         battingCard: [
-          { playerId: "rsharma",  playerName: "R Sharma",   runs: 31, ballsFaced: 22, fours: 4, sixes: 1, strikeRate: 140.9, out: true,  dismissal: "c Maxwell b Starc" },
+          // v1.0.132: was runs:31/balls:22/out (c Maxwell b Starc), stale from an earlier
+          // draft of this innings that no longer matches the ball-by-ball feed below (his
+          // real last ball is ia-2-9.1; no wicket ball for him exists at all). The live Score
+          // tab always derives real stats from balls anyway (deriveBattingCardFromBalls), so
+          // this stale entry never rendered -- but it must still be internally consistent
+          // since it becomes the display source of truth if this match is ever read/rendered
+          // without ball data. Corrected to match the actual balls[] state: 106 off 49, not out.
+          { playerId: "rsharma",  playerName: "R Sharma",   runs: 106, ballsFaced: 49, fours: 10, sixes: 5, strikeRate: 216.33, out: false, dismissal: "not out" },
           { playerId: "sgilchr", playerName: "S Gill",      runs: 28, ballsFaced: 21, fours: 3, sixes: 1, strikeRate: 133.3, out: true,  dismissal: "c Head b Hazlewood" },
           { playerId: "vkohli",   playerName: "V Kohli",    runs: 61, ballsFaced: 42, fours: 6, sixes: 2, strikeRate: 145.2, out: false, dismissal: "not out", onStrike: true },
           { playerId: "siyer",    playerName: "S Iyer",     runs: 11, ballsFaced: 9,  fours: 1, sixes: 0, strikeRate: 122.2, out: true,  dismissal: "lbw b Maxwell" },

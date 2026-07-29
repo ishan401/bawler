@@ -1010,7 +1010,23 @@ export function buildOverGroupCards(
         : overNums;
     if (completedOverNums.length === 0) continue;
 
-    const inningsLabel = inningsCount > 1 ? `${ordinal(teamInningsOccurrence(match.innings, inn))} Inn` : "";
+    // NOTE (v1.0.132 fix): teamInningsOccurrence() answers "is this the
+    // batting team's 1st or 2nd innings" -- correct for Test follow-on
+    // (see buildTestSessionCards below, which always uses it), but wrong
+    // here for the non-Test path: in T20/ODI every team bats exactly
+    // once, so it always returns 1 and every over-group card was
+    // mislabeled "1st Inn" even for the team batting second (chasing).
+    // Non-Test formats instead need the match-wide innings position
+    // (1st = team that batted first, 2nd = team chasing), which is
+    // exactly `inn.number` since each team appears in match.innings
+    // exactly once. Test still uses teamInningsOccurrence here too (this
+    // function also runs as the Test fallback when no session data
+    // exists), where a follow-on team's 2nd innings must stay "2nd Inn",
+    // never the global "3rd/4th Inn".
+    const isTestFmt = match.format === "Test";
+    const inningsLabel = inningsCount > 1
+      ? `${ordinal(isTestFmt ? teamInningsOccurrence(match.innings, inn) : inn.number)} Inn`
+      : "";
     const teamColor = inn.battingTeam === match.teamA.code
       ? match.teamA.primaryColor : match.teamB.primaryColor;
 

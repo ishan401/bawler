@@ -192,6 +192,15 @@ export function deriveBattingCardFromBalls(
     const sixes = playerBalls.filter(b => b.isBoundary6).length;
     const wicketBall = playerBalls.find(b => b.isWicket);
     const out = !!wicketBall;
+    // A ball tagged dismissalType "retired" without isWicket is a
+    // voluntary retirement (e.g. injury) -- it ends this player's
+    // innings but must never count as a dismissal (isWicket stays false
+    // on that ball by construction, so it never inflates the innings'
+    // wicket tally). Only meaningful when the player isn't already out
+    // some other way. See BattingEntry.retiredNotOut for why this only
+    // covers "retired -- not out", not the rarer "retired -- out".
+    const retiredBall = !out ? playerBalls.find(b => b.dismissalType === "retired") : undefined;
+    const retiredNotOut = !!retiredBall;
     const strikeRate = ballsFaced > 0 ? Math.round((runs / ballsFaced) * 10000) / 100 : 0;
     const onStrike = !!lastBall && lastBall.batterName === entry.playerName;
 
@@ -201,12 +210,16 @@ export function deriveBattingCardFromBalls(
     // reconstructable from a Ball alone. Falls back to a generic
     // dismissalType-based string so a real-data feed with a genuinely
     // out player but no matching original-card text still shows
-    // something sensible rather than nothing.
+    // something sensible rather than nothing. A retired (not out)
+    // player gets its own distinct label so it's never confusable with
+    // "not out" -- see Scorecard.tsx BatterRow.
     const dismissal = out
       ? entry.out
         ? entry.dismissal
         : wicketBall?.dismissalType ?? "out"
-      : undefined;
+      : retiredNotOut
+        ? "retired not out"
+        : undefined;
 
     return {
       ...entry,
@@ -216,6 +229,7 @@ export function deriveBattingCardFromBalls(
       sixes,
       strikeRate,
       out,
+      retiredNotOut,
       dismissal,
       onStrike,
     };

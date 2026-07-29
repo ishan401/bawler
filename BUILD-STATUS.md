@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.131 (deployed)
+**Current version:** v1.0.132 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -569,6 +569,7 @@
 | **v1.0.129** | Added a player avatar to the profile page header (previously had none), via a new shared `components/PlayerAvatar.tsx` reused by the "Your Players" strip and the Digest tab's Man of the Match card too -- one implementation of photo-first-fallback-to-initials instead of three, role/format-agnostic, real-data-ready via the same `imageUrl` field everywhere. Old per-site initials helpers and a CSS-hack broken-image fallback removed (DECISIONS-LOG.md) |
 | **v1.0.130** | Win-probability figure visual-prominence pass: larger value text (bigger than the score digits it sits near), both variants now wrapped in one shared neutral translucent pill (never team-colored, per the existing platform rule), and a brief 180ms scale-only micro-pulse on genuine ball-by-ball updates (triggered via `key={pct}` remount, never a color change, so it can't reintroduce the flicker risk already ruled out for team-coloring this figure). All changes live in the one shared `WinProbBadge.tsx` component, so all 3 call sites (matchup row, ball-by-ball-unavailable fallback, full-screen chart) stay consistent automatically (DECISIONS-LOG.md) |
 | **v1.0.131** | Matchup-card diagnostic follow-up: `truncatedMatch` (`MatchView.tsx`) now recomputes `battingCard`/`bowlingCard` from the truncated ball slice via new `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` (`lib/matchStatus.ts`), fixing a header/wicket-badge disagreement bug. Platform-wide audit + fix of the fixture data error that exposed it: 273 ball-field corrections across 5 innings in 3 matches where a dismissed batter kept appearing as striker. New `Match.isMockSimulation` flag (default off) gates `MatchView.tsx`'s demo-only rewind ticker via `shouldRunMockSimulationTicker()` so it can never engage against real data (DECISIONS-LOG.md) |
+| **v1.0.132** | Follow-up round 2: fixed `buildOverGroupCards` labeling every T20I/ODI over-group card "1ST INN" regardless of actual innings (wrong occurrence function for non-Test formats; the innings toggle itself was already filtering correctly). Closed a real modeling gap -- `BattingEntry.retiredNotOut` now lets a voluntary retirement render distinctly from "not out" (previously indistinguishable, since `Ball.dismissalType`'s existing `"retired"` value was never consumed anywhere); wired into `deriveBattingCardFromBalls` and `Scorecard.tsx`'s live-batter styling. Investigated a reported 3-simultaneous-"not out" scorecard state -- not a retirement (zero `"retired"` balls exist in the dataset), but a stale `battingCard` entry for R Sharma that contradicted his real ball data; corrected to match (`ind-aus-t20i-2026-m2-live`). Confirmed (no change) the v1.0.131 `isMockSimulation` ticker gate defaults safely for real data (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 
