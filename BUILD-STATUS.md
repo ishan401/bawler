@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.143 (deployed)
+**Current version:** v1.0.144 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -581,6 +581,7 @@
 | **v1.0.141** | Removed the redundant `ContextHeader` tour-name/team-name banner row ("{competition} · {teamA} vs {teamB}") from the ball visualizer -- it duplicated the main score header and its `scoreText`/`situationText` props were dead code at the one real call site. Single shared `BallGIF` component means this applies to every match page's live ticker and Moments replay uniformly. Series/tour name already covered on the Info tab, so nothing was added there (DECISIONS-LOG.md) |
 | **v1.0.142** | Hardened graceful degradation for missing ball-visualizer fields (`DeliveryCard.tsx` SpeedDot no longer shows a fake "0 KMH"; `MiniBallGIF.tsx`/`MomentStoryCard.tsx` shot-line gates now also check for missing `shotAngle`, matching v1.0.140's `BallGIF.tsx` fix) -- a safety net for the confirmed `ingestMatchFeed()` gap where none of these fields are mapped from a real feed yet. Documented the gap field-by-field plus the forward plan (sample-first, speed=direct mapping, shot/type=commentary-text-interpretation layer per-provider, categorical not pinpoint accuracy) in ARCHITECTURE.md. Verified via real `react-dom/server` renders across 16 stripped-field combinations -- zero crashes, zero undefined/NaN leaks (DECISIONS-LOG.md) |
 | **v1.0.143** | Batter sparkline (Score tab batting card) fixed platform-wide: (1) suppressed entirely for `runs === 0` -- a duck or golden duck never gets a flat line or lone dot, R/B columns already say it all; (2) container width now scales linearly to `(ballsFaced / innings-max-ballsFaced) * 130px`, no floor, no sqrt/log transform, scoped strictly to that innings' own batting card. `maxBallsFaced` is computed inline in `InningsCard` on every render (never memoized/cached), so widths keep rescaling live as an in-progress innings adds balls -- proven with a real `react-dom/server` harness showing a non-striker's width shrink purely because the striker faced another ball. Single call site (`components/Scorecard.tsx`); `RecentFormGraph.tsx` on the player page is a separate component, unaffected (DECISIONS-LOG.md) |
+| **v1.0.144** | Fixed a confirmed code bug in the same sparkline's batter-to-balls lookup: `ballsByBatter.get(row.playerId) ?? ballsByBatter.get(row.playerName)` returned only ONE key's balls when a batter's real balls were split across both a slug-tagged and a name-tagged key within the same innings, silently dropping the rest. New `getBatterBalls()` merges both keys (dedup by `Ball.id`, re-sorted by `over`/`ballInOver`) instead of falling back. Verified against the real `ind-eng-test-2026-d3-live` fixture: H Brook 4->40 real balls, B Stokes 2->35, J Bairstow 3->21, B Duckett 51->66 (a 4th, previously-unreported case of the same bug). Proportional widths re-verified pixel-identical post-fix, confirming width and point-count are correctly independent. Codebase-wide search found no other instance of this id-then-name fallback anti-pattern (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 

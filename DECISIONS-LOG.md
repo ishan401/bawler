@@ -1976,3 +1976,29 @@ Found and fixed two real gaps, both matching a pattern the two "found safe" comp
 **Scope of the fix**: `BatterSparkline` (the runs-vs-balls curve) is defined and used in exactly one place — `components/Scorecard.tsx`, three call sites inside `BatterRow` (out/dismissed, retired-not-out, currently batting), all feeding the Score tab's batting card, the only place this component renders anywhere in the app. `components/RecentFormGraph.tsx` (used on the player profile page) is a deliberately separate component with a different X-axis (a fixed match/spell index, not per-innings cumulative balls faced) — see that file's own header comment from v1.0.119 explaining why it duplicates rather than imports `BatterSparkline`'s smoothing logic; it is out of scope for this fix and untouched. No Digest surface renders this sparkline at all.
 
 **Verified**: `tsc --noEmit` and `npm run build` both clean. Edge-case script written to a temporary `scripts/` file and removed afterward, per project convention (never committed).
+
+## Fixed batter-sparkline lookup to merge split batter-identifier keys instead of falling back — v1.0.144 (2026-08-01)
+
+**Context**: confirmed code bug from the prior round's diagnostic. `components/Scorecard.tsx`'s `ballsByBatter` map registers every ball under both its `batterId` and `batterName` keys (to handle either naming convention a match might use), but the row lookup — `ballsByBatter.get(row.playerId) ?? ballsByBatter.get(row.playerName)` — only ever returned ONE side. When a single batter's balls were split across both keys within the same innings (some tagged with their slug id, the rest with their full display name — confirmed in `ind-eng-test-2026-d3-live`'s ENG Innings 1), the `??` returned whichever key existed first and silently discarded the other, even when it held far more real data.
+
+**Fix — `components/Scorecard.tsx`**: replaced the `??` fallback with a new `getBatterBalls(map, playerId, playerName)` function that looks up both keys and, whenever both exist, MERGES them — deduplicated by `Ball.id` (defensive: `registerBall` already dedupes within a single key, but this guards a future data shape where the same ball could reach both), then re-sorted by `over`/`ballInOver` ascending, since balls from two independently-populated keys are not guaranteed to already be in relative chronological order and `buildSparklinePoints`'s cumulative curve requires strict chronological input. When only one key holds data (the common case, and the only case in every OTHER match/innings checked), the function returns that key's array directly — no behavior change for correctly-tagged data. The fix does not depend on the underlying mock data ever being tagged consistently: it merges unconditionally whenever both keys are present, for any batter, in any match, so it is equally correct against a real feed that tagged some events by internal ID and others by name.
+
+**Anti-pattern search**: grepped the full codebase for any other `map.get(id) ?? map.get(name)`-style dual-key fallback against a player-identity map. Found none — every other `.get(...) ?? ...` site in the codebase (`lib/events.ts`, `components/MatchView.tsx`, `components/DigestTab.tsx`, `lib/mockMatchups.ts`, `lib/transformers.ts`) is a single-key lookup with a plain default-value fallback (`?? 0`, `?? {}`, `?? null`, `?? "Unknown"`), not a second alternate-key lookup that could silently drop real data registered under a different key. `Scorecard.tsx`'s `ballsByBatter` lookup was the only instance of this specific anti-pattern.
+
+**Verified** with a real script (`npx tsx`, temporary, not committed) run directly against `lib/mockData.ts`'s actual `ind-eng-test-2026-d3-live` fixture (not a synthetic construction): comparing the OLD `get(id) ?? get(name)` result against the NEW merged result for every batter in ENG Innings 1 —
+
+| Batter | Official ballsFaced | OLD lookup count | NEW merged count |
+|---|---|---|---|
+| H Brook | 41 | 4 | 40 |
+| B Stokes | 38 | 2 | 35 |
+| J Bairstow | 15 | 3 | 21 |
+| B Duckett | 24 | 51 | 66 |
+| Z Crawley, J Root, M Livingstone, C Woakes | — | unchanged | unchanged |
+
+B Duckett was an additional, previously-unreported case of the same split-tagging bug in this innings, also fixed by the same merge (his `??` lookup happened to resolve to the LARGER of his two keys, 51 of 66, so the symptom was less visible, but he was still losing 15 real balls). Every merged array's chronological order was confirmed strictly ascending by `over`/`ballInOver` for every batter. The four unaffected batters' counts are byte-identical before and after, confirming no regression for already-correctly-tagged data.
+
+Re-ran the v1.0.143 proportional-width verification against the same fixture post-fix: widths are pixel-identical to before this change (Z Crawley 71.96px, B Duckett 27.86px, J Root 130px [max, 112 balls], H Brook 47.59px, B Stokes 44.11px, J Bairstow 17.41px) — confirming the width calculation (driven by `row.ballsFaced`, the official box-score column) is fully independent of the sparkline's own point count (driven by however many raw `Ball` objects the merge resolves), exactly as designed.
+
+`tsc --noEmit` and `npm run build` both clean.
+
+**Scope**: `components/Scorecard.tsx` only — the `ballsByBatter` lookup and its one call site. No other files needed changes; the anti-pattern search found no other instances to fix.

@@ -449,15 +449,24 @@ function InningsCard({
   // for the batting-row sparklines. Older/completed matches recorded without
   // ball-by-ball data have innings.balls === [] -- every batter's slice is
   // then empty too, and BatterSparkline quietly renders nothing.
-  // Match ball-by-ball data to a battingCard row by id OR by name, since
-  // mockData.ts uses inconsistent conventions across matches:
-  //   - some matches: ball.batterId === battingCard.playerId (shorthand ids)
-  //   - others:       ball.batterId is the full display name, which only
-  //                    lines up with battingCard.playerName, while
-  //                    playerId is a separate slug ("zcrwly")
-  // Registering each ball under both its id and name key (deduped) means a
-  // row lookup by either playerId or playerName finds it regardless of
-  // which convention that particular match used.
+  // Match ball-by-ball data to a battingCard row by id OR by name, since a
+  // real feed (or, as confirmed, even a single mock innings) can plausibly
+  // tag different balls for the SAME batter under different identifiers:
+  //   - some balls: ball.batterId === battingCard.playerId (shorthand ids)
+  //   - others:     ball.batterId is the full display name, which only
+  //                 lines up with battingCard.playerName, while
+  //                 playerId is a separate slug ("zcrwly")
+  // Registering each ball under both its id and name key (deduped within a
+  // key) means a row lookup can find balls under EITHER key. Retrieval
+  // (getBatterBalls, below) then MERGES both keys rather than falling back
+  // from one to the other -- see that function's own comment for why a
+  // fallback silently drops real data when a single batter's balls are
+  // split across both keys, which is exactly what was found and fixed here
+  // (v1.0.144): H Brook/B Stokes/J Bairstow in ind-eng-test-2026-d3-live's
+  // ENG Innings 1 each had a handful of balls tagged with their slug id and
+  // the rest tagged with their full name, and the old `get(id) ?? get(name)`
+  // lookup returned only whichever key existed first (the slug, with just
+  // 2-4 entries), discarding 18-36 real balls per batter.
   const ballsByBatter = new Map<string, Ball[]>();
   const registerBall = (key: string | undefined, b: Ball) => {
     if (!key) return;
@@ -468,6 +477,44 @@ function InningsCard({
   for (const b of innings.balls) {
     registerBall(b.batterId, b);
     if (b.batterName !== b.batterId) registerBall(b.batterName, b);
+  }
+
+  /**
+   * Look up a batter's balls by BOTH their playerId and playerName keys and
+   * MERGE the results, rather than using `??` to pick only one. A batter's
+   * real balls can legitimately be split across both keys within the same
+   * innings (confirmed in ind-eng-test-2026-d3-live's ENG Innings 1 -- see
+   * the comment above `ballsByBatter`), and `map.get(a) ?? map.get(b)`
+   * returns ONLY whichever key resolves first, even if it holds just a
+   * handful of entries while the other key holds dozens more for the same
+   * player -- silently under-populating the sparkline rather than erroring,
+   * which is what made this bug easy to miss. This function is defensive
+   * by construction: it merges unconditionally whenever both keys exist,
+   * so it's correct whether a batter's balls are tagged 100% consistently,
+   * 100% under the other key, or split any way in between -- it does not
+   * depend on (or assume) the underlying data ever being tagged
+   * consistently, whether that data is mock or a real provider's feed.
+   *
+   * Deduplicates by `Ball.id` in case the same ball were ever registered
+   * under both keys AND both keys happened to be looked up for the same
+   * batter (not currently possible given how `registerBall` dedupes within
+   * a single key, but cheap insurance against a future data shape where it
+   * could happen). Re-sorts the merged result by `over`/`ballInOver` --
+   * balls arriving from two independently-populated keys are not
+   * guaranteed to already be in relative chronological order, and the
+   * sparkline's cumulative runs-vs-balls curve (buildSparklinePoints) is
+   * only meaningful over a strictly chronological sequence.
+   */
+  function getBatterBalls(map: Map<string, Ball[]>, playerId: string, playerName: string): Ball[] {
+    const byId = map.get(playerId);
+    const byName = playerId === playerName ? undefined : map.get(playerName);
+    if (!byId && !byName) return [];
+    if (byId && !byName) return byId;
+    if (byName && !byId) return byName;
+    const merged = new Map<string, Ball>();
+    for (const b of byId!) merged.set(b.id, b);
+    for (const b of byName!) merged.set(b.id, b);
+    return [...merged.values()].sort((a, b) => a.over - b.over || a.ballInOver - b.ballInOver);
   }
 
   // Per-innings ceiling for the batter-sparkline width scale: the batter
@@ -550,7 +597,7 @@ function InningsCard({
               <BatterRow
                 key={row.playerId}
                 row={row}
-                balls={ballsByBatter.get(row.playerId) ?? ballsByBatter.get(row.playerName) ?? []}
+                balls={getBatterBalls(ballsByBatter, row.playerId, row.playerName)}
                 isTopScorer={row.playerId === topScorer?.playerId}
                 isTopSR={row.playerId === topSR?.playerId}
                 motm={match.result?.manOfMatch}
