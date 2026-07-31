@@ -1921,3 +1921,19 @@ For the matched height to actually show (rather than just the outer bordered box
 **Verified**: `tsc --noEmit` and `npm run build` both clean.
 
 **Scope**: `components/BallGIF.tsx`'s `OverheadView` function only -- the `wasLeft` derivation and the shot-line/endpoint-marker JSX. No changes to `MiniBallGIF.tsx` or `MomentStoryCard.tsx`, which have their own independent shot-line rendering for different contexts (small previews, shareable social cards) not covered by this request's four named views (live ticker, Moments replay).
+
+## Removed redundant tour-name banner from ball visualizer — v1.0.141 (2026-08-01)
+
+**Context**: the live/ball-visualizer view's `ContextHeader` row rendered "{competition.name} · {teamA.shortName} vs {teamB.shortName}" directly above the pitch map, occupying a full-width row for context already shown in the main score header at the top of the match page. Requested removal, applied consistently across every match page.
+
+**Investigation**: `ContextHeader` also accepted `scoreText` and `situationText` props (rendering an optional score line and a right-aligned situation pill), but grepping `MatchView.tsx` confirmed its one real call site (`<BallGIF ball={currentBall} match={truncatedMatch} fielders={fielders} loopMs={GIF_LOOP_MS} partnership={...} onShare={...} />`, line ~751) never passes either prop -- both are always `undefined` there. So in practice, `ContextHeader` only ever rendered the tour-name/team-name line; the score-line and situation-pill code paths were unreachable dead code specific to this component (a *separate* component, `MomentStoryCard.tsx`, independently handles the actual share-card captions that use similar text -- `ContextHeader` was never involved in that flow). Confirmed via `grep -rn "ContextHeader"` that this component had exactly one definition and one call site, both inside `components/BallGIF.tsx` itself.
+
+**Fix — `components/BallGIF.tsx`**: deleted the `<ContextHeader .../>` render call, the `ContextHeader` function definition, and the now-unused `situationText`/`scoreText` fields from `BallGIFProps` (and their destructuring in the main `BallGIF` function) rather than leaving them declared-but-dead.
+
+**Consistency**: since v1.0.140 already established that `OverheadView`/`BallGIF` is a single shared component used for both the live ticker and the Moments replay view (no duplicate code path per match), this one edit removes the banner everywhere it appeared, across every match page, with nothing else to touch.
+
+**Series/tour name relocation**: checked `InfoTab.tsx` — it already displays `match.competition.shortName ?? match.competition.name` (line 168) and `match.competition.name` (line 217), so series context already exists on the Info tab. No new UI was added there since the value already had a home.
+
+**Verified**: `tsc --noEmit` and `npm run build` both clean. `grep -rn "ContextHeader\|situationText\|scoreText" components/BallGIF.tsx` after the edit returns nothing, confirming complete removal with no dangling references.
+
+**Scope**: `components/BallGIF.tsx` only -- the `ContextHeader` function, its one call site, and the two now-dead prop fields. No changes to `MatchView.tsx`, `InfoTab.tsx`, or `MomentStoryCard.tsx`.

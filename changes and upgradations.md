@@ -2979,6 +2979,15 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Hardened -- `components/WinProbBadge.tsx`
 - `variant="boxed"`'s two lines now also carry `truncate max-w-full` as a safety net, so an unusually long team label clips inside the box instead of being able to push it wider.
 
+## [1.0.139] 2026-07-29
+
+#### Changed -- `components/MatchupCard.tsx`
+- Width ratio changed from 50/50 to a fixed 60/40 (matchup box larger), implemented as a CSS Grid (`gridTemplateColumns: "60% 40%"`) rather than `flex: 0 0 60%`/`flex: 0 0 40%` -- flex-basis percentages with zero grow/shrink don't leave room for the row's own gap and would overflow; Grid's gap is accounted for natively. `min-w-0` kept on both grid items (same content-floor risk as flex items).
+- Row's `items-start` changed to `items-stretch` so both boxes always match height (whichever is taller), reversing the previous round's deliberate independent-height behavior per this round's explicit request. Collapsed teaser button gained `h-full` + `justify-center` (alongside existing `items-center`) so it fills and centers within the now-shared height instead of leaving dead space.
+
+#### Verified
+- Real browser `getBoundingClientRect()` checks across two live matches (short names, long wrapping names): consistent 60/40 width ratio and identical box heights in both cases -- reported with exact pixel values in chat.
+
 ## [1.0.140] 2026-07-31
 
 #### Fixed -- `components/BallGIF.tsx`
@@ -2989,11 +2998,12 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Verified
 - `tsc --noEmit` and `npm run build` clean. Confirmed via `MatchView.tsx` trace (unchanged from prior sessions) that `OverheadView` is one shared component rendered by a single `<BallGIF>` call used for both the live ticker and the Moments replay view -- this fix applies to both without any duplicate edit.
 
-## [1.0.139] 2026-07-29
+## [1.0.141] 2026-08-01
 
-#### Changed -- `components/MatchupCard.tsx`
-- Width ratio changed from 50/50 to a fixed 60/40 (matchup box larger), implemented as a CSS Grid (`gridTemplateColumns: "60% 40%"`) rather than `flex: 0 0 60%`/`flex: 0 0 40%` -- flex-basis percentages with zero grow/shrink don't leave room for the row's own gap and would overflow; Grid's gap is accounted for natively. `min-w-0` kept on both grid items (same content-floor risk as flex items).
-- Row's `items-start` changed to `items-stretch` so both boxes always match height (whichever is taller), reversing the previous round's deliberate independent-height behavior per this round's explicit request. Collapsed teaser button gained `h-full` + `justify-center` (alongside existing `items-center`) so it fills and centers within the now-shared height instead of leaving dead space.
+#### Removed -- `components/BallGIF.tsx`
+- Deleted the `ContextHeader` row ("{competition name} · {teamA} vs {teamB}") that sat directly above the pitch/ball animation on the live ticker and Moments replay view. It duplicated team/score context already shown in the main score header at the top of the match page, and its `scoreText`/`situationText` capability was never actually used at this component's one real call site (`MatchView.tsx`) -- only the redundant tour-name line ever rendered in practice. Removed the component definition entirely along with the now-dead `scoreText`/`situationText` props from `BallGIFProps`.
+- Since `OverheadView`/`BallGIF` is the single shared component for both the live ticker and the Moments replay (confirmed in v1.0.140's Step 4), and `ContextHeader` had no other call sites anywhere in the codebase, this removes the banner consistently across every match page in one edit -- no per-match or per-view duplication to chase down.
+- Series/tour name context already lives on the Info tab (`InfoTab.tsx` lines 168 and 217 both already show `competition.name`), so no new surface was added there.
 
 #### Verified
-- Real browser `getBoundingClientRect()` checks across two live matches (short names, long wrapping names): consistent 60/40 width ratio and identical box heights in both cases -- reported with exact pixel values in chat.
+- `tsc --noEmit` and `npm run build` clean. Grepped for `ContextHeader`/`situationText`/`scoreText` across `components/` to confirm no other consumer was relying on the removed component or props.

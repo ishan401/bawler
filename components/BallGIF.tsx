@@ -14,15 +14,12 @@ interface BallGIFProps {
   match: Match;
   fielders?: FielderPosition[];
   loopMs?: number;
-  situationText?: string;
-  scoreText?: string;
   partnership?: PartnershipInfo;
   onShare?: (ball: Ball) => void; // centralised in MatchView
 }
 
 export default function BallGIF({
   ball, match, fielders, loopMs = 6000,
-  situationText, scoreText,
   partnership,
   onShare,
 }: BallGIFProps) {
@@ -61,14 +58,6 @@ export default function BallGIF({
 
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden border border-white/10">
-
-      {/* ── CONTEXT HEADER ── */}
-      <ContextHeader
-        match={match}
-        ball={ball}
-        scoreText={scoreText}
-        situationText={situationText}
-      />
 
       {/* ── ANIMATION ZONE ── */}
       <div
@@ -122,53 +111,6 @@ export default function BallGIF({
       {/* ── IMPACT FOOTER ── */}
       <PartnershipFooter ball={ball} partnership={partnership} match={match} />
 
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CONTEXT HEADER
-// ─────────────────────────────────────────────────────────────────────────────
-
-function ContextHeader({ match, ball, scoreText, situationText }: {
-  match: Match; ball: Ball; scoreText?: string; situationText?: string;
-}) {
-  const comp = match.competition;
-  const isChase = !!(situationText?.startsWith("Need"));
-
-  return (
-    <div className="bg-black/70 backdrop-blur-sm px-3 py-2 flex items-center justify-between gap-2 border-b border-white/8">
-      {/* left: competition + match */}
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <div className="flex items-center gap-1.5">
-          {comp && (
-            <span
-              className="w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ background: comp.logoColor ?? "#06B6D4" }}
-            />
-          )}
-          <span className="text-[9px] font-semibold uppercase tracking-wider text-white/45 truncate">
-            {comp?.name ?? "Cricket"} · {match.teamA.shortName} vs {match.teamB.shortName}
-          </span>
-        </div>
-        {scoreText && (
-          <span className="text-[11px] font-bold text-white/90 truncate">{scoreText}</span>
-        )}
-      </div>
-
-      {/* right: situation pill */}
-      {situationText && (
-        <div
-          className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider"
-          style={{
-            background: isChase ? "rgba(6,182,212,0.18)" : "rgba(255,255,255,0.08)",
-            color: isChase ? "#06B6D4" : "rgba(255,255,255,0.55)",
-            border: `1px solid ${isChase ? "rgba(6,182,212,0.35)" : "rgba(255,255,255,0.1)"}`,
-          }}
-        >
-          {situationText}
-        </div>
-      )}
     </div>
   );
 }
