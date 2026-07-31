@@ -470,6 +470,33 @@ function InningsCard({
     if (b.batterName !== b.batterId) registerBall(b.batterName, b);
   }
 
+  // Per-innings ceiling for the batter-sparkline width scale: the batter
+  // with the most balls faced (among those with runs > 0 -- a duck never
+  // sets the scale, since it never renders a sparkline at all, see
+  // BatterSparkline) renders at 100% width, everyone else in THIS innings
+  // scales down linearly and directly from that -- no floor, no sqrt/log
+  // transform. Scoped to `innings.battingCard` only, so the two teams'
+  // innings in the same match never share a scale.
+  //
+  // Deliberately computed inline here, NOT behind useMemo/useCallback and
+  // NOT cached anywhere outside this render -- it must recompute from
+  // scratch on every render so that in a live, in-progress innings the
+  // scale keeps shifting as the current striker/non-striker face more
+  // balls than anyone else has yet. A cached-once value here would be the
+  // same class of bug as the Digest narrative cache and the accent-color
+  // remount issue (both broke by computing something once instead of on
+  // every relevant change) -- see ARCHITECTURE.md.
+  //
+  // Math.max(1, ...) guards the single/zero-qualifying-batter edge case:
+  // if no batter in this innings has runs > 0 yet (e.g. the very start of
+  // an innings), the spread is empty and this still evaluates to 1, never
+  // 0 or NaN -- not that it matters yet, since BatterSparkline itself
+  // never renders for a runs === 0 row regardless of this value.
+  const maxBallsFacedInInnings = Math.max(
+    1,
+    ...innings.battingCard.filter(r => r.runs > 0).map(r => r.ballsFaced)
+  );
+
   return (
     <div className="card">
       {/* Sticky innings header */}
@@ -529,6 +556,7 @@ function InningsCard({
                 motm={match.result?.manOfMatch}
                 mots={match.result?.manOfTournament}
                 teamColor={teamColor}
+                maxBallsFaced={maxBallsFacedInInnings}
               />
             ))}
           </tbody>
@@ -603,6 +631,7 @@ function BatterRow({
   motm,
   mots,
   teamColor,
+  maxBallsFaced,
 }: {
   row: BattingEntry;
   balls: Ball[];
@@ -611,6 +640,7 @@ function BatterRow({
   motm?: string;
   mots?: string;
   teamColor: string;
+  maxBallsFaced: number;
 }) {
   const isMotm = motm && row.playerName === motm;
   const isMots = mots && row.playerName === mots;
@@ -666,19 +696,19 @@ function BatterRow({
           {row.out && row.dismissal && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal}</span>
-              <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} />
+              <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} runs={row.runs} ballsFaced={row.ballsFaced} maxBallsFaced={maxBallsFaced} />
             </div>
           )}
           {!row.out && row.retiredNotOut && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] text-text-dim italic shrink-0">{row.dismissal ?? "Retired"}</span>
-              <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} />
+              <BatterSparkline points={sparklinePoints} live={false} teamColor={teamColor} runs={row.runs} ballsFaced={row.ballsFaced} maxBallsFaced={maxBallsFaced} />
             </div>
           )}
           {isLiveBatter && (
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] font-semibold shrink-0" style={{ color: teamColor }}>not out</span>
-              <BatterSparkline points={sparklinePoints} live={true} teamColor={teamColor} />
+              <BatterSparkline points={sparklinePoints} live={true} teamColor={teamColor} runs={row.runs} ballsFaced={row.ballsFaced} maxBallsFaced={maxBallsFaced} />
             </div>
           )}
         </div>
@@ -783,8 +813,45 @@ function smoothPath(pts: { x: number; y: number }[]): string {
  * nothing when there's no ball-by-ball data for this batter (yet to bat, or
  * an older match recorded without ball data) -- the dismissal line then
  * looks exactly as it did before this existed.
+ *
+ * Two more suppression/scaling rules, both explicitly required (not
+ * incidental to the geometry above):
+ *
+ * 1. A duck or golden duck (runs === 0) never gets a sparkline, no matter
+ *    how many balls were faced -- not a flat line, not a lone dot. The R/B
+ *    columns already say "0" and however many balls; a chart with nothing
+ *    to plot would just draw a meaningless flat baseline (this was in fact
+ *    the exact artifact a prior diagnostic root-caused: sparse ball data
+ *    producing a flat `M x y L x y` path with no points). Checked ahead of
+ *    the points.length gate below, since a duck off several balls still
+ *    produces >= 2 points (the seed plus one per ball, every one at y=0)
+ *    and would otherwise pass that check.
+ * 2. For every other batter, the container this curve is drawn inside is
+ *    sized to `(ballsFaced / maxBallsFaced) * FULL_WIDTH_PX` -- linear, no
+ *    floor, no sqrt/log transform. `maxBallsFaced` is the innings' current
+ *    highest balls-faced value among qualifying (runs > 0) batters, passed
+ *    down from InningsCard, which recomputes it fresh on every render (see
+ *    that component's own comment) -- so this width keeps rescaling live
+ *    as an in-progress innings adds more balls. This only resizes the
+ *    container; the curve's own data points are still built from the same
+ *    fixed W/H/PAD viewBox math above, unaffected by ballsFaced/maxBallsFaced.
  */
-function BatterSparkline({ points, live, teamColor }: { points: SparklinePoint[]; live: boolean; teamColor: string }) {
+function BatterSparkline({
+  points,
+  live,
+  teamColor,
+  runs,
+  ballsFaced,
+  maxBallsFaced,
+}: {
+  points: SparklinePoint[];
+  live: boolean;
+  teamColor: string;
+  runs: number;
+  ballsFaced: number;
+  maxBallsFaced: number;
+}) {
+  if (runs === 0) return null;
   if (points.length < 2) return null;
   const sampled = downsampleSparkline(points);
 
@@ -805,11 +872,23 @@ function BatterSparkline({ points, live, teamColor }: { points: SparklinePoint[]
   // white light slate (not a dim mid-gray) for completed innings, unchanged.
   const lineColor = live ? teamColor : "#E2E8F0";
 
+  // FULL_WIDTH_PX is the width this component always rendered at for
+  // whichever batter had the most balls faced, back when sizing was
+  // `flex-1`/`max-w-[130px]` -- kept as the literal "full available
+  // container width" the spec's ratio is multiplied against, so the
+  // innings' top-balls-faced batter still renders at the same visual size
+  // as before, and everyone else now scales down from it linearly instead
+  // of via flex/min-width. maxBallsFaced is guaranteed >= 1 by InningsCard
+  // (Math.max(1, ...)), so this can never divide by zero.
+  const FULL_WIDTH_PX = 130;
+  const widthPx = (ballsFaced / maxBallsFaced) * FULL_WIDTH_PX;
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
-      className="flex-1 h-5 min-w-[36px] max-w-[130px]"
+      className="h-5 shrink-0"
+      style={{ width: `${widthPx}px` }}
       aria-hidden="true"
     >
       <path d={linePath} fill="none" stroke={lineColor} strokeWidth="2"
