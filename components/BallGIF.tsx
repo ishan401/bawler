@@ -331,7 +331,8 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
   const shotEndX=BATTER_X+Math.sin(angleRad)*reachPx, shotEndY=BATTER_Y-Math.cos(angleRad)*reachPx;
   const isAerial=ball.shotIsAerial, isSix=ball.isBoundary6, isFour=ball.isBoundary4;
   const isDot=!ball.runs&&!ball.isWicket&&!ball.extras;
-  const wasLeft=ball.shotType==="left"||(isDot&&Math.abs(ball.pitchX??0)>0.6);
+  const hasShotData=ball.shotAngle!=null;
+  const wasLeft=ball.shotType==="left"||!hasShotData||(isDot&&Math.abs(ball.pitchX??0)>0.6);
   const firstContact=isAerial?{x:BATTER_X+(shotEndX-BATTER_X)*0.78,y:BATTER_Y+(shotEndY-BATTER_Y)*0.78}:null;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full block" preserveAspectRatio="xMidYMid meet">
@@ -347,7 +348,7 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
       <Stumps cx={CX} cy={CY-PITCH_H/2+4}/><Stumps cx={CX} cy={CY+PITCH_H/2-4} flying={ball.isWicket&&ball.dismissalType==="bowled"}/>
       <Person cx={BATTER_X-8} cy={BATTER_Y-2} scale={0.7} arm="right" from="over"/>
       {fielders?.map((f,i)=>{const a=(f.angle*Math.PI)/180,d=f.distance*Math.min(FIELD_RX,FIELD_RY)*0.95,fx=BATTER_X+Math.sin(a)*d,fy=BATTER_Y-Math.cos(a)*d;return<g key={i}><circle cx={fx} cy={fy} r="5" fill="#94A3B8" stroke="#0A0E1A" strokeWidth="1.5"/></g>;})}
-      {!wasLeft&&<path d={isAerial?`M ${BATTER_X} ${BATTER_Y} Q ${(BATTER_X+shotEndX)/2} ${Math.min(BATTER_Y,shotEndY)-80*(ball.shotLoft??0.5)} ${shotEndX} ${shotEndY}`:`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`} stroke={isSix?"#A855F7":isFour?"#00E5FF":"#94A3B8"} strokeWidth={isSix||isFour?"2.2":"1.4"} strokeDasharray={isAerial?"0":"4 4"} fill="none" opacity="0.75"/>}
+      {!wasLeft&&<><path d={isAerial?`M ${BATTER_X} ${BATTER_Y} Q ${(BATTER_X+shotEndX)/2} ${Math.min(BATTER_Y,shotEndY)-80*(ball.shotLoft??0.5)} ${shotEndX} ${shotEndY}`:`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`} stroke={ball.isWicket?"#EF4444":isSix?"#A855F7":isFour?"#00E5FF":"#94A3B8"} strokeWidth="2.5" strokeDasharray={isAerial?"0":"6 4"} fill="none" opacity="0.9"/><circle cx={shotEndX} cy={shotEndY} r="4" fill={ball.isWicket?"#EF4444":isSix?"#A855F7":isFour?"#00E5FF":"#94A3B8"}/></>}
       {firstContact&&<g><circle cx={firstContact.x} cy={firstContact.y} r="6" fill="none" stroke="#FFE9A0" strokeWidth="1.5" opacity="0.85"><animate attributeName="r" values="3;9;3" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.6s" repeatCount="indefinite"/></circle><circle cx={firstContact.x} cy={firstContact.y} r="2.5" fill="#FFE9A0"/></g>}
       {!wasLeft&&<>{isAerial&&<circle r="4" fill="#000" opacity="0.4"><animateMotion dur={`${loopMs*0.9}ms`} repeatCount="indefinite" path={`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`}/></circle>}<circle r="6" fill="url(#ballO)"><animateMotion dur={`${loopMs*0.9}ms`} repeatCount="indefinite"><mpath href="#shotPath"/></animateMotion></circle></>}
       {isSix&&<circle cx={shotEndX} cy={shotEndY} r="0" fill="none" stroke="#A855F7" strokeWidth="3" style={{animation:`boundary-pulse ${loopMs}ms ease-out infinite`}}/>}

@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.139 (deployed)
+**Current version:** v1.0.140 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -577,6 +577,7 @@
 | **v1.0.137** | `MatchupCard.tsx`'s two boxes (v1.0.136) are now an even 50/50 split (both `flex-1`, not the previous 60/40) -- width never computed from content on either side. Collapsed teaser's name spans dropped ellipsis-`truncate` in favor of `flex-wrap`: common short pairings stay one line, rare long full-name pairings (e.g. "R van der Dussen vs J Fraser-McGurk") wrap to a second line instead of getting cut off, box height only growing for that outlier. Verified via `react-dom/server`: both boxes equal-width in short- and long-name cases, win-prob box's markup unaffected either way (DECISIONS-LOG.md) |
 | **v1.0.138** | The v1.0.137 50/50 box split measured ~57/43 in the browser despite `flex-1` on both boxes -- `flex-basis: 0%` doesn't override a flex item's default `min-width: auto`, so the matchup box's wider min-content text floor was quietly stealing width. Added `min-w-0` to both boxes (`MatchupCard.tsx`) so `flex: 1 1 0%` is the only thing left deciding width; added `truncate max-w-full` to `WinProbBadge.tsx`'s `"boxed"` variant as a safety net. Verified with a real browser computed-style check, not a visual read (DECISIONS-LOG.md) |
 | **v1.0.139** | Matchup/win-prob row changed from 50/50 to a fixed 60/40 split, implemented via CSS Grid (`gridTemplateColumns: "60% 40%"`, `min-w-0` on both items) rather than `flex: 0 0 60%`/`40%` -- flex-basis percentages with zero grow/shrink overflow by the gap's width, Grid accounts for gap natively. Row's `items-start` changed to `items-stretch` so both boxes always match height (reversing the prior round's deliberate independence, per explicit request); matchup teaser button gained `h-full` + `justify-center` to fill/center within the shared height. Verified via real browser `getBoundingClientRect()` across two matches -- consistent 60/40 ratio, matched heights in both (DECISIONS-LOG.md) |
+| **v1.0.140** | Overhead pitch-map shot-direction line (`BallGIF.tsx`) was too thin/faint at normal zoom: `strokeWidth` unified to `2.5` (was 1.4/2.2 depending on outcome), `opacity` to `0.9` (was 0.75), dasharray scaled up to `"6 4"` (was `"4 4"`) to match the thicker stroke, plus a new solid 4px-radius endpoint marker at the shot's terminus. Added a missing wicket-red (`#EF4444`) color branch -- wickets previously fell through to neutral gray -- matching `OutcomeBadge`'s exact palette (six `#A855F7`, four `#00E5FF`, neutral `#94A3B8`). Hardened the `wasLeft` no-line gate with an explicit `shotAngle==null` check so a delivery with no recorded placement data never draws a line (no change against existing mock fixtures, all of which already set `shotAngle`). Single shared component confirmed for both the live ticker and Moments replay -- fix applies to both automatically (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 

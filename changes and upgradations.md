@@ -2979,6 +2979,16 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Hardened -- `components/WinProbBadge.tsx`
 - `variant="boxed"`'s two lines now also carry `truncate max-w-full` as a safety net, so an unusually long team label clips inside the box instead of being able to push it wider.
 
+## [1.0.140] 2026-07-31
+
+#### Fixed -- `components/BallGIF.tsx`
+- The overhead pitch-map shot-direction line was too thin/faint to see without zooming: `strokeWidth` (1.4 for dots/singles, 2.2 for four/six) and `opacity="0.75"` bumped to a uniform `strokeWidth="2.5"` / `opacity="0.9"` across all outcomes, with the dash pattern scaled up from `"4 4"` to `"6 4"` to stay visually balanced against the thicker stroke. Added a new solid, filled 4px-radius `<circle>` endpoint marker at the shot's terminus so the line has a definite visual end rather than trailing off.
+- Color was already outcome-driven and already matched `OutcomeBadge`'s own palette for six (`#A855F7`) and four (`#00E5FF`) -- but had no wicket branch at all, so a wicket ball's line silently fell through to the neutral gray (`#94A3B8`) case. Added an explicit `ball.isWicket` branch using `#EF4444`, matching `OutcomeBadge` exactly. The new endpoint marker reuses this same color logic. Confirmed this local palette is intentionally separate from `lib/outcomeColors.ts`'s `OUTCOME` map (whose "four" is `#06B6D4`, not `#00E5FF`) -- `OutcomeBadge` (the badge actually co-rendered in this same view) is the correct ground truth, not the shared `outcomeColors.ts` module, which this component doesn't otherwise consume for badge/line colors.
+- Hardened the `wasLeft` no-line gate: it previously only checked `shotType==="left"` and a dot-ball-with-wide-pitchX heuristic, neither of which is a direct check for "do we actually have shot placement data." Added `ball.shotAngle==null` as an explicit condition, so a delivery with no recorded shot angle (e.g. a real wide/no-ball with no bat contact, once real data includes such cases) never draws a line, rather than silently defaulting to angle 0. No behavior change against any existing mock fixture -- every ball in `lib/mockData.ts` already has `shotAngle` set -- this only closes a latent gap for future real data.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean. Confirmed via `MatchView.tsx` trace (unchanged from prior sessions) that `OverheadView` is one shared component rendered by a single `<BallGIF>` call used for both the live ticker and the Moments replay view -- this fix applies to both without any duplicate edit.
+
 ## [1.0.139] 2026-07-29
 
 #### Changed -- `components/MatchupCard.tsx`
