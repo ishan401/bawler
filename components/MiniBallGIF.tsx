@@ -88,7 +88,14 @@ export default function MiniBallGIF({ ball }: MiniBallGIFProps) {
   const isSix = ball.isBoundary6;
   const isFour = ball.isBoundary4;
   const isAerial = ball.shotIsAerial;
-  const wasLeft = ball.shotType === "left" || (!ball.runs && !ball.isWicket && Math.abs(ball.pitchX ?? 0) > 0.6);
+  // Mirrors the hardened gate in BallGIF.tsx's OverheadView (v1.0.140): a
+  // ball with no recorded shotAngle at all (e.g. real-feed data before
+  // lib/matchFeedAdapter.ts maps shot fields -- see ARCHITECTURE.md) must
+  // never draw a line, rather than silently defaulting to a fake angle-0
+  // shot. No behavior change against existing mock fixtures, which all set
+  // shotAngle explicitly.
+  const hasShotData = ball.shotAngle != null;
+  const wasLeft = ball.shotType === "left" || !hasShotData || (!ball.runs && !ball.isWicket && Math.abs(ball.pitchX ?? 0) > 0.6);
 
   const accent = isWicket ? "#EF4444" : isSix ? "#A855F7" : isFour ? "#00E5FF" : ball.runs > 0 ? "#10B981" : "#64748B";
 

@@ -1598,3 +1598,94 @@ rather than logic bugs.
   `lib/mockMatchups.ts`, `lib/winProb.ts`, or `lib/playerName.ts` — every
   round was purely layout/CSS, never a data or derivation change. See
   DECISIONS-LOG.md for the exact diffs and test output at each version.
+
+## Forward-looking gap — `ingestMatchFeed()` has no mapping yet for delivery type, speed, or shot data — v1.0.142
+
+**Status: confirmed gap, not yet built.** No live data provider is chosen
+yet, so this section documents the plan rather than an implementation.
+
+**(a) What's confirmed missing, field by field.** `lib/matchFeedAdapter.ts`'s
+`RawFeedDelivery` interface and `adaptInnings()`'s ball-mapping function
+(the two places a real feed's fields become a Bawler `Ball`) together
+handle exactly: `id`, `over`, `ballInOver`, `batterId`/`batterName`,
+`bowlerId`/`bowlerName`, `runs`, `extras`, `extraType`, `isWicket`,
+`dismissalType`, `isBoundary4`, `isBoundary6`. Every visualizer-input field
+on `Ball` (`lib/types.ts`) is absent from both — confirmed by grep, zero
+matches for any of these anywhere in the file:
+
+- Pitch/speed: `pitchX`, `pitchY`, `heightAtBounce`, `ballSpeedKmh`
+- Shot data: `shotAngle`, `shotPower`, `shotLoft`, `shotType`, `shotIsAerial`
+- Delivery character: `bowlingArm`, `bowlingFrom`, `bowlingLength`,
+  `bowlingLine`, `heightAtBatter`, `ballVariation`, `swingDirection`,
+  `spinDirection`, `pace`
+
+A ball ingested through `ingestMatchFeed()` today scores correctly (every
+field the scorecard needs is mapped) but renders on the ball visualizer
+and delivery-info card with no shot line, no speed readout, and no
+delivery-type label — confirmed safe (v1.0.142, see below), not a crash or
+an "undefined"/"0 KMH" leak, just an absent visual.
+
+**(b) The plan once a provider is shortlisted: sample first, map second.**
+Do not write the mapping from a provider's public docs or a schema PDF.
+Pull one real sample response from that specific provider — an actual
+ball-by-ball payload for a live or recently-completed match — before
+writing any adapter code, the same way `RawFeedMatch`'s current shape is
+explicitly labeled in the module header as "this file's best-informed
+assumption... no live provider is connected yet, so this is a design
+choice, not a real contract." That assumption gets replaced by the real
+provider's actual field names, casing, nesting, and null-handling once one
+exists to sample.
+
+**(c) Speed is expected to be a straightforward, direct mapping.** Ball
+speed is near-universally a clean structured numeric field in
+professional ball-by-ball feeds (radar-gun or tracking-derived, reported
+as-is by the provider) — expect this to be a one-line addition to
+`adaptInnings()`'s ball mapping, comparable to how `runs`/`extras` map
+today, once the real field name is known.
+
+**(d) Shot direction and delivery type will likely need a text-
+interpretation layer, not a field mapping — and it has to be designed
+against that provider's actual commentary, not built generically now.**
+Unlike speed, these two are frequently NOT clean structured fields even in
+real commercial feeds — they're often embedded in free-text commentary
+strings ("length ball, driven through covers for four", "back of a length,
+angled across the left-hander"). Getting them into Bawler's internal
+vocabulary (`shotAngle`'s zone, `ballVariation`'s enum) will likely require
+a parsing/interpretation step that recognizes commentary phrases —
+fielding-position names for shot direction, delivery-descriptor phrases
+("length ball", "back of a length", "wide of off") for delivery type — and
+maps them to Bawler's internal categories. This layer cannot be built
+generically ahead of time: different providers phrase commentary
+differently (terse vs. florid, different fielding-position vocabulary,
+different delivery-type terminology), so the phrase-recognition rules have
+to be designed against that specific provider's real sample text (per (b)
+above), not authored speculatively now.
+
+**(e) The bar is categorical/zone-based, not ball-tracking precision.**
+This system was never aiming for pinpoint coordinates — `shotAngle` is a
+0-360° zone, `pitchX`/`pitchY` are normalized 0-1 positions, and the
+existing mock data (`lib/mockData.ts`) populates all of it as plausible
+approximations, not literal physics. The eventual real-feed mapping should
+target the same bar: "this shot went roughly through cover, this delivery
+was roughly a back-of-a-length cutter" is sufficient. Do not scope this as
+a ball-tracking integration — that's a different, much larger problem than
+what this visualizer needs.
+
+**Safety net shipped ahead of the real mapping (v1.0.142):** since every
+one of these fields is already optional (`?`) on `Ball`, and this gap
+means they'll all be `undefined` on any ingested-feed ball until the above
+is built, three render sites were audited and two hardened to degrade
+gracefully on missing data rather than erroring or showing a misleading
+value:
+
+- `components/DeliveryCard.tsx`'s `SpeedDot` previously defaulted to `ball.ballSpeedKmh ?? 0` and always rendered — a ball with no speed data displayed a literal, misleading "0 KMH" rather than nothing. Changed to the same `if (!speed) return null` guard `BallGIF.tsx`'s `SpeedChip` already had.
+- `components/MiniBallGIF.tsx` and `components/MomentStoryCard.tsx`'s shot-line no-draw gates (`wasLeft`/`noShot`) didn't check for a missing `shotAngle` — mirroring the exact gap `BallGIF.tsx`'s `OverheadView` had before v1.0.140 hardened it. Both now also gate on `ball.shotAngle == null`, so a ball with no real shot data never draws a fabricated angle-0 line in either component.
+- Everything else already degraded safely: `BallGIF.tsx`'s `TypeChip`/`formatVariation`, `DeliveryCard.tsx`'s equivalent `TypePill`, and `MomentStoryCard.tsx`'s own `formatVariation` all fall through to a `"Stock"` default when `ballVariation`/`swingDirection`/`spinDirection` are absent; `CommentaryFeed.tsx`'s `formatLength` falls back to `"tight"` for a missing `bowlingLength`; every pitch/shot coordinate consumer already used `?? <default>` or an `===` comparison (safe on `undefined`) rather than assuming presence. `heightAtBounce`/`heightAtBatter` are declared on `Ball` but not consumed anywhere yet, so they carry no risk either way.
+- Verified with a real `react-dom/server` render (not visual review): a ball object with every field above stripped, rendered through `BallGIF`, `DeliveryCard`, `MiniBallGIF`, and `MomentStoryCard` for a dot, a four, a six, and a wicket (16 combinations) — zero crashes, zero `undefined`/`NaN` substrings in the output, and targeted checks confirmed the speed readout is omitted and the shot line is skipped rather than drawn at a fake default angle.
+
+**This is a stopgap, not the destination.** The graceful-degradation fix
+above only prevents a broken-looking UI in the gap between "no provider
+connected" and "the real mapping in (b)-(d) is built." It does not
+populate any of these fields with real values — that's exactly the work
+items (b) through (e) describe, deferred until a provider is actually
+shortlisted.

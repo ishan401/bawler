@@ -367,7 +367,14 @@ function StoryCinematicPitch({ ball }: { ball: Ball }) {
 
   const postColor = spinBase !== 0 ? SPIN : "#00E5FF";
   const isDot = !ball.runs && !ball.isWicket && !ball.extras;
-  const noShot = isDot || ball.shotType === "left" || Math.abs(ball.pitchX ?? 0) > 0.8;
+  // Mirrors the hardened gate in BallGIF.tsx's OverheadView (v1.0.140): a
+  // ball with no recorded shotAngle at all (e.g. real-feed data before
+  // lib/matchFeedAdapter.ts maps shot fields -- see ARCHITECTURE.md) must
+  // never draw a line, rather than silently defaulting to a fake angle-0
+  // shot. No behavior change against existing mock fixtures, which all set
+  // shotAngle explicitly.
+  const hasShotData = ball.shotAngle != null;
+  const noShot = isDot || ball.shotType === "left" || !hasShotData || Math.abs(ball.pitchX ?? 0) > 0.8;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: "block" }}>

@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.141 (deployed)
+**Current version:** v1.0.142 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -579,6 +579,7 @@
 | **v1.0.139** | Matchup/win-prob row changed from 50/50 to a fixed 60/40 split, implemented via CSS Grid (`gridTemplateColumns: "60% 40%"`, `min-w-0` on both items) rather than `flex: 0 0 60%`/`40%` -- flex-basis percentages with zero grow/shrink overflow by the gap's width, Grid accounts for gap natively. Row's `items-start` changed to `items-stretch` so both boxes always match height (reversing the prior round's deliberate independence, per explicit request); matchup teaser button gained `h-full` + `justify-center` to fill/center within the shared height. Verified via real browser `getBoundingClientRect()` across two matches -- consistent 60/40 ratio, matched heights in both (DECISIONS-LOG.md) |
 | **v1.0.140** | Overhead pitch-map shot-direction line (`BallGIF.tsx`) was too thin/faint at normal zoom: `strokeWidth` unified to `2.5` (was 1.4/2.2 depending on outcome), `opacity` to `0.9` (was 0.75), dasharray scaled up to `"6 4"` (was `"4 4"`) to match the thicker stroke, plus a new solid 4px-radius endpoint marker at the shot's terminus. Added a missing wicket-red (`#EF4444`) color branch -- wickets previously fell through to neutral gray -- matching `OutcomeBadge`'s exact palette (six `#A855F7`, four `#00E5FF`, neutral `#94A3B8`). Hardened the `wasLeft` no-line gate with an explicit `shotAngle==null` check so a delivery with no recorded placement data never draws a line (no change against existing mock fixtures, all of which already set `shotAngle`). Single shared component confirmed for both the live ticker and Moments replay -- fix applies to both automatically (DECISIONS-LOG.md) |
 | **v1.0.141** | Removed the redundant `ContextHeader` tour-name/team-name banner row ("{competition} · {teamA} vs {teamB}") from the ball visualizer -- it duplicated the main score header and its `scoreText`/`situationText` props were dead code at the one real call site. Single shared `BallGIF` component means this applies to every match page's live ticker and Moments replay uniformly. Series/tour name already covered on the Info tab, so nothing was added there (DECISIONS-LOG.md) |
+| **v1.0.142** | Hardened graceful degradation for missing ball-visualizer fields (`DeliveryCard.tsx` SpeedDot no longer shows a fake "0 KMH"; `MiniBallGIF.tsx`/`MomentStoryCard.tsx` shot-line gates now also check for missing `shotAngle`, matching v1.0.140's `BallGIF.tsx` fix) -- a safety net for the confirmed `ingestMatchFeed()` gap where none of these fields are mapped from a real feed yet. Documented the gap field-by-field plus the forward plan (sample-first, speed=direct mapping, shot/type=commentary-text-interpretation layer per-provider, categorical not pinpoint accuracy) in ARCHITECTURE.md. Verified via real `react-dom/server` renders across 16 stripped-field combinations -- zero crashes, zero undefined/NaN leaks (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.109)
 

@@ -3007,3 +3007,17 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Verified
 - `tsc --noEmit` and `npm run build` clean. Grepped for `ContextHeader`/`situationText`/`scoreText` across `components/` to confirm no other consumer was relying on the removed component or props.
+
+## [1.0.142] 2026-08-01
+
+#### Hardened -- `components/DeliveryCard.tsx`, `components/MiniBallGIF.tsx`, `components/MomentStoryCard.tsx`
+- Safety net for the confirmed `ingestMatchFeed()` gap (see ARCHITECTURE.md): every ball-visualizer input field is currently unmapped from a real feed, so a real-data ball would have all of them `undefined` today. Audited every render site that consumes these fields for safe degradation.
+- `DeliveryCard.tsx`'s `SpeedDot` previously defaulted to `ball.ballSpeedKmh ?? 0` and always rendered -- a ball with no speed data showed a misleading literal "0 KMH". Now `if (!speed) return null`, matching `BallGIF.tsx`'s `SpeedChip`.
+- `MiniBallGIF.tsx` and `MomentStoryCard.tsx`'s shot-line no-draw gates didn't check for a missing `shotAngle` -- the same gap `BallGIF.tsx`'s `OverheadView` had before v1.0.140. Both now also gate on `ball.shotAngle == null`, so a ball with no real shot data never draws a fabricated angle-0 line.
+- Everything else already degraded safely (confirmed, not assumed): delivery-type formatters fall back to "Stock", `CommentaryFeed.tsx`'s length formatter falls back to "tight", all coordinate/direction fields already used `?? <default>` or `===` comparisons.
+
+#### Documented -- `ARCHITECTURE.md`
+- Added a forward-looking section confirming exactly which `Ball` fields `ingestMatchFeed()` doesn't map yet, plus the plan for when a real provider is chosen: pull a real sample response first, expect speed to be a direct structured-field mapping, expect shot direction/delivery type to need a commentary-text-interpretation layer designed against that provider's actual phrasing (not built generically in advance), and target categorical/zone-based accuracy, not ball-tracking precision.
+
+#### Verified
+- Real `react-dom/server` render (not visual review): a ball with every visualizer field stripped, rendered through `BallGIF`, `DeliveryCard`, `MiniBallGIF`, and `MomentStoryCard` for a dot/four/six/wicket (16 combinations) -- zero crashes, zero `undefined`/`NaN` in the output; targeted checks confirmed the speed readout is omitted and the shot line is skipped rather than drawn at a fake angle. `tsc --noEmit`/`npm run build` clean.

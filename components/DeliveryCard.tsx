@@ -150,7 +150,12 @@ function FullCard({
 // ============================================================================
 
 function SpeedDot({ ball, large }: { ball: Ball; large?: boolean }) {
-  const speed = ball.ballSpeedKmh ?? 0;
+  const speed = ball.ballSpeedKmh;
+  // No real speed data (e.g. a real-feed-ingested ball before that mapping
+  // exists -- see lib/matchFeedAdapter.ts and ARCHITECTURE.md) -- omit the
+  // readout entirely rather than rendering a misleading "0 KMH". Matches
+  // BallGIF.tsx's SpeedChip, which already had this guard.
+  if (!speed) return null;
   // Slowest tier of this speed gradient -- not a six-run outcome
   // (v1.0.67 cleanup; matches BallGIF's identical speed-tier pattern).
   const color =
