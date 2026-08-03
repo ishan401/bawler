@@ -3057,3 +3057,18 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Single-qualifying-batter edge case: ballsFaced=maxBallsFaced=7 -> exactly 130px, no NaN/Infinity.
 - Reactivity: a second batter's width recalculated (116.28px -> 110.86px) purely because a different batter faced one more ball on a fresh render -- confirms the max-balls-faced scale still recomputes live, not cached.
 - `tsc --noEmit` and `npm run build` both clean.
+
+## [1.0.146] 2026-08-03
+
+#### Fixed -- `lib/matchFeedAdapter.ts`, `lib/matchStatus.ts`
+- `ingestMatchFeed()` previously always set `battingCard: []`/`bowlingCard: []` for every real-fed innings, deferred as "a separate concern" -- since the only place that derived those from `balls` (`MatchView.tsx`'s live mid-innings truncation) never ran for a COMPLETE innings, this meant any finished real match would show an empty Score tab scorecard and Digest's Performance card/top-batter-bowler narrative would silently return null forever.
+- `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` (`lib/matchStatus.ts`) now accept an optional `originalCard` (defaults to `[]`); when empty, new helpers `deriveBatterIdentitiesFromBalls`/`deriveBowlerIdentitiesFromBalls` build the player-identity list directly from `balls` (one entry per distinct name, in order of first appearance), then the same existing stat math runs on top.
+- `ingestMatchFeed()` now calls both functions (no `originalCard`) in the same step that already computes `overs` from `raw.format`. `MatchView.tsx`'s live mid-innings path needed no change -- it already passes a real `originalCard`, so it takes the untouched original branch.
+- Added a provisional `RawFeedResult` type + `result`/`series_status`/`excitement`/`highlight_badge` on `RawFeedMatch` and `declared`/`follow_on` on `RawFeedInnings` -- none of these were mapped at all before, so `manOfMatch`/series context/editorial fields were always absent for a real feed.
+
+#### Verified
+- Real `npx tsx` script (temporary, not committed) built a small finished-T20 raw feed and ran it through `ingestMatchFeed()`: `battingCard`/`bowlingCard` came back correctly populated (runs/ballsFaced/fours/sixes/strikeRate/out/dismissal, oversBowled/maidens/runsConceded/wickets/economy), matching hand-computed arithmetic exactly; `result.manOfMatch`/`seriesStatus`/`excitement` all mapped through.
+- Fed that same match into `buildPostMatchDigest()`: Performance card now shows a real top batter/bowler (previously would've been omitted); match-summary card shows `manOfMatch` and a non-empty narrative.
+- Confirmed `Scorecard.tsx`'s `BatterRow`/`BowlerRow` only read fields present on the derived shape -- nothing missing.
+- Regression: ran the same derivation functions against a real mock fixture's live mid-innings truncation call shape (non-empty `originalCard`) -- identity-list length and mid-innings stats unchanged from before this fix.
+- All pre-existing regression scripts (`edge-case-check.ts`, `digest-check.ts`, `series-category-check.ts`, `version-check.ts`) passed unchanged. `tsc --noEmit` and `npm run build` both clean.

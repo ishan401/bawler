@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.145 (deployed)
+**Current version:** v1.0.146 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -619,3 +619,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.104** | Batting-team color theming: the not-out highlight box (border glow + text), the sparkline's live line, and the two team-selector pills (`TeamToggle`, `TestInningsChips` in `components/Scorecard.tsx`) now use the batting team's real `primaryColor` instead of a fixed cyan. New `lib/teamAccentColor.ts` resolves the color, with one explicit exception: a team with a literally colorless `#000000` primary (NZ, Uganda, PNG, London Spirit) falls back to its `secondaryColor` if that clears WCAG contrast against the card background, else falls back to the platform cyan. Outcome-coded colors (wicket red, four/six dot markers, top-scorer/top-SR/top-wicket-taker highlights) are unchanged and still fixed regardless of team (DECISIONS-LOG.md FY34) |
+
+## Changelog additions (v1.0.146)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.146** | Fixed a confirmed real-data-readiness gap: `lib/matchFeedAdapter.ts`'s `ingestMatchFeed()` previously left `battingCard`/`bowlingCard` empty (`[]`) for every real-fed innings, which would have silently broken the Score tab's batting/bowling table and Digest's post-match "Performance" card/top-batter-bowler narrative for any finished real match. `lib/matchStatus.ts`'s `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` now work with no pre-supplied player identities (deriving them from `balls` itself when needed), so `ingestMatchFeed()` and `MatchView.tsx`'s live mid-innings truncation now share exactly one derivation implementation instead of one working path and one silent gap. Also added a provisional `result`/`seriesStatus`/`excitement`/`highlightBadge`/`declared`/`follow_on` mapping to the raw-feed adapter, previously absent entirely (DECISIONS-LOG.md v1.0.146) |

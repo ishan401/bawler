@@ -214,6 +214,32 @@ export function countWicketEquivalentRetirements(
 }
 
 /**
+ * One batter identity per distinct `batterName` in `balls`, in order of
+ * first appearance (i.e. batting order, since deliveries arrive
+ * chronologically) -- every mutable stat field starts zeroed/false, the
+ * same shape `deriveBattingCardFromBalls` below expects as input. This is
+ * what lets that function build a card from ball-by-ball data ALONE, with
+ * no separately-authored scorecard to supply identities -- the case a
+ * real ingested feed is in (`lib/matchFeedAdapter.ts`'s `adaptInnings()`
+ * has no scorecard endpoint, only events) and a from-scratch mock/test
+ * fixture would be in too. `playerId` is taken from that first ball's
+ * `batterId` -- purely informational here, since every downstream lookup
+ * in `deriveBattingCardFromBalls` keys off `playerName`, never `playerId`.
+ */
+function deriveBatterIdentitiesFromBalls(balls: Ball[]): BattingEntry[] {
+  const seen = new Map<string, BattingEntry>();
+  for (const b of balls) {
+    if (!seen.has(b.batterName)) {
+      seen.set(b.batterName, {
+        playerId: b.batterId, playerName: b.batterName,
+        runs: 0, ballsFaced: 0, fours: 0, sixes: 0, strikeRate: 0, out: false,
+      });
+    }
+  }
+  return [...seen.values()];
+}
+
+/**
  * Recompute one innings' battingCard from a (possibly truncated) ball
  * slice. `originalCard` supplies player identity/order only -- every
  * mutable field (runs, ballsFaced, fours, sixes, strikeRate, out,
@@ -221,15 +247,28 @@ export function countWicketEquivalentRetirements(
  * innings' side-channel (see RetirementRecord in lib/types.ts) -- retired
  * players are derived from THIS, never from `balls`, since a retirement is
  * never a ball.
+ *
+ * `originalCard` is now OPTIONAL (defaults to `[]`) -- v1.0.146: when no
+ * separately-authored card exists to supply identities (a real ingested
+ * feed, or any from-scratch data with only ball-by-ball events), this
+ * derives the identity list itself from `balls` via
+ * `deriveBatterIdentitiesFromBalls` above, then runs the exact same
+ * per-player math below either way. This is what makes this ONE function
+ * usable both for MatchView.tsx's live mid-innings truncation (which
+ * already has a real `originalCard` to pass) AND matchFeedAdapter.ts's
+ * ingestion path for a COMPLETE innings (which never has one) -- see
+ * ARCHITECTURE.md's "single derivation, two callers" note for the full
+ * rationale for why this must not become two diverging implementations.
  */
 export function deriveBattingCardFromBalls(
   balls: Ball[],
-  originalCard: BattingEntry[],
+  originalCard: BattingEntry[] = [],
   retirements: RetirementRecord[] = []
 ): BattingEntry[] {
   const lastBall = balls.length > 0 ? balls[balls.length - 1] : undefined;
+  const baseCard = originalCard.length > 0 ? originalCard : deriveBatterIdentitiesFromBalls(balls);
 
-  return originalCard.map(entry => {
+  return baseCard.map(entry => {
     const playerBalls = balls.filter(b => b.batterName === entry.playerName);
     const ballsFaced = playerBalls.filter(b => b.extraType !== "wd").length;
     const runs = playerBalls.reduce((s, b) => s + b.runs, 0);
@@ -298,20 +337,46 @@ export function deriveBattingCardFromBalls(
 }
 
 /**
+ * Bowler-side equivalent of `deriveBatterIdentitiesFromBalls` above --
+ * one identity per distinct `bowlerName` in `balls`, in order of first
+ * appearance (i.e. bowling order), all stat fields zeroed. Same
+ * rationale: lets `deriveBowlingCardFromBalls` build a card from
+ * ball-by-ball data alone when no separately-authored card exists to
+ * supply identities.
+ */
+function deriveBowlerIdentitiesFromBalls(balls: Ball[]): BowlingEntry[] {
+  const seen = new Map<string, BowlingEntry>();
+  for (const b of balls) {
+    if (!seen.has(b.bowlerName)) {
+      seen.set(b.bowlerName, {
+        playerId: b.bowlerId, playerName: b.bowlerName,
+        oversBowled: 0, maidens: 0, runsConceded: 0, wickets: 0, economy: 0,
+      });
+    }
+  }
+  return [...seen.values()];
+}
+
+/**
  * Recompute one innings' bowlingCard from a (possibly truncated) ball
  * slice, same contract as `deriveBattingCardFromBalls` above.
  * `oversBowled` is reported in cricket notation (e.g. `1.4` = 1 over + 4
  * balls), matching every hand-authored fixture value already in
  * lib/mockData.ts -- NOT a true decimal fraction of an over.
+ *
+ * `originalCard` is now OPTIONAL (defaults to `[]`) -- v1.0.146, same
+ * reasoning and same single-function-two-callers contract as
+ * `deriveBattingCardFromBalls` above.
  */
 export function deriveBowlingCardFromBalls(
   balls: Ball[],
-  originalCard: BowlingEntry[],
+  originalCard: BowlingEntry[] = [],
   format: MatchFormat
 ): BowlingEntry[] {
   const bps = ballsPerSet(format);
+  const baseCard = originalCard.length > 0 ? originalCard : deriveBowlerIdentitiesFromBalls(balls);
 
-  return originalCard.map(entry => {
+  return baseCard.map(entry => {
     const bowlerBalls = balls.filter(b => b.bowlerName === entry.playerName);
     const legalBalls = bowlerBalls.filter(b => b.extraType !== "wd" && b.extraType !== "nb");
     const completedOvers = Math.floor(legalBalls.length / bps);

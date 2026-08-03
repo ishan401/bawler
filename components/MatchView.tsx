@@ -271,6 +271,20 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
         // battingCard/bowlingCard are the innings' real final cards here,
         // which is correct: every ball in this innings is visible, so
         // "final" and "current playback position" are the same thing.
+        //
+        // v1.0.146 note: this was only trustworthy for mock fixtures
+        // (hand-authored battingCard/bowlingCard) until now — a real feed
+        // ingested via lib/matchFeedAdapter.ts's ingestMatchFeed() used to
+        // leave both as `[]` for every innings, complete or not, which
+        // would have silently spread empty cards through right here.
+        // Fixed at the source: ingestMatchFeed() now calls this same
+        // lib/matchStatus.ts deriveBattingCardFromBalls/
+        // deriveBowlingCardFromBalls pair (with no originalCard, since a
+        // real feed has none) at ingestion time, so `inn.battingCard`/
+        // `bowlingCard` are already correctly populated from `inn.balls`
+        // by the time a real-feed match reaches this component — nothing
+        // further needed here. See ARCHITECTURE.md's "single derivation,
+        // two callers" note.
         innings.push({ ...inn, balls: truncBalls });
       } else {
         // Viewing mid-innings — derive runs/wickets/overs AND each

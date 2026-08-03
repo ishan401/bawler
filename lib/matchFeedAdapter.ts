@@ -56,7 +56,7 @@
 
 import type { RetirementRecord, RetirementType, MatchFormat, Ball } from "./types";
 import { normalizeMatch, type NormalizeResult } from "./dataValidation";
-import { countWicketEquivalentRetirements } from "./matchStatus";
+import { countWicketEquivalentRetirements, deriveBattingCardFromBalls, deriveBowlingCardFromBalls } from "./matchStatus";
 import { ballsPerSet } from "./formatUtils";
 
 // ── Raw feed shape (best-informed assumption; no live provider connected yet) ──
@@ -139,7 +139,43 @@ export interface RawFeedInnings {
   // this adapter computes them from `events` instead (see adaptInnings).
   runs?: number;
   wickets?: number;
+  // Test-only, both provisional (see RawFeedResult below) — declared:
+  // the batting team closed the innings voluntarily; follow_on: this
+  // innings was forced by the follow-on rule. Neither is derivable from
+  // ball-by-ball events alone (a declaration looks identical to "ran out
+  // of overs/wickets" from deliveries alone), so both must come from the
+  // provider directly or stay absent.
+  declared?: boolean;
+  follow_on?: boolean;
   events: RawFeedEvent[];
+}
+
+/**
+ * v1.0.146: provisional, same "best-informed assumption, no live provider
+ * connected yet" status as the rest of this file's raw shapes (see module
+ * header) — this is the piece `ingestMatchFeed()` previously had NO
+ * mapping for at all (confirmed by grep, zero matches for "result",
+ * "manOfMatch", "seriesStatus", or "excitement" anywhere in this file
+ * before this version). `winner`/`margin` mirror Bawler's own
+ * `Match["result"]` shape (lib/types.ts) directly, since a result verdict
+ * is about as close to a universal, provider-agnostic concept as this
+ * adapter deals with — expect this part of the guess to survive contact
+ * with a real schema more often than the rest. `man_of_match` and the
+ * editorial fields (`series_status`/`excitement`/`highlight_badge`) are
+ * far more likely to need reshaping once a real provider is sampled (see
+ * ARCHITECTURE.md's "sample first, map second" plan) — `excitement` in
+ * particular may not exist on a real feed at all, since it reads as an
+ * editorial/derived rating rather than a raw match fact.
+ */
+export interface RawFeedResult {
+  winner: string; // team code, or "draw" | "tie" | "no-result"
+  margin: string;
+  team_a_runs?: number;
+  team_a_wickets?: number;
+  team_b_runs?: number;
+  team_b_wickets?: number;
+  man_of_match?: string;
+  man_of_tournament?: string;
 }
 
 export interface RawFeedMatch {
@@ -152,6 +188,11 @@ export interface RawFeedMatch {
   team_a: RawFeedTeam;
   team_b: RawFeedTeam;
   innings?: RawFeedInnings[];
+  // All four provisional — see RawFeedResult's doc comment above.
+  result?: RawFeedResult;
+  series_status?: string;
+  excitement?: number;
+  highlight_badge?: string;
 }
 
 // ── mapping helpers ──────────────────────────────────────────────────────
@@ -181,6 +222,28 @@ function adaptCompetition(c: RawFeedCompetition) {
   };
 }
 
+/**
+ * See RawFeedResult's doc comment for the provisional-ness caveat.
+ * `winner` is passed through as a plain string (a team code or one of
+ * "draw"/"tie"/"no-result") rather than cast to Bawler's narrower
+ * `Match["result"]["winner"]` union here — this function's output flows
+ * into `ingestMatchFeed()`'s `shaped: unknown`, and `normalizeMatch()`
+ * downstream is the one place that actually validates the value, exactly
+ * like every other field this adapter reshapes.
+ */
+function adaptResult(r: RawFeedResult) {
+  return {
+    winner: r.winner,
+    margin: r.margin,
+    teamARuns: r.team_a_runs,
+    teamAWickets: r.team_a_wickets,
+    teamBRuns: r.team_b_runs,
+    teamBWickets: r.team_b_wickets,
+    manOfMatch: r.man_of_match,
+    manOfTournament: r.man_of_tournament,
+  };
+}
+
 function adaptRetirementType(raw: "not_out" | "given_out"): RetirementType {
   return raw === "given_out" ? "retired-out" : "retired-not-out";
 }
@@ -198,9 +261,11 @@ function isRetirementEvent(e: RawFeedEvent): e is RawFeedRetirementEvent {
  * `RetirementRecord` and kept COMPLETELY separate from `balls` — this is
  * the one step this whole file exists for. `after_event_id` (a raw
  * delivery's own `id`) maps directly to `afterBallId`, since this adapter
- * preserves delivery ids as-is rather than regenerating them. `overs` is
- * intentionally left for the caller to fill in (see ingestMatchFeed) —
- * it needs the match-level `format`, which isn't known at this per-innings
+ * preserves delivery ids as-is rather than regenerating them. `overs`,
+ * `battingCard`, and `bowlingCard` are intentionally left for the caller
+ * to fill in (see ingestMatchFeed) — all three need the match-level
+ * `format` (battingCard/bowlingCard only for the maiden/economy math in
+ * `deriveBowlingCardFromBalls`), which isn't known at this per-innings
  * scope.
  */
 function adaptInnings(raw: RawFeedInnings) {
@@ -249,9 +314,9 @@ function adaptInnings(raw: RawFeedInnings) {
     wickets: raw.wickets ?? computedWickets,
     lastBall: balls[balls.length - 1],
     balls,
-    battingCard: [] as unknown[], // a scorecard endpoint is a separate concern, out of scope here — every consumer already derives live per-player cards from `balls` (see lib/matchStatus.ts's deriveBattingCardFromBalls/deriveBowlingCardFromBalls)
-    bowlingCard: [] as unknown[],
     retirements: retirements.length > 0 ? retirements : undefined,
+    declared: raw.declared,
+    followOn: raw.follow_on,
   };
 }
 
@@ -278,11 +343,25 @@ export function ingestMatchFeed(raw: RawFeedMatch, opts?: { source?: string }): 
   let shaped: unknown;
   try {
     const innings = (raw.innings ?? []).map(adaptInnings).map(inn => {
+      const format = raw.format as MatchFormat;
       const overs = inn.lastBall
-        ? inn.lastBall.over - 1 + (inn.lastBall.ballInOver + 1) / ballsPerSet(raw.format as MatchFormat)
+        ? inn.lastBall.over - 1 + (inn.lastBall.ballInOver + 1) / ballsPerSet(format)
         : 0;
       const { lastBall: _lastBall, ...rest } = inn;
-      return { ...rest, overs: Math.round(overs * 10) / 10 };
+      // v1.0.146: battingCard/bowlingCard derived here, not left as `[]`
+      // (see this file's earlier note above adaptInnings and
+      // ARCHITECTURE.md's "single derivation, two callers" note) — same
+      // shared function MatchView.tsx's live truncatedMatch already uses
+      // for a mid-innings snapshot, called here with no `originalCard`
+      // (there is none for a real ingested feed) so it derives player
+      // identities from `balls` itself, then computes every stat exactly
+      // the same way for a COMPLETE innings.
+      return {
+        ...rest,
+        overs: Math.round(overs * 10) / 10,
+        battingCard: deriveBattingCardFromBalls(inn.balls, [], inn.retirements ?? []),
+        bowlingCard: deriveBowlingCardFromBalls(inn.balls, [], format),
+      };
     });
 
     shaped = {
@@ -295,6 +374,12 @@ export function ingestMatchFeed(raw: RawFeedMatch, opts?: { source?: string }): 
       teamA: adaptTeam(raw.team_a),
       teamB: adaptTeam(raw.team_b),
       innings,
+      // v1.0.146: previously absent entirely — see RawFeedResult's doc
+      // comment for the provisional-ness caveat on all four of these.
+      result: raw.result ? adaptResult(raw.result) : undefined,
+      seriesStatus: raw.series_status,
+      excitement: raw.excitement,
+      highlightBadge: raw.highlight_badge,
     };
   } catch {
     return {
