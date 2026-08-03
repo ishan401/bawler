@@ -19,7 +19,7 @@
 - ✅ **Bottom navigation bar** — persistent Home / Schedule / Table at bottom of every page; active tab cyan + underline; shows on match page too (all tabs dimmed)
 - ✅ **Team filter colour dot** — glowing dot in team's primary colour when TEAM filter active
 - ✅ Live carousel — snap-scroll, 3 mock live matches, full-width cards with split win-prob bar
-- ✅ **Live carousel "for you" marker** (v1.0.91) — a live match that also qualifies for "for you" gets an inline `★ For you` badge stamped on its existing carousel card (`LiveMatchCard`'s `forYou` prop, threaded via `LiveCarousel`'s `forYouIds`), instead of a duplicate standalone "for you" card below; the homepage's single global hero match is excluded from this even when it also qualifies (hero is a global pick, not a personalization signal)
+- ✅ **Live carousel "for you" marker** (v1.0.91) — a live match that also qualifies for "for you" gets an inline `★ For you` badge stamped on its existing carousel card (`LiveMatchCard`'s `forYou` prop, threaded via `LiveCarousel`'s `forYouIds`), instead of a duplicate standalone "for you" card below; the homepage's single global hero match is excluded from this even when it also qualifies (hero is a global pick, not a personalization signal) — re-examined post-v1.0.150 (2026-08-03) after a live repro on the hero match itself showed no badge despite a correctly-detected followed player; confirmed intentional and left as-is (see DECISIONS-LOG.md "HX1-HX3"), not a regression
 - ✅ **Empty state** — when no live matches, shows next upcoming match card (teams, countdown, venue)
 - ✅ **Loading skeleton** — shimmer placeholder cards for 350ms on first load
 - ✅ **Pull-to-refresh** — pull from top triggers spinner + simulated refresh (only at scroll pos 0)
