@@ -3127,3 +3127,23 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Platform-wide audit (real `npx tsx` script, temporary, not committed) across all 29 fixtures / 63 confirmed-participant checks: **before fix, 21 mismatches across 8 fixtures; after fix, 0 mismatches.** Team/Nation/Series/Tournament/Format categories independently audited the same way -- 0 mismatches in either pass (pure id/literal equality, no derivation gap possible).
 - Regression check: `getMatchLineup()` output identical before/after for all 22 team-sides across the 11 upcoming/unplayed matches (no play data yet -> confirmed set always empty -> unchanged behavior).
 - `tsc --noEmit` and `npm run build` both clean.
+
+## [1.0.151] 2026-08-03
+
+#### Added -- `lib/pointerGuard.ts` (new file)
+- `runGuarded(fn)` -- defers a non-user-initiated state update while a pointer is down anywhere on the page (tracked via a single module-scoped `pointerdown`/`pointerup`/`pointercancel` + `touchstart`/`touchend`/`touchcancel` listener pair), running it immediately on release instead of dropping or indefinitely delaying it. Generic/reusable, not scoped to any one component.
+
+#### Fixed -- `components/MatchView.tsx`, `components/Scorecard.tsx`
+- Root cause: the mock-simulation ticker's `setLiveBallIdx` update re-derives `battingCard`/`bowlingCard`, mutating the DOM of whichever row/control is currently live (not-out batter's stat line + `*` marker + sparkline, current bowler's figures, BallGIF's conditional share button). A tap landing in that same instant could be dropped by the browser before any click handler ran -- confirmed via capture-phase instrumentation showing zero dispatched events on a link with a correct `href`.
+- `MatchView.tsx`'s ticker now routes its `setLiveBallIdx` call through `runGuarded()` -- a single point of control protecting every downstream component (Scorecard, BallGIF, MatchupCard, MomentsStrip, MiniInsightsBar, DigestTab) without per-component changes.
+- `Scorecard.tsx`'s `PlayerNameLink` wrapped in `React.memo` -- its props (`playerId`/`playerName`/`nameColor`) don't change from a stats-only tick, so memo skips re-rendering/reconciling the link entirely, meaning the `<a>` node is never touched by a tick that only updated sibling stats.
+
+#### Audited, no change needed
+- `MiniInsightsBar.tsx` -- no chip currently sets `onClick` (removed in v1.0.121), not affected.
+- `LineupsCard.tsx`, `CommentaryFeed.tsx` -- no interactive elements at all.
+- `MomentsStrip.tsx`, `DigestTab.tsx` -- already keyed by stable ids (`event.id`/`day`/`inn`), covered by the pointer-guard as a backstop.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` both clean.
+- `runGuarded()` confirmed safe with no `window` present (non-browser call site), never throws, never drops a call.
+- Live capture-phase click-collision testing against production is the closing verification step for this round.

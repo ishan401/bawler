@@ -645,8 +645,24 @@ function InningsCard({
 /**
  * Renders a player name as a tappable Link if a profile exists in PLAYERS,
  * otherwise as a plain span. This prevents broken links for unregistered players.
+ *
+ * Wrapped in React.memo -- deliberately, not incidentally. BatterRow/
+ * BowlerRow live inside a table that re-renders every time
+ * components/MatchView.tsx's mock-simulation ticker advances liveBallIdx
+ * (every batter/bowler still active gets fresh runs/balls/strike-rate/
+ * sparkline data on each tick). playerId/playerName/nameColor never
+ * change as a *result* of that tick for a still-not-out batter or a
+ * still-bowling bowler -- only the sibling stats do -- so with all three
+ * props unchanged, memo skips re-rendering (and re-reconciling) this
+ * component's subtree entirely. That means the <a> DOM node itself is
+ * never touched by a tick that only updated stats, which is what closes
+ * the click-eaten-by-a-live-row race documented in DECISIONS-LOG.md: a
+ * node React never revisits can't be mid-mutation when a tap lands on it.
+ * (nameColor DOES change on a real status transition -- e.g. a batter
+ * getting out -- and memo correctly re-renders then, exactly as it
+ * should.)
  */
-function PlayerNameLink({
+const PlayerNameLink = React.memo(function PlayerNameLink({
   playerId,
   playerName,
   nameColor,
@@ -668,7 +684,7 @@ function PlayerNameLink({
     );
   }
   return <span className={`font-medium ${nameColor}`}>{displayName}</span>;
-}
+});
 
 function BatterRow({
   row,

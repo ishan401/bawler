@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.150)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.151)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -161,13 +161,13 @@ Horizontal tab selector across 8 competitions:
 ```
 components/
 ├── Match page
-│   ├── MatchView.tsx          # orchestrates all tabs; allBalls flatMap; showDigest flag; truncatedMatch recomputes battingCard/bowlingCard from the truncated ball slice too (v1.0.131, via lib/matchStatus.ts's deriveBattingCardFromBalls/deriveBowlingCardFromBalls — not just runs/wickets/overs as before); demo-only liveBallIdx auto-advance/rewind ticker now gated behind match.isMockSimulation (default off) via shouldRunMockSimulationTicker(), so it can never engage for real data (v1.0.131)
+│   ├── MatchView.tsx          # orchestrates all tabs; allBalls flatMap; showDigest flag; truncatedMatch recomputes battingCard/bowlingCard from the truncated ball slice too (v1.0.131, via lib/matchStatus.ts's deriveBattingCardFromBalls/deriveBowlingCardFromBalls — not just runs/wickets/overs as before); demo-only liveBallIdx auto-advance/rewind ticker now gated behind match.isMockSimulation (default off) via shouldRunMockSimulationTicker(), so it can never engage for real data (v1.0.131) — v1.0.151: the ticker's setLiveBallIdx call now routes through lib/pointerGuard.ts's runGuarded() so it can never land mid-tap
 │   ├── ScoreBar.tsx           # sticky score header; current-batting-team derivation via lib/matchStatus.ts's shared getCurrentInnings() (v1.0.126, also reused by lib/playerActivity.ts)
 │   ├── BallGIF.tsx            # hero two-clip SVG delivery replay; PartnershipFooter; v1.0.148: persistent sr-only aria-live="polite" region announces each new ball (e.g. "Four, R Sharma to V Kohli") via ballAnnouncement()/OUTCOME_WORD, placed in the stable outer wrapper (not the ball-keyed remounting scene div) so screen readers reliably pick up each update
 │   ├── MomentsStrip.tsx       # horizontal key events timeline
 │   ├── WinProbChart.tsx       # full-screen modal chart
 │   ├── CommentaryFeed.tsx     # ball-by-ball cards + insight overlays
-│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS), team/innings toggle, per-batter + partnership sparklines
+│   ├── Scorecard.tsx          # batting + bowling cards (ALL_TEAMS), team/innings toggle, per-batter + partnership sparklines — v1.0.151: PlayerNameLink wrapped in React.memo so a player's link is never re-rendered by a live-simulation tick that only changed sibling stats (see lib/pointerGuard.ts)
 │   ├── MatchupCard.tsx        # always-on batter vs bowler H2H; career + live merged
 │   ├── DigestTab.tsx          # story-of-match cards; format-adaptive; day/innings chips; shareable
 │   ├── LineupsCard.tsx        # playing XI (battingTeam-based lookup)
@@ -203,6 +203,7 @@ lib/
 ├── outcomeColors.ts   # unified ball outcome colour palette
 ├── spotlight.ts        # isSpotlightMatch() — concrete close-finish/milestone/stakes bar for homepage spotlight; v1.0.149: SPOTLIGHT_RECENCY_WINDOW_MS (7 days) exported here, applied by the caller (app/page.tsx) to expire PAST spotlight matches only -- upcoming matches unaffected
 ├── lineups.ts          # getMatchLineup()/isPlayerInMatch() — per-match XI, real-data-ready + seeded fallback; v1.0.150: confirmedLineupIds() makes real battingCard/bowlingCard/balls data always outrank the seeded roll
+├── pointerGuard.ts     # (new, v1.0.151) runGuarded() — defers a non-user-initiated state update (e.g. MatchView.tsx's live-simulation ticker) while a pointer gesture is in progress anywhere on the page, so it can never land mid-tap and get a click silently dropped by the browser; generic/reusable, not scoped to one component
 ├── followPrefs.ts      # FollowPrefs model, qualifyMatch()/isTier1Match(), sanitizeFollowPrefs(), localStorage persistence + change event
 ├── followNudge.ts      # empty-state Filter nudge (first-N-sessions, dismissible)
 ├── heroSelection.ts    # selectHeroMatch() — 3-tier deterministic hero-match rule (prominence, live stakes, live runway)

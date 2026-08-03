@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.150 (deployed)
+**Current version:** v1.0.151 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -195,6 +195,7 @@
 - ✅ **Single-source-of-truth app version (`lib/version.ts`, v1.0.83)** — `APP_VERSION`/`APP_VERSION_LABEL` derive from `package.json`'s `"version"` field; `scripts/version-check.ts` runs as an npm `"prebuild"` hook (so it's part of `npm run build`, the same command Vercel runs) and fails the build outright if a hardcoded `Bawler vX.Y.Z` literal ever reappears anywhere outside `lib/version.ts` — fixes a real bug where the match-page footer stayed hardcoded at "v1.0.65" across 17 releases (see DECISIONS-LOG.md VF1–VF3)
 - ✅ **Screen-reader live-region on ball outcomes (`components/BallGIF.tsx`, v1.0.148)** — persistent `aria-live="polite"` `sr-only` region announces each new ball with the real outcome + bowler/batter (e.g. "Four, R Sharma to V Kohli"), not a generic "content updated" message
 - ✅ **Branded 404 for missing/synthetic matches (`app/match/[id]/not-found.tsx`, v1.0.148)** — route-scoped 404 matching the dark-theme design system, replaces the previously-generic default Next.js 404; friendly message + prominent primary CTA back to the matches list, not reliant on the bottom nav
+- ✅ **Live-simulation ticker can no longer swallow a tap (`lib/pointerGuard.ts`, `components/MatchView.tsx`, `components/Scorecard.tsx`, v1.0.151)** — the mock-simulation ticker's `setLiveBallIdx` update mutates the DOM of whatever row/control is currently live (not-out batter's stat line, current bowler's figures, BallGIF's conditional share button), and a tap landing in that same instant could be dropped by the browser before any click handler ran (confirmed via capture-phase instrumentation showing zero dispatched events, not a wrong `href`/`preventDefault`). Fixed platform-wide with two parts: `Scorecard.tsx`'s `PlayerNameLink` is now `React.memo`'d so a player's link is never re-rendered by a tick that only changed sibling stats; new `lib/pointerGuard.ts`'s `runGuarded()` defers the ticker's state update itself while any pointer gesture is in progress anywhere on the page, protecting every downstream component (BallGIF, MatchupCard, MomentsStrip, MiniInsightsBar, DigestTab) from one central point of control rather than requiring a per-component fix
 - ✅ **Spotlight 7-day recency window (`lib/spotlight.ts`, v1.0.149)** — a past match now drops out of Spotlight eligibility once more than 7 days old (`SPOTLIGHT_RECENCY_WINDOW_DAYS`), regardless of how dramatic it was; upcoming matches are unaffected
 - ✅ **"For you" reason line (`lib/followPrefs.ts`'s `getForYouReason()`, v1.0.149)** — the homepage "for you" badge (live carousel card + dedicated upcoming row) now shows *why* a match was surfaced, e.g. "Because you follow V Kohli" or "Because you follow both India and Australia", priority Player > Team > Nation > Series > Tournament > Format
 

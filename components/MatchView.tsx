@@ -26,6 +26,7 @@ import MatchupShareCard from "@/components/MatchupShareCard";
 import WinProbBadge from "@/components/WinProbBadge";
 import { getMatchupStats } from "@/lib/mockMatchups";
 import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker, countWicketEquivalentRetirements } from "@/lib/matchStatus";
+import { runGuarded } from "@/lib/pointerGuard";
 
 interface MatchViewProps {
   match: Match;
@@ -71,7 +72,17 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   useEffect(() => {
     if (!shouldRunMockSimulationTicker(match, isLiveFollowing)) return;
     const id = setInterval(() => {
-      setLiveBallIdx(idx => (idx >= allBalls.length - 1 ? Math.max(0, allBalls.length - 10) : idx + 1));
+      // Deferred through runGuarded() (lib/pointerGuard.ts) rather than
+      // called directly: this setState re-derives truncatedMatch, which
+      // mutates the DOM of whatever's currently live (a not-out batter's
+      // row, the current bowler's figures, BallGIF's share button, etc.).
+      // A tap landing in that same instant can be dropped by the browser
+      // before any click handler runs it -- see DECISIONS-LOG.md. Any
+      // gesture in progress anywhere on the page defers this update until
+      // the gesture ends, instead of letting it land mid-tap.
+      runGuarded(() => {
+        setLiveBallIdx(idx => (idx >= allBalls.length - 1 ? Math.max(0, allBalls.length - 10) : idx + 1));
+      });
     }, BALL_DWELL_MS);
     return () => clearInterval(id);
   }, [isLiveFollowing, allBalls.length, match]);
