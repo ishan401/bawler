@@ -1,6 +1,18 @@
 import type { Match, Team } from "./types";
 import { getTeamMembershipStatus } from "./teamData";
 
+// Spotlight recency window (v1.0.149) -- how long a PAST match stays
+// eligible after clearing the excitement bar below. Applied by the caller
+// (app/page.tsx's spotlightMatches memo), not inside isSpotlightMatch()
+// itself: isSpotlightMatch() answers "does this match clear the bar at
+// all," a question with no time component; "is it still recent enough to
+// show" is a separate, caller-side concern, same separation of concerns as
+// the SPOTLIGHT_MAX cap (also defined and applied in app/page.tsx, not
+// here). Upcoming matches are deliberately NOT subject to this window --
+// see app/page.tsx for why.
+export const SPOTLIGHT_RECENCY_WINDOW_DAYS = 7;
+export const SPOTLIGHT_RECENCY_WINDOW_MS = SPOTLIGHT_RECENCY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
 // ============================================================================
 // Spotlight-worthiness — v1.0.49
 // ============================================================================

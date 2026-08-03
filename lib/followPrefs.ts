@@ -236,6 +236,90 @@ export function isAnyMatch(q: MatchQualification): boolean {
   return isTier1Match(q) || q.player;
 }
 
+/**
+ * Resolves WHICH specific followed entity is responsible for a match's
+ * "for you" status, for the homepage reason line ("Because you follow
+ * {name}") -- v1.0.149.
+ *
+ * Deliberately a DIFFERENT priority order than isTier1Match's Tier 1
+ * (nation/team/tournament/series/format) vs Tier 2 (player) grouping
+ * above -- that tiering answers "is this match relevant at all, and how
+ * strongly," and stays completely untouched by this function. This
+ * answers a narrower, purely presentational question -- "which SINGLE
+ * reason is most specific/useful to surface to the user" -- per explicit
+ * product spec: Player > Team > Nation > Series > Tournament > Format.
+ * Does not change qualifyMatch/isTier1Match/isAnyMatch/matchIsFollowed in
+ * any way; this is a pure additional read using the same underlying
+ * match/prefs fields those functions already check.
+ *
+ * If the SAME category matches both competing sides (e.g. the user
+ * follows both teams, or both nations, playing each other), names both
+ * sides: "Because you follow both {A} and {B}". Series/Tournament/Format
+ * are whole-match attributes (not tied to a specific side), so that
+ * exception cannot apply to them -- only Player/Team/Nation are ever
+ * resolved per-side.
+ *
+ * Returns null if no reason can be resolved (should not normally happen
+ * for a match that already qualifies via qualifyMatch/isAnyMatch) --
+ * callers must render the plain "for you" label with no reason line in
+ * that case, never a placeholder or undefined text.
+ */
+export function getForYouReason(match: Match, prefs: FollowPrefs): string | null {
+  const singleReason = (name: string) => `Because you follow ${name}`;
+  const bothReason = (nameA: string, nameB: string) => `Because you follow both ${nameA} and ${nameB}`;
+  const playerLabel = (pid: string) => PLAYERS[pid]?.shortName ?? PLAYERS[pid]?.name ?? pid;
+
+  // 1. Player -- highest priority.
+  if (prefs.players.length > 0) {
+    const lineupA = getMatchLineup(match, match.teamA);
+    const lineupB = getMatchLineup(match, match.teamB);
+    const playerA = prefs.players.find(pid => lineupA.includes(pid));
+    const playerB = prefs.players.find(pid => lineupB.includes(pid));
+    if (playerA && playerB) return bothReason(playerLabel(playerA), playerLabel(playerB));
+    if (playerA) return singleReason(playerLabel(playerA));
+    if (playerB) return singleReason(playerLabel(playerB));
+  }
+
+  // 2. Team -- franchise teams only (national teams are matched under
+  // Nation below; see validTeamIds()/sanitizeFollowPrefs above).
+  {
+    const teamA = prefs.teams.includes(match.teamA.code);
+    const teamB = prefs.teams.includes(match.teamB.code);
+    if (teamA && teamB) return bothReason(match.teamA.shortName, match.teamB.shortName);
+    if (teamA) return singleReason(match.teamA.shortName);
+    if (teamB) return singleReason(match.teamB.shortName);
+  }
+
+  // 3. Nation.
+  if (prefs.nations.length > 0) {
+    const nationA = nationOf(match.teamA.code, match.teamA.country, match.teamA.type);
+    const nationB = nationOf(match.teamB.code, match.teamB.country, match.teamB.type);
+    const matchesA = !!nationA && prefs.nations.includes(nationA);
+    const matchesB = !!nationB && prefs.nations.includes(nationB);
+    if (matchesA && matchesB) return bothReason(match.teamA.fullName, match.teamB.fullName);
+    if (matchesA) return singleReason(match.teamA.fullName);
+    if (matchesB) return singleReason(match.teamB.fullName);
+  }
+
+  // 4. Series (bilateral competitions) -- whole-match attribute, no
+  // per-side "both" case possible.
+  if (prefs.series.length > 0) {
+    if (prefs.series.includes(match.competition.id)) return singleReason(match.competition.shortName);
+    if (match.championship && prefs.series.includes(match.championship.id)) return singleReason(match.championship.shortName);
+  }
+
+  // 5. Tournament -- same shape as Series, different category.
+  if (prefs.tournaments.length > 0) {
+    if (prefs.tournaments.includes(match.competition.id)) return singleReason(match.competition.shortName);
+    if (match.championship && prefs.tournaments.includes(match.championship.id)) return singleReason(match.championship.shortName);
+  }
+
+  // 6. Format -- lowest priority.
+  if (prefs.formats.includes(match.format)) return singleReason(match.format);
+
+  return null;
+}
+
 /** True if `match` is relevant to ANY of the user's followed selections
  * (convenience wrapper — most callers wanting tier awareness should use
  * qualifyMatch directly, e.g. the "for you" row's pooling logic). */

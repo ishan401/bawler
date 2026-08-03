@@ -3101,3 +3101,18 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Verified
 - `tsc --noEmit` and `npm run build` both clean after all three changes together (106/106 static pages).
 - Post-deletion grep across `app/`, `components/`, `lib/` for all eight deleted names/paths: zero remaining references outside the same pre-existing unrelated collisions.
+
+## [1.0.149] 2026-08-03
+
+#### Added -- `lib/spotlight.ts`, `app/page.tsx`
+- `SPOTLIGHT_RECENCY_WINDOW_DAYS = 7` / `SPOTLIGHT_RECENCY_WINDOW_MS` (both exported from `lib/spotlight.ts`) -- a past match now drops out of Spotlight eligibility once more than 7 days old, applied as an extra `.filter()` in the `past` computation inside `spotlightMatches`, chained right after the existing `isSpotlightMatch` filter and before the sort. Inclusive boundary (`<=`): exactly 7*24h old still counts, one ms older doesn't. `isSpotlightMatch()`, the `future` (upcoming) list, `SPOTLIGHT_MAX`, the sort comparators, and the final slice are all untouched -- upcoming matches keep unrestricted eligibility.
+
+#### Added -- `lib/followPrefs.ts`, `components/MatchCard.tsx`, `components/LiveCarousel.tsx`, `app/page.tsx`
+- New `getForYouReason(match, prefs)` in `lib/followPrefs.ts` resolves which specific followed entity caused a match's "for you" status, priority Player > Team > Nation > Series > Tournament > Format (deliberately different from `isTier1Match`'s Tier 1/2 grouping, which is untouched). If the same category matches both sides (e.g. following both nations in an India vs Australia match), returns `"Because you follow both {A} and {B}"`. Returns `null` (never a placeholder) when nothing resolves.
+- `LiveMatchCard` (`components/MatchCard.tsx`) renders the reason as a new line below the badge row, above the score line, only when a badge AND a resolved reason are both present -- reuses the card's own existing `text-[9px] text-white/60` caption style.
+- `ForYouRow` (`app/page.tsx`) renders the reason as a second `text-[10px] text-text-dim` line below its existing status/countdown caption -- same class, no new style.
+- `LiveCarousel` gained a `forYouReasons?: Map<string,string>` prop threading the resolved reason from `app/page.tsx`'s `forYouResult` memo down to each `LiveMatchCard`.
+
+#### Verified
+- Real `npx tsx` script (temporary, not committed): recency-window constant + inclusive boundary math correct at exactly-7-days/one-ms-over/well-within/well-outside; `getForYouReason` priority chain, both dual-match "both X and Y" cases, and the null-fallback case all confirmed against constructed match/prefs fixtures.
+- `tsc --noEmit` and `npm run build` both clean.

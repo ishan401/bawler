@@ -18,6 +18,11 @@ interface LiveCarouselProps {
   // duplicate standalone "for you" row (same dedup idea as the Spotlight
   // "for you" marker, FY5).
   forYouIds?: Set<string>;
+  // v1.0.149 -- "Because you follow {name}" reason line, one entry per id
+  // in forYouIds that has a resolvable reason (see lib/followPrefs.ts's
+  // getForYouReason()). A missing entry means no reason line, not a
+  // placeholder.
+  forYouReasons?: Map<string, string>;
 }
 
 function fmtCountdown(iso: string): string {
@@ -352,7 +357,7 @@ function SeriesScheduleSheet({ match, seriesPool, onClose }: {
   );
 }
 
-export default function LiveCarousel({ matches, nextMatch, forYouIds }: LiveCarouselProps) {
+export default function LiveCarousel({ matches, nextMatch, forYouIds, forYouReasons }: LiveCarouselProps) {
   const [view, setView] = useState<"none" | "standings" | "team-schedule" | "series">("none");
 
   // seriesPool: all matches the series-schedule sheet can filter from.
@@ -470,7 +475,7 @@ export default function LiveCarousel({ matches, nextMatch, forYouIds }: LiveCaro
         >
           {matches.map(m => (
             <div key={m.id} className="shrink-0 snap-center" style={{ width: "calc(100vw - 24px)", maxWidth: "calc(430px - 24px)" }}>
-              <LiveMatchCard match={m} forYou={forYouIds?.has(m.id)} />
+              <LiveMatchCard match={m} forYou={forYouIds?.has(m.id)} forYouReason={forYouReasons?.get(m.id)} />
             </div>
           ))}
         </div>

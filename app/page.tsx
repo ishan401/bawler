@@ -18,11 +18,12 @@ import {
   qualifyMatch,
   isTier1Match,
   followedMatchSide,
+  getForYouReason,
   type FollowPrefs,
   type MatchQualification,
 } from "@/lib/followPrefs";
 import { registerHomeVisit, isNudgeDismissed, dismissNudge, NUDGE_MAX_SESSIONS } from "@/lib/followNudge";
-import { isSpotlightMatch, buildFullMemberLookup, type FullMemberLookup } from "@/lib/spotlight";
+import { isSpotlightMatch, buildFullMemberLookup, SPOTLIGHT_RECENCY_WINDOW_MS, type FullMemberLookup } from "@/lib/spotlight";
 import { selectHeroMatch } from "@/lib/heroSelection";
 import { APP_VERSION_LABEL } from "@/lib/version";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
@@ -280,6 +281,13 @@ export default function Home() {
     // immediate story; upcoming fills remaining slots if any are left.
     const past = ALL_PAST_MATCHES
       .filter(m => isSpotlightMatch(m, fullMemberLookup))
+      // v1.0.149 -- 7-day recency window: a past match stops being
+      // Spotlight-eligible once it's more than SPOTLIGHT_RECENCY_WINDOW_MS
+      // old, no matter how dramatic it was. Inclusive boundary (exactly
+      // 7*24h old still counts; one ms older does not). Upcoming matches
+      // (the `future` list below) are NOT subject to this -- deliberately
+      // untouched, per spec.
+      .filter(m => Date.now() - new Date(m.startTimeIso).getTime() <= SPOTLIGHT_RECENCY_WINDOW_MS)
       .map(m => ({ m, isPast: true as const }))
       .sort((a, b) => b.m.startTimeIso.localeCompare(a.m.startTimeIso));
     const future = ALL_UPCOMING_MATCHES
@@ -321,8 +329,8 @@ export default function Home() {
   // (it's a global pick, not a personalization signal — see heroId below),
   // so liveIds comes back empty and "for you" still falls through to that
   // team's next upcoming match.
-  const forYouResult = useMemo((): { liveIds: Set<string>; upcoming: Match | null } => {
-    const empty = { liveIds: new Set<string>(), upcoming: null };
+  const forYouResult = useMemo((): { liveIds: Set<string>; liveReasons: Map<string, string>; upcoming: Match | null } => {
+    const empty = { liveIds: new Set<string>(), liveReasons: new Map<string, string>(), upcoming: null };
     if (!followsAnything) return empty;
 
     const pool = [...ALL_LIVE_MATCHES, ...ALL_UPCOMING_MATCHES];
@@ -341,8 +349,19 @@ export default function Home() {
     // for every visitor regardless of what they follow, never personalized.
     // "for you" pools separately and simply excludes whatever hero claims.
     const heroId = selectHeroMatch(ALL_LIVE_MATCHES)?.id;
-    const liveIds = new Set(ALL_LIVE_MATCHES.filter(m => activeIds.has(m.id) && m.id !== heroId).map(m => m.id));
-    if (liveIds.size > 0) return { liveIds, upcoming: null };
+    const liveMatches = ALL_LIVE_MATCHES.filter(m => activeIds.has(m.id) && m.id !== heroId);
+    const liveIds = new Set(liveMatches.map(m => m.id));
+    // v1.0.149 -- "Because you follow {name}" reason line, resolved once
+    // here alongside liveIds (not per-render inside the card) via
+    // lib/followPrefs.ts's getForYouReason(). A match with no resolvable
+    // reason simply has no entry in this map -- callers must fall back to
+    // the plain "for you" badge with no reason line in that case.
+    const liveReasons = new Map<string, string>();
+    for (const m of liveMatches) {
+      const reason = getForYouReason(m, followPrefs);
+      if (reason) liveReasons.set(m.id, reason);
+    }
+    if (liveIds.size > 0) return { liveIds, liveReasons, upcoming: null };
 
     // No live qualifiers -- fall back to the single soonest UPCOMING
     // qualifying match. Gap 1 (v1.0.91): when several different follow
@@ -352,16 +371,17 @@ export default function Home() {
     // equally-specific candidates by soonest start time.
     const upcomingIds = new Set(ALL_UPCOMING_MATCHES.map(m => m.id));
     const upcomingCandidates = active.filter(a => upcomingIds.has(a.m.id));
-    if (upcomingCandidates.length === 0) return { liveIds, upcoming: null };
+    if (upcomingCandidates.length === 0) return { liveIds, liveReasons, upcoming: null };
     const minRank = Math.min(...upcomingCandidates.map(a => a.rank));
     const upcoming = upcomingCandidates
       .filter(a => a.rank === minRank)
       .map(a => a.m)
       .sort((x, y) => x.startTimeIso.localeCompare(y.startTimeIso))[0] ?? null;
-    return { liveIds, upcoming };
+    return { liveIds, liveReasons, upcoming };
   }, [followPrefs, followsAnything]);
 
   const forYouLiveIds = forYouResult.liveIds;
+  const forYouLiveReasons = forYouResult.liveReasons;
 
   // Spotlight-dedup is a pure display-time filter — a qualifying upcoming
   // match already shown as a spotlight card gets the "for you" marker
@@ -447,7 +467,7 @@ export default function Home() {
       ) : (
         <>
           <section className="mt-1">
-            <LiveCarousel matches={liveCarouselMatches} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} forYouIds={forYouLiveIds} />
+            <LiveCarousel matches={liveCarouselMatches} nextMatch={byPopularity(ALL_UPCOMING_MATCHES)[0]} forYouIds={forYouLiveIds} forYouReasons={forYouLiveReasons} />
           </section>
 
           {/* For you — surfaces the single best upcoming match matching any
@@ -598,6 +618,10 @@ export default function Home() {
  * and only source of truth for follow state; there is no default follow.
  */
 function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boolean; followPrefs: FollowPrefs }) {
+  // v1.0.149 -- "Because you follow {name}" reason line. Falls back to no
+  // extra line at all (not a placeholder) when getForYouReason() can't
+  // resolve a specific entity -- see lib/followPrefs.ts.
+  const reason = getForYouReason(match, followPrefs);
   // v1.0.58 -- this card only (Live/Spotlight/grid keep their own existing
   // team-order conventions): always put the followed team on the left, so
   // its color dot and name never end up disconnected from each other by
@@ -656,6 +680,13 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
         <div className="text-[10px] text-text-dim text-center truncate">
           {isLive ? (match.liveStatusOverride ?? "Live now") : fmtForYouDistance(match.startTimeIso)}
         </div>
+        {/* "Because you follow {name}" subtitle (v1.0.149) -- same
+            text-[10px] text-text-dim secondary-caption style as the status
+            line directly above it, so it reads as one consistent muted
+            caption group, not a new visual style. */}
+        {reason && (
+          <div className="text-[10px] text-text-dim text-center truncate">{reason}</div>
+        )}
       </div>
     </div>
   );

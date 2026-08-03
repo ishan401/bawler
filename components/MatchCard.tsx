@@ -254,7 +254,7 @@ const clamp2: React.CSSProperties = {
 // ============================================================================
 // Live card — full width, prominent win-prob sparkline
 // ============================================================================
-export function LiveMatchCard({ match, forYou }: { match: Match; forYou?: boolean }) {
+export function LiveMatchCard({ match, forYou, forYouReason }: { match: Match; forYou?: boolean; forYouReason?: string }) {
   const { teamA, teamB, innings } = match;
 
   // Look up innings by battingTeam code — NOT by position.
@@ -313,6 +313,18 @@ export function LiveMatchCard({ match, forYou }: { match: Match; forYou?: boolea
             <span className="text-[9px] text-white/60 num truncate leading-none hidden sm:inline">{match.venue.city}</span>
           </div>
         </div>
+
+        {/* Row 1b — "for you" reason, directly below the pill badge row and
+            above the score line (v1.0.149). Only rendered alongside the
+            forYou badge itself, and only when a specific reason actually
+            resolved (see lib/followPrefs.ts's getForYouReason()) -- never
+            a placeholder. Same muted-caption convention already used on
+            this card (text-white/60, matching the venue-city caption in
+            Row 1 above), since this card sits on a colored team-gradient
+            background, not the app's plain dark surface. */}
+        {forYou && forYouReason && (
+          <p className="text-[9px] text-white/60 leading-none mt-1 truncate">{forYouReason}</p>
+        )}
 
         {/* Row 2 — teams; innings attributed by battingTeam, not position */}
         <div className="flex items-center justify-between gap-3 mt-1">
