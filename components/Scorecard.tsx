@@ -874,8 +874,18 @@ function smoothPath(pts: { x: number; y: number }[]): string {
  *    produces >= 2 points (the seed plus one per ball, every one at y=0)
  *    and would otherwise pass that check.
  * 2. For every other batter, the container this curve is drawn inside is
- *    sized to `(ballsFaced / maxBallsFaced) * FULL_WIDTH_PX` -- linear, no
- *    floor, no sqrt/log transform. `maxBallsFaced` is the innings' current
+ *    sized to `(sqrt(ballsFaced) / sqrt(maxBallsFaced)) * FULL_WIDTH_PX` --
+ *    a square-root scale, no other exponent, no floor, no log transform.
+ *    v1.0.145 supersedes the original linear `ballsFaced / maxBallsFaced`
+ *    ratio: linear scaling compressed every batter's line toward
+ *    illegibility whenever one batter's innings ran substantially longer
+ *    than the rest in the same innings (confirmed live -- a 72-ball not-out
+ *    knock pushed a legitimate 10-ball innings down to 14% width). Square
+ *    root keeps the top-balls-faced batter at 100% (sqrt(max)/sqrt(max) =
+ *    1) while compressing the gap between everyone else's balls-faced
+ *    counts less aggressively than a straight ratio would, so a real but
+ *    much shorter innings still renders as a visibly legible sliver rather
+ *    than a barely-there tick. `maxBallsFaced` is the innings' current
  *    highest balls-faced value among qualifying (runs > 0) batters, passed
  *    down from InningsCard, which recomputes it fresh on every render (see
  *    that component's own comment) -- so this width keeps rescaling live
@@ -922,13 +932,16 @@ function BatterSparkline({
   // FULL_WIDTH_PX is the width this component always rendered at for
   // whichever batter had the most balls faced, back when sizing was
   // `flex-1`/`max-w-[130px]` -- kept as the literal "full available
-  // container width" the spec's ratio is multiplied against, so the
-  // innings' top-balls-faced batter still renders at the same visual size
-  // as before, and everyone else now scales down from it linearly instead
-  // of via flex/min-width. maxBallsFaced is guaranteed >= 1 by InningsCard
-  // (Math.max(1, ...)), so this can never divide by zero.
+  // container width" the ratio is multiplied against, so the innings'
+  // top-balls-faced batter still renders at the same visual size as
+  // before. maxBallsFaced is guaranteed >= 1 by InningsCard
+  // (Math.max(1, ...)), so this can never divide by zero, and ballsFaced
+  // is always >= 0 (never negative), so Math.sqrt never receives a
+  // negative input either -- both sqrt calls below are always well-defined.
+  // v1.0.145: square-root scale replaces the original linear ratio --
+  // see this component's own doc comment above for why.
   const FULL_WIDTH_PX = 130;
-  const widthPx = (ballsFaced / maxBallsFaced) * FULL_WIDTH_PX;
+  const widthPx = (Math.sqrt(ballsFaced) / Math.sqrt(maxBallsFaced)) * FULL_WIDTH_PX;
 
   return (
     <svg

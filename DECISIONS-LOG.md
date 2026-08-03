@@ -2002,3 +2002,26 @@ Re-ran the v1.0.143 proportional-width verification against the same fixture pos
 `tsc --noEmit` and `npm run build` both clean.
 
 **Scope**: `components/Scorecard.tsx` only — the `ballsByBatter` lookup and its one call site. No other files needed changes; the anti-pattern search found no other instances to fix.
+
+## Replaced linear sparkline width scale with square-root scale — v1.0.145 (2026-08-03)
+
+**Context**: confirmed live on `ind-eng-test-2026-d3-live` (ENG Innings 2) that the v1.0.143 linear width formula (`ballsFaced / maxBallsFaced`) compresses every batter's sparkline toward illegibility whenever one batter's innings runs substantially longer than the rest -- a normal, common occurrence in real cricket, not a data artifact. With J Root on a 72-ball knock, Z Crawley (10 balls), B Stokes (16), and J Bairstow (15) rendered at 14%/22%/21% width respectively -- each a real, legitimate partial innings reduced to a barely-visible tick mark.
+
+**Fix — `components/Scorecard.tsx`**: `BatterSparkline`'s `widthPx` calculation changed from `(ballsFaced / maxBallsFaced) * FULL_WIDTH_PX` to `(Math.sqrt(ballsFaced) / Math.sqrt(maxBallsFaced)) * FULL_WIDTH_PX` — square root specifically, no other exponent or transform. The top-balls-faced batter still renders at exactly 100% (`sqrt(max)/sqrt(max) = 1`), and every other batter compresses less aggressively than the straight ratio, since `sqrt` shrinks the *relative* gap between a large and a small `ballsFaced` value. This is a pure supersession of the v1.0.143 linear formula, not an addition alongside it — the old formula no longer exists anywhere in the code.
+
+**Everything else explicitly unchanged, confirmed by inspection and test**: duck/golden-duck suppression (`if (runs === 0) return null`) untouched; `maxBallsFacedInInnings`'s per-innings-only scoping and its `Math.max(1, ...)` divide-by-zero guard in `InningsCard` untouched; the deliberately-uncached, recompute-on-every-render placement of that value untouched; the curve/point-drawing pipeline (`buildSparklinePoints`/`downsampleSparkline`/`smoothPath`/the fixed `W=100/H=20` viewBox math) completely untouched — only the container `<svg>`'s `style.width` line changed.
+
+**Verified** with a real `react-dom/server` script (`npx tsx`, temporary, not committed) against the actual live `ind-eng-test-2026-d3-live` fixture (ENG Innings 2, `maxBallsFacedInInnings = 52` at time of test, via J Root):
+
+| Batter | ballsFaced | `√ballsFaced ÷ √52 × 130` | Rendered width |
+|---|---|---|---|
+| Z Crawley | 18 | 76.4853px | 76.48529270389176px |
+| B Duckett | 44 | 119.5826px | 119.58260743101398px |
+| J Root | 52 (max) | 130.0000px | 130px |
+| H Brook | 16 | 72.1110px | 72.11102550927978px |
+| B Stokes | 12 | 62.4500px | 62.44997998398399px |
+| J Bairstow | 9 | 54.0833px | 54.083269131959845px |
+
+Every value matches to well beyond two decimal places. Also verified: (1) a constructed single-qualifying-batter innings (`ballsFaced = maxBallsFaced = 7`) rendered exactly 130px, no NaN/Infinity; (2) a two-batter reactivity check — P2 (8 balls) rendered at 116.2755px when P1 (a different batter) had faced 10 balls, then recalculated to 110.8644px purely because P1 faced one more ball (11) on a fresh render with a new `match`/`innings` object, with no change to P2's own data — confirming the max-balls-faced value and every batter's width still recompute live, not once. `tsc --noEmit` and `npm run build` both clean.
+
+**Scope**: `BatterSparkline` is defined and used in exactly one place, `components/Scorecard.tsx` (three call sites inside `BatterRow`, Score tab only) — same single location confirmed in the v1.0.143/v1.0.144 rounds. No other file needed changes.

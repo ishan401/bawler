@@ -3044,3 +3044,16 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Real `npx tsx` script against the actual `ind-eng-test-2026-d3-live` fixture (not synthetic data): H Brook's real-ball count went from 4 (old lookup) to 40 (merged), B Stokes 2->35, J Bairstow 3->21, and B Duckett 51->66 -- a fourth, previously-unreported instance of the same bug, since his `??` happened to resolve to the larger of his two keys but was still dropping 15 real balls. The four batters with no split (Z Crawley, J Root, M Livingstone, C Woakes) are byte-identical before and after -- no regression. Every merged array confirmed strictly chronological by `over`/`ballInOver`.
 - Re-ran the v1.0.143 proportional-width check against the same post-fix fixture: widths pixel-identical to before (driven by `row.ballsFaced`, unrelated to how many raw balls the merge resolves) -- confirms width and point-count are correctly independent.
 - Grepped the full codebase for the same `get(id) ?? get(name)` dual-key-fallback anti-pattern against any player-identity map -- found no other instance. `tsc --noEmit` and `npm run build` both clean.
+
+## [1.0.145] 2026-08-03
+
+#### Changed -- `components/Scorecard.tsx`
+- `BatterSparkline`'s container-width formula replaced: `(ballsFaced / maxBallsFaced) * 130` -> `(Math.sqrt(ballsFaced) / Math.sqrt(maxBallsFaced)) * 130`. This supersedes the v1.0.143 linear formula entirely -- confirmed live that linear scaling compressed every batter's sparkline toward illegibility whenever one batter's innings ran substantially longer than the rest (a 72-ball not-out knock pushed legitimate 10/16/15-ball innings down to 14%/22%/21% width).
+- Square root keeps the top-balls-faced batter at exactly 100% width and compresses the relative gap between everyone else's ball counts less aggressively than a straight ratio, so a real but much shorter innings still renders as a legible sliver.
+- No other change: duck/golden-duck suppression, per-innings-only max scoping, the uncached/live-recomputed max value, and the curve/point-drawing pipeline are all untouched -- only the width line itself changed.
+
+#### Verified
+- Real `react-dom/server` script against the live `ind-eng-test-2026-d3-live` fixture (ENG Innings 2): all 6 batters' rendered widths matched `sqrt(ballsFaced)/sqrt(maxBallsFaced)*130` to well beyond 2 decimal places (e.g. Z Crawley 18 balls -> 76.4853px, J Root 52 balls [max] -> 130px exactly).
+- Single-qualifying-batter edge case: ballsFaced=maxBallsFaced=7 -> exactly 130px, no NaN/Infinity.
+- Reactivity: a second batter's width recalculated (116.28px -> 110.86px) purely because a different batter faced one more ball on a fresh render -- confirms the max-balls-faced scale still recomputes live, not cached.
+- `tsc --noEmit` and `npm run build` both clean.
