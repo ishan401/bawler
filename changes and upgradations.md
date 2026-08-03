@@ -3146,4 +3146,5 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Verified
 - `tsc --noEmit` and `npm run build` both clean.
 - `runGuarded()` confirmed safe with no `window` present (non-browser call site), never throws, never drops a call.
-- Live capture-phase click-collision testing against production is the closing verification step for this round.
+- Live on production: held a real `pointerdown` on a live batter's link for 85s (3+ ticks) with no `pointerup` -- row stayed byte-identical the whole time, updated immediately on release. Same test on BallGIF's share button (58s, 2+ ticks) -- button stayed mounted and unchanged throughout. Confirms `runGuarded()` defers the DOM mutation for the full gesture, not just "usually works."
+- Real clicks succeeded on the same link both before and during a tick. A control click on a never-re-rendering row (a dismissed batter) intermittently produced zero events in the same session -- since that row cannot structurally collide with the ticker, this identifies remaining flakiness as browser-automation click dispatch, not an app-level issue; noted so it isn't mistaken for a regression later.
