@@ -3116,3 +3116,14 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Verified
 - Real `npx tsx` script (temporary, not committed): recency-window constant + inclusive boundary math correct at exactly-7-days/one-ms-over/well-within/well-outside; `getForYouReason` priority chain, both dual-match "both X and Y" cases, and the null-fallback case all confirmed against constructed match/prefs fixtures.
 - `tsc --noEmit` and `npm run build` both clean.
+
+## [1.0.150] 2026-08-03
+
+#### Fixed -- `lib/lineups.ts`
+- `getMatchLineup()`'s fallback (used whenever `match.lineups` is absent -- every current fixture) previously derived a player's presence PURELY from a per-match/per-player seeded coin flip over the `PLAYERS` registry, never consulting the match's own `battingCard`/`bowlingCard`/`balls` -- so a player could be excluded by the roll even when the same match's own data proved they played (confirmed: V Kohli had dozens of `batterName: "V Kohli"` ball entries plus a `battingCard` entry in `ind-aus-t20i-2026-m2-live`, yet the roll excluded him, so he never got a "for you" tag there despite correctly getting one on his two other live matches).
+- New `confirmedLineupIds()` reads `battingCard`/`bowlingCard`/`balls` names directly and resolves each to a `PLAYERS` id via new `playerIdByName()` (name-based, matching `components/LineupsCard.tsx`'s existing approach -- some fixtures' own `playerId` fields aren't canonical, e.g. `"vkohli"` vs the registry's `"v-kohli"`). `getMatchLineup()` now always includes confirmed players; the seeded roll only fills in players NOT already confirmed, so it still applies exactly as before for genuinely upcoming/unplayed matches (which always have an empty confirmed set).
+
+#### Verified
+- Platform-wide audit (real `npx tsx` script, temporary, not committed) across all 29 fixtures / 63 confirmed-participant checks: **before fix, 21 mismatches across 8 fixtures; after fix, 0 mismatches.** Team/Nation/Series/Tournament/Format categories independently audited the same way -- 0 mismatches in either pass (pure id/literal equality, no derivation gap possible).
+- Regression check: `getMatchLineup()` output identical before/after for all 22 team-sides across the 11 upcoming/unplayed matches (no play data yet -> confirmed set always empty -> unchanged behavior).
+- `tsc --noEmit` and `npm run build` both clean.
