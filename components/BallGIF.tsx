@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
-import { outcomeKindOf, cardBackgroundFor } from "@/lib/outcomeColors";
+import { outcomeKindOf, cardBackgroundFor, type OutcomeKind } from "@/lib/outcomeColors";
 import { SPIN } from "@/lib/tokens";
 import { formatPlayerName } from "@/lib/playerName";
 
@@ -16,6 +16,27 @@ interface BallGIFProps {
   loopMs?: number;
   partnership?: PartnershipInfo;
   onShare?: (ball: Ball) => void; // centralised in MatchView
+}
+
+const OUTCOME_WORD: Record<OutcomeKind, string> = {
+  wicket: "Wicket",
+  dot: "Dot ball",
+  single: "1 run",
+  two: "2 runs",
+  three: "3 runs",
+  four: "Four",
+  six: "Six",
+  extra: "Extra",
+};
+
+/* screen-reader announcement text for the aria-live region below —
+   must carry the actual outcome + bowler/batter, never a generic
+   "content updated" message */
+function ballAnnouncement(ball: Ball): string {
+  const bowler = formatPlayerName(ball.bowlerName) || "Bowler";
+  const batter = formatPlayerName(ball.batterName) || "Batter";
+  const outcome = OUTCOME_WORD[outcomeKindOf(ball)];
+  return `${outcome}, ${bowler} to ${batter}`;
 }
 
 export default function BallGIF({
@@ -58,6 +79,14 @@ export default function BallGIF({
 
   return (
     <div className="flex flex-col rounded-2xl overflow-hidden border border-white/10">
+      {/* screen-reader-only live region: announces each new ball's outcome as it
+         renders. "polite" (not "assertive") so it queues behind whatever the user
+         is currently reading instead of interrupting on every single ball. This
+         div itself never remounts (no ball-keyed key), only its text changes, so
+         assistive tech reliably picks up each update. */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {ballAnnouncement(ball)}
+      </div>
 
       {/* ── ANIMATION ZONE ── */}
       <div

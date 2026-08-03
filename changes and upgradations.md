@@ -3084,3 +3084,20 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Real `npx tsx` scripts (temporary, not committed) against both fixed functions confirmed correct `battingCard`/`bowlingCard` derivation matching hand-computed run/four/six/ballsFaced arithmetic.
 - Found, documented, but deliberately did NOT fix a separate pre-existing bug: `transformSportRadarTimeline`'s own delivery-only event filter runs before its `isWicket` check, making `isWicket` unconditionally false for any SportRadar-sourced ball today -- unrelated to this round's fix, flagged in DECISIONS-LOG.md v1.0.147 for whenever SportRadar is actually considered.
 - All four pre-existing regression scripts, `tsc --noEmit`, and `npm run build` clean.
+
+## [1.0.148] 2026-08-03
+
+#### Added -- `components/BallGIF.tsx`
+- `aria-live="polite" aria-atomic="true"` `sr-only` region in the stable outer wrapper (not the ball-keyed remounting inner scene div), so a screen reader tracks the same node across updates instead of losing it on remount.
+- New `OUTCOME_WORD` lookup + `ballAnnouncement(ball)` helper build real, specific text ("Four, R Sharma to V Kohli"), reusing `outcomeKindOf()` and `formatPlayerName()` -- never a generic "content updated" message. `"polite"` chosen deliberately over `"assertive"` since ball updates are frequent and interrupting the user's current reading on every ball would be worse than saying nothing.
+
+#### Added -- `app/match/[id]/not-found.tsx` (new file)
+- Route-scoped branded 404 for a missing/synthetic match id, replacing Next.js's generic default 404 (previously unbranded, no `not-found.tsx` existed anywhere in `app/`).
+- Matches existing dark-theme tokens; friendly Bawler-voiced message ("This match doesn't exist") + a prominent primary CTA pill ("Back to matches") linking to `/`, deliberately not dependent on the user noticing the persistent bottom nav.
+
+#### Removed -- 7 legacy components + `lib/metrics.ts`
+- Deleted `components/ViewSwitcher.tsx`, `components/PressureGauge.tsx`, `components/DemoControls.tsx`, `components/MomentsCollapsible.tsx`, `components/ProjectedScore.tsx`, `components/AIMetrics.tsx`, `components/MiniWinProb.tsx`, `lib/metrics.ts` -- all confirmed dead by a fresh grep immediately before deletion (re-run rather than relying solely on an earlier audit). The only non-zero hits were pre-existing, unrelated collisions (`calculatePressureGauge()`/`PressureGauge` interface, `calculateProjectedScore()`/`ProjectedScore` interface, `computeAIMetrics()` inside the file being deleted itself, one code comment naming `MiniWinProb`). `InsightsPanel`, named alongside these in BUILD-STATUS.md's old pending note, was NOT included -- out of scope for this round.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` both clean after all three changes together (106/106 static pages).
+- Post-deletion grep across `app/`, `components/`, `lib/` for all eight deleted names/paths: zero remaining references outside the same pre-existing unrelated collisions.

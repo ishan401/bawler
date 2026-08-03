@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.147 (deployed)
+**Current version:** v1.0.148 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -193,6 +193,8 @@
 - ✅ **Data validation/adapter layer (`lib/dataValidation.ts`, v1.0.80)** — `normalizeMatch()` validates Match/Innings/Ball/Team/Venue/Competition shapes at the data boundary, collecting errors (blocking) and warnings (non-blocking) rather than letting malformed data flow silently into narrative/win-prob functions; never throws. Wired into `lib/matchGenerator.ts` as the template call site for a future real API adapter
 - ✅ **Win-prob null-safety (`lib/winProb.ts`, v1.0.80)** — `target!` non-null assertion in the chase-innings branch replaced with a real null check that skips the point (fewer chart points) instead of computing a fake NaN-derived percentage; `calculatePressureGauge` given the same guard on `firstInningsRuns`
 - ✅ **Single-source-of-truth app version (`lib/version.ts`, v1.0.83)** — `APP_VERSION`/`APP_VERSION_LABEL` derive from `package.json`'s `"version"` field; `scripts/version-check.ts` runs as an npm `"prebuild"` hook (so it's part of `npm run build`, the same command Vercel runs) and fails the build outright if a hardcoded `Bawler vX.Y.Z` literal ever reappears anywhere outside `lib/version.ts` — fixes a real bug where the match-page footer stayed hardcoded at "v1.0.65" across 17 releases (see DECISIONS-LOG.md VF1–VF3)
+- ✅ **Screen-reader live-region on ball outcomes (`components/BallGIF.tsx`, v1.0.148)** — persistent `aria-live="polite"` `sr-only` region announces each new ball with the real outcome + bowler/batter (e.g. "Four, R Sharma to V Kohli"), not a generic "content updated" message
+- ✅ **Branded 404 for missing/synthetic matches (`app/match/[id]/not-found.tsx`, v1.0.148)** — route-scoped 404 matching the dark-theme design system, replaces the previously-generic default Next.js 404; friendly message + prominent primary CTA back to the matches list, not reliant on the bottom nav
 
 ---
 
@@ -231,7 +233,7 @@
 
 ### Nice-to-have
 - [ ] Vitest + RTL tests on `BallGIF`, `DeliveryCard`, `MatchView`
-- [ ] Remove legacy unused components (`ViewSwitcher`, `MomentsCollapsible`, `PressureGauge`, `ProjectedScore`, `DemoControls`, `InsightsPanel`, `AIMetrics.tsx` + `lib/metrics.ts` [orphaned since v1.0.23's AI-metrics-row removal, confirmed unreferenced anywhere in the codebase], `MiniWinProb.tsx` [orphaned since v1.0.46 moved win-prob into the mini-insights bar chip, which was itself replaced in v1.0.121 by the Matchup card's emphasized readout])
+- [x] Remove legacy unused components — completed v1.0.148: `ViewSwitcher.tsx`, `MomentsCollapsible.tsx`, `PressureGauge.tsx`, `ProjectedScore.tsx`, `DemoControls.tsx`, `AIMetrics.tsx` + `lib/metrics.ts` [orphaned since v1.0.23's AI-metrics-row removal], `MiniWinProb.tsx` [orphaned since v1.0.46/v1.0.121] all deleted, re-verified zero references immediately before removal. `InsightsPanel` intentionally NOT included — it wasn't on the explicit deletion list for this round and remains unaudited/untouched.
 - [ ] Service worker for offline-cached last-seen match state
 - [ ] WCAG colour-contrast audit on `text-dim` values
 - [ ] Lighthouse-mobile to 95+ (currently ~88)
