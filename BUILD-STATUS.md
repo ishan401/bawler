@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.146 (deployed)
+**Current version:** v1.0.147 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -625,3 +625,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.146** | Fixed a confirmed real-data-readiness gap: `lib/matchFeedAdapter.ts`'s `ingestMatchFeed()` previously left `battingCard`/`bowlingCard` empty (`[]`) for every real-fed innings, which would have silently broken the Score tab's batting/bowling table and Digest's post-match "Performance" card/top-batter-bowler narrative for any finished real match. `lib/matchStatus.ts`'s `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` now work with no pre-supplied player identities (deriving them from `balls` itself when needed), so `ingestMatchFeed()` and `MatchView.tsx`'s live mid-innings truncation now share exactly one derivation implementation instead of one working path and one silent gap. Also added a provisional `result`/`seriesStatus`/`excitement`/`highlightBadge`/`declared`/`follow_on` mapping to the raw-feed adapter, previously absent entirely (DECISIONS-LOG.md v1.0.146) |
+
+## Changelog additions (v1.0.147)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.147** | Applied v1.0.146's battingCard/bowlingCard-from-balls fix to the two dormant scaffold transformers that had the same gap: `transformESPNMatch` and `transformSportRadarTimeline` in `lib/transformers.ts` (unused, zero call sites — reference scaffolding for providers not yet chosen). Both already build real per-innings ball data but were leaving `battingCard`/`bowlingCard` as `[]`; now derive them via the same shared `lib/matchStatus.ts` functions. `transformCricbuzzMatch`/`transformCricbuzzScorecard` confirmed to NOT have this bug (different, already-correct two-endpoint design) and left untouched. A separate, pre-existing, unrelated SportRadar wicket-detection bug was found and flagged but deliberately not fixed this round (DECISIONS-LOG.md v1.0.147) |

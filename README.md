@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.146)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.147)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -199,7 +199,7 @@ components/
 lib/
 ├── mockData.ts        # all match, player, standings, pitch report data; PLAYERS; ALL_TEAMS
 ├── types.ts           # all TypeScript interfaces (Match, Ball, Innings, TestSession, …)
-├── transformers.ts    # ESPN/Cricbuzz/SportRadar adapters; normalizeBall(); deriveTestSessions()
+├── transformers.ts    # ESPN/Cricbuzz/SportRadar adapters (unused scaffolding, no provider chosen yet); normalizeBall(); deriveTestSessions(); v1.0.147: transformESPNMatch/transformSportRadarTimeline now derive battingCard/bowlingCard from their own ball data (same shared lib/matchStatus.ts functions as matchFeedAdapter.ts) instead of leaving them empty -- transformCricbuzzMatch correctly still doesn't (no ball data at that call, merged separately via transformCricbuzzScorecard)
 ├── mockMatchups.ts    # 44 batter vs bowler H2H career records
 ├── events.ts          # Moments strip event extraction logic
 ├── winProb.ts         # power-curve win probability formula (single source of truth)

@@ -3072,3 +3072,15 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Confirmed `Scorecard.tsx`'s `BatterRow`/`BowlerRow` only read fields present on the derived shape -- nothing missing.
 - Regression: ran the same derivation functions against a real mock fixture's live mid-innings truncation call shape (non-empty `originalCard`) -- identity-list length and mid-innings stats unchanged from before this fix.
 - All pre-existing regression scripts (`edge-case-check.ts`, `digest-check.ts`, `series-category-check.ts`, `version-check.ts`) passed unchanged. `tsc --noEmit` and `npm run build` both clean.
+
+## [1.0.147] 2026-08-03
+
+#### Fixed -- `lib/transformers.ts`
+- Applied the v1.0.146 fix pattern to two dormant, currently-unused scaffold transform functions with the identical gap: `transformESPNMatch` and `transformSportRadarTimeline` both already build real per-innings ball data but left `battingCard: []`/`bowlingCard: []` behind a "TODO: fetch from scorecard endpoint" comment instead of deriving from the ball data already in scope.
+- Both now call `lib/matchStatus.ts`'s `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` (no `originalCard`) on their own ball arrays; `format` hoisted to a local `const` before the innings map in both so it's in scope for the bowling derivation.
+- `transformCricbuzzMatch`/`transformCricbuzzScorecard` investigated and confirmed NOT to have this bug -- Cricbuzz's design genuinely has no ball data at the match-transform call (`innings: Innings[] = []`, filled in later via a separate scorecard merge that already works correctly from real scorecard fields). Left untouched.
+
+#### Verified
+- Real `npx tsx` scripts (temporary, not committed) against both fixed functions confirmed correct `battingCard`/`bowlingCard` derivation matching hand-computed run/four/six/ballsFaced arithmetic.
+- Found, documented, but deliberately did NOT fix a separate pre-existing bug: `transformSportRadarTimeline`'s own delivery-only event filter runs before its `isWicket` check, making `isWicket` unconditionally false for any SportRadar-sourced ball today -- unrelated to this round's fix, flagged in DECISIONS-LOG.md v1.0.147 for whenever SportRadar is actually considered.
+- All four pre-existing regression scripts, `tsc --noEmit`, and `npm run build` clean.

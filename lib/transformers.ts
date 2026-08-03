@@ -22,6 +22,7 @@ import type {
   TestSession,
 } from "./types";
 import { formatPlayerName } from "./playerName";
+import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls } from "./matchStatus";
 
 // ============================================================================
 // Name normalisation — v1.0.120: moved to lib/playerName.ts
@@ -699,21 +700,42 @@ export function transformESPNMatch(
   teamA: Team,   // home team
   teamB: Team,   // away team
 ): Match {
-  const innings: Innings[] = (raw.Innings ?? []).map(inn => ({
-    number: inn.InningsNumber as 1 | 2 | 3 | 4,
-    battingTeam: inn.BattingTeamId === teamA.code as unknown as number ? teamA.code : teamB.code,
-    bowlingTeam: inn.BowlingTeamId === teamA.code as unknown as number ? teamA.code : teamB.code,
-    runs: inn.Runs,
-    wickets: inn.Wickets,
-    overs: inn.Overs,
-    balls: (inn.Balls ?? []).map(b => transformESPNBall(b, inn.InningsNumber as 1 | 2 | 3 | 4)),
-    battingCard: [],  // TODO: fetch from scorecard endpoint
-    bowlingCard: [],
-  }));
+  // TODO: derive from competition, same gap as the format field below.
+  const format: MatchFormat = "T20";
+
+  const innings: Innings[] = (raw.Innings ?? []).map(inn => {
+    const balls = (inn.Balls ?? []).map(b => transformESPNBall(b, inn.InningsNumber as 1 | 2 | 3 | 4));
+    return {
+      number: inn.InningsNumber as 1 | 2 | 3 | 4,
+      battingTeam: inn.BattingTeamId === teamA.code as unknown as number ? teamA.code : teamB.code,
+      bowlingTeam: inn.BowlingTeamId === teamA.code as unknown as number ? teamA.code : teamB.code,
+      runs: inn.Runs,
+      wickets: inn.Wickets,
+      overs: inn.Overs,
+      balls,
+      // v1.0.147: derived from `balls` (already computed above, in scope
+      // right here) via lib/matchStatus.ts's shared
+      // deriveBattingCardFromBalls/deriveBowlingCardFromBalls, with no
+      // originalCard -- there is none at this call, only the ball-by-ball
+      // timeline. This is a reasonable default, NOT a replacement for the
+      // real thing: `transformESPNScorecard()` below returns the actual
+      // provider scorecard shape when that endpoint is available, and a
+      // real integration should prefer merging that in over this
+      // ball-derived fallback wherever both exist (the scorecard endpoint
+      // may carry official/box-score figures this adapter's own `balls`
+      // don't fully capture -- see the mock-data ball-vs-card reconciliation
+      // caveat in BUILD-STATUS.md). Previously left as `[]` unconditionally,
+      // the same now-fixed gap `lib/matchFeedAdapter.ts`'s `ingestMatchFeed()`
+      // had (DECISIONS-LOG.md v1.0.146) -- this function already had real
+      // ball data in scope and simply wasn't deriving from it.
+      battingCard: deriveBattingCardFromBalls(balls, []),
+      bowlingCard: deriveBowlingCardFromBalls(balls, [], format),
+    };
+  });
 
   return {
     id: `espn-${raw.GameId}`,
-    format: "T20" as MatchFormat,   // TODO: derive from competition
+    format,
     competition,
     startTimeIso: raw.DateTime,
     status: raw.Status === "InProgress" ? "live"
@@ -920,6 +942,9 @@ export function transformSportRadarTimeline(
   teamA: Team,
   teamB: Team,
 ): Match {
+  // TODO: derive from tournament type, same gap as the format field below.
+  const format: MatchFormat = "T20";
+
   const deliveries = (raw.timeline ?? []).filter(e => e.type === "delivery");
 
   // Group deliveries by innings (batting_team changes = new innings)
@@ -972,8 +997,16 @@ export function transformSportRadarTimeline(
       wickets,
       overs,
       balls: internalBalls,
-      battingCard: [],   // TODO: populate from separate scorecard endpoint
-      bowlingCard: [],
+      // v1.0.147: derived from `internalBalls` (already computed above)
+      // via the same shared functions transformESPNMatch/ingestMatchFeed()
+      // now use, with no originalCard. Same caveat as there: prefer
+      // merging `transformSportRadarScorecard()`'s real scorecard-endpoint
+      // data over this ball-derived fallback wherever both are available.
+      // Previously left as `[]` unconditionally -- same now-fixed gap as
+      // lib/matchFeedAdapter.ts's ingestMatchFeed() (DECISIONS-LOG.md
+      // v1.0.146/v1.0.147).
+      battingCard: deriveBattingCardFromBalls(internalBalls, []),
+      bowlingCard: deriveBowlingCardFromBalls(internalBalls, [], format),
     };
   });
 
@@ -984,7 +1017,7 @@ export function transformSportRadarTimeline(
 
   return {
     id: `sr-${raw.sport_event.id}`,
-    format: "T20" as MatchFormat,   // TODO: derive from tournament type
+    format,
     competition,
     startTimeIso: raw.sport_event.scheduled,
     status: raw.sport_event_status.status === "live" ? "live"
