@@ -132,4 +132,90 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Dew is rare here — toss decisions are usually condition-driven, not dew-driven.",
     ],
   },
+
+  // Sydney Cricket Ground -- IND vs AUS T20I (live).
+  "ind-aus-t20i-2026-m2-live": {
+    venueId: "scg",
+    surfaceType: "grass-heavy",
+    paceFriendly: 7,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 150, mid: 168, high: 185 },
+    dewFactor: "low",
+    bullets: [
+      "SCG's grass cover gives seamers genuine nip through the first 6 overs under lights.",
+      "Traditionally a used, dry surface by night -- spinners get more purchase here than most Australian grounds.",
+      "True, even bounce all innings; batters can trust the pace of the pitch once set.",
+      "Square boundaries are longer than the straight -- mistimed pulls and cuts often don't carry.",
+    ],
+  },
+
+  // Lord's -- IND vs ENG Test, day 3 (live).
+  "ind-eng-test-2026-d3-live": {
+    venueId: "lords",
+    surfaceType: "grass-heavy",
+    paceFriendly: 8,
+    spinFriendly: 3,
+    bounceConsistency: 6,
+    // No expectedFirstInningsScore or dewFactor: a Test's conditions shift too
+    // much across 5 days for a single first-innings score range to be
+    // meaningful, and dew is a minor factor in a match played mostly in
+    // daylight -- real-data-readiness in practice, not an oversight.
+    bullets: [
+      "The famous slope (2.5m across the square) genuinely affects seam angle -- bowlers from the Pavilion End get extra shape into right-handers.",
+      "New Zealand-strain grass keeps this surface green and seam-friendly through the first two days; flattens out by day 3-4 for batting.",
+      "Overhead conditions matter more here than pitch composition -- heavy cloud brings the slip cordon into the game all day.",
+      "Historically a tough toss to lose: first-innings runs on a fresh surface are worth more than at most English grounds.",
+    ],
+  },
+
+  // Gaddafi Stadium, Lahore -- PSL, live.
+  "psl-2026-lah-kar-live": {
+    venueId: "gaddafi",
+    surfaceType: "dry",
+    paceFriendly: 4,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 165, mid: 182, high: 200 },
+    dewFactor: "moderate",
+    bullets: [
+      "Historically one of the flattest tracks on the circuit -- genuine batting paradise once the new-ball swing (if any) is negotiated.",
+      "Low, slow bounce blunts short-ball plans; batters who get in rarely get out to the pitch itself.",
+      "Evening dew picks up from the back half of the chase, easing stroke-play for the team batting second.",
+      "Boundary hitting is a skill premium here -- straight sixes carry easily, business as usual for finishers.",
+    ],
+  },
+
+  // M. Chinnaswamy Stadium, Bengaluru -- CSK vs RCB (post-match).
+  "ipl2026-m36-cskvrcb": {
+    venueId: "chinnaswamy",
+    surfaceType: "balanced",
+    paceFriendly: 5,
+    spinFriendly: 5,
+    bounceConsistency: 6,
+    expectedFirstInningsScore: { low: 180, mid: 195, high: 220 },
+    bullets: [
+      "Same short boundaries and thin altitude air as every Chinnaswamy game -- 200+ is never really out of reach.",
+      "Straight hitting carries best; genuine mishits over square often still clear the rope.",
+      "Grippier for wrist-spin than for seam -- legspin and off-cutters get more out of this surface than out-and-out pace.",
+      "Chasing has a slight historical edge here once the lights come on.",
+    ],
+  },
+
+  // Eden Gardens, Kolkata -- KKR vs RR (post-match).
+  "ipl2026-m33-kkrvrr": {
+    venueId: "eden",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 158, mid: 174, high: 192 },
+    dewFactor: "high",
+    bullets: [
+      "Same profile as every Eden Gardens night game -- true bounce early, turn creeping in from the middle overs.",
+      "Kolkata's heavy evening dew is the great leveller; teams batting second get a skiddier ball to work with.",
+      "Off-side boundary is marginally longer than leg side -- accumulation favours working the ball square and behind square on the leg side.",
+      "A used surface (multiple matches across a season) tends to slow up and assist spin more as the tournament progresses.",
+    ],
+  },
 };
