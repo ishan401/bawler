@@ -470,4 +470,72 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Historically a fair, low-dew surface -- the toss matters less here than at most white-ball venues.",
     ],
   },
+
+  // National Stadium, Karachi -- PSL, Multan Sultans vs Peshawar Zalmi (upcoming).
+  "psl-2026-mul-pes": {
+    venueId: "national",
+    surfaceType: "dry",
+    paceFriendly: 5,
+    spinFriendly: 6,
+    bounceConsistency: 6,
+    expectedFirstInningsScore: { low: 155, mid: 172, high: 190 },
+    dewFactor: "moderate",
+    bullets: [
+      "A traditionally slow, dry surface -- spinners and cutter-bowlers historically outperform out-and-out pace here.",
+      "Evening dew picks up in the back half, favouring the side chasing once the ball starts to skid on.",
+      "Straight boundaries reward clean, straight hitting more than cross-batted risk.",
+      "A used surface late in a tournament tends to grip more for spin -- expect turn to increase over the course of the innings.",
+    ],
+  },
+
+  // Headingley, Leeds -- ENG vs SA ODI (upcoming).
+  "eng-sa-odi-2026-m2": {
+    venueId: "headingley",
+    surfaceType: "grass-heavy",
+    paceFriendly: 8,
+    spinFriendly: 3,
+    bounceConsistency: 6,
+    expectedFirstInningsScore: { low: 245, mid: 270, high: 295 },
+    dewFactor: "low",
+    bullets: [
+      "Classic English seam-bowling conditions -- overcast skies bring genuine lateral movement for the first 15 overs.",
+      "The pitch tends to flatten out for batting once the ball loses its hardness, historically favouring a chase in good weather.",
+      "Short square boundaries at one end make width a genuinely expensive option for bowlers.",
+      "Spin is mostly a control option here rather than a wicket-taker, even in the middle overs.",
+    ],
+  },
+
+  // Grand Prairie Stadium, Dallas -- MLC, LA Knight Riders vs Texas Super Kings (upcoming).
+  "mlc-2026-lakr-tsk": {
+    venueId: "gs",
+    surfaceType: "grass-heavy",
+    paceFriendly: 7,
+    spinFriendly: 3,
+    bounceConsistency: 6,
+    expectedFirstInningsScore: { low: 160, mid: 178, high: 198 },
+    dewFactor: "low",
+    bullets: [
+      "A newer drop-in surface that has generally played true and batting-friendly across Major League Cricket seasons so far.",
+      "Texas heat and hard outfields mean the ball can race to the boundary even off a mistimed shot.",
+      "Seam movement is more pronounced with the new ball than later in the innings, when it becomes a genuine hitting surface.",
+      "Limited historical data at this ground compared to established venues -- teams are still working out the best matchups here.",
+    ],
+  },
+
+  // The Kia Oval, London -- The Hundred, MI London vs London Spirit (upcoming).
+  "hundred-2026-ovi-lsp": {
+    venueId: "oval",
+    surfaceType: "grass-heavy",
+    paceFriendly: 7,
+    spinFriendly: 4,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 155, mid: 172, high: 192 },
+    dewFactor: "low",
+    bullets: [
+      "A traditionally good batting surface once the initial seam movement passes, usually inside the first 4 overs.",
+      "The Oval's large square dimensions reward genuine six-hitting over mistimed cross-batted shots.",
+      "Historically a fair surface for both bat and ball -- there's no strong toss bias in the head-to-head record here.",
+      "Late-summer London evenings rarely bring significant dew, so conditions tend to hold steady through the innings.",
+    ],
+  },
 };
