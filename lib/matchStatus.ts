@@ -227,16 +227,70 @@ export function countWicketEquivalentRetirements(
  * in `deriveBattingCardFromBalls` keys off `playerName`, never `playerId`.
  */
 function deriveBatterIdentitiesFromBalls(balls: Ball[]): BattingEntry[] {
-  const seen = new Map<string, BattingEntry>();
+  // Reconciles a player whose balls are split across both an id-tagged
+  // and a name-tagged record into ONE identity (matches on batterId OR
+  // batterName -- see deriveBattingCardFromBalls's doc comment below for
+  // the full rationale). This path only runs when there's no
+  // originally-authored card to supply identities, so the balls' own id
+  // and name fields are all there is to reconcile against.
+  const identities: BattingEntry[] = [];
   for (const b of balls) {
-    if (!seen.has(b.batterName)) {
-      seen.set(b.batterName, {
-        playerId: b.batterId, playerName: b.batterName,
-        runs: 0, ballsFaced: 0, fours: 0, sixes: 0, strikeRate: 0, out: false,
-      });
+    let entry = identities.find(e => e.playerId === b.batterId || e.playerName === b.batterName);
+    if (!entry) {
+      entry = { playerId: b.batterId, playerName: b.batterName, runs: 0, ballsFaced: 0, fours: 0, sixes: 0, strikeRate: 0, out: false };
+      identities.push(entry);
     }
   }
-  return [...seen.values()];
+  return identities;
+}
+
+/**
+ * True if `id`/`name` (a Ball's batterId/batterName or bowlerId/
+ * bowlerName, or a RetirementRecord's playerId/playerName) refers to the
+ * same player as `entryId`/`entryName` (a card entry's playerId/
+ * playerName) -- matching on EITHER field, not just one. See
+ * `deriveBattingCardFromBalls`'s doc comment below for why a ball-to-card
+ * join can't safely rely on just one of the two.
+ */
+function samePlayer(id: string, name: string, entryId: string, entryName: string): boolean {
+  return id === entryId || name === entryName;
+}
+
+/**
+ * Appends a derived identity row for any ball-participant who has no
+ * matching entry (via `samePlayer()`) anywhere in `originalCard` --
+ * purely additive, never touches an existing entry's identity or stats.
+ *
+ * v1.0.158: a hand-authored card can be genuinely INCOMPLETE without any
+ * name/id mismatch being involved at all -- `ind-eng-test-2026-d3-live`'s
+ * innings 2 battingCard only lists England's top 8, omitting the tail
+ * (S Broad, J Anderson, J Leach, M Wood), who nonetheless faced real,
+ * recorded deliveries (22 runs, 156 balls) once the top order fell. No
+ * join-key fix (id, name, or the id-or-name union above) can attribute
+ * those runs to a row that doesn't exist -- they were silently dropped by
+ * `baseCard.map()` below no matter how the join was keyed, before this
+ * fix. This surfaced via the platform-wide run/wicket conservation sweep
+ * (see DECISIONS-LOG.md), not from the original name-vs-id report -- it's
+ * a distinct bug class (missing card rows, not mismatched join keys) that
+ * happened to live in the same fixture and the same two functions.
+ */
+function withOrphanIdentities<T extends { playerId: string; playerName: string }>(
+  originalCard: T[],
+  balls: Ball[],
+  getId: (b: Ball) => string,
+  getName: (b: Ball) => string,
+  make: (id: string, name: string) => T
+): T[] {
+  const extra: T[] = [];
+  for (const b of balls) {
+    const id = getId(b);
+    const name = getName(b);
+    const known =
+      originalCard.some(e => samePlayer(id, name, e.playerId, e.playerName)) ||
+      extra.some(e => samePlayer(id, name, e.playerId, e.playerName));
+    if (!known) extra.push(make(id, name));
+  }
+  return extra.length > 0 ? [...originalCard, ...extra] : originalCard;
 }
 
 /**
@@ -259,6 +313,28 @@ function deriveBatterIdentitiesFromBalls(balls: Ball[]): BattingEntry[] {
  * ingestion path for a COMPLETE innings (which never has one) -- see
  * ARCHITECTURE.md's "single derivation, two callers" note for the full
  * rationale for why this must not become two diverging implementations.
+ *
+ * v1.0.158: every ball-to-card join below matches via `samePlayer()` --
+ * id OR name, not name alone (the original bug) and not id alone either.
+ * A real incident (`ipl2026-m37-kkrvmi`'s hand-authored battingCard used
+ * full names -- "Rinku Singh" -- while its balls used short names -- "R
+ * Singh") showed pure name-matching silently zeroes out every stat for a
+ * fixture the moment its naming is even slightly inconsistent, with no
+ * error of any kind. Switching to pure id-matching looked like the fix
+ * until a platform-wide audit (both directions, not just the known
+ * failure) found the OPPOSITE case already live and working:
+ * `ind-eng-test-2026-d3-live`'s battingCard/bowlingCard use real distinct
+ * slug ids ("zcrwly", "jbumrah") that never match its balls' id fields at
+ * all -- only the names line up -- and a few of its players (H Brook, B
+ * Stokes, J Bairstow, B Duckett) have their OWN balls split across both
+ * conventions within the same innings, a pre-existing data inconsistency
+ * already documented in Scorecard.tsx's `getBatterBalls` (v1.0.144, same
+ * root cause, same match). Neither id-only nor name-only is safe as the
+ * SOLE key platform-wide -- this function (like `getBatterBalls`) treats
+ * a ball as belonging to a card entry if EITHER field matches, which is
+ * the only join that's correct for every fixture found so far and is
+ * inherently robust to either kind of inconsistency a future fixture (or
+ * a real provider feed with its own naming quirks) might introduce.
  */
 export function deriveBattingCardFromBalls(
   balls: Ball[],
@@ -266,10 +342,14 @@ export function deriveBattingCardFromBalls(
   retirements: RetirementRecord[] = []
 ): BattingEntry[] {
   const lastBall = balls.length > 0 ? balls[balls.length - 1] : undefined;
-  const baseCard = originalCard.length > 0 ? originalCard : deriveBatterIdentitiesFromBalls(balls);
+  const baseCard = originalCard.length > 0
+    ? withOrphanIdentities<BattingEntry>(originalCard, balls, b => b.batterId, b => b.batterName, (id, name) => ({
+        playerId: id, playerName: name, runs: 0, ballsFaced: 0, fours: 0, sixes: 0, strikeRate: 0, out: false,
+      }))
+    : deriveBatterIdentitiesFromBalls(balls);
 
   return baseCard.map(entry => {
-    const playerBalls = balls.filter(b => b.batterName === entry.playerName);
+    const playerBalls = balls.filter(b => samePlayer(b.batterId, b.batterName, entry.playerId, entry.playerName));
     const ballsFaced = playerBalls.filter(b => b.extraType !== "wd").length;
     const runs = playerBalls.reduce((s, b) => s + b.runs, 0);
     const fours = playerBalls.filter(b => b.isBoundary4).length;
@@ -283,7 +363,7 @@ export function deriveBattingCardFromBalls(
     // scheduled for later in the innings must not retroactively apply to
     // an earlier scrub position.
     const retirement = !out
-      ? retirements.find(r => r.playerName === entry.playerName && isRetirementVisible(r, balls))
+      ? retirements.find(r => samePlayer(r.playerId, r.playerName, entry.playerId, entry.playerName) && isRetirementVisible(r, balls))
       : undefined;
     const retiredNotOut = retirement?.type === "retired-not-out";
     const retiredOut = retirement?.type === "retired-out";
@@ -296,7 +376,7 @@ export function deriveBattingCardFromBalls(
     // A retired player (either variant) has left the crease just as
     // surely as a dismissed one -- never still "on strike" even if their
     // own last ball happens to be the innings' most recent so far.
-    const onStrike = !!lastBall && lastBall.batterName === entry.playerName && !retirement;
+    const onStrike = !!lastBall && samePlayer(lastBall.batterId, lastBall.batterName, entry.playerId, entry.playerName) && !retirement;
 
     // Prefer the original card's hand-authored dismissal text (e.g. "c
     // Dhoni b Jadeja") when it's actually consistent with this player
@@ -345,16 +425,18 @@ export function deriveBattingCardFromBalls(
  * supply identities.
  */
 function deriveBowlerIdentitiesFromBalls(balls: Ball[]): BowlingEntry[] {
-  const seen = new Map<string, BowlingEntry>();
+  // Reconciles a bowler whose balls are split across both an id-tagged
+  // and a name-tagged record into ONE identity -- same rationale as
+  // deriveBatterIdentitiesFromBalls above.
+  const identities: BowlingEntry[] = [];
   for (const b of balls) {
-    if (!seen.has(b.bowlerName)) {
-      seen.set(b.bowlerName, {
-        playerId: b.bowlerId, playerName: b.bowlerName,
-        oversBowled: 0, maidens: 0, runsConceded: 0, wickets: 0, economy: 0,
-      });
+    let entry = identities.find(e => e.playerId === b.bowlerId || e.playerName === b.bowlerName);
+    if (!entry) {
+      entry = { playerId: b.bowlerId, playerName: b.bowlerName, oversBowled: 0, maidens: 0, runsConceded: 0, wickets: 0, economy: 0 };
+      identities.push(entry);
     }
   }
-  return [...seen.values()];
+  return identities;
 }
 
 /**
@@ -367,6 +449,11 @@ function deriveBowlerIdentitiesFromBalls(balls: Ball[]): BowlingEntry[] {
  * `originalCard` is now OPTIONAL (defaults to `[]`) -- v1.0.146, same
  * reasoning and same single-function-two-callers contract as
  * `deriveBattingCardFromBalls` above.
+ *
+ * v1.0.158: joins via `samePlayer()` (bowlerId/playerId OR bowlerName/
+ * playerName) -- same fix, same rationale, as `deriveBattingCardFromBalls`
+ * above (see its doc comment for the full incident writeup, including why
+ * a pure id-only join is not safe platform-wide either).
  */
 export function deriveBowlingCardFromBalls(
   balls: Ball[],
@@ -374,10 +461,14 @@ export function deriveBowlingCardFromBalls(
   format: MatchFormat
 ): BowlingEntry[] {
   const bps = ballsPerSet(format);
-  const baseCard = originalCard.length > 0 ? originalCard : deriveBowlerIdentitiesFromBalls(balls);
+  const baseCard = originalCard.length > 0
+    ? withOrphanIdentities<BowlingEntry>(originalCard, balls, b => b.bowlerId, b => b.bowlerName, (id, name) => ({
+        playerId: id, playerName: name, oversBowled: 0, maidens: 0, runsConceded: 0, wickets: 0, economy: 0,
+      }))
+    : deriveBowlerIdentitiesFromBalls(balls);
 
   return baseCard.map(entry => {
-    const bowlerBalls = balls.filter(b => b.bowlerName === entry.playerName);
+    const bowlerBalls = balls.filter(b => samePlayer(b.bowlerId, b.bowlerName, entry.playerId, entry.playerName));
     const legalBalls = bowlerBalls.filter(b => b.extraType !== "wd" && b.extraType !== "nb");
     const completedOvers = Math.floor(legalBalls.length / bps);
     const ballsIntoOver = legalBalls.length % bps;

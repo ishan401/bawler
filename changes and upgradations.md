@@ -3196,3 +3196,30 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - Direct `react-dom/server` render tests: `InfoTab` renders a pitch report for all 29 matches with zero throws; both Test entries render sliders/bullets but correctly omit the score/dew sections; `DigestTab`/`Scorecard` render cleanly for live/past/upcoming samples; the home page component renders without throwing.
 - Confirmed via grep that `lib/pitchReports.ts` has zero import relationship with Schedule, Table, Player, or Home pages.
 - 6 commits across the 5 steps, all on `feature/pitch-reports-rework`, `main` untouched until this entire arc was complete and regression-verified.
+
+## [1.0.158] 2026-08-04
+
+### Fixed battingCard/bowlingCard join-key bug at the root (platform-wide) + a second, unrelated orphan-player gap
+
+#### Context
+- Diagnostic confirmed `ipl2026-m37-kkrvmi`'s Score tab showed every KKR player at 0 while the header/strike-rate bar read correct live figures: the innings' hand-authored card used full names while its ball data used short names, and `lib/matchStatus.ts`'s derivation functions joined a ball to a card row by name (`b.batterName === entry.playerName`) -- silently zeroing every stat with no error the moment naming differs even slightly. Confirmed pre-existing and unrelated to the prior pitch-report-rework arc via `git diff`.
+
+#### Changed -- `lib/matchStatus.ts`
+- New `samePlayer(id, name, entryId, entryName)` predicate: `id === entryId || name === entryName`. Replaces the old pure-name join (the bug) -- and also replaces a briefly-implemented pure-id join, which a broader bidirectional audit found would have regressed `ind-eng-test-2026-d3-live` (a currently-live, currently-correct Test match whose card uses real slug ids that never match its balls' id fields at all, only names do, with a few players split across BOTH conventions within the same innings -- the same pattern `Scorecard.tsx`'s `getBatterBalls()` already solved locally in v1.0.144/145). `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls`'s ball filter, the retirement lookup, and the `onStrike` check all now use this one shared predicate.
+- `deriveBatterIdentitiesFromBalls`/`deriveBowlerIdentitiesFromBalls` (the no-card fallback path) now reconcile a player split across id/name within the balls themselves into a single identity, using the same either-field logic.
+- New `withOrphanIdentities()`: when `originalCard` is supplied but incomplete, appends a derived identity row for any ball-participant not matched by any existing entry, instead of silently dropping their balls. Found via the required post-fix full-platform verification sweep: `ind-eng-test-2026-d3-live` innings 2's hand-authored card only lists England's top 8 batters, omitting the tail order (S Broad, J Anderson, J Leach, M Wood), who nonetheless faced real, recorded deliveries (22 runs, 156 balls) -- a distinct bug class (missing card rows, not a mismatched join key) that no join-key fix alone could have resolved. Purely additive -- never touches an existing entry.
+
+#### Audit findings (fixture data, unchanged)
+- One-directional pre-fix audit: 2 fixtures with an id-matches/name-differs mismatch -- `ipl2026-m37-kkrvmi` (14 findings) and `psl-2026-lah-kar-live` (1 finding).
+- Bidirectional audit (both directions, all 29 matches): confirms the same 2 fixtures plus `ind-eng-test-2026-d3-live`'s split id/name convention.
+- Orphan-entry audit: exactly 1 innings (`ind-eng-test-2026-d3-live` innings 2) has ball-participants with zero matching card entry by either key.
+- None of this underlying fixture data was changed -- the union-match + orphan-fill fix makes derived stats correct regardless of which convention or gap a given fixture has, so rewriting `mockData.ts` is no longer required for correctness. Deliberately left as-is given this project's two-time history of `mockData.ts` truncation crashes from large edits to that file; flagged as a non-urgent hygiene item instead of edited now.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean (106/106 static pages, both prebuild tripwires passing) after both fixes.
+- Full-platform sweep (derived batting runs == raw ball runs, derived bowling wickets == raw wicket count, all 29 matches, all innings with ball data): 0 mismatches, including `ind-eng-test-2026-d3-live` (previously the sole post-union-fix failure) and both originally-flagged fixtures.
+- `ipl2026-m37-kkrvmi` KKR innings re-confirmed directly: R Singh 46(31), A Russell 37(20), J Bumrah 3.4-0-23-2 -- all non-zero, consistent with the header's live state. Simulated mid-innings truncation (first 43 balls) also verified consistent, covering `MatchView.tsx`'s live scrub path.
+- All temporary verification scripts deleted after use.
+
+#### Scope
+- `lib/matchStatus.ts` only. No fixture data in `lib/mockData.ts` changed. No other file touched -- the fix is entirely at the shared derivation layer, so it applies automatically to `MatchView.tsx`'s live truncation path and `lib/matchFeedAdapter.ts`'s real-feed ingestion path alike.

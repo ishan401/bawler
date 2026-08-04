@@ -596,6 +596,12 @@
 |---|---|
 | **v1.0.109** | Closed the stale-mutation gap flagged in v1.0.108's real-data-readiness report: `useMatchAccentColors`'s effect now depends on `teamA`/`teamB`'s `code`/`primaryColor`/`secondaryColor` fields instead of object identity, so it correctly detects a real color change on any re-render rather than only on a full object swap. Documented a "replace, never mutate" contract in `ARCHITECTURE.md` for any future real data source, since a mutation with no accompanying re-render still can't be caught by this or any code -- confirmed via a real `react-test-renderer` test (mutation ignored, replacement picked up). Re-ran the 29-match audit -- unchanged, as expected for a UI-hook-only change (DECISIONS-LOG.md) |
 
+## Changelog additions (v1.0.158)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.158** | Fixed the confirmed root cause of `ipl2026-m37-kkrvmi`'s Score tab all-zero batting/bowling bug, platform-wide: `lib/matchStatus.ts`'s `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` now join a ball to a card entry via a new shared `samePlayer()` predicate -- id OR name, never name alone (the original bug) and never id alone either (a mid-implementation bidirectional audit found id-only would have regressed `ind-eng-test-2026-d3-live`, whose card uses real slug ids that never match its balls' ids at all). Also fixed a second, unrelated gap found during the required post-fix verification sweep: an incomplete hand-authored card (missing England's tail order in `ind-eng-test-2026-d3-live`) now gets missing rows appended via new `withOrphanIdentities()`, instead of silently dropping those players' runs. Fixture data itself (the underlying name/id inconsistencies) was deliberately left unchanged -- the fix makes correctness independent of it (DECISIONS-LOG.md v1.0.158) |
+
 ## Changelog additions (v1.0.108)
 
 | Version | Highlight |
