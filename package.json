@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "tsx scripts/version-check.ts",
+    "prebuild": "tsx scripts/version-check.ts && tsx scripts/check-mockdata-integrity.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "version-check": "tsx scripts/version-check.ts"
+    "version-check": "tsx scripts/version-check.ts",
+    "mockdata-check": "tsx scripts/check-mockdata-integrity.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

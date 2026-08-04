@@ -1,0 +1,31 @@
+{
+  "lineCount": 15161,
+  "exports": [
+    "TEAMS",
+    "NATIONAL_TEAMS",
+    "LEAGUE_TEAMS",
+    "ALL_TEAMS",
+    "COMPETITIONS",
+    "VENUES",
+    "FEATURED_MATCH",
+    "PAST_MATCHES",
+    "UPCOMING_MATCHES",
+    "RECENT_MATCH",
+    "STANDINGS",
+    "COMPETITION_STANDINGS",
+    "LIVE_MATCHES",
+    "MOCK_INSIGHTS_V2",
+    "MOCK_INSIGHTS",
+    "LIVE_INTERNATIONAL",
+    "PAST_INTERNATIONAL",
+    "UPCOMING_INTERNATIONAL",
+    "ALL_LIVE_MATCHES",
+    "ALL_PAST_MATCHES",
+    "ALL_UPCOMING_MATCHES",
+    "ALL_COMPETITION_NAMES",
+    "slugifyPlayer",
+    "PLAYER_ALIASES",
+    "resolvePlayerSlug",
+    "PLAYERS"
+  ]
+}
