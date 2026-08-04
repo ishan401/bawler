@@ -384,4 +384,90 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Spin is largely a containment option, not a wicket-taking one, on this surface.",
     ],
   },
+
+  // Optus Stadium, Perth -- BBL, Perth Scorchers vs Sydney Sixers (post-match).
+  "bbl-2526-scorchers-sixers": {
+    venueId: "optus",
+    surfaceType: "grass-heavy",
+    paceFriendly: 9,
+    spinFriendly: 2,
+    bounceConsistency: 9,
+    expectedFirstInningsScore: { low: 165, mid: 180, high: 200 },
+    dewFactor: "low",
+    bullets: [
+      "Regarded as the fastest, bounciest pitch in Australian domestic cricket -- genuine pace bowlers who hit a hard length are rewarded most.",
+      "True, even bounce all match; there's very little here for a batter to be genuinely worried about once set.",
+      "The Fremantle Doctor's afternoon sea breeze can add carry for bowlers running in from the northern end.",
+      "Spin is almost an afterthought on this surface -- most attacks lean on 4-5 seamers instead.",
+    ],
+  },
+
+  // Nassau County International Cricket Stadium, New York -- T20 World Cup, IND vs PAK (post-match).
+  "t20wc-2026-ind-pak": {
+    venueId: "nassau",
+    surfaceType: "dry",
+    paceFriendly: 6,
+    spinFriendly: 5,
+    bounceConsistency: 4,
+    expectedFirstInningsScore: { low: 115, mid: 135, high: 155 },
+    dewFactor: "low",
+    bullets: [
+      "A drop-in pitch with genuinely two-paced bounce -- some deliveries hold up, others skid through low, making stroke-play a real gamble.",
+      "Historically the lowest-scoring surface on the T20 World Cup circuit; totals in the 130s have been genuinely competitive here.",
+      "New-ball seam movement is significant early -- top orders have struggled to survive the first 4 overs.",
+      "Boundary-hitting is a low-percentage play until a batter has spent real time working out the pitch's pace.",
+    ],
+  },
+
+  // Gaddafi Stadium, Lahore -- Champions Trophy Final, AUS vs NZ (post-match).
+  "ct-2025-aus-nz-final": {
+    venueId: "lahore-gaddafi",
+    surfaceType: "dry",
+    paceFriendly: 4,
+    spinFriendly: 5,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 260, mid: 285, high: 310 },
+    dewFactor: "moderate",
+    bullets: [
+      "A genuine belter for a 50-over final -- low, true bounce with minimal seam movement once the shine goes.",
+      "Evening dew (this was a day-night fixture) historically eases conditions for the side chasing.",
+      "Boundary hitting is low-risk here; there's little pace or turn to trouble a set batter going for the shot.",
+      "History favours winning the toss and batting first at this ground in ICC knockout cricket.",
+    ],
+  },
+
+  // Melbourne Cricket Ground -- Ashes, 3rd Test (post-match).
+  "ashes-2526-3rd-test": {
+    venueId: "mcg",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 4,
+    bounceConsistency: 7,
+    // No expectedFirstInningsScore or dewFactor -- same real-data-readiness
+    // reasoning as the Lord's Test entry: a 5-day match's conditions shift
+    // too much for a single score range, and dew is a minor daytime factor.
+    bullets: [
+      "The drop-in surface at the MCG has historically flattened out earlier than most Australian Test pitches -- day 1 movement rarely lasts past the second new ball.",
+      "Boxing Day Test crowds and a huge square mean the ball can seem to carry further than it actually does -- straight hitting is the reliable method.",
+      "Even bounce for all five days; genuine deterioration or turn for the spinners is rare compared to the subcontinent.",
+      "Sessions here are usually decided by discipline, not by dramatic conditions -- patient, error-free cricket wins Boxing Day Tests.",
+    ],
+  },
+
+  // Melbourne Cricket Ground -- IND vs AUS T20I (upcoming).
+  "ind-aus-t20i-2026-m3": {
+    venueId: "mcg",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 4,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 158, mid: 174, high: 192 },
+    dewFactor: "low",
+    bullets: [
+      "The same drop-in MCG surface used across formats -- true, even bounce with only brief new-ball movement.",
+      "The ground's sheer size means genuinely well-struck shots are needed to clear the rope, especially square of the wicket.",
+      "Spin is a containment tool more than a wicket-taking threat on this pitch.",
+      "Historically a fair, low-dew surface -- the toss matters less here than at most white-ball venues.",
+    ],
+  },
 };
