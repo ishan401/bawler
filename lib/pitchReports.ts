@@ -24,11 +24,26 @@
 export interface PitchReport {
   venueId: string;
   surfaceType: "red-soil" | "black-soil" | "grass-heavy" | "dry" | "balanced";
-  paceFriendly: number;
-  spinFriendly: number;
-  bounceConsistency: number;
-  expectedFirstInningsScore: { low: number; mid: number; high: number };
+  // v1.0.155: made optional (real-data-readiness) -- a real per-match pitch
+  // report may only have some of these fields available (e.g. surface type
+  // and a plain-language summary from a curator, but no numeric sliders
+  // yet). `bullets` stays required -- see its own doc comment below.
+  // PitchReportCard.tsx omits each corresponding section entirely when its
+  // field is absent, rather than rendering a misleading 0/10 slider or a
+  // "0-0-0" score range -- same "don't render a misleading default" pattern
+  // already used elsewhere in this app (e.g. DeliveryCard.tsx's SpeedDot,
+  // lib/playerForm.ts's empty-series handling).
+  paceFriendly?: number;
+  spinFriendly?: number;
+  bounceConsistency?: number;
+  expectedFirstInningsScore?: { low: number; mid: number; high: number };
   dewFactor?: "low" | "moderate" | "high";
+  // Always required -- the plain-language summary is this card's whole
+  // point (see PitchReportCard.tsx's own header comment quoting the
+  // product ask: pitch info is "one of the most misunderstood,
+  // under-discussed things in cricket"). A pitch report with every
+  // structured field absent but real bullets is still worth showing;
+  // one with bullets absent has nothing to show at all.
   bullets: string[];
 }
 
