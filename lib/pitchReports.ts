@@ -218,4 +218,87 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "A used surface (multiple matches across a season) tends to slow up and assist spin more as the tournament progresses.",
     ],
   },
+
+  // Wankhede Stadium, Mumbai -- LSG vs PBKS (post-match).
+  "ipl2026-m34-lsgvpbks": {
+    venueId: "wankhede",
+    surfaceType: "red-soil",
+    paceFriendly: 7,
+    spinFriendly: 4,
+    bounceConsistency: 8,
+    expectedFirstInningsScore: { low: 172, mid: 188, high: 210 },
+    dewFactor: "moderate",
+    bullets: [
+      "Same red-soil consistency every Wankhede game gets -- true bounce, minimal variable turn.",
+      "Sea breeze off the Arabian Sea adds a touch of extra carry through the covers in the evening.",
+      "Short straight boundaries reward clean hitting over cross-batted risk.",
+      "Spin is more containment than wicket-taking here; expect the ball to be milked rather than beaten.",
+    ],
+  },
+
+  // Wankhede Stadium, Mumbai -- MI vs CSK (post-match).
+  "ipl2026-m30-mivcsk": {
+    venueId: "wankhede",
+    surfaceType: "red-soil",
+    paceFriendly: 7,
+    spinFriendly: 4,
+    bounceConsistency: 8,
+    expectedFirstInningsScore: { low: 175, mid: 190, high: 212 },
+    dewFactor: "moderate",
+    bullets: [
+      "Historically the highest average first-innings score on the IPL circuit -- this surface rewards positive intent from ball one.",
+      "Fast bowlers who hit a hard length above 140 km/h get genuine carry through to the keeper.",
+      "Boundary square of the wicket is a genuine six-hitting zone for both left- and right-handers.",
+      "Chasing sides lean on the evening dew to counter any early swing with the new ball.",
+    ],
+  },
+
+  // Wankhede Stadium, Mumbai -- MI vs SRH (upcoming).
+  "ipl2026-m40-mivsrh": {
+    venueId: "wankhede",
+    surfaceType: "red-soil",
+    paceFriendly: 7,
+    spinFriendly: 4,
+    bounceConsistency: 8,
+    expectedFirstInningsScore: { low: 170, mid: 186, high: 208 },
+    dewFactor: "moderate",
+    bullets: [
+      "Same reliable red-soil deck Wankhede always produces -- no surprises expected for either side's team sheet.",
+      "New-ball swing is brief; by over 3-4 this becomes a stroke-maker's pitch.",
+      "Historically a tough ground to defend a below-par total on -- dew and true bounce both favour the chase.",
+      "Death bowling accuracy matters more here than variety; yorkers at the base of the stumps are the proven method.",
+    ],
+  },
+
+  // M. A. Chidambaram Stadium, Chennai -- DC vs SRH (post-match).
+  "ipl2026-m32-dcvsrh": {
+    venueId: "chepauk",
+    surfaceType: "dry",
+    paceFriendly: 4,
+    spinFriendly: 8,
+    bounceConsistency: 5,
+    expectedFirstInningsScore: { low: 150, mid: 168, high: 185 },
+    bullets: [
+      "Same black-soil surface every Chepauk game produces -- turn from over 1, more pronounced after the 10-over mark.",
+      "Cutters and slower balls trouble batters here more than out-and-out pace.",
+      "Sweeping becomes a genuine risk once the surface starts to break up in the second innings.",
+      "Historically bat-first territory -- chasing under lights on a wearing Chepauk deck is a tough ask.",
+    ],
+  },
+
+  // Narendra Modi Stadium, Ahmedabad -- GT vs MI (post-match).
+  "ipl2026-m35-givsmi": {
+    venueId: "motera",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 168, mid: 182, high: 200 },
+    bullets: [
+      "Same 80m+ straight boundaries as every Motera game -- mistimed shots down the ground rarely carry.",
+      "Even bounce all innings; there's little here to trouble a well-set batter.",
+      "Drift for the spinners, not sharp turn -- width is the currency they look to exploit.",
+      "Rarely a dew-affected chase here relative to India's coastal grounds; the toss matters less than elsewhere.",
+    ],
+  },
 };
