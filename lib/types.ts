@@ -474,21 +474,6 @@ export interface CompetitionStandings {
 }
 
 // ============================================================================
-// Pitch report
-// ============================================================================
-
-export interface PitchReport {
-  venueId: string;
-  surfaceType: "red-soil" | "black-soil" | "grass-heavy" | "dry" | "balanced";
-  paceFriendly: number;
-  spinFriendly: number;
-  bounceConsistency: number;
-  expectedFirstInningsScore: { low: number; mid: number; high: number };
-  dewFactor?: "low" | "moderate" | "high";
-  bullets: string[];
-}
-
-// ============================================================================
 // Player profiles
 // ============================================================================
 

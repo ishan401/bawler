@@ -1,4 +1,5 @@
-import type { PitchReport, Venue } from "@/lib/types";
+import type { PitchReport } from "@/lib/pitchReports";
+import type { Venue } from "@/lib/types";
 import { SPIN } from "@/lib/tokens";
 
 interface PitchReportCardProps {

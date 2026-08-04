@@ -2,7 +2,7 @@
 import type { Match } from "@/lib/types";
 import PitchReportCard from "./PitchReportCard";
 import LineupsCard from "./LineupsCard";
-import { PITCH_REPORTS } from "@/lib/mockData";
+import { PITCH_REPORTS } from "@/lib/pitchReports";
 
 // ── Mock weather by city ──────────────────────────────────────────────────────
 const CITY_WEATHER: Record<string, { icon: string; condition: string; tempC: number; humidity: number; windKmh: number; rainChance: number }> = {
