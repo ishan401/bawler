@@ -1,5 +1,6 @@
 // ============================================================================
-// Pitch reports — extracted from lib/mockData.ts / lib/types.ts (v1.0.153)
+// Pitch reports — extracted from lib/mockData.ts / lib/types.ts (v1.0.153),
+// re-keyed from venue id to match id (v1.0.154)
 // ============================================================================
 // Pure move, byte-for-byte: the PitchReport interface (was lib/types.ts) and
 // PITCH_REPORTS data (was lib/mockData.ts) now live together in their own
@@ -9,6 +10,15 @@
 // enough to truncate ~13,800 lines and take down the whole app, twice,
 // each requiring a hard reset to recover. Editing pitch-report data here
 // can no longer touch match/ball/player data at all, structurally.
+//
+// v1.0.154: PITCH_REPORTS is now keyed by Match.id, not Venue.id. A venue's
+// actual pitch condition is genuinely a per-match fact -- a curated/relaid
+// pitch, different weather, different dew that same night -- not a fixed
+// property of the ground itself. One shared report per venue was a
+// simplification that stops being true the moment two different matches at
+// the same ground get independently-authored conditions. `venueId` stays on
+// each entry as informational content (which ground this specific match's
+// report describes) -- it is no longer the lookup key.
 // ============================================================================
 
 export interface PitchReport {
@@ -23,11 +33,13 @@ export interface PitchReport {
 }
 
 // ============================================================================
-// Pitch reports per venue — for the Info tab
+// Pitch reports per match — for the Info tab. Keyed by Match.id.
 // ============================================================================
 
 export const PITCH_REPORTS: Record<string, PitchReport> = {
-  eden: {
+  // Eden Gardens, Kolkata -- FEATURED_MATCH (MI vs KKR), the permanently-live
+  // showcase fixture.
+  "ipl2026-m37-kkrvmi": {
     venueId: "eden",
     surfaceType: "balanced",
     paceFriendly: 6,
@@ -43,7 +55,8 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Bat-first wins ~54% historically; the dew penalty for batting second is real but not decisive.",
     ],
   },
-  wankhede: {
+  // Wankhede Stadium, Mumbai -- PBKS vs LSG (upcoming).
+  "ipl2026-m39-pbksvlsg": {
     venueId: "wankhede",
     surfaceType: "red-soil",
     paceFriendly: 7,
@@ -59,7 +72,8 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Highest IPL score (~235) was made here — par moves with the wind direction.",
     ],
   },
-  chinnaswamy: {
+  // M. Chinnaswamy Stadium, Bengaluru -- RCB vs CSK (live).
+  "ipl2026-l2-rcbvcsk": {
     venueId: "chinnaswamy",
     surfaceType: "balanced",
     paceFriendly: 5,
@@ -73,7 +87,8 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Wrist-spinners enjoy slightly more turn here than seamers do swing.",
     ],
   },
-  chepauk: {
+  // M. A. Chidambaram Stadium, Chennai -- CSK vs KKR (upcoming).
+  "ipl2026-m41-cskvkkr": {
     venueId: "chepauk",
     surfaceType: "dry",
     paceFriendly: 4,
@@ -87,7 +102,8 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Bat-first heavily favoured (58%); chasing here demands a fast start.",
     ],
   },
-  motera: {
+  // Narendra Modi Stadium, Ahmedabad -- GT vs RR (live).
+  "ipl2026-l3-gtvrr": {
     venueId: "motera",
     surfaceType: "balanced",
     paceFriendly: 6,

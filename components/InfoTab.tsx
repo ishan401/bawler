@@ -132,7 +132,7 @@ interface InfoTabProps {
 }
 
 export default function InfoTab({ match }: InfoTabProps) {
-  const pitch = PITCH_REPORTS[match.venue.id];
+  const pitch = PITCH_REPORTS[match.id];
   const weather = CITY_WEATHER[match.venue.city] ?? DEFAULT_WEATHER;
   const rain = getRainLabel(weather.rainChance);
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
