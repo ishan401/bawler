@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.152 (deployed)
+**Current version:** v1.0.157 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -164,7 +164,7 @@
 ### Match page — Info tab
 
 - ✅ Match context (toss, teams, season)
-- ✅ Pitch report card — surface type, 3 sliders, expected score range, dew factor, behaviour bullets
+- ✅ Pitch report card — surface type, 3 sliders, expected score range, dew factor, behaviour bullets. Keyed per-match (not per-venue) since v1.0.154, and every one of the 29 matches has its own report as of v1.0.156 (previously only 5 IPL matches did, sharing one report per venue). Structured fields (sliders/score/dew) are optional since v1.0.155 -- the card omits a section entirely rather than showing a blank value when a field is absent, used deliberately for both Test-match entries.
 - ✅ Lineups — both team squads side-by-side (innings lookup by `battingTeam`, not positional array index)
 
 
@@ -214,7 +214,7 @@
 | Insights | 8 hard-coded `MOCK_INSIGHTS_V2` | Scraped from 19 analyst Twitter accounts via Nitter |
 | Per-ball commentary | Pre-written in mock balls | Scraped from Cricbuzz / ESPN |
 | Standings | Hard-coded `STANDINGS` | Real fetch |
-| Pitch reports | Hard-coded per venue | Scraped from pre-match analysis |
+| Pitch reports | Hard-coded per match (`lib/pitchReports.ts`, isolated from `mockData.ts` since v1.0.153) | Scraped from pre-match analysis |
 | Ball-by-ball vs box score | Ball arrays in ~4 matches (`ipl2026-m37-kkrvmi`, `ind-aus-t20i-2026-m2-live`, `ind-eng-test-2026-d3-live`, `psl-2026-lah-kar-live`) don't fully reconcile with their own battingCard aggregate stats — some batters' ball data has more/fewer isBoundary4/6-flagged deliveries, runs, or balls faced than their card states (audited: 24 of 53 checked batters mismatched). The new per-batter sparkline caps its boundary dots at the card's own 4s/6s so it never *overcounts*, but can undercount when the ball log is short. | Regenerate ball-by-ball data per innings so every batter's runs/ballsFaced/4s/6s fully reconcile with the card; real API data won't have this problem |
 
 ---
@@ -637,3 +637,4 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.147** | Applied v1.0.146's battingCard/bowlingCard-from-balls fix to the two dormant scaffold transformers that had the same gap: `transformESPNMatch` and `transformSportRadarTimeline` in `lib/transformers.ts` (unused, zero call sites — reference scaffolding for providers not yet chosen). Both already build real per-innings ball data but were leaving `battingCard`/`bowlingCard` as `[]`; now derive them via the same shared `lib/matchStatus.ts` functions. `transformCricbuzzMatch`/`transformCricbuzzScorecard` confirmed to NOT have this bug (different, already-correct two-endpoint design) and left untouched. A separate, pre-existing, unrelated SportRadar wicket-detection bug was found and flagged but deliberately not fixed this round (DECISIONS-LOG.md v1.0.147) |
+| **v1.0.153-157** | Pitch-report rework, done under a mandatory branch/small-steps/no-force-push safety process after this exact feature caused two prior full-platform-crash rollbacks (see DECISIONS-LOG.md "Pitch report rework" entry for the full incident history and process). v1.0.153: extracted `PitchReport`/`PITCH_REPORTS` out of `lib/mockData.ts` into a new dedicated `lib/pitchReports.ts` (pure move, byte-for-byte identical) so future pitch-report edits can never again touch the ~15,200-line match/ball/player object literal that was truncated last time. v1.0.154: re-keyed `PITCH_REPORTS` from venue id to match id, since pitch conditions are a per-match fact (curated pitch, weather, dew), not a fixed venue property; updated `InfoTab.tsx`'s lookup accordingly. v1.0.155: made `PitchReport`'s structured fields (`paceFriendly`, `spinFriendly`, `bounceConsistency`, `expectedFirstInningsScore`, `dewFactor`) optional, with `PitchReportCard` now omitting the corresponding section instead of a blank/zeroed value when absent (real-data-readiness). v1.0.156: added pitch report entries for the 24 matches that had none -- every one of the 29 matches now has its own report (previously 5 IPL venues shared one report each); the two Test entries (Lord's, MCG Ashes) deliberately omit `expectedFirstInningsScore`/`dewFactor`. v1.0.157: added `scripts/check-mockdata-integrity.ts`, a safety tripwire wired into `prebuild` that fails loudly (nonzero exit) if `mockData.ts`'s line count drops >5% or any baseline export disappears -- tested against a simulated truncation of the real file, confirmed it catches it and that the restored file passes clean again (DECISIONS-LOG.md) |

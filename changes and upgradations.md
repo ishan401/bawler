@@ -3168,3 +3168,31 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Verified
 - `tsc --noEmit` and `npm run build` both clean.
 - `getRecentForm()` run directly (temporary `npx tsx` script) across every player/format in the mock dataset: confirmed real Tier 0 (`v-kohli`/odi, `/franchise`), Tier 1 batting with and without not-out (`v-kohli`/test = 121 out, no asterisk; `h-pandya`/franchise = 22 not out, asterisk), Tier 1 bowling (`j-bumrah`/test, `/franchise`, wickets metric), and unchanged Tier 2+ (`v-kohli`/t20i and others).
+
+## [1.0.153-1.0.157] 2026-08-04
+
+### Pitch report rework: isolated from mockData.ts, re-keyed per-match, real-data-ready, extended to all 29 matches, safety tripwire added
+
+#### Context
+- A diagnostic-only investigation confirmed pitch reports were fully built but only covered 5 IPL venues, leaving 13 of 29 matches without one -- a data-coverage gap, not a wiring bug. That same investigation confirmed this exact feature previously caused a full-platform crash (see v1.0.39 below: ~13,800 lines truncated from `mockData.ts`, recovered via a hard reset). The follow-up fix therefore ran under a mandatory safety process: dedicated branch (`feature/pitch-reports-rework`, never `main`), a recorded before/after baseline for `mockData.ts`, no `git push --force`/`git reset --hard` under any circumstance, and 5 small steps each independently build/regression-verified before the next began.
+
+#### New -- `lib/pitchReports.ts` (v1.0.153)
+- Extracted `PitchReport` (from `lib/types.ts`) and `PITCH_REPORTS` (from `lib/mockData.ts`) into their own file, byte-for-byte identical to the originals. `mockData.ts` dropped by exactly 81 lines (15,241 -> 15,160); no match/ball/player data touched. Pitch-report edits can no longer touch the ~15,200-line match/ball/player object literal that was truncated in the prior incident.
+
+#### Changed -- keying (v1.0.154)
+- `PITCH_REPORTS` re-keyed from `Venue["id"]` to `Match["id"]` -- pitch conditions are a per-match fact (curated pitch, weather, dew), not a fixed venue property. `venueId` stays on each entry as informational content. `InfoTab.tsx`'s lookup updated from `PITCH_REPORTS[match.venue.id]` to `PITCH_REPORTS[match.id]`.
+
+#### Changed -- optional fields, real-data-readiness (v1.0.155)
+- `paceFriendly`, `spinFriendly`, `bounceConsistency`, `expectedFirstInningsScore`, `dewFactor` are now optional (`bullets` stays required). `PitchReportCard.tsx` omits the corresponding section entirely when a field is absent, instead of showing a blank/zeroed value -- matching this app's existing "don't render misleading defaults" convention.
+
+#### New data -- all 29 matches covered (v1.0.156)
+- Added pitch-report entries for the 24 matches that had none, in 5 small batches (build + regression check after each). Every one of the 29 matches now has its own entry -- the 5 previously-covered venues each got individual per-match entries under the new model, and 19 international/bilateral matches got entries for the first time. Two Test entries (Lord's, MCG Ashes) deliberately omit `expectedFirstInningsScore`/`dewFactor` (a 5-day match's conditions shift too much for one score range; dew is a minor daytime factor).
+
+#### New -- `scripts/check-mockdata-integrity.ts` safety tripwire (v1.0.157)
+- Compares `mockData.ts`'s line count and export list against a recorded baseline (`scripts/mockdata-baseline.json`); fails loudly (nonzero exit) if the line count drops more than 5% or any baseline export disappears. Wired into the existing `prebuild` script alongside `version-check.ts`, so it runs on every `npm run build`. Also exposed as `npm run mockdata-check`. Tested against a simulated truncation of the real file (backed up, truncated to 1,400 lines, confirmed FAIL + exit code 1, restored, confirmed byte-identical via diff/md5sum, confirmed PASS again).
+
+#### Verified
+- `tsc --noEmit` and `npm run build` clean after every one of the 5 steps (106/106 static pages each time).
+- Direct `react-dom/server` render tests: `InfoTab` renders a pitch report for all 29 matches with zero throws; both Test entries render sliders/bullets but correctly omit the score/dew sections; `DigestTab`/`Scorecard` render cleanly for live/past/upcoming samples; the home page component renders without throwing.
+- Confirmed via grep that `lib/pitchReports.ts` has zero import relationship with Schedule, Table, Player, or Home pages.
+- 6 commits across the 5 steps, all on `feature/pitch-reports-rework`, `main` untouched until this entire arc was complete and regression-verified.
