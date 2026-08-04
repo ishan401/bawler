@@ -301,4 +301,87 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
       "Rarely a dew-affected chase here relative to India's coastal grounds; the toss matters less than elsewhere.",
     ],
   },
+
+  // Narendra Modi Stadium, Ahmedabad -- RR vs GT (upcoming).
+  "ipl2026-m38-rrvgt": {
+    venueId: "motera",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 170, mid: 184, high: 202 },
+    bullets: [
+      "Consistent Motera profile -- even bounce, honest carry for the quicks with the new ball.",
+      "The world's largest stadium by capacity means true, still air in the middle overs; the ball carries further than the eye suggests.",
+      "Settled batters historically dominate overs 8-15 once they've adjusted to the pace of the surface.",
+      "A genuinely fair toss to lose -- no first-innings/second-innings disparity in the data here.",
+    ],
+  },
+
+  // Narendra Modi Stadium, Ahmedabad -- GT vs SRH (upcoming).
+  "ipl2026-m43-gtvsrh": {
+    venueId: "motera",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 172, mid: 186, high: 205 },
+    bullets: [
+      "Same even, honest Motera surface -- nothing sinister for batters who put in the work early.",
+      "Straight boundaries beyond 80m mean six-hitting down the ground is a genuine skill test, not a given.",
+      "Spinners get more drift than turn; a well-set batter can play through the line with confidence.",
+      "Historically a low-dew ground -- the toss decision here is about matchups, not conditions.",
+    ],
+  },
+
+  // M. Chinnaswamy Stadium, Bengaluru -- RCB vs DC (upcoming).
+  "ipl2026-m42-rcbvdc": {
+    venueId: "chinnaswamy",
+    surfaceType: "balanced",
+    paceFriendly: 5,
+    spinFriendly: 5,
+    bounceConsistency: 6,
+    expectedFirstInningsScore: { low: 182, mid: 198, high: 222 },
+    dewFactor: "moderate",
+    bullets: [
+      "Same short boundaries and thin-air carry as every Chinnaswamy fixture -- few grounds punish a bowling side harder for a bad over.",
+      "Altitude adds real distance to well-struck sixes, especially in the back third of the innings.",
+      "Moderate dew most evenings -- sides batting second get a small but real advantage.",
+      "Wrist-spin edges out finger-spin for wicket-taking; legspinners and mystery spinners have historically thrived here.",
+    ],
+  },
+
+  // Eden Gardens, Kolkata -- RR vs KKR (post-match).
+  "ipl2026-m31-rrvkkr": {
+    venueId: "eden",
+    surfaceType: "balanced",
+    paceFriendly: 6,
+    spinFriendly: 6,
+    bounceConsistency: 7,
+    expectedFirstInningsScore: { low: 160, mid: 176, high: 195 },
+    dewFactor: "high",
+    bullets: [
+      "Same Eden Gardens profile -- true bounce for the seamers early, turn opening up from the middle overs onward.",
+      "Heavy Kolkata dew from over 14 makes the ball skid on for whoever's chasing.",
+      "Historically a fair balance between bat and ball -- neither discipline dominates the head-to-head record here.",
+      "Leg-side boundary is marginally shorter than off-side; balanced attacks bowl a fuller, straighter line to counter it.",
+    ],
+  },
+
+  // The Gabba, Brisbane -- IND vs AUS T20I (post-match).
+  "ind-aus-t20i-2026-m1": {
+    venueId: "gabba",
+    surfaceType: "grass-heavy",
+    paceFriendly: 8,
+    spinFriendly: 3,
+    bounceConsistency: 8,
+    expectedFirstInningsScore: { low: 155, mid: 172, high: 190 },
+    dewFactor: "low",
+    bullets: [
+      "The 'Gabbatoir' reputation is real -- historically the most pace-and-bounce-friendly surface in Australian white-ball cricket.",
+      "Extra bounce troubles batters who like to go hard early; the cut and pull shots carry more risk than they look.",
+      "Short leg-side boundary invites the pull shot for the brave, but width off a length is genuinely dangerous here for the fielding side.",
+      "Spin is largely a containment option, not a wicket-taking one, on this surface.",
+    ],
+  },
 };
