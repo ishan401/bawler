@@ -61,6 +61,22 @@ export type { PlayerFormatKey };
  * (bowling) for one innings/spell. */
 export interface RecentFormPoint {
   value: number;
+  /**
+   * Whether the batter finished this innings not out (never dismissed, or
+   * a genuine `retiredNotOut` -- see `BattingEntry.out`'s doc comment in
+   * lib/types.ts). Only ever present when `RecentFormSeries.metric ===
+   * "runs"` -- a bowling spell has no "not out" concept, so this is
+   * `undefined` on every wickets-metric point rather than a meaningless
+   * `false`. v1.0.152 addition -- exists specifically so the player
+   * profile page's single-innings "Tier 1" callout (see
+   * PlayerProfileView.tsx's RecentFormSingleStat) can append the same
+   * not-out asterisk convention the page already uses for career stats
+   * like `highScore` ("254*"), without introducing a second, separately
+   * computed notion of a player's innings count -- this flag rides on
+   * the exact same real `BattingEntry.out` value that decided whether
+   * the entry was eligible for this series at all.
+   */
+  notOut?: boolean;
 }
 
 export interface RecentFormSeries {
@@ -239,6 +255,14 @@ interface PlayerInningsEntry {
    * from the player's current, possibly-stale `teamCode`/`franchiseCode`
    * profile field. */
   playerTeamCode: string | undefined;
+  /** The real recorded `BattingEntry.out` flag for a batting entry --
+   * carried through so getRecentForm() can surface not-out status on the
+   * single-innings "Tier 1" callout (see RecentFormPoint.notOut below).
+   * Meaningless for a bowling entry (`isBowling: true`) -- a bowling
+   * spell has no "not out" concept -- and always `false` in that case;
+   * callers must gate on `metric === "runs"` before reading this, never
+   * read it standalone. */
+  out: boolean;
 }
 
 /**
@@ -305,6 +329,7 @@ function extractPlayerEntries(player: PlayerProfile, format: PlayerFormatKey): P
             inningsNumber,
             match,
             playerTeamCode: battingTeam,
+            out: entryRaw.out === true,
           });
         }
       }
@@ -323,6 +348,9 @@ function extractPlayerEntries(player: PlayerProfile, format: PlayerFormatKey): P
             inningsNumber,
             match,
             playerTeamCode: bowlingTeam,
+            // No "not out" concept for a bowling spell -- see PlayerInningsEntry.out's
+            // doc comment. Never read for a wickets-metric point.
+            out: false,
           });
         }
       }
@@ -380,8 +408,14 @@ export async function getRecentForm(
   const metric = pickMetric(entries, player);
   const relevant = entries.filter(e => (metric === "wickets") === e.isBowling);
   const last10 = relevant.slice(-10);
+  // v1.0.152: attach notOut only for a runs-metric point (see
+  // RecentFormPoint.notOut's doc comment) -- a wickets-metric point never
+  // gets this field at all, rather than a `false` that would imply the
+  // concept applies and just happens to be false.
   return {
-    points: last10.map(e => ({ value: e.value })),
+    points: last10.map(e => (
+      metric === "runs" ? { value: e.value, notOut: !e.out } : { value: e.value }
+    )),
     metric,
   };
 }

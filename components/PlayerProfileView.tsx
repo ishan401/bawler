@@ -6,7 +6,7 @@ import type { PlayerProfile, FormatStats, PlayerFormatKey } from "@/lib/types";
 import { ALL_TEAMS } from "@/lib/mockData";
 import { formatPlayerName } from "@/lib/playerName";
 import { resolveTeamAccentColor } from "@/lib/teamAccentColor";
-import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type AchievementLine } from "@/lib/playerForm";
+import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type RecentFormPoint, type AchievementLine } from "@/lib/playerForm";
 import { getFavouritePlayers, onFavouritesChanged, toggleFavouritePlayer } from "@/lib/playerFavourites";
 import { CYAN } from "@/lib/tokens";
 import RecentFormGraph from "./RecentFormGraph";
@@ -119,6 +119,43 @@ function RankingPill({ label, rank }: { label: string; rank?: number }) {
     <div className="flex items-center gap-1.5 bg-surface/60 border border-line rounded-full px-2.5 py-1">
       <span className="text-[9px] uppercase tracking-widest text-text-dim font-semibold">{label}</span>
       <span className="text-xs font-extrabold text-cyan num">#{rank}</span>
+    </div>
+  );
+}
+
+/**
+ * Tier 1 of the Recent Form section (v1.0.152) -- exactly one recorded
+ * innings/spell for the selected format tab. Reuses the exact same outer
+ * card shell (`card p-3`) and heading typography
+ * (`text-[10px] uppercase tracking-widest text-text-dim font-semibold`)
+ * as RecentFormGraph's own heading paragraph, so a Tier 1 callout and a
+ * Tier 2+ chart are visually identical containers -- only the contents
+ * differ. Deliberately drops the "· LAST N INNINGS (.../...)" subtitle
+ * entirely: with exactly one point, "last 1 innings" is redundant with
+ * the single stat line right below it.
+ *
+ * The not-out asterisk is a plain inline `${value}${notOut ? "*" : ""}`
+ * expression, not a call to a shared formatting function -- there IS no
+ * existing dedicated "append a not-out asterisk" helper anywhere in this
+ * codebase to reuse. The "254*"-style high-score stats elsewhere on this
+ * page (BattingStats' `stats.highScore`) are pre-formatted literal
+ * strings baked directly into the mock data (see lib/mockData.ts), not
+ * the output of any function -- confirmed by grepping the whole
+ * components/ and lib/ trees for any asterisk-appending helper before
+ * writing this. This inline expression matches that exact same literal
+ * convention (append "*" directly, no space) rather than introducing a
+ * new named abstraction for a single one-line use.
+ */
+function RecentFormSingleStat({ point, metric }: { point: RecentFormPoint; metric: "runs" | "wickets" }) {
+  const displayValue = metric === "runs" && point.notOut ? `${point.value}*` : `${point.value}`;
+  const line =
+    metric === "wickets"
+      ? `Only spell so far: ${displayValue} wickets`
+      : `Only innings so far: ${displayValue} runs`;
+  return (
+    <div className="card p-3">
+      <p className="text-[10px] uppercase tracking-widest text-text-dim font-semibold mb-2">Recent form</p>
+      <p className="text-sm text-text-secondary">{line}</p>
     </div>
   );
 }
@@ -360,9 +397,33 @@ export default function PlayerProfileView({ player }: Props) {
                 since a future real feed could in principle have one
                 without the other. Each renders nothing on its own when
                 it has nothing real to show -- see RecentFormGraph.tsx and
-                PlayerAchievements.tsx for exactly what triggers that. */}
+                PlayerAchievements.tsx for exactly what triggers that.
+
+                v1.0.152: explicit 3-tier split on the SAME
+                `recentForm.points` array/length that always drove this
+                section -- no separately computed innings count, and
+                deliberately NOT the career-aggregate `INN` stat (that
+                stays confined to BattingStats/BowlingStats above,
+                untouched by this change).
+                  - 0 points: neither branch below matches -- nothing
+                    renders in this space at all (was already true before
+                    this change too, via RecentFormGraph's own
+                    `points.length === 0` early return; now also explicit
+                    here so a future reader doesn't have to trace into
+                    that component to see it).
+                  - Exactly 1 point: the chart is skipped entirely in
+                    favor of RecentFormSingleStat's single-stat callout
+                    (see its doc comment above).
+                  - 2+ points: unchanged -- same RecentFormGraph, same
+                    heading format, same cap (last 10, see
+                    lib/playerForm.ts's `last10` slice), same annotations. */}
             <div className="px-4 space-y-3 mt-3">
-              {recentForm && <RecentFormGraph points={recentForm.points} metric={recentForm.metric} color={teamColor} />}
+              {recentForm && recentForm.points.length >= 2 && (
+                <RecentFormGraph points={recentForm.points} metric={recentForm.metric} color={teamColor} />
+              )}
+              {recentForm && recentForm.points.length === 1 && (
+                <RecentFormSingleStat point={recentForm.points[0]} metric={recentForm.metric} />
+              )}
               <PlayerAchievements lines={achievementLines} />
             </div>
           </>

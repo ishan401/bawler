@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.151)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.152)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -183,8 +183,8 @@ components/
 │   └── YourPlayersStrip.tsx   # (v1.0.125, follow-on live-detection fix + name-format data-bug fix v1.0.126, avatar extracted to shared PlayerAvatar.tsx v1.0.129) "Your Players" homepage chip strip; exports useYourPlayers() hook (favourited+live sort, reactive to followPrefs/favourites/live-match changes); renders null at zero selected players
 ├── PlayerAvatar.tsx           # (v1.0.129) shared photo-first-fallback-to-initials avatar -- imageUrl -> initials via parsePlayerName(), onError-driven runtime fallback; role/format-agnostic (size + ring/text/background colors are plain props); the ONE avatar implementation reused by YourPlayersStrip.tsx, DigestTab.tsx's MOM card, and PlayerProfileView.tsx's header
 └── Player profile
-    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout, favourite star toggle (v1.0.125), header avatar via shared PlayerAvatar.tsx (v1.0.129)
-    ├── RecentFormGraph.tsx    # last-10 innings/spells labeled small line chart (v1.0.119: Y-axis + gridlines, scale per player/metric via computeYAxisTop()/buildYAxisTicks(), minimal two-endpoint X-axis -- supersedes the earlier axis-less sparkline styling), colored via lib/teamAccentColor.ts
+    ├── PlayerProfileView.tsx  # bio, rankings, per-format stats tabs, recent-form graph + achievements callout, favourite star toggle (v1.0.125), header avatar via shared PlayerAvatar.tsx (v1.0.129) -- v1.0.152: recent-form section now tiers on real recorded-innings count (0 = nothing, 1 = RecentFormSingleStat single-stat callout, 2+ = unchanged chart)
+    ├── RecentFormGraph.tsx    # last-10 innings/spells labeled small line chart (v1.0.119: Y-axis + gridlines, scale per player/metric via computeYAxisTop()/buildYAxisTicks(), minimal two-endpoint X-axis -- supersedes the earlier axis-less sparkline styling), colored via lib/teamAccentColor.ts -- v1.0.152: only ever rendered for 2+ points now; the 1-point case is handled by PlayerProfileView.tsx's RecentFormSingleStat instead, this component's own single-point axis handling is unused but left intact
     └── PlayerAchievements.tsx # recent achievement lines (MOM count, Man of the Series); renders nothing if none apply
 ```
 
@@ -209,7 +209,7 @@ lib/
 ├── heroSelection.ts    # selectHeroMatch() — 3-tier deterministic hero-match rule (prominence, live stakes, live runway)
 ├── teamSchedule.ts      # getSeriesGroupedSchedule()/getMatchesForCompetition()/getTeamSchedule() — real-data-ready async schedule adapter behind Schedule's All (series rows), dedicated series page, + per-team (flat) tabs
 ├── teamAccentColor.ts   # resolveMatchAccentColors() (two-team, collision-aware) + resolveTeamAccentColor() (single-team, v1.0.117) — real-data-ready team-color resolution, hairline-contrast + secondary/cyan fallback
-├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118, per-innings settled-gate fix v1.0.127) — per-format last-10 innings/spells + achievements adapter; eligibility decided per INNINGS via lib/matchStatus.ts's shared getCurrentInnings(), not per match, so an already-closed innings of a still-live match still counts
+├── playerForm.ts        # getRecentForm()/getPlayerAchievements() (v1.0.117, derived from real match data v1.0.118, per-innings settled-gate fix v1.0.127) — per-format last-10 innings/spells + achievements adapter; eligibility decided per INNINGS via lib/matchStatus.ts's shared getCurrentInnings(), not per match, so an already-closed innings of a still-live match still counts -- v1.0.152: RecentFormPoint gained optional notOut (runs-metric only), sourced from the same real BattingEntry.out already used for eligibility
 ├── playerName.ts        # parsePlayerName()/formatPlayerName() (v1.0.120) — the single sanctioned player display-name formatter app-wide; registry-first, algorithmic fallback for particles/suffixes/hyphens/single-names/casing/whitespace/comma-format
 ├── playerFavourites.ts  # (v1.0.125) favourite-player localStorage store, same shape as followPrefs.ts; toggleFavouritePlayer() one-way-links favouriting to FollowPrefs.players
 ├── playerActivity.ts    # (v1.0.125, follow-on fix v1.0.126) getLiveActivePlayerIds() — "currently batting/bowling" derived from the CURRENT innings' full battingCard+bowlingCard (via lib/matchStatus.ts's shared getCurrentInnings(), same lookup ScoreBar.tsx uses), gated on balls.length > 0; never battingCard/bowlingCard's onStrike (which can leak end-of-innings final state), and never just the single last ball (missed multi-batter-deep follow-on innings pre-v1.0.126)

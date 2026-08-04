@@ -3148,3 +3148,23 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 - `runGuarded()` confirmed safe with no `window` present (non-browser call site), never throws, never drops a call.
 - Live on production: held a real `pointerdown` on a live batter's link for 85s (3+ ticks) with no `pointerup` -- row stayed byte-identical the whole time, updated immediately on release. Same test on BallGIF's share button (58s, 2+ ticks) -- button stayed mounted and unchanged throughout. Confirms `runGuarded()` defers the DOM mutation for the full gesture, not just "usually works."
 - Real clicks succeeded on the same link both before and during a tick. A control click on a never-re-rendering row (a dismissed batter) intermittently produced zero events in the same session -- since that row cannot structurally collide with the ticker, this identifies remaining flakiness as browser-automation click dispatch, not an app-level issue; noted so it isn't mistaken for a regression later.
+
+## [1.0.152] 2026-08-04
+
+#### Added -- `lib/playerForm.ts`, `components/PlayerProfileView.tsx`
+- `PlayerInningsEntry.out: boolean` (internal) and `RecentFormPoint.notOut?: boolean` (only set when `metric === "runs"`) -- rides on the same real `BattingEntry.out` value already used for entry eligibility, no second computed field.
+- `RecentFormSingleStat` component (`PlayerProfileView.tsx`) -- the new Tier 1 single-stat callout, reusing `RecentFormGraph`'s exact `card p-3` container + heading typography.
+
+#### Fixed -- tiered Recent Form display (0/1/2+ recorded innings, per format tab)
+- Recent Form render block in `PlayerProfileView.tsx` now branches explicitly on `recentForm.points.length`: 0 -> nothing rendered (was already true via `RecentFormGraph`'s own early return, now explicit at the call site too); exactly 1 -> `RecentFormSingleStat` ("Recent form" heading, no subtitle, `Only innings so far: {value}{"*" if not out} runs` / `Only spell so far: {value} wickets` for a bowling point); 2+ -> unchanged `RecentFormGraph` chart, same heading/cap/annotations.
+- IPL blank state confirmed as already-correct Tier 0 (Kohli has zero recorded IPL innings in the mock dataset), not a separate bug -- nothing else needed fixing.
+
+#### Audited, no change needed
+- Existing chart cap: `getRecentForm()`'s `last10 = relevant.slice(-10)` already caps at 10 -- unchanged, not touched by this fix.
+- Bowling-equivalent section: confirmed there is exactly one Recent Form section, already metric-aware (`pickMetric()`); this fix's tiering applies to both disciplines automatically via the same `points.length` check, with Tier 1 wording branching on `metric`.
+- Career aggregate stats grid (`BattingStats`/`BowlingStats`) -- untouched.
+- No existing not-out-asterisk formatting helper found anywhere in the codebase to reuse (`highScore` values like "254*" are literal pre-formatted mock-data strings, not function output) -- the asterisk is a plain inline template-string expression, not a new named helper.
+
+#### Verified
+- `tsc --noEmit` and `npm run build` both clean.
+- `getRecentForm()` run directly (temporary `npx tsx` script) across every player/format in the mock dataset: confirmed real Tier 0 (`v-kohli`/odi, `/franchise`), Tier 1 batting with and without not-out (`v-kohli`/test = 121 out, no asterisk; `h-pandya`/franchise = 22 not out, asterisk), Tier 1 bowling (`j-bumrah`/test, `/franchise`, wickets metric), and unchanged Tier 2+ (`v-kohli`/t20i and others).
