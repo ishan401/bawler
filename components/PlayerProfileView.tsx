@@ -12,6 +12,7 @@ import { CYAN } from "@/lib/tokens";
 import RecentFormGraph from "./RecentFormGraph";
 import PlayerAchievements from "./PlayerAchievements";
 import PlayerAvatar from "./PlayerAvatar";
+import StatCell from "./StatCell";
 
 interface Props {
   player: PlayerProfile;
@@ -53,19 +54,6 @@ function age(dob?: string): string {
   const diff = Date.now() - new Date(dob).getTime();
   const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
   return `Age ${years}`;
-}
-
-function StatCell({ label, value }: { label: string; value?: string | number }) {
-  // Guard: API can return null or NaN for fields without data
-  if (value === undefined || value === null) return null;
-  if (typeof value === "number" && isNaN(value)) return null;
-  if (value === "" || value === "-") return null;
-  return (
-    <div className="flex flex-col items-center gap-0.5 px-2 py-3">
-      <span className="text-base font-extrabold text-text-primary num tracking-tight">{value}</span>
-      <span className="text-[10px] uppercase tracking-widest text-text-dim font-semibold">{label}</span>
-    </div>
-  );
 }
 
 function BattingStats({ stats }: { stats: FormatStats }) {

@@ -36,7 +36,13 @@ export interface PitchReport {
   paceFriendly?: number;
   spinFriendly?: number;
   bounceConsistency?: number;
-  expectedFirstInningsScore?: { low: number; mid: number; high: number };
+  // v1.0.160: replaced the predictive "expected first innings score" range
+  // ({ low, mid, high }) with a single historical statistic -- the average
+  // first-innings score recorded at this venue. This is a fact about the
+  // ground's history, not a per-match prediction, so a single number is
+  // the honest representation -- never a range, including in any future
+  // real-data mapping. Optional, same pattern as the other rating fields.
+  avgFirstInningsScore?: number;
   dewFactor?: "low" | "moderate" | "high";
   // Always required -- the plain-language summary is this card's whole
   // point (see PitchReportCard.tsx's own header comment quoting the
@@ -60,7 +66,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 155, mid: 171, high: 188 },
+    avgFirstInningsScore: 171,
     dewFactor: "high",
     bullets: [
       "True bounce in the first 8 overs — pace bowlers find swing under the lights early on.",
@@ -77,7 +83,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 4,
     bounceConsistency: 8,
-    expectedFirstInningsScore: { low: 170, mid: 184, high: 205 },
+    avgFirstInningsScore: 184,
     dewFactor: "moderate",
     bullets: [
       "Red-soil surface offers consistent bounce — front-foot drives flow.",
@@ -94,7 +100,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 5,
     spinFriendly: 5,
     bounceConsistency: 6,
-    expectedFirstInningsScore: { low: 180, mid: 192, high: 215 },
+    avgFirstInningsScore: 192,
     bullets: [
       "Shortest boundaries on the IPL circuit — straight is just ~60m.",
       "Altitude (920m) means the ball carries further; sixes are 8-10% longer than at sea level.",
@@ -109,7 +115,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 4,
     spinFriendly: 8,
     bounceConsistency: 5,
-    expectedFirstInningsScore: { low: 145, mid: 165, high: 180 },
+    avgFirstInningsScore: 165,
     bullets: [
       "Black-soil surface that holds together but grips for spin from over 1.",
       "Two-paced bounce in the second innings — sweeps risky after over 12.",
@@ -124,7 +130,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 165, mid: 178, high: 195 },
+    avgFirstInningsScore: 178,
     bullets: [
       "Largest stadium in the world by capacity; straight boundaries are 80m+.",
       "Even bounce, slight movement under lights for the first 6 overs.",
@@ -140,7 +146,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 150, mid: 168, high: 185 },
+    avgFirstInningsScore: 168,
     dewFactor: "low",
     bullets: [
       "SCG's grass cover gives seamers genuine nip through the first 6 overs under lights.",
@@ -157,8 +163,8 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 8,
     spinFriendly: 3,
     bounceConsistency: 6,
-    // No expectedFirstInningsScore or dewFactor: a Test's conditions shift too
-    // much across 5 days for a single first-innings score range to be
+    // No avgFirstInningsScore or dewFactor: a Test's conditions shift too
+    // much across 5 days for a single first-innings average to be
     // meaningful, and dew is a minor factor in a match played mostly in
     // daylight -- real-data-readiness in practice, not an oversight.
     bullets: [
@@ -176,7 +182,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 4,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 165, mid: 182, high: 200 },
+    avgFirstInningsScore: 182,
     dewFactor: "moderate",
     bullets: [
       "Historically one of the flattest tracks on the circuit -- genuine batting paradise once the new-ball swing (if any) is negotiated.",
@@ -193,7 +199,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 5,
     spinFriendly: 5,
     bounceConsistency: 6,
-    expectedFirstInningsScore: { low: 180, mid: 195, high: 220 },
+    avgFirstInningsScore: 195,
     bullets: [
       "Same short boundaries and thin altitude air as every Chinnaswamy game -- 200+ is never really out of reach.",
       "Straight hitting carries best; genuine mishits over square often still clear the rope.",
@@ -209,7 +215,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 158, mid: 174, high: 192 },
+    avgFirstInningsScore: 174,
     dewFactor: "high",
     bullets: [
       "Same profile as every Eden Gardens night game -- true bounce early, turn creeping in from the middle overs.",
@@ -226,7 +232,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 4,
     bounceConsistency: 8,
-    expectedFirstInningsScore: { low: 172, mid: 188, high: 210 },
+    avgFirstInningsScore: 188,
     dewFactor: "moderate",
     bullets: [
       "Same red-soil consistency every Wankhede game gets -- true bounce, minimal variable turn.",
@@ -243,7 +249,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 4,
     bounceConsistency: 8,
-    expectedFirstInningsScore: { low: 175, mid: 190, high: 212 },
+    avgFirstInningsScore: 190,
     dewFactor: "moderate",
     bullets: [
       "Historically the highest average first-innings score on the IPL circuit -- this surface rewards positive intent from ball one.",
@@ -260,7 +266,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 4,
     bounceConsistency: 8,
-    expectedFirstInningsScore: { low: 170, mid: 186, high: 208 },
+    avgFirstInningsScore: 186,
     dewFactor: "moderate",
     bullets: [
       "Same reliable red-soil deck Wankhede always produces -- no surprises expected for either side's team sheet.",
@@ -277,7 +283,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 4,
     spinFriendly: 8,
     bounceConsistency: 5,
-    expectedFirstInningsScore: { low: 150, mid: 168, high: 185 },
+    avgFirstInningsScore: 168,
     bullets: [
       "Same black-soil surface every Chepauk game produces -- turn from over 1, more pronounced after the 10-over mark.",
       "Cutters and slower balls trouble batters here more than out-and-out pace.",
@@ -293,7 +299,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 168, mid: 182, high: 200 },
+    avgFirstInningsScore: 182,
     bullets: [
       "Same 80m+ straight boundaries as every Motera game -- mistimed shots down the ground rarely carry.",
       "Even bounce all innings; there's little here to trouble a well-set batter.",
@@ -309,7 +315,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 170, mid: 184, high: 202 },
+    avgFirstInningsScore: 184,
     bullets: [
       "Consistent Motera profile -- even bounce, honest carry for the quicks with the new ball.",
       "The world's largest stadium by capacity means true, still air in the middle overs; the ball carries further than the eye suggests.",
@@ -325,7 +331,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 172, mid: 186, high: 205 },
+    avgFirstInningsScore: 186,
     bullets: [
       "Same even, honest Motera surface -- nothing sinister for batters who put in the work early.",
       "Straight boundaries beyond 80m mean six-hitting down the ground is a genuine skill test, not a given.",
@@ -341,7 +347,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 5,
     spinFriendly: 5,
     bounceConsistency: 6,
-    expectedFirstInningsScore: { low: 182, mid: 198, high: 222 },
+    avgFirstInningsScore: 198,
     dewFactor: "moderate",
     bullets: [
       "Same short boundaries and thin-air carry as every Chinnaswamy fixture -- few grounds punish a bowling side harder for a bad over.",
@@ -358,7 +364,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 6,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 160, mid: 176, high: 195 },
+    avgFirstInningsScore: 176,
     dewFactor: "high",
     bullets: [
       "Same Eden Gardens profile -- true bounce for the seamers early, turn opening up from the middle overs onward.",
@@ -375,7 +381,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 8,
     spinFriendly: 3,
     bounceConsistency: 8,
-    expectedFirstInningsScore: { low: 155, mid: 172, high: 190 },
+    avgFirstInningsScore: 172,
     dewFactor: "low",
     bullets: [
       "The 'Gabbatoir' reputation is real -- historically the most pace-and-bounce-friendly surface in Australian white-ball cricket.",
@@ -392,7 +398,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 9,
     spinFriendly: 2,
     bounceConsistency: 9,
-    expectedFirstInningsScore: { low: 165, mid: 180, high: 200 },
+    avgFirstInningsScore: 180,
     dewFactor: "low",
     bullets: [
       "Regarded as the fastest, bounciest pitch in Australian domestic cricket -- genuine pace bowlers who hit a hard length are rewarded most.",
@@ -409,7 +415,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 5,
     bounceConsistency: 4,
-    expectedFirstInningsScore: { low: 115, mid: 135, high: 155 },
+    avgFirstInningsScore: 135,
     dewFactor: "low",
     bullets: [
       "A drop-in pitch with genuinely two-paced bounce -- some deliveries hold up, others skid through low, making stroke-play a real gamble.",
@@ -426,7 +432,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 4,
     spinFriendly: 5,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 260, mid: 285, high: 310 },
+    avgFirstInningsScore: 285,
     dewFactor: "moderate",
     bullets: [
       "A genuine belter for a 50-over final -- low, true bounce with minimal seam movement once the shine goes.",
@@ -443,9 +449,10 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 4,
     bounceConsistency: 7,
-    // No expectedFirstInningsScore or dewFactor -- same real-data-readiness
+    // No avgFirstInningsScore or dewFactor -- same real-data-readiness
     // reasoning as the Lord's Test entry: a 5-day match's conditions shift
-    // too much for a single score range, and dew is a minor daytime factor.
+    // too much for a single average to be meaningful, and dew is a minor
+    // daytime factor.
     bullets: [
       "The drop-in surface at the MCG has historically flattened out earlier than most Australian Test pitches -- day 1 movement rarely lasts past the second new ball.",
       "Boxing Day Test crowds and a huge square mean the ball can seem to carry further than it actually does -- straight hitting is the reliable method.",
@@ -461,7 +468,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 6,
     spinFriendly: 4,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 158, mid: 174, high: 192 },
+    avgFirstInningsScore: 174,
     dewFactor: "low",
     bullets: [
       "The same drop-in MCG surface used across formats -- true, even bounce with only brief new-ball movement.",
@@ -478,7 +485,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 5,
     spinFriendly: 6,
     bounceConsistency: 6,
-    expectedFirstInningsScore: { low: 155, mid: 172, high: 190 },
+    avgFirstInningsScore: 172,
     dewFactor: "moderate",
     bullets: [
       "A traditionally slow, dry surface -- spinners and cutter-bowlers historically outperform out-and-out pace here.",
@@ -495,7 +502,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 8,
     spinFriendly: 3,
     bounceConsistency: 6,
-    expectedFirstInningsScore: { low: 245, mid: 270, high: 295 },
+    avgFirstInningsScore: 270,
     dewFactor: "low",
     bullets: [
       "Classic English seam-bowling conditions -- overcast skies bring genuine lateral movement for the first 15 overs.",
@@ -512,7 +519,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 3,
     bounceConsistency: 6,
-    expectedFirstInningsScore: { low: 160, mid: 178, high: 198 },
+    avgFirstInningsScore: 178,
     dewFactor: "low",
     bullets: [
       "A newer drop-in surface that has generally played true and batting-friendly across Major League Cricket seasons so far.",
@@ -529,7 +536,7 @@ export const PITCH_REPORTS: Record<string, PitchReport> = {
     paceFriendly: 7,
     spinFriendly: 4,
     bounceConsistency: 7,
-    expectedFirstInningsScore: { low: 155, mid: 172, high: 192 },
+    avgFirstInningsScore: 172,
     dewFactor: "low",
     bullets: [
       "A traditionally good batting surface once the initial seam movement passes, usually inside the first 4 overs.",

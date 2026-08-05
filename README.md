@@ -172,7 +172,7 @@ components/
 │   ├── MatchupCard.tsx        # always-on batter vs bowler H2H; career + live merged
 │   ├── DigestTab.tsx          # story-of-match cards; format-adaptive; day/innings chips; shareable
 │   ├── LineupsCard.tsx        # playing XI (battingTeam-based lookup)
-│   └── PitchReportCard.tsx    # pitch surface + sliders
+│   └── PitchReportCard.tsx    # pitch surface + compact stat-box row (v1.0.160: replaced the stacked sliders + expected-score gauge; see below)
 ├── Home page
 │   ├── LiveCarousel.tsx       # live match carousel + series status chip + standings sheet
 │   ├── MatchCard.tsx          # PastMatchCard/FutureMatchCard (quiet), SpotlightMatchCard (full treatment + forYou marker), LiveWinProbSpark (hero sparkline)

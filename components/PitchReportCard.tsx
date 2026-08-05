@@ -1,6 +1,6 @@
 import type { PitchReport } from "@/lib/pitchReports";
 import type { Venue } from "@/lib/types";
-import { SPIN } from "@/lib/tokens";
+import StatCell from "./StatCell";
 
 interface PitchReportCardProps {
   pitch: PitchReport;
@@ -14,29 +14,42 @@ interface PitchReportCardProps {
  *
  * Structure:
  *   - Surface type tag (always -- required field)
- *   - 3 visual sliders: pace-friendly, spin-friendly, bounce-consistency
- *   - Expected first-innings score range
- *   - Dew factor
+ *   - Compact box row: one box per rating stat that has a value
+ *     (pace-friendly, spin-friendly, bounce-consistency, avg 1st innings
+ *     score, dew factor)
  *   - Bullet-list of behaviour hints in everyday language (always --
  *     required field)
  *
  * v1.0.155 (real-data-readiness): every field except `surfaceType` and
  * `bullets` is optional on `PitchReport` -- a real per-match report may only
- * have some of these available. Each section below renders only when its
- * own field is present; there is no zeroed/blank fallback anywhere in this
- * component. A slider with no value doesn't render at "0/10" (which would
- * misread as "genuinely pace/spin-hostile" rather than "unknown"), and the
- * score-range bar doesn't render at "0-0-0" -- both are simply omitted,
- * exactly like `dewFactor` already was before this change. The whole
- * sliders block and the whole score block additionally check whether ANY
- * of their own fields are present before rendering their heading/border at
- * all, so a report with zero structured fields (just a surface type and
- * bullets) shows a clean two-section card, not three empty headings with
- * borders and nothing under them.
+ * have some of these available.
+ *
+ * v1.0.160 (box-row redesign, real-data-readiness continued):
+ *   - The old stacked full-width sliders (pace/spin/bounce) and the separate
+ *     dew-factor row were replaced with a single row of compact boxes, one
+ *     per stat that actually has a value -- reusing the exact `StatCell`
+ *     tile from the player profile's MAT/RUNS/AVG/SR rows (shared component,
+ *     not a lookalike) so both places render identically.
+ *   - `expectedFirstInningsScore` (a predictive `{low, mid, high}` range
+ *     shown as a gauge) was replaced with `avgFirstInningsScore`, a single
+ *     historical statistic, rendered as its own box in the same row.
+ *   - Each box is independently optional -- a missing field means that box
+ *     is simply absent, never a placeholder or a zero. The row is built from
+ *     whichever boxes exist and chunked into groups of at most 4; each
+ *     chunk renders as its own equal-fraction grid, so any row -- including
+ *     a lone final box left over after wrapping -- always stretches to
+ *     fill the full width rather than leaving empty space beside it.
  */
 export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) {
-  const hasAnySlider =
-    pitch.paceFriendly !== undefined || pitch.spinFriendly !== undefined || pitch.bounceConsistency !== undefined;
+  const boxes: { key: string; label: string; value: string | number }[] = [];
+  if (pitch.paceFriendly !== undefined) boxes.push({ key: "pace", label: "Pace", value: `${pitch.paceFriendly}/10` });
+  if (pitch.spinFriendly !== undefined) boxes.push({ key: "spin", label: "Spin", value: `${pitch.spinFriendly}/10` });
+  if (pitch.bounceConsistency !== undefined) boxes.push({ key: "bounce", label: "Bounce", value: `${pitch.bounceConsistency}/10` });
+  if (pitch.avgFirstInningsScore !== undefined) boxes.push({ key: "avgScore", label: "Avg score", value: pitch.avgFirstInningsScore });
+  if (pitch.dewFactor) boxes.push({ key: "dew", label: "Dew", value: capitalize(pitch.dewFactor) });
+
+  const boxRows: (typeof boxes)[] = [];
+  for (let i = 0; i < boxes.length; i += 4) boxRows.push(boxes.slice(i, i + 4));
 
   return (
     <div className="card overflow-hidden">
@@ -55,41 +68,21 @@ export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) 
           <span className="text-sm font-bold text-text-primary">{capitalize(pitch.surfaceType.replace("-", " "))}</span>
         </div>
 
-        {/* Sliders -- section omitted entirely if all three are absent;
-            each individual slider omitted if its own value is absent. */}
-        {hasAnySlider && (
-          <div className="space-y-3">
-            {pitch.paceFriendly !== undefined && <Slider label="Pace-friendly" value={pitch.paceFriendly} color="#00E5FF" />}
-            {pitch.spinFriendly !== undefined && <Slider label="Spin-friendly" value={pitch.spinFriendly} color={SPIN} />}
-            {pitch.bounceConsistency !== undefined && <Slider label="Bounce consistency" value={pitch.bounceConsistency} color="#10B981" />}
-          </div>
-        )}
-
-        {/* Score expectation -- omitted entirely if not present */}
-        {pitch.expectedFirstInningsScore && (
-          <div className="border-t border-line pt-3">
-            <div className="text-xs text-text-dim uppercase tracking-widest mb-1.5">Expected 1st innings score</div>
-            <div className="relative h-3 bg-bg rounded-full overflow-hidden border border-line">
-              <div className="absolute inset-y-0" style={{ left: 0, right: 0, background: "linear-gradient(90deg, #1B243A, #FF6B35, #1B243A)" }} />
-              <div className="absolute inset-y-0 w-px bg-text-primary" style={{ left: "50%" }} />
-            </div>
-            <div className="flex justify-between text-[10px] num text-text-secondary mt-1">
-              <span>{pitch.expectedFirstInningsScore.low}</span>
-              <span className="font-bold text-orange">{pitch.expectedFirstInningsScore.mid}</span>
-              <span>{pitch.expectedFirstInningsScore.high}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Dew -- already correctly omitted when absent, before this change */}
-        {pitch.dewFactor && (
-          <div className="flex items-center justify-between border-t border-line pt-3">
-            <span className="text-xs text-text-dim uppercase tracking-widest">Dew factor</span>
-            <span className={`text-sm font-bold ${
-              pitch.dewFactor === "high" ? "text-cyan" : pitch.dewFactor === "moderate" ? "text-orange" : "text-text-secondary"
-            }`}>
-              {capitalize(pitch.dewFactor)}
-            </span>
+        {/* Compact stat box row -- section omitted entirely if no field has
+            a value; otherwise chunked into rows of at most 4, each row an
+            equal-fraction grid so it always fills the full width regardless
+            of how many boxes it holds. */}
+        {boxRows.length > 0 && (
+          <div className="border-t border-line pt-3 space-y-3">
+            {boxRows.map((row, ri) => (
+              <div key={ri} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0,1fr))` }}>
+                {row.map((box) => (
+                  <div key={box.key} className="card">
+                    <StatCell label={box.label} value={box.value} />
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         )}
 
@@ -105,21 +98,6 @@ export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) 
             ))}
           </ul>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Slider({ label, value, color }: { label: string; value: number; color: string }) {
-  const pct = Math.min(100, Math.max(0, (value / 10) * 100));
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-text-secondary">{label}</span>
-        <span className="text-xs num font-bold text-text-primary">{value}/10</span>
-      </div>
-      <div className="relative h-2 bg-line rounded-full overflow-hidden">
-        <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   );

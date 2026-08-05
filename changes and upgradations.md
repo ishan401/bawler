@@ -3247,3 +3247,32 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/matchStatus.ts`, `components/MatchView.tsx` only. No fixture data changed.
+
+## [1.0.160] 2026-08-05
+
+### Pitch Report redesign: compact stat-box row, avgFirstInningsScore replaces the predictive range
+
+#### Context
+- Requested redesign for information density: replace the Info tab's stacked full-width sliders (pace/spin/bounce/dew) with a row of compact boxes, one per stat with a value, and replace "expected 1st innings score" (a predictive `{low, mid, high}` range gauge) with "avg 1st innings score," a single historical number in the same row. Required across all 29 `PITCH_REPORTS` entries, using the exact player-profile stat-tile styling.
+
+#### Changed -- `lib/pitchReports.ts`
+- `PitchReport.expectedFirstInningsScore?: {low, mid, high}` removed; replaced with `avgFirstInningsScore?: number`.
+- All 27 real entries migrated to `avgFirstInningsScore: <old mid value>`. The 2 Test-match entries (Lord's, MCG Ashes) never had the field; their explanatory comments now reference `avgFirstInningsScore` by name.
+
+#### New -- `components/StatCell.tsx`
+- Extracted verbatim from `PlayerProfileView.tsx`'s local `StatCell` (the MAT/RUNS/AVG/SR tile) and exported, so the player profile and the new pitch-report box row render an identical tile, not two independently-styled lookalikes.
+
+#### Changed -- `components/PlayerProfileView.tsx`
+- Imports `StatCell` from the new shared file instead of defining it locally. No other change.
+
+#### Changed -- `components/PitchReportCard.tsx`
+- Removed the `Slider` sub-component (pace/spin/bounce), the score-expectation gradient-bar block, and the separate dew-factor row.
+- New: a `boxes` array built from whichever of {paceFriendly, spinFriendly, bounceConsistency, avgFirstInningsScore, dewFactor} are defined, chunked into rows of at most 4, each row its own `grid-template-columns: repeat(row.length, minmax(0,1fr))` so it always stretches to fill the width evenly -- including a lone box left over on a wrapped second row. `gap-3` matches the existing Date&Time/Weather row gap already used elsewhere in `InfoTab.tsx`. Each box is a `.card`-wrapped `StatCell`; a field with no value is simply never added, never a placeholder.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean (106/106 pages, `mockdata-integrity` tripwire passing -- confirms `mockData.ts` untouched).
+- Computed exact expected box counts from the final data: 19 matches at 5 fields (4-then-1 row split), 8 at 4 fields (single row), 2 Test matches at 3 fields (single row) -- 29/29 accounted for.
+- Live-verified representative matches from all three groups on production, including both 3-box Test entries specifically. No leftover old-gauge UI found anywhere; rest of the Info tab unaffected.
+
+#### Scope
+- `lib/pitchReports.ts`, `components/StatCell.tsx` (new), `components/PlayerProfileView.tsx` (import only), `components/PitchReportCard.tsx`, `package.json` (version bump). No `mockData.ts` changes.
