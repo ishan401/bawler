@@ -3339,3 +3339,25 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/InfoTab.tsx`, `components/PitchReportCard.tsx`, `package.json` (version bump).
+
+## [1.0.164] 2026-08-05
+
+### Fixed: bowler chip silently disappearing on name-mismatch (Live tab chip strip)
+
+#### Context
+- On `ipl2026-m37-kkrvmi`, the top chip strip's bowler chip ("3/28 P Cummins"-style) was missing entirely at multiple points in the match. Root cause: the lookup matched only on `playerName` via fragile `.includes()` substring checks, and this match's `bowlingCard` used a different name convention ("Jasprit Bumrah", "P. Krishna") than its ball data ("J Bumrah", "P Krishna") -- neither is a substring of the other, so the lookup always missed with no fallback.
+
+#### Changed -- `components/MiniInsightsBar.tsx`
+- Bowler-chip lookup now matches via `samePlayer(id, name, entryId, entryName)` (the same id-or-name union predicate `lib/matchStatus.ts` already uses for every other ball-to-card join), instead of substring inclusion.
+- Added a balls-derived fallback: if the lookup still misses, the chip computes the bowler's live figures via `deriveBowlingCardFromBalls(live.balls, [], match.format)` -- mirroring the batter chips' own existing balls-derived fallback, so the chip can no longer disappear purely because a name/id lookup failed.
+- Batter chip logic and the cyan/green coloring thresholds are unchanged.
+
+#### Changed -- `lib/mockData.ts`
+- Normalized 12 `playerName` values across `ipl2026-m37-kkrvmi`'s two `bowlingCard` arrays to the same short form already used by `playerId` and the ball data (e.g. "Pat Cummins" -> "P Cummins", "P. Krishna" -> "P Krishna", "Hardik Pandya" -> "H Pandya"). No other field changed.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean (106/106 pages, both prebuild tripwires passing).
+- Live-checked `ipl2026-m37-kkrvmi` at multiple points: bowler chip now reliably appears with correct wickets/runs, cyan triggers correctly at 2+ wickets. Re-checked `ind-aus-t20i-2026-m2-live`, `ind-eng-test-2026-d3-live`, `psl-2026-lah-kar-live` -- bowler chip and coloring unaffected. Full platform regression pass (Home, Schedule, Score, Digest, Info, player profiles) clean.
+
+#### Scope
+- `components/MiniInsightsBar.tsx`, `lib/mockData.ts` (12 `playerName` strings only), `package.json` (version bump).

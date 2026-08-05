@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.163 (deployed)
+**Current version:** v1.0.164 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -676,3 +676,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.163** | Info tab consolidation, platform-wide, presentation-only: venue name+city now shows once, folded into the Date & Time card's city line (bold venue name, comma, city); Match Context card simplified to at most two lines (toss, then narrative), team-names/tournament/venue lines removed as redundant; Pitch Report's Surface row de-boxed and grouped tightly with the stat-box row, no divider between them. No new data fields, no data restructuring (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.164)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.164** | Fixed the Live tab's bowler chip silently disappearing on `ipl2026-m37-kkrvmi`: its `bowlingCard` used a different name convention ("Jasprit Bumrah", "P. Krishna") than its ball data ("J Bumrah", "P Krishna"), and the old lookup only checked `playerName` via fragile `.includes()` substring matching. Now matches via `samePlayer(id, name, entryId, entryName)` — the same id-or-name predicate used platform-wide for ball-to-card joins — and falls back to computing the bowler's live figures straight from `live.balls` via `deriveBowlingCardFromBalls()` if that still misses, mirroring the batter chips' existing balls-derived fallback. `kkrvmi`'s bowlingCard `playerName` values also normalized to match its `playerId`/ball-data short form (12 string values, both innings). Cyan/green coloring thresholds unchanged (DECISIONS-LOG.md) |
