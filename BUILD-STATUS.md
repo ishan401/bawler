@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.160 (deployed)
+**Current version:** v1.0.161 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -658,3 +658,9 @@
 | **v1.0.158** | Fixed the `battingCard`/`bowlingCard` join-key bug at the root: `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` now join a ball to a card entry via `samePlayer(id, name, entryId, entryName)` (id OR name), replacing a name-only join that silently zeroed `ipl2026-m37-kkrvmi` and `psl-2026-lah-kar-live`. Also fixed an unrelated orphan-player gap via new `withOrphanIdentities()` -- a hand-authored card missing real ball-participants (England's Test tail order) now gets those rows appended instead of silently dropping their runs (DECISIONS-LOG.md) |
 | **v1.0.159** | The v1.0.158 fix never reached a COMPLETED innings -- `MatchView.tsx`'s `truncatedMatch` memo had a separate `isComplete` branch that spread the raw hand-authored card through unchanged. Fixed with a deliberately append-only `appendMissingIdentities()` that adds missing rows without ever rewriting an existing one, after a first full-re-derivation attempt was caught pre-ship turning two genuinely-out England batters into "not out" (their dismissals have no `isWicket` ball recorded at all) (DECISIONS-LOG.md) |
 | **v1.0.160** | Pitch Report redesign: the stacked full-width sliders (pace/spin/bounce/dew) and the "expected 1st innings score" range gauge are replaced with one row of compact stat boxes (reusing the player profile's exact `StatCell` tile, now extracted to a shared `components/StatCell.tsx`), one box per field that has a value, chunked into rows of at most 4 with each row stretching to fill the width evenly. `PitchReport.expectedFirstInningsScore: {low,mid,high}` replaced with `avgFirstInningsScore?: number`, a single historical statistic; all 27 real `PITCH_REPORTS` entries migrated (2 Test-match entries never had the field). Verified against all 29 entries' actual box counts, not a sample (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.161)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |

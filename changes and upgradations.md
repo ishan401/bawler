@@ -3276,3 +3276,22 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/pitchReports.ts`, `components/StatCell.tsx` (new), `components/PlayerProfileView.tsx` (import only), `components/PitchReportCard.tsx`, `package.json` (version bump). No `mockData.ts` changes.
+
+## [1.0.161] 2026-08-05
+
+### Fixed a real layout bug: pitch-report stat-box row now uses a dynamic column count, not a fixed 4
+
+#### Context
+- v1.0.160's box row chunked into fixed groups of 4 columns. Broke for every match with a field count other than 4: 5-field matches (adding Dew) wrapped their 5th box onto its own mostly-empty second row.
+
+#### Changed -- `components/PitchReportCard.tsx`
+- Column count per row now equals however many fields are actually present for that match, capped at `MAX_ROW_COLUMNS = 6` (defensive only -- no match today exceeds 5 fields, so every row today is a single row). `sizeForColumnCount()`: <=4 -> "md" (unchanged), 5 -> "sm", 6 -> "xs". "Avg score" label abbreviates to "Avg sc." once a row is dense enough to need it.
+
+#### Changed -- `components/StatCell.tsx`
+- New optional `size` prop ("md" default, "sm", "xs"). "md" is byte-for-byte the original markup -- `PlayerProfileView.tsx` never passes `size`, confirmed untouched via md5sum.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean. Live-checked all three field-count groups (3/4/5) on production at desktop and phone-width viewport: single row, no wrap, no stretched lone box. Full platform regression pass confirmed no other component affected by the shared `StatCell` change.
+
+#### Scope
+- `components/PitchReportCard.tsx`, `components/StatCell.tsx`, `package.json` (version bump). No fixture data changed.
