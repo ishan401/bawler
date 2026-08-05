@@ -3,6 +3,13 @@ import { memo } from "react";
 
 import type { Match, InsightV2 } from "@/lib/types";
 import { formatPlayerName } from "@/lib/playerName";
+// v1.0.164: samePlayer() is the same id-or-name union predicate used
+// platform-wide for ball-to-card joins (deriveBattingCardFromBalls /
+// deriveBowlingCardFromBalls in this file's import). deriveBowlingCardFromBalls
+// is reused directly for the bowler-chip fallback below rather than
+// reimplementing wicket/runs/overs math a second time -- see the fallback's
+// comment for the bug this fixes.
+import { samePlayer, deriveBowlingCardFromBalls } from "@/lib/matchStatus";
 
 interface MiniInsightsBarProps {
   match: Match;
@@ -106,11 +113,41 @@ function deriveMiniInsights(
     }
 
     // Chip 3: current bowler match figures
-    const currentBowlerName = live.balls[live.balls.length - 1]?.bowlerName;
+    //
+    // v1.0.164: this chip used to silently disappear whenever a match's
+    // bowlingCard used a different name format than its ball data (e.g.
+    // ipl2026-m37-kkrvmi's bowlingCard has "Jasprit Bumrah"/"P. Krishna"
+    // while its balls say "J Bumrah"/"P Krishna" -- neither is a literal
+    // substring of the other, so the old `.includes()` lookup below always
+    // missed and the chip was just dropped with no error). Two independent
+    // fixes, both required:
+    //
+    // 1. Matching is now via samePlayer() (id === entryId || name ===
+    //    entryName) -- the same union predicate deriveBattingCardFromBalls/
+    //    deriveBowlingCardFromBalls use for every other ball-to-card join
+    //    in the app (see lib/matchStatus.ts) -- instead of fragile
+    //    substring inclusion. Still not foolproof against every possible
+    //    naming divergence, which is exactly why fix 2 exists.
+    // 2. If the lookup still misses (stale/malformed/differently-formatted
+    //    card), this now falls back to computing the bowler's live figures
+    //    straight from `live.balls` via deriveBowlingCardFromBalls() --
+    //    mirroring the batter chips' own balls-derived fallback above,
+    //    which is exactly why THEIR chips never went missing under the
+    //    same kind of name mismatch. The chip must never again depend
+    //    entirely on a name lookup succeeding.
+    const lastBall = live.balls[live.balls.length - 1];
+    const currentBowlerId = lastBall?.bowlerId;
+    const currentBowlerName = lastBall?.bowlerName;
     if (currentBowlerName) {
-      const bowlerStats = live.bowlingCard.find(
-        b => b.playerName.includes(currentBowlerName) || currentBowlerName.includes(b.playerName)
+      let bowlerStats = live.bowlingCard.find(
+        b => samePlayer(currentBowlerId ?? "", currentBowlerName, b.playerId, b.playerName)
       );
+      if (!bowlerStats) {
+        const derived = deriveBowlingCardFromBalls(live.balls, [], match.format);
+        bowlerStats = derived.find(
+          b => samePlayer(currentBowlerId ?? "", currentBowlerName, b.playerId, b.playerName)
+        );
+      }
       if (bowlerStats) {
         chips.push({
           value: `${bowlerStats.wickets}/${bowlerStats.runsConceded}`,
