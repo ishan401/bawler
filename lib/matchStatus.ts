@@ -252,7 +252,7 @@ function deriveBatterIdentitiesFromBalls(balls: Ball[]): BattingEntry[] {
  * `deriveBattingCardFromBalls`'s doc comment below for why a ball-to-card
  * join can't safely rely on just one of the two.
  */
-function samePlayer(id: string, name: string, entryId: string, entryName: string): boolean {
+export function samePlayer(id: string, name: string, entryId: string, entryName: string): boolean {
   return id === entryId || name === entryName;
 }
 
@@ -274,6 +274,38 @@ function samePlayer(id: string, name: string, entryId: string, entryName: string
  * a distinct bug class (missing card rows, not mismatched join keys) that
  * happened to live in the same fixture and the same two functions.
  */
+/**
+ * Merges a hand-authored card (`original`) with a purely balls-derived
+ * card (`pureDerived` -- computed with no originalCard, so every field
+ * is fresh from balls alone), keeping every entry already in `original`
+ * completely UNCHANGED and appending only the derived entries that don't
+ * match any existing one via `samePlayer()`.
+ *
+ * v1.0.159: distinct from `withOrphanIdentities` above -- that helper
+ * still lets `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls`
+ * recompute an EXISTING entry's stats fresh from `balls` (correct for a
+ * mid-innings live truncation, where "what does this look like right
+ * now" must always come from the current ball slice). This helper never
+ * does that: `MatchView.tsx`'s isComplete branch needs to add a missing
+ * row (the ind-eng-test-2026-d3-live tail-order gap) WITHOUT risking a
+ * second, unrelated gap in the same fixture -- two of its dismissals (C
+ * Woakes, J Bairstow) are recorded on the hand-authored card with no
+ * corresponding `isWicket` ball anywhere in the data, so a full
+ * re-derivation silently turned both into "not out." Appending-only
+ * can't hit that: an already-authored row is never touched, so its
+ * out/dismissal/runs stay exactly as authored regardless of what the
+ * balls alone would otherwise imply.
+ */
+export function appendMissingIdentities<T extends { playerId: string; playerName: string }>(
+  original: T[],
+  pureDerived: T[]
+): T[] {
+  const missing = pureDerived.filter(
+    d => !original.some(o => samePlayer(d.playerId, d.playerName, o.playerId, o.playerName))
+  );
+  return missing.length > 0 ? [...original, ...missing] : original;
+}
+
 function withOrphanIdentities<T extends { playerId: string; playerName: string }>(
   originalCard: T[],
   balls: Ball[],

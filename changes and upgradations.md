@@ -3223,3 +3223,27 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/matchStatus.ts` only. No fixture data in `lib/mockData.ts` changed. No other file touched -- the fix is entirely at the shared derivation layer, so it applies automatically to `MatchView.tsx`'s live truncation path and `lib/matchFeedAdapter.ts`'s real-feed ingestion path alike.
+
+## [1.0.159] 2026-08-04
+
+### Fixed the real gap: a completed innings never reached the v1.0.158 derivation fix at all
+
+#### Context
+- After v1.0.158 shipped, direct production verification on `ind-eng-test-2026-d3-live`'s "ENG Inn. 1" tab found the batting card still stopped at 8 rows -- the exact gap v1.0.158 was supposed to close. Root cause: `MatchView.tsx`'s `truncatedMatch` memo has two branches; the mid-innings branch calls the derive functions, but the `isComplete` branch (used for every innings of every finished match, and any already-finished innings within a still-live one) used to spread the raw hand-authored card through unchanged, never calling either derive function. The v1.0.158 fix was correct in isolation but unreachable from this call site.
+
+#### Changed -- `lib/matchStatus.ts`
+- `samePlayer()` is now exported for reuse outside this file.
+- New `appendMissingIdentities(original, pureDerived)`: appends only the balls-derived entries that don't match any existing card entry, never touching or recomputing an already-authored row. A first attempt made the `isComplete` branch fully re-derive every row (mirroring the mid-innings branch) -- caught before shipping via direct verification: this fixture has 2 dismissals (C Woakes, J Bairstow) recorded on the card with no corresponding `isWicket` ball anywhere in the data, so full re-derivation silently turned both into "not out." Append-only avoids this entirely since it never rewrites an existing entry.
+
+#### Changed -- `components/MatchView.tsx`
+- `truncatedMatch`'s `isComplete` branch now calls `appendMissingIdentities(inn.battingCard, deriveBattingCardFromBalls(truncBalls, [], inn.retirements))` (and the bowling equivalent) instead of spreading `inn.battingCard`/`bowlingCard` raw.
+
+#### Verified
+- Direct script against the exact affected innings: 8 -> 12 batting rows, all 4 new rows correct, all 8 original rows the same object reference post-fix (not just equal).
+- Platform-wide sweep (append-only logic, all 29 matches, every innings with balls): only this one innings gets rows appended, zero duplicates, zero shrinkage, every original entry preserved by reference everywhere else.
+- Re-ran the v1.0.158 sum-conservation sweep directly on the derive functions: still 0 mismatches.
+- `tsc --noEmit` / `npm run build` clean (106/106 pages).
+- Live on production, the user's exact repro: `ind-eng-test-2026-d3-live` -> Score tab -> "ENG Inn. 1" -> all 12 batters now shown, including S Broad/J Anderson/J Leach/M Wood.
+
+#### Scope
+- `lib/matchStatus.ts`, `components/MatchView.tsx` only. No fixture data changed.

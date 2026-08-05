@@ -602,6 +602,12 @@
 |---|---|
 | **v1.0.158** | Fixed the confirmed root cause of `ipl2026-m37-kkrvmi`'s Score tab all-zero batting/bowling bug, platform-wide: `lib/matchStatus.ts`'s `deriveBattingCardFromBalls`/`deriveBowlingCardFromBalls` now join a ball to a card entry via a new shared `samePlayer()` predicate -- id OR name, never name alone (the original bug) and never id alone either (a mid-implementation bidirectional audit found id-only would have regressed `ind-eng-test-2026-d3-live`, whose card uses real slug ids that never match its balls' ids at all). Also fixed a second, unrelated gap found during the required post-fix verification sweep: an incomplete hand-authored card (missing England's tail order in `ind-eng-test-2026-d3-live`) now gets missing rows appended via new `withOrphanIdentities()`, instead of silently dropping those players' runs. Fixture data itself (the underlying name/id inconsistencies) was deliberately left unchanged -- the fix makes correctness independent of it (DECISIONS-LOG.md v1.0.158) |
 
+## Changelog additions (v1.0.159)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.159** | Fixed the real gap behind v1.0.158's fix: `MatchView.tsx`'s `truncatedMatch` memo had an `isComplete` branch (every innings of every finished match, plus any already-finished innings within a still-live one) that spread the raw hand-authored battingCard/bowlingCard through unchanged, never calling the v1.0.158-fixed derive functions at all -- found by the user directly on production after v1.0.158 was reported done. New `appendMissingIdentities()` in `lib/matchStatus.ts` appends only genuinely-missing card rows without ever rewriting an existing one (an earlier attempt that fully re-derived every row was caught pre-ship: it silently turned two genuinely-out batters into "not out" because their dismissals aren't represented as flagged balls in this fixture's data). Verified against the exact production repro before reporting done (DECISIONS-LOG.md v1.0.159) |
+
 ## Changelog additions (v1.0.108)
 
 | Version | Highlight |

@@ -25,7 +25,7 @@ import MatchupCard from "@/components/MatchupCard";
 import MatchupShareCard from "@/components/MatchupShareCard";
 import WinProbBadge from "@/components/WinProbBadge";
 import { getMatchupStats } from "@/lib/mockMatchups";
-import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker, countWicketEquivalentRetirements } from "@/lib/matchStatus";
+import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker, countWicketEquivalentRetirements, appendMissingIdentities } from "@/lib/matchStatus";
 import { runGuarded } from "@/lib/pointerGuard";
 
 interface MatchViewProps {
@@ -278,25 +278,49 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       remaining -= take;
 
       if (isComplete) {
-        // Innings fully consumed — use authoritative scorecard values.
-        // battingCard/bowlingCard are the innings' real final cards here,
-        // which is correct: every ball in this innings is visible, so
-        // "final" and "current playback position" are the same thing.
+        // Innings fully consumed -- `runs`/`wickets`/`overs` (simple
+        // innings-level totals) are trusted from `inn` unchanged, since
+        // "final" and "current playback position" are the same thing for
+        // those scalar fields. `battingCard`/`bowlingCard` need care --
+        // v1.0.159: a real incident proved a hand-authored card can be
+        // genuinely INCOMPLETE (missing rows for real ball-participants)
+        // even once every ball in the innings is visible.
+        // `ind-eng-test-2026-d3-live`'s England 1st innings (199/10) only
+        // had 8 hand-authored batting-card rows, silently omitting the
+        // tail order (S Broad, J Anderson, J Leach, M Wood -- real
+        // recorded deliveries, real runs) -- this branch used to spread
+        // that 8-row card straight through untouched.
         //
-        // v1.0.146 note: this was only trustworthy for mock fixtures
-        // (hand-authored battingCard/bowlingCard) until now — a real feed
-        // ingested via lib/matchFeedAdapter.ts's ingestMatchFeed() used to
-        // leave both as `[]` for every innings, complete or not, which
-        // would have silently spread empty cards through right here.
-        // Fixed at the source: ingestMatchFeed() now calls this same
-        // lib/matchStatus.ts deriveBattingCardFromBalls/
-        // deriveBowlingCardFromBalls pair (with no originalCard, since a
-        // real feed has none) at ingestion time, so `inn.battingCard`/
-        // `bowlingCard` are already correctly populated from `inn.balls`
-        // by the time a real-feed match reaches this component — nothing
-        // further needed here. See ARCHITECTURE.md's "single derivation,
-        // two callers" note.
-        innings.push({ ...inn, balls: truncBalls });
+        // The fix is deliberately APPEND-ONLY, not a full re-derivation
+        // of every row. An earlier version of this fix called
+        // `deriveBattingCardFromBalls(truncBalls, inn.battingCard, ...)`
+        // the same way the mid-innings branch below does -- verified
+        // directly against this exact innings before shipping, and
+        // caught a real regression: this same fixture's ball data has TWO
+        // dismissals (C Woakes "b Bumrah", J Bairstow "c sub b Jadeja")
+        // recorded on the hand-authored card with NO corresponding
+        // `isWicket: true` ball anywhere in `balls` -- a separate,
+        // pre-existing gap in this fixture's ball-by-ball authoring, not
+        // an id/name join problem. Full re-derivation has no way to know
+        // about a dismissal that was never represented as a ball, so it
+        // silently turned both of them into "not out" with no dismissal
+        // text -- an actively WORSE regression than the missing rows this
+        // fix is meant to close. Appending-only never touches an already
+        // -authored row, so it can't hit this: an existing entry's
+        // out/dismissal/runs stay byte-identical to `inn.battingCard`
+        // always; only a genuinely new row (no existing entry matches it
+        // by id or name) gets added, computed from its own balls, which
+        // is strictly better than not showing that player at all even if
+        // an unflagged dismissal among the tail can't be perfectly
+        // reconstructed either.
+        const hasBalls = truncBalls.length > 0;
+        const battingCard = hasBalls
+          ? appendMissingIdentities(inn.battingCard, deriveBattingCardFromBalls(truncBalls, [], inn.retirements))
+          : inn.battingCard;
+        const bowlingCard = hasBalls
+          ? appendMissingIdentities(inn.bowlingCard, deriveBowlingCardFromBalls(truncBalls, [], match.format))
+          : inn.bowlingCard;
+        innings.push({ ...inn, balls: truncBalls, battingCard, bowlingCard });
       } else {
         // Viewing mid-innings — derive runs/wickets/overs AND each
         // player's card entry from the exact same truncated ball slice.
