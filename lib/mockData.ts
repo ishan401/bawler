@@ -1047,6 +1047,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   // ── AUS vs IND T20I insights (no relatedBallId = always visible) ─────────
   {
     id: "ia-1",
+    matchId: "ind-aus-t20i-2026-m2-live",
     category: "stat",
     text: "Kohli's current SR of 145.2 is his best ever in T20I run-chases above 170.",
     numericHighlights: ["145.2"],
@@ -1055,6 +1056,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "ia-2",
+    matchId: "ind-aus-t20i-2026-m2-live",
     category: "opinion",
     text: "34 off 22 is well within reach — India have hit 4 sixes already and Kohli has looked fluent.",
     numericHighlights: ["34", "22", "4"],
@@ -1063,6 +1065,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "ia-3",
+    matchId: "ind-aus-t20i-2026-m2-live",
     category: "stat",
     text: "Bumrah: 3/28 in 4 overs in 1st innings. Australia's top-order were unable to read his slower ball.",
     numericHighlights: ["3/28", "4"],
@@ -1071,6 +1074,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "ia-4",
+    matchId: "ind-aus-t20i-2026-m2-live",
     category: "stat",
     text: "T Head's 52 off 34 was the key innings for Australia — 70% of powerplay runs came off his bat.",
     numericHighlights: ["52", "34", "70%"],
@@ -1080,6 +1084,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   // ── PSL LAH vs KAR insights ────────────────────────────────────────────────
   {
     id: "psl-1",
+    matchId: "psl-2026-lah-kar-live",
     category: "stat",
     text: "Shaheen's 2 wickets in the powerplay restricted KAR to 38/2 — LAH's best powerplay defence this season.",
     numericHighlights: ["2", "38/2"],
@@ -1088,6 +1093,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "psl-2",
+    matchId: "psl-2026-lah-kar-live",
     category: "opinion",
     text: "Lahore need 28 off 18 — a run rate of 9.3. Arshad Iqbal at the crease gives them hitting power.",
     numericHighlights: ["28", "18", "9.3"],
@@ -1096,6 +1102,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-1",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "stat",
     text: "Russell's strike rate of 177.8 is the highest by any KKR finisher this season; he fell after facing 18 balls.",
     numericHighlights: ["177.8", "18 balls"],
@@ -1105,6 +1112,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-2",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "stat",
     text: "Bumrah figures: 2/18 in 3 overs · economy 6.0 · 0 boundaries in his last 12 balls.",
     numericHighlights: ["2/18", "3", "6.0", "0", "12 balls"],
@@ -1114,6 +1122,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-3",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "stat",
     text: "KKR have lost 4 of last 5 fixtures at Eden Gardens when chasing 170+.",
     numericHighlights: ["4 of last 5", "170+"],
@@ -1122,6 +1131,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-4",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "stat",
     text: "Rinku Singh vs pace in death overs this IPL: SR 138 · vs spin: 192. MI bowling 5 of next 6 pace.",
     numericHighlights: ["138", "192", "5 of next 6"],
@@ -1130,6 +1140,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-5",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "stat",
     text: "Suryakumar 56(32) — his 12th 50+ score at Eden Gardens, most by any visiting batter.",
     numericHighlights: ["56(32)", "12th"],
@@ -1138,6 +1149,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-6",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "stat",
     text: "Required RPO: 12.55. KKR have chased 12+ RPO in death only 1 of 9 attempts this season.",
     numericHighlights: ["12.55", "1 of 9"],
@@ -1146,6 +1158,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-7",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "opinion",
     text: "Bumrah's pattern of returning to remove the set finisher is paying off — third such dismissal in 5 matches.",
     attribution: { handle: "@hypocaust", sourceTier: "analyst" },
@@ -1154,6 +1167,7 @@ export const MOCK_INSIGHTS_V2: InsightV2[] = [
   },
   {
     id: "v2-8",
+    matchId: "ipl2026-m37-kkrvmi",
     category: "opinion",
     text: "Eden Gardens dew should start kicking in around over 16 — KKR's lower order needs to survive till then.",
     attribution: { handle: "@JatinSapru", sourceTier: "analyst" },

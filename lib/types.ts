@@ -427,6 +427,14 @@ export type InsightCategory = "stat" | "opinion";
 
 export interface InsightV2 {
   id: string;
+  // v1.0.162: required, not optional -- an insight that doesn't know which
+  // match it belongs to is how PSL/KKR-MI commentary ended up rendering on
+  // an unrelated India-Australia match's Live tab (see DECISIONS-LOG.md).
+  // MOCK_INSIGHTS_V2 was previously one flat pool shared by every match;
+  // MatchView.tsx's visibleInsights now gates on this field first. Any
+  // future real-data ingestion path must populate it too -- there is no
+  // "mock-data-only" escape hatch here by design.
+  matchId: string;
   category: InsightCategory;
   text: string;
   numericHighlights?: string[];
