@@ -395,8 +395,17 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const visibleInsights = useMemo(() => {
     const seenBallIds = new Set(allBalls.slice(0, activeBallIdx + 1).map(b => b.id));
     const insights = insightsProp ?? MOCK_INSIGHTS_V2;
-  return insights.filter(i => !i.relatedBallId || seenBallIds.has(i.relatedBallId));
-  }, [activeBallIdx, allBalls]);
+    // v1.0.162: matchId gate is PRIMARY and non-negotiable -- an insight
+    // that isn't explicitly tagged for this match must never render here,
+    // regardless of ball-level scoping. Ball-level scoping (relatedBallId)
+    // is a secondary filter applied only within the current match's own
+    // insights. This is what stops MOCK_INSIGHTS_V2's shared pool (every
+    // match's insights live in one flat array) from bleeding across
+    // matches -- see DECISIONS-LOG.md for the cross-match bleed this fixes.
+    return insights
+      .filter(i => i.matchId === match.id)
+      .filter(i => !i.relatedBallId || seenBallIds.has(i.relatedBallId));
+  }, [activeBallIdx, allBalls, insightsProp, match.id]);
 
   const currentInnings = truncatedMatch.innings.find(i =>
     currentBall && i.balls.some(b => b.id === currentBall.id)
