@@ -107,39 +107,51 @@ export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) 
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        {/* Surface type -- always present (required field) */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-text-dim uppercase tracking-widest">Surface</span>
-          <span className="text-sm font-bold text-text-primary">{capitalize(pitch.surfaceType.replace("-", " "))}</span>
-        </div>
-
-        {/* Compact stat box row -- section omitted entirely if no field has
-            a value. Column count equals however many boxes are present for
-            THIS match (capped at MAX_ROW_COLUMNS), so every real case today
-            renders as one single row that fills the full width evenly --
-            never a lone box stranded on its own row, never an empty slot
-            reserved for a field this match doesn't have. */}
-        {boxRows.length > 0 && (
-          <div className="border-t border-line pt-3 space-y-2">
-            {boxRows.map((row, ri) => {
-              const size = sizeForColumnCount(row.length);
-              const dense = size !== "md";
-              return (
-                <div
-                  key={ri}
-                  className={dense ? "grid gap-2" : "grid gap-3"}
-                  style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0,1fr))` }}
-                >
-                  {row.map((box) => (
-                    <div key={box.key} className="card">
-                      <StatCell label={dense && box.shortLabel ? box.shortLabel : box.label} value={box.value} size={size} />
-                    </div>
-                  ))}
-                </div>
-              );
-            })}
+        {/* v1.0.163: Surface row is a plain single-line row (label left,
+            value right) -- it never had its own box/border, but it used to
+            sit above a `border-t` divider belonging to the stat-box row
+            below, which read as its own separated section. Surface and the
+            stat-box row are now grouped into one tight space-y-2 block with
+            no divider between them, matching the plain-text row treatment
+            used for the Toss line in InfoTab.tsx's Match Context card.
+            Font sizes on the label/value are unchanged -- only the
+            divider/spacing around the row changed. */}
+        <div className="space-y-2">
+          {/* Surface type -- always present (required field) */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-text-dim uppercase tracking-widest">Surface</span>
+            <span className="text-sm font-bold text-text-primary">{capitalize(pitch.surfaceType.replace("-", " "))}</span>
           </div>
-        )}
+
+          {/* Compact stat box row -- section omitted entirely if no field
+              has a value. Column count equals however many boxes are
+              present for THIS match (capped at MAX_ROW_COLUMNS), so every
+              real case today renders as one single row that fills the full
+              width evenly -- never a lone box stranded on its own row,
+              never an empty slot reserved for a field this match doesn't
+              have. */}
+          {boxRows.length > 0 && (
+            <div className="space-y-2">
+              {boxRows.map((row, ri) => {
+                const size = sizeForColumnCount(row.length);
+                const dense = size !== "md";
+                return (
+                  <div
+                    key={ri}
+                    className={dense ? "grid gap-2" : "grid gap-3"}
+                    style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0,1fr))` }}
+                  >
+                    {row.map((box) => (
+                      <div key={box.key} className="card">
+                        <StatCell label={dense && box.shortLabel ? box.shortLabel : box.label} value={box.value} size={size} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Behavior bullets -- always present (required field) */}
         <div className="border-t border-line pt-3">
