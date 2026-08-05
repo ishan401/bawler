@@ -1,6 +1,6 @@
 import type { PitchReport } from "@/lib/pitchReports";
 import type { Venue } from "@/lib/types";
-import StatCell from "./StatCell";
+import StatCell, { type StatCellSize } from "./StatCell";
 
 interface PitchReportCardProps {
   pitch: PitchReport;
@@ -33,23 +33,68 @@ interface PitchReportCardProps {
  *   - `expectedFirstInningsScore` (a predictive `{low, mid, high}` range
  *     shown as a gauge) was replaced with `avgFirstInningsScore`, a single
  *     historical statistic, rendered as its own box in the same row.
- *   - Each box is independently optional -- a missing field means that box
- *     is simply absent, never a placeholder or a zero. The row is built from
- *     whichever boxes exist and chunked into groups of at most 4; each
- *     chunk renders as its own equal-fraction grid, so any row -- including
- *     a lone final box left over after wrapping -- always stretches to
- *     fill the full width rather than leaving empty space beside it.
+ *
+ * v1.0.161 (dynamic column count -- fixes a real layout bug in v1.0.160):
+ *   - v1.0.160 chunked boxes into rows of a FIXED 4 columns. That looked
+ *     fine for the (common) 4-field case, but broke for every other count:
+ *     a 5th box (Dew) wrapped onto its own second row with 3 empty column
+ *     slots beside it -- whether or not that lone box stretched to fill the
+ *     row, the row itself was mostly empty. A 3-field match (the two Test
+ *     entries) hit the opposite problem in principle: had there been a
+ *     partial final row it would've reserved a 4th empty slot too, though 3
+ *     happened to fit in one chunk by coincidence.
+ *   - Fixed by deriving the column count from however many boxes are
+ *     actually present for THIS match, every time -- never a fixed number.
+ *     `MAX_ROW_COLUMNS` (6) is a defensive cap only: today's real data never
+ *     exceeds 5 fields, so every current match renders in exactly one row;
+ *     the cap exists purely so a hypothetical future 7th field wraps instead
+ *     of squeezing a row into illegibility, not because wrapping is an
+ *     active feature today.
+ *   - `StatCell` gained an optional `size` ("md"/"sm"/"xs") so padding and
+ *     type scale down as a row holds more boxes (5 -> "sm", 6 -> "xs"); "md"
+ *     (4 or fewer boxes) is byte-for-byte the original, unscaled tile the
+ *     player profile also uses. The "Avg score" label abbreviates to
+ *     "Avg sc." once a row is dense enough to need it, so it stays on one
+ *     line instead of wrapping.
  */
-export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) {
-  const boxes: { key: string; label: string; value: string | number }[] = [];
-  if (pitch.paceFriendly !== undefined) boxes.push({ key: "pace", label: "Pace", value: `${pitch.paceFriendly}/10` });
-  if (pitch.spinFriendly !== undefined) boxes.push({ key: "spin", label: "Spin", value: `${pitch.spinFriendly}/10` });
-  if (pitch.bounceConsistency !== undefined) boxes.push({ key: "bounce", label: "Bounce", value: `${pitch.bounceConsistency}/10` });
-  if (pitch.avgFirstInningsScore !== undefined) boxes.push({ key: "avgScore", label: "Avg score", value: pitch.avgFirstInningsScore });
-  if (pitch.dewFactor) boxes.push({ key: "dew", label: "Dew", value: capitalize(pitch.dewFactor) });
 
-  const boxRows: (typeof boxes)[] = [];
-  for (let i = 0; i < boxes.length; i += 4) boxRows.push(boxes.slice(i, i + 4));
+const MAX_ROW_COLUMNS = 6;
+
+interface StatBox {
+  key: string;
+  label: string;
+  shortLabel?: string;
+  value: string | number;
+}
+
+function sizeForColumnCount(n: number): StatCellSize {
+  if (n <= 4) return "md";
+  if (n === 5) return "sm";
+  return "xs";
+}
+
+export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) {
+  // Declarative field -> box mapping. A box is included only if its field
+  // actually has a value on THIS match's report -- adding a future optional
+  // field here is a one-line addition, not a new branch of layout logic;
+  // the row's column count always just falls out of how many of these are
+  // present, never a hardcoded expectation of 4 (or any other number).
+  const candidateBoxes: (StatBox | null)[] = [
+    pitch.paceFriendly !== undefined ? { key: "pace", label: "Pace", value: `${pitch.paceFriendly}/10` } : null,
+    pitch.spinFriendly !== undefined ? { key: "spin", label: "Spin", value: `${pitch.spinFriendly}/10` } : null,
+    pitch.bounceConsistency !== undefined ? { key: "bounce", label: "Bounce", value: `${pitch.bounceConsistency}/10` } : null,
+    pitch.avgFirstInningsScore !== undefined
+      ? { key: "avgScore", label: "Avg score", shortLabel: "Avg sc.", value: pitch.avgFirstInningsScore }
+      : null,
+    pitch.dewFactor ? { key: "dew", label: "Dew", value: capitalize(pitch.dewFactor) } : null,
+  ];
+  const boxes: StatBox[] = candidateBoxes.filter((b): b is StatBox => b !== null);
+
+  // Single row whenever the box count fits the cap (true for every match in
+  // today's data, up to 5 fields) -- only wraps to a second row if a future
+  // report somehow exceeds MAX_ROW_COLUMNS fields at once.
+  const boxRows: StatBox[][] = [];
+  for (let i = 0; i < boxes.length; i += MAX_ROW_COLUMNS) boxRows.push(boxes.slice(i, i + MAX_ROW_COLUMNS));
 
   return (
     <div className="card overflow-hidden">
@@ -69,20 +114,30 @@ export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) 
         </div>
 
         {/* Compact stat box row -- section omitted entirely if no field has
-            a value; otherwise chunked into rows of at most 4, each row an
-            equal-fraction grid so it always fills the full width regardless
-            of how many boxes it holds. */}
+            a value. Column count equals however many boxes are present for
+            THIS match (capped at MAX_ROW_COLUMNS), so every real case today
+            renders as one single row that fills the full width evenly --
+            never a lone box stranded on its own row, never an empty slot
+            reserved for a field this match doesn't have. */}
         {boxRows.length > 0 && (
-          <div className="border-t border-line pt-3 space-y-3">
-            {boxRows.map((row, ri) => (
-              <div key={ri} className="grid gap-3" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0,1fr))` }}>
-                {row.map((box) => (
-                  <div key={box.key} className="card">
-                    <StatCell label={box.label} value={box.value} />
-                  </div>
-                ))}
-              </div>
-            ))}
+          <div className="border-t border-line pt-3 space-y-2">
+            {boxRows.map((row, ri) => {
+              const size = sizeForColumnCount(row.length);
+              const dense = size !== "md";
+              return (
+                <div
+                  key={ri}
+                  className={dense ? "grid gap-2" : "grid gap-3"}
+                  style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0,1fr))` }}
+                >
+                  {row.map((box) => (
+                    <div key={box.key} className="card">
+                      <StatCell label={dense && box.shortLabel ? box.shortLabel : box.label} value={box.value} size={size} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
