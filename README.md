@@ -132,7 +132,7 @@ Horizontal tab selector across 8 competitions:
 ## Key data rules
 
 - **Always use `ALL_TEAMS`**, not `TEAMS` — `TEAMS` is franchise-only; `ALL_TEAMS` includes national teams
-- **Insights are prop-driven in MatchView** — pass `insights={[]}` for real pages; mock array is the default fallback
+- **Insights are prop-driven in MatchView** — pass `insights={[]}` for real pages; mock array is the default fallback. **v1.0.162:** `InsightV2.matchId` is a required field — `visibleInsights` in `MatchView.tsx` filters on `insight.matchId === match.id` FIRST, before the existing ball-level `relatedBallId` scoping. `MOCK_INSIGHTS_V2` is one shared array across every match; any entry missing (or wrong on) `matchId` renders on the wrong match's Live tab silently — this was a real, shipped bug (PSL/KKR-MI content bleeding into `ind-aus-t20i-2026-m2-live` and `ind-eng-test-2026-d3-live`), not a hypothetical (DECISIONS-LOG.md)
 - **`totalBallsForFormat(match)`** — use this everywhere instead of hardcoded 120 for balls/chase math
 - **`franchiseStats` / `franchiseLeague`** — not `iplStats`; every player stores which league their franchise stats came from
 - **`seriesStatus?: string`** on Match — set by data layer for bilateral series; used by LiveCarousel chip

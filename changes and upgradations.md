@@ -3295,3 +3295,26 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/PitchReportCard.tsx`, `components/StatCell.tsx`, `package.json` (version bump). No fixture data changed.
+
+## [1.0.162] 2026-08-05
+
+### Fixed: cross-match insight-card bleed on the Live tab (PSL/KKR-MI content showing on unrelated matches)
+
+#### Context
+- `MOCK_INSIGHTS_V2` was one flat 14-entry array with no `matchId`, consumed by every match on the platform via `MatchView.tsx`'s `insightsProp ?? MOCK_INSIGHTS_V2` fallback. 12 of the 14 entries have no `relatedBallId`, so they rendered on every single match's Live tab unconditionally. Reported symptom: PSL LAH-vs-KAR and generic KKR/MI insight cards showing up on `ind-aus-t20i-2026-m2-live`'s commentary feed; independently confirmed the same cards also bled into `ind-eng-test-2026-d3-live`.
+
+#### Changed -- `lib/types.ts`
+- `InsightV2.matchId: string` added as a required field -- not optional, so any future real-data ingestion path must supply it too.
+
+#### Changed -- `lib/mockData.ts`
+- All 14 `MOCK_INSIGHTS_V2` entries tagged with their correct real match id, verified against each match's actual data (not guessed): `ia-1`..`ia-4` -> `ind-aus-t20i-2026-m2-live`; `psl-1`, `psl-2` -> `psl-2026-lah-kar-live`; `v2-1`..`v2-8` -> `ipl2026-m37-kkrvmi`. No entries deleted, none ambiguous.
+
+#### Changed -- `components/MatchView.tsx`
+- `visibleInsights` now filters on `insight.matchId === match.id` FIRST, with the existing `relatedBallId` ball-level filter applied only within that already-scoped set. `match.id`/`insightsProp` added to the `useMemo` dependency array.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean (106/106 pages, mockdata-integrity tripwire passing at +14 lines / 26 exports unchanged).
+- Live-checked all 4 matches with real ball-by-ball data (`ind-aus-t20i-2026-m2-live`, `ind-eng-test-2026-d3-live`, `ipl2026-m37-kkrvmi`, `psl-2026-lah-kar-live`): each now shows only its own insights. Confirmed the 2 live matches with no ball data still show the "unavailable" fallback, unaffected. Audited `CommentaryFeed.tsx` and `MiniInsightsBar.tsx` for any independent fallback to the unfiltered pool -- none found; `InsightsPanel.tsx` confirmed dead code. Full platform regression pass (Home, Schedule, Score, Digest, Info, player profiles) clean.
+
+#### Scope
+- `lib/types.ts`, `lib/mockData.ts` (14 `matchId` tags only), `components/MatchView.tsx`, `package.json` (version bump).

@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.161 (deployed)
+**Current version:** v1.0.162 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -664,3 +664,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.162)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.162** | Fixed cross-match insight-card bleed: `InsightV2` had no `matchId`, so `MOCK_INSIGHTS_V2`'s single shared 14-entry pool rendered on every match's Live tab regardless of which match was open (PSL and KKR/MI content confirmed bleeding into `ind-aus-t20i-2026-m2-live` and `ind-eng-test-2026-d3-live`). `matchId: string` is now required on `InsightV2`; all 14 existing entries tagged with their verified real match id (none deleted, none guessed); `MatchView.tsx`'s `visibleInsights` now gates on `insight.matchId === match.id` as the primary filter, with ball-level scoping applied only on top of that (DECISIONS-LOG.md) |
