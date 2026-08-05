@@ -3318,3 +3318,24 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/types.ts`, `lib/mockData.ts` (14 `matchId` tags only), `components/MatchView.tsx`, `package.json` (version bump).
+
+## [1.0.163] 2026-08-05
+
+### Changed: Info tab consolidation -- venue into Date & Time, Match Context slimmed, Surface row de-boxed
+
+#### Context
+- Presentation-only, platform-wide change across every match/format/status. No new data fields -- venue name/city, toss, and narrative text already existed and were already shown somewhere on the Info tab; this only moves/restyles.
+
+#### Changed -- `components/InfoTab.tsx`
+- Date & Time card: city line now shows `**Venue Name**, City` instead of just the city, reusing the same `match.venue` fields PitchReportCard already reads. Falls back to city-only if venue name is ever unavailable. All other lines in the card unchanged.
+- Match Context card: removed the team-names+competition header line and the venue line (no longer duplicated -- it lives in Date & Time now). Card shows at most two lines: toss (conditional, unchanged) then narrative (conditional, unchanged). Narrative's divider is now conditional on toss also being present, so a pre-match match with only a narrative doesn't get a stray border under the section header.
+
+#### Changed -- `components/PitchReportCard.tsx`
+- Surface row grouped with the stat-box row into one tight `space-y-2` block, divider between them removed. Surface's label/value font sizes unchanged. Bullets section below untouched.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean (106/106 pages, both prebuild tripwires passing, `mockData.ts` untouched).
+- Live-checked pre-match/live/completed matches for correct Match Context line count; one match each from T20I/Test/IPL/PSL for venue+city display; Surface row at desktop and phone width; full platform regression (Home, Schedule, Score, Digest, player profiles).
+
+#### Scope
+- `components/InfoTab.tsx`, `components/PitchReportCard.tsx`, `package.json` (version bump).

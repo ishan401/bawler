@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.162 (deployed)
+**Current version:** v1.0.163 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -670,3 +670,9 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.162** | Fixed cross-match insight-card bleed: `InsightV2` had no `matchId`, so `MOCK_INSIGHTS_V2`'s single shared 14-entry pool rendered on every match's Live tab regardless of which match was open (PSL and KKR/MI content confirmed bleeding into `ind-aus-t20i-2026-m2-live` and `ind-eng-test-2026-d3-live`). `matchId: string` is now required on `InsightV2`; all 14 existing entries tagged with their verified real match id (none deleted, none guessed); `MatchView.tsx`'s `visibleInsights` now gates on `insight.matchId === match.id` as the primary filter, with ball-level scoping applied only on top of that (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.163)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.163** | Info tab consolidation, platform-wide, presentation-only: venue name+city now shows once, folded into the Date & Time card's city line (bold venue name, comma, city); Match Context card simplified to at most two lines (toss, then narrative), team-names/tournament/venue lines removed as redundant; Pitch Report's Surface row de-boxed and grouped tightly with the stat-box row, no divider between them. No new data fields, no data restructuring (DECISIONS-LOG.md) |
