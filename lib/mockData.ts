@@ -371,12 +371,12 @@ function buildInnings1(): Innings {
   ];
 
   const bowlingCard: BowlingEntry[] = [
-    { playerId: "P Cummins", playerName: "Pat Cummins", oversBowled: 4, maidens: 0, runsConceded: 32, wickets: 2, economy: 8.00 },
-    { playerId: "V Chakravarthy", playerName: "V. Chakravarthy", oversBowled: 4, maidens: 0, runsConceded: 28, wickets: 1, economy: 7.00 },
-    { playerId: "S Narine", playerName: "S. Narine", oversBowled: 4, maidens: 0, runsConceded: 24, wickets: 1, economy: 6.00 },
-    { playerId: "A Russell", playerName: "A. Russell", oversBowled: 3, maidens: 0, runsConceded: 38, wickets: 0, economy: 12.67 },
-    { playerId: "U Yadav", playerName: "U. Yadav", oversBowled: 4, maidens: 0, runsConceded: 41, wickets: 1, economy: 10.25 },
-    { playerId: "N Rana", playerName: "N. Rana", oversBowled: 1, maidens: 0, runsConceded: 11, wickets: 0, economy: 11.00 },
+    { playerId: "P Cummins", playerName: "P Cummins", oversBowled: 4, maidens: 0, runsConceded: 32, wickets: 2, economy: 8.00 },
+    { playerId: "V Chakravarthy", playerName: "V Chakravarthy", oversBowled: 4, maidens: 0, runsConceded: 28, wickets: 1, economy: 7.00 },
+    { playerId: "S Narine", playerName: "S Narine", oversBowled: 4, maidens: 0, runsConceded: 24, wickets: 1, economy: 6.00 },
+    { playerId: "A Russell", playerName: "A Russell", oversBowled: 3, maidens: 0, runsConceded: 38, wickets: 0, economy: 12.67 },
+    { playerId: "U Yadav", playerName: "U Yadav", oversBowled: 4, maidens: 0, runsConceded: 41, wickets: 1, economy: 10.25 },
+    { playerId: "N Rana", playerName: "N Rana", oversBowled: 1, maidens: 0, runsConceded: 11, wickets: 0, economy: 11.00 },
   ];
 
   return {
@@ -523,12 +523,12 @@ function buildInnings2(): Innings {
   ];
 
   const bowlingCard: BowlingEntry[] = [
-    { playerId: "J Bumrah", playerName: "Jasprit Bumrah", oversBowled: 3, maidens: 0, runsConceded: 18, wickets: 2, economy: 6.00 },
-    { playerId: "P Krishna", playerName: "P. Krishna", oversBowled: 2, maidens: 0, runsConceded: 28, wickets: 0, economy: 14.00 },
-    { playerId: "G Coetzee", playerName: "G. Coetzee", oversBowled: 2, maidens: 0, runsConceded: 16, wickets: 0, economy: 8.00 },
-    { playerId: "P Mishra", playerName: "P. Mishra", oversBowled: 2, maidens: 0, runsConceded: 19, wickets: 0, economy: 9.50 },
-    { playerId: "K Yadav", playerName: "K. Yadav", oversBowled: 2, maidens: 0, runsConceded: 8, wickets: 0, economy: 4.00 },
-    { playerId: "H Pandya", playerName: "Hardik Pandya", oversBowled: 2, maidens: 0, runsConceded: 9, wickets: 1, economy: 4.50 },
+    { playerId: "J Bumrah", playerName: "J Bumrah", oversBowled: 3, maidens: 0, runsConceded: 18, wickets: 2, economy: 6.00 },
+    { playerId: "P Krishna", playerName: "P Krishna", oversBowled: 2, maidens: 0, runsConceded: 28, wickets: 0, economy: 14.00 },
+    { playerId: "G Coetzee", playerName: "G Coetzee", oversBowled: 2, maidens: 0, runsConceded: 16, wickets: 0, economy: 8.00 },
+    { playerId: "P Mishra", playerName: "P Mishra", oversBowled: 2, maidens: 0, runsConceded: 19, wickets: 0, economy: 9.50 },
+    { playerId: "K Yadav", playerName: "K Yadav", oversBowled: 2, maidens: 0, runsConceded: 8, wickets: 0, economy: 4.00 },
+    { playerId: "H Pandya", playerName: "H Pandya", oversBowled: 2, maidens: 0, runsConceded: 9, wickets: 1, economy: 4.50 },
   ];
 
   return {
