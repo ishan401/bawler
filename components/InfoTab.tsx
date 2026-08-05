@@ -154,7 +154,13 @@ export default function InfoTab({ match }: InfoTabProps) {
                 {timeStr} local<br/>
                 <span className="text-text-dim">({utcStr})</span>
               </div>
-              <div className="text-[10px] text-text-dim mt-1 leading-snug">{match.venue.city}</div>
+              <div className="text-[10px] text-text-dim mt-1 leading-snug">
+                {match.venue.name ? (
+                  <><span className="font-bold">{match.venue.name}</span>, {match.venue.city}</>
+                ) : (
+                  match.venue.city
+                )}
+              </div>
             </div>
             <div className="mt-2">
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
@@ -208,22 +214,24 @@ export default function InfoTab({ match }: InfoTabProps) {
       {/* ── Match Context ─────────────────────────────────────────────── */}
       <div className="card px-4 py-3 space-y-2">
         <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Match Context</div>
-        <div className="text-sm">
-          <span className="font-bold">{match.teamA.shortName}</span>
-          {match.teamA.flagEmoji && <span className="ml-1">{match.teamA.flagEmoji}</span>}
-          <span className="text-text-dim"> vs </span>
-          <span className="font-bold">{match.teamB.shortName}</span>
-          {match.teamB.flagEmoji && <span className="ml-1">{match.teamB.flagEmoji}</span>}
-          <span className="text-text-secondary"> · {match.competition.name}</span>
-        </div>
-        <div className="text-xs text-text-secondary">{match.venue.name}, {match.venue.city}</div>
+        {/* v1.0.163: team/tournament header line and venue line removed --
+            teams+score already live in the sticky ScoreBar above every tab,
+            and venue now renders once, in the Date & Time card (see above),
+            instead of being duplicated here. This card is now just the two
+            pieces of context that live nowhere else on the page: the toss
+            (once it's happened) and the narrative summary (when one
+            exists) -- same conditional rendering as before for both, just
+            with the redundant lines above them gone. */}
         {match.toss && (
           <div className="text-xs text-text-secondary">
             Toss: <span className="text-text-primary font-semibold">{match.toss.winner}</span> won and chose to {match.toss.elected}
           </div>
         )}
         {match.summary && (
-          <p className="text-xs text-text-secondary leading-relaxed border-t border-line pt-2">{match.summary}</p>
+          // Divider only separates the narrative from the toss line when
+          // both are present -- pre-match (no toss yet), narrative renders
+          // as the card's only line, with no stray border under the header.
+          <p className={`text-xs text-text-secondary leading-relaxed ${match.toss ? "border-t border-line pt-2" : ""}`}>{match.summary}</p>
         )}
       </div>
 
