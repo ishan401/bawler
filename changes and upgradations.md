@@ -3361,3 +3361,37 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/MiniInsightsBar.tsx`, `lib/mockData.ts` (12 `playerName` strings only), `package.json` (version bump).
+
+## [1.0.165] 2026-08-06
+
+### Added: first-run onboarding flow (swipe team picker, player picker, cricket-personality quiz, reveal, first-session quest)
+
+#### Context
+- Gamified onboarding for brand-new users, built entirely on existing mock data, deliberately independent of the real-data-integration/native-packaging work in progress. Shows exactly once (zero saved follow prefs, onboarding not yet completed), never repeats even for a user who skips every step.
+
+#### Added -- `lib/onboarding.ts`, `lib/firstSessionQuest.ts`
+- `shouldShowOnboarding()` = not-yet-completed AND zero follows. A separate completion flag (not just the zero-follows check) is required so a skip-everything user doesn't see onboarding again on their next open.
+- Floating post-onboarding checklist state (follow a team / open a live match / read a pitch report), localStorage-backed so it survives an app close mid-checklist.
+
+#### Added -- `lib/onboardingTeams.ts`, `lib/onboardingPlayers.ts`, `lib/onboardingQuiz.ts`
+- Step 1 (teams): 16-team curated roster (10 IPL + 6 nations with real schedule data), 4-tier real-moment fallback (live -> upcoming <=14d -> recent <=30d -> skip), reusing `lib/teamSchedule.ts`'s existing lookup rather than reimplementing it.
+- Step 2 (players): players from followed teams, deduplicated strictly by `PLAYERS` registry id, tagged with every followed-team affiliation (e.g. "India · RCB"). Confirmed before building that `PlayerProfile`'s existing `teamCode`/`franchiseCode` fields already cover this -- no data-model extension needed.
+- Step 3 (quiz): 3 either/or questions mapping to 6 fixed personas, writing format preference straight into the shared `FollowPrefs.formats` field the Filter sheet already uses -- no second preference system.
+
+#### Added -- `components/onboarding/*`, `components/FirstSessionQuest.tsx`, `app/onboarding/page.tsx`
+- Swipeable team-picker cards, player-picker list with search, quiz UI, a capped 2-3s cosmetic "Building your feed..." reveal referencing followed teams/players by name, and a non-modal floating first-session checklist that checks off on real app actions (visiting a live match, seeing a real pitch report) and auto-dismisses once complete.
+
+#### Changed -- `app/page.tsx`, `components/MatchView.tsx`, `components/InfoTab.tsx`
+- Home page redirects a qualifying new user to `/onboarding` before the feed renders (gated the same way the existing boot skeleton is, to avoid a content flash).
+- `MatchView.tsx`/`InfoTab.tsx` mark first-session quest items on real, loose triggers (any visit to a live match; any real pitch-report render).
+
+#### Fixed during build
+- `lib/onboardingTeams.ts`'s live-tier headline named the wrong side as "opponent" whenever the followed team was bowling (e.g. "KKR 130/3 vs KKR"). Fixed to derive batting/bowling sides from the innings itself, never from followed-team identity, for that string specifically.
+
+#### Verified
+- Two `npx tsx` harnesses against the real modules/components (not test doubles): 15/15 logic checks (trigger conditions, multi-affiliation dedup, all 4 fallback tiers including a constructed zero-fixture synthetic team, skip-everything path, all 6 quiz persona combinations, reveal timing cap, quest lifecycle/persistence/dismissal) and 15/15 component smoke-renders (including the no-`funFact`, zero-rival-candidates, and skip-everything-reveal edge cases) all passed.
+- `tsc --noEmit` / `npm run build` clean after every incremental commit (107/107 pages, `/onboarding` present). `mockData.ts` baseline unchanged (15,174 lines, 26 exports -- the 16 `funFact` additions were in-place, not insertions).
+- NOT verified: real-browser interactive gesture/animation behavior (swipe physics, tap-through timing) -- a Vercel preview URL lookup for this branch came back empty, and no other live-browser path was available this session.
+
+#### Scope
+- `lib/types.ts`, `lib/followPrefs.ts`, `lib/mockData.ts` (16 in-place `funFact` fields), `lib/onboarding.ts`, `lib/firstSessionQuest.ts`, `lib/onboardingTeams.ts`, `lib/onboardingPlayers.ts`, `lib/onboardingQuiz.ts`, `lib/playerForm.ts` (`getLastInningsHeadline()`), `components/onboarding/*` (10 new files), `components/FirstSessionQuest.tsx`, `components/MatchView.tsx`, `components/InfoTab.tsx`, `app/onboarding/page.tsx`, `app/page.tsx`, `package.json` (version bump).

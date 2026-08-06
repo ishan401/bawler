@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.164 (deployed)
+**Current version:** v1.0.165 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -45,6 +45,15 @@
 - ✅ **"For you" ↔ Spotlight shared visual language** (v1.0.61) — corner radius (`0.75rem`, matching Spotlight/grid), padding rhythm (`px-2 py-1.5` edges + one uniform `flex-col gap-0.5`, replacing ad-hoc per-child margins), and label typography aligned between the two cards; each card's own height, background treatment, and content are untouched — Spotlight stays visibly taller/louder, "for you" stays a compact flat strip
 - ✅ **Contained swipe-carousel dot indicator** (`components/CarouselDots.tsx` + `lib/useCarouselIndex.ts`, v1.0.65) — replaces the native scrollbar thumb that used to render as a thin gray bar spanning the full scroll-container width (wider than any one card, so it overflowed past each card's rounded corners); small 5-6px dots now render below the card, bounded to that card's own width, muted gray inactive / accent-colored active (cyan hero + Spotlight, violet "for you"); renders nothing at all below 2 items. Applied to all 3 places this carousel pattern exists — hero, "for you", Spotlight; `.scrollbar-thin` itself is untouched elsewhere (Moments strip, mini-insights bar, table page, FollowSheet, etc.)
 - ✅ **Filter / personalization sheet** — see the Personalization section immediately below
+
+### Onboarding — v1.0.165
+
+- ✅ **First-run onboarding flow** (`/onboarding`, `components/onboarding/*`) — gamified, mock-data-only, independent of the real-data-integration work in progress. Shows exactly once to a genuinely new user (zero saved follow prefs AND onboarding not yet marked complete — see `lib/onboarding.ts`'s `shouldShowOnboarding()`); `app/page.tsx` redirects before the home feed renders, gated the same hydration-safe way as the page's existing boot skeleton so there's no content flash.
+- ✅ **Step 1 — team picker**: swipeable cards over a 16-team curated roster (10 IPL franchises + the 6 national sides with real schedule data), each showing a hand-authored `Team.funFact` line. Following a team surfaces a "real moment" card via a 4-tier fallback (live now -> upcoming within 14 days -> completed within 30 days -> skip entirely, no placeholder) that reuses `lib/teamSchedule.ts`'s existing lookup rather than reimplementing it. A one-time "who do you love to hate" rival prompt appears after the first team followed (asked once total for the whole session, regardless of pick-or-skip). Skipping the step with zero follows shows a blurred "Follow a team to unlock this" nudge, once per session.
+- ✅ **Step 2 — player picker**: players from followed teams' rosters, deduplicated strictly by `PLAYERS` registry id (never display name) and tagged with every followed-team affiliation a player has (e.g. "India · RCB · Batter"); search bar for anyone else. Same 4-tier-style real-moment card (live involvement, else most recent innings/spell, else skip) via `lib/onboardingPlayers.ts`'s `getPlayerMoment()`.
+- ✅ **Step 3 — cricket-personality quiz**: 3 either/or questions mapping to 6 fixed personas (Boundary Hunter, Bazball Believer, Momentum Chaser, Death-Over Closer, Test Purist, Session Reader) — this is the app's only format-preference input; the resulting tags write into the same shared `FollowPrefs.formats` field the Filter sheet already reads/writes, no second preference system. Native share sheet with pre-filled persona text (no custom image generation).
+- ✅ **Step 4 — reveal**: cosmetic "Building your feed..." transition, hard-capped at 2.2s regardless of how much was followed, referencing followed teams/players by name (capped at 3 combined names) — never a real blocking wait.
+- ✅ **Step 5 — first-session quest** (`components/FirstSessionQuest.tsx`): non-modal floating checklist on the home screen (follow a team — pre-checked from step 1's real outcome; open a live match; read a pitch report), each item checked off by a real app action anywhere in the app (loose triggers: any visit to a live match's page, any real `PitchReportCard` render), manually dismissible, auto-hides once all three are checked and the completion animation has played. localStorage-backed so progress survives an app close mid-checklist.
 
 ### Personalization (Filter / For You) — v1.0.52, v1.0.53, v1.0.56–v1.0.58, v1.0.63–v1.0.64
 
@@ -678,6 +687,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.163** | Info tab consolidation, platform-wide, presentation-only: venue name+city now shows once, folded into the Date & Time card's city line (bold venue name, comma, city); Match Context card simplified to at most two lines (toss, then narrative), team-names/tournament/venue lines removed as redundant; Pitch Report's Surface row de-boxed and grouped tightly with the stat-box row, no divider between them. No new data fields, no data restructuring (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.165)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.165** | First-run onboarding flow (gamified, mock-data-only, independent of the real-data-integration work in progress): a swipeable team-picker (16 curated teams, 4-tier real-moment fallback reusing `lib/teamSchedule.ts`) -> player picker (dedup strictly by `PLAYERS` registry id, multi-affiliation tagging) -> 3-question cricket-personality quiz (6 personas, doubles as the app's only format-preference input, written into the same shared `FollowPrefs.formats` field the Filter sheet uses) -> capped 2-3s cosmetic reveal -> floating first-session checklist (follow a team / open a live match / read a pitch report) that checks off on real app actions. Shows exactly once to a genuinely new user (zero follows AND onboarding not yet completed — the completion flag is what stops it reappearing for a user who skips every step) via a dedicated `/onboarding` route. 15/15 logic checks + 15/15 component smoke-renders passed via `npx tsx` against the real modules; real-browser interactive gesture/timing verification not performed this round (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.164)
 
