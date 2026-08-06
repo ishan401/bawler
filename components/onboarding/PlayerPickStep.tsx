@@ -33,7 +33,7 @@ export default function PlayerPickStep({
   markLockedPreviewShown,
 }: {
   followedTeams: Team[];
-  onComplete: () => void;
+  onComplete: (followedPlayerIds: string[]) => void;
   lockedPreviewShown: boolean;
   markLockedPreviewShown: () => void;
 }) {
@@ -84,12 +84,17 @@ export default function PlayerPickStep({
       setShowLockedPreview(true);
       markLockedPreviewShown();
     } else {
-      onComplete();
+      onComplete([...followedIds]);
     }
   }
 
   if (showLockedPreview) {
-    return <LockedPreview onGoBack={() => setShowLockedPreview(false)} onSkipAnyway={onComplete} />;
+    return (
+      <LockedPreview
+        onGoBack={() => setShowLockedPreview(false)}
+        onSkipAnyway={() => onComplete([...followedIds])}
+      />
+    );
   }
 
   return (

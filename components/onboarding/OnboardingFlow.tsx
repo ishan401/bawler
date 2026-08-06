@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Team } from "@/lib/types";
+import { PLAYERS } from "@/lib/mockData";
 import { markOnboardingComplete } from "@/lib/onboarding";
 import { initFirstSessionQuest } from "@/lib/firstSessionQuest";
 import TeamPickerStep from "./TeamPickerStep";
 import PlayerPickStep from "./PlayerPickStep";
 import QuizStep from "./QuizStep";
+import RevealStep from "./RevealStep";
 
 type Step = "teams" | "players" | "quiz" | "reveal";
 
@@ -38,6 +40,7 @@ export default function OnboardingFlow() {
   const [step, setStep] = useState<Step>("teams");
   const [teamsProgress, setTeamsProgress] = useState(0);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
+  const [followedPlayerIds, setFollowedPlayerIds] = useState<string[]>([]);
   const [lockedPreviewShown, setLockedPreviewShown] = useState(false);
 
   function finishOnboarding(anyTeamFollowed: boolean) {
@@ -68,7 +71,10 @@ export default function OnboardingFlow() {
             followedTeams={followedTeams}
             lockedPreviewShown={lockedPreviewShown}
             markLockedPreviewShown={() => setLockedPreviewShown(true)}
-            onComplete={() => setStep("quiz")}
+            onComplete={playerIds => {
+              setFollowedPlayerIds(playerIds);
+              setStep("quiz");
+            }}
           />
         )}
 
@@ -77,15 +83,13 @@ export default function OnboardingFlow() {
         )}
 
         {step === "reveal" && (
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="text-sm text-text-secondary">Reveal step -- next increment.</div>
-            <button
-              onClick={() => finishOnboarding(followedTeams.length > 0)}
-              className="text-xs font-bold px-4 py-2 rounded-full bg-cyan text-black"
-            >
-              (temporary) Finish onboarding
-            </button>
-          </div>
+          <RevealStep
+            teamNames={followedTeams.map(t => t.shortName)}
+            playerNames={followedPlayerIds
+              .map(id => PLAYERS[id]?.shortName)
+              .filter((n): n is string => Boolean(n))}
+            onDone={() => finishOnboarding(followedTeams.length > 0)}
+          />
         )}
       </div>
     </div>

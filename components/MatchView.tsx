@@ -27,6 +27,7 @@ import WinProbBadge from "@/components/WinProbBadge";
 import { getMatchupStats } from "@/lib/mockMatchups";
 import { deriveBattingCardFromBalls, deriveBowlingCardFromBalls, shouldRunMockSimulationTicker, countWicketEquivalentRetirements, appendMissingIdentities } from "@/lib/matchStatus";
 import { runGuarded } from "@/lib/pointerGuard";
+import { markQuestItem } from "@/lib/firstSessionQuest";
 
 interface MatchViewProps {
   match: Match;
@@ -55,6 +56,18 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const [selectedBallId, setSelectedBallId] = useState<string | null>(null);
   const [liveBallIdx, setLiveBallIdx] = useState(Math.max(0, allBalls.length - 1));
   const isLiveFollowing = selectedBallId === null;
+
+  // v1.0.165: first-session quest -- "open a live match" fires on any
+  // visit to a live match's page, regardless of which tab is active (the
+  // loose trigger this project's own onboarding build spec settled on,
+  // over a stricter "must switch to the Live tab specifically" bar).
+  // markQuestItem() itself is a no-op unless the quest is actually
+  // initialized and not yet marked done, so this is safe to call
+  // unconditionally on every mount, including for users who never went
+  // through onboarding at all.
+  useEffect(() => {
+    if (match.status === "live") markQuestItem("openLiveMatch");
+  }, [match.status]);
 
   // Auto-advance every BALL_DWELL_MS (24 sec), looping back into the last
   // ~10 balls once playback catches up — only when in live-follow mode AND

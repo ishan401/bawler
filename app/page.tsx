@@ -10,6 +10,7 @@ import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator
 import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
 import { PastMatchCard, FutureMatchCard, SpotlightMatchCard } from "@/components/MatchCard";
+import FirstSessionQuest from "@/components/FirstSessionQuest";
 import {
   emptyFollowPrefs,
   getFollowPrefs,
@@ -598,6 +599,12 @@ export default function Home() {
       <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
         Bawler {APP_VERSION_LABEL} · all data mocked
       </footer>
+
+      {/* v1.0.165: post-onboarding first-session checklist. Home-screen
+          only, by design (see FirstSessionQuest.tsx's own header comment)
+          -- fixed-position, non-modal, renders null on its own once
+          dismissed/complete/never-initialized. */}
+      <FirstSessionQuest />
     </main>
   );
 }
