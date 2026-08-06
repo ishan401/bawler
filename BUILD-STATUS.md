@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.165 (deployed)
+**Current version:** v1.0.166 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -49,7 +49,7 @@
 ### Onboarding — v1.0.165
 
 - ✅ **First-run onboarding flow** (`/onboarding`, `components/onboarding/*`) — gamified, mock-data-only, independent of the real-data-integration work in progress. Shows exactly once to a genuinely new user (zero saved follow prefs AND onboarding not yet marked complete — see `lib/onboarding.ts`'s `shouldShowOnboarding()`); `app/page.tsx` redirects before the home feed renders, gated the same hydration-safe way as the page's existing boot skeleton so there's no content flash.
-- ✅ **Step 1 — team picker**: swipeable cards over a 16-team curated roster (10 IPL franchises + the 6 national sides with real schedule data), each showing a hand-authored `Team.funFact` line. Following a team surfaces a "real moment" card via a 4-tier fallback (live now -> upcoming within 14 days -> completed within 30 days -> skip entirely, no placeholder) that reuses `lib/teamSchedule.ts`'s existing lookup rather than reimplementing it. A one-time "who do you love to hate" rival prompt appears after the first team followed (asked once total for the whole session, regardless of pick-or-skip). Skipping the step with zero follows shows a blurred "Follow a team to unlock this" nudge, once per session.
+- ✅ **Step 1 — team picker**: swipeable cards over a 16-team curated roster (10 IPL franchises + the 6 national sides with real schedule data), each showing a hand-authored `Team.funFact` line. Following a team surfaces a "real moment" card via a 4-tier fallback (live now -> upcoming within 14 days -> completed within 30 days -> skip entirely, no placeholder) that reuses `lib/teamSchedule.ts`'s existing lookup rather than reimplementing it. A one-time "who do you love to hate" rival prompt appears after the first team followed (asked once total for the whole session, regardless of pick-or-skip). Skipping the step with zero follows shows a blurred "Follow a team to unlock this" nudge, once per session. **v1.0.166**: added two always-visible tap buttons (heart = follow, X = skip) below the card stack -- a real-browser test found the swipe deck had no working follow control at all beyond drag/gesture, despite the spec requiring a tap alternative; the buttons call the same `SwipeCardHandle` swipe path a real drag already uses, so following now works with a single tap regardless of gesture support.
 - ✅ **Step 2 — player picker**: players from followed teams' rosters, deduplicated strictly by `PLAYERS` registry id (never display name) and tagged with every followed-team affiliation a player has (e.g. "India · RCB · Batter"); search bar for anyone else. Same 4-tier-style real-moment card (live involvement, else most recent innings/spell, else skip) via `lib/onboardingPlayers.ts`'s `getPlayerMoment()`.
 - ✅ **Step 3 — cricket-personality quiz**: 3 either/or questions mapping to 6 fixed personas (Boundary Hunter, Bazball Believer, Momentum Chaser, Death-Over Closer, Test Purist, Session Reader) — this is the app's only format-preference input; the resulting tags write into the same shared `FollowPrefs.formats` field the Filter sheet already reads/writes, no second preference system. Native share sheet with pre-filled persona text (no custom image generation).
 - ✅ **Step 4 — reveal**: cosmetic "Building your feed..." transition, hard-capped at 2.2s regardless of how much was followed, referencing followed teams/players by name (capped at 3 combined names) — never a real blocking wait.
@@ -687,6 +687,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.163** | Info tab consolidation, platform-wide, presentation-only: venue name+city now shows once, folded into the Date & Time card's city line (bold venue name, comma, city); Match Context card simplified to at most two lines (toss, then narrative), team-names/tournament/venue lines removed as redundant; Pitch Report's Surface row de-boxed and grouped tightly with the stat-box row, no divider between them. No new data fields, no data restructuring (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.166)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.166** | Fixed a real-browser-confirmed bug: onboarding step 1's swipeable team-picker had no working way to follow a team beyond drag/gesture -- no heart/check button existed at all, despite the spec requiring one. Root-caused live (not guessed): the missing button was the actual bug (`SwipeCard.tsx`'s own `registerHandle` prop, built for exactly this, was never wired up); real mouse-drag past the swipe threshold was separately confirmed to already work correctly, and a synthetic touch-event test from the bug report registered nothing only because untrusted, scripted `TouchEvent`s are never promoted to `PointerEvent`s by any browser -- not because real touchscreen input is broken. `TeamPickerStep.tsx` now renders two always-visible tap buttons that call the exact same swipe-handling code path a real drag already uses. Full real end-to-end re-verification on the redeployed live URL confirmed following via tap, the step-2 dedup fix, the live-tier opponent-naming fix, and both a full-follow and a full-skip path complete without error (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.165)
 

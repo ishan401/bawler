@@ -3395,3 +3395,23 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/types.ts`, `lib/followPrefs.ts`, `lib/mockData.ts` (16 in-place `funFact` fields), `lib/onboarding.ts`, `lib/firstSessionQuest.ts`, `lib/onboardingTeams.ts`, `lib/onboardingPlayers.ts`, `lib/onboardingQuiz.ts`, `lib/playerForm.ts` (`getLastInningsHeadline()`), `components/onboarding/*` (10 new files), `components/FirstSessionQuest.tsx`, `components/MatchView.tsx`, `components/InfoTab.tsx`, `app/onboarding/page.tsx`, `app/page.tsx`, `package.json` (version bump).
+
+## [1.0.166] 2026-08-06
+
+### Fixed: onboarding step 1 had no way to actually follow a team (tap-to-follow/skip buttons added)
+
+#### Context
+- Real-browser testing on the live v1.0.165 deploy found step 1's team picker had no working follow control at all -- no heart/check button existed anywhere despite the original spec requiring one as a swipe alternative, and `SwipeCard.tsx`'s own `registerHandle` prop (built for exactly this) was never wired up by its caller.
+
+#### Root cause (traced via live Chrome interaction, not guessed)
+- The missing button was the real bug. Separately confirmed real mouse-drag past the swipe threshold already works correctly and always did; a synthetic touchstart/touchmove/touchend sequence dispatched via JS produces zero pointer events in any browser (untrusted TouchEvents are never promoted to PointerEvents) -- explaining why that specific test in the original report registered nothing, without indicating the swipe gesture itself is broken for real touchscreen input.
+
+#### Changed -- `components/onboarding/TeamPickerStep.tsx`
+- Holds a ref to the active card's `SwipeCardHandle`; renders two always-visible buttons (X = skip, heart = follow) below the card stack that call `handle.swipeLeft()`/`swipeRight()` -- the same code path a real swipe already uses. Following now works with a single tap/click, no gesture dependency.
+
+#### Verified
+- Full real end-to-end run against the redeployed v1.0.166 live URL: followed India and RCB via tap (national + franchise, confirming the live-tier opponent-naming fix on screen for both), confirmed V Kohli's step-2 dedup row (IND · RCB, one row) live, completed the quiz to "Boundary Hunter," watched the reveal, confirmed the first-session checklist checked off via real actions and auto-dismissed correctly. Separately ran a full skip-everything path (locked-preview shown once, not repeated on step 2; quiz to a second persona "Test Purist"; safe landing on home feed, no crash).
+- `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched.
+
+#### Scope
+- `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump).
