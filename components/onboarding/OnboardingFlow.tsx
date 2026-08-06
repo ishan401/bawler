@@ -5,6 +5,7 @@ import type { Team } from "@/lib/types";
 import { markOnboardingComplete } from "@/lib/onboarding";
 import { initFirstSessionQuest } from "@/lib/firstSessionQuest";
 import TeamPickerStep from "./TeamPickerStep";
+import PlayerPickStep from "./PlayerPickStep";
 
 type Step = "teams" | "players" | "quiz" | "reveal";
 
@@ -36,6 +37,7 @@ export default function OnboardingFlow() {
   const [step, setStep] = useState<Step>("teams");
   const [teamsProgress, setTeamsProgress] = useState(0);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
+  const [lockedPreviewShown, setLockedPreviewShown] = useState(false);
 
   function finishOnboarding(anyTeamFollowed: boolean) {
     markOnboardingComplete();
@@ -50,6 +52,8 @@ export default function OnboardingFlow() {
         {step === "teams" && (
           <TeamPickerStep
             onProgress={(current, total) => setTeamsProgress(current / total)}
+            lockedPreviewShown={lockedPreviewShown}
+            markLockedPreviewShown={() => setLockedPreviewShown(true)}
             onComplete={teams => {
               setFollowedTeams(teams);
               setTeamsProgress(1);
@@ -59,11 +63,17 @@ export default function OnboardingFlow() {
         )}
 
         {step === "players" && (
+          <PlayerPickStep
+            followedTeams={followedTeams}
+            lockedPreviewShown={lockedPreviewShown}
+            markLockedPreviewShown={() => setLockedPreviewShown(true)}
+            onComplete={() => setStep("quiz")}
+          />
+        )}
+
+        {step === "quiz" && (
           <div className="flex flex-col items-center gap-4 text-center">
-            <div className="text-sm text-text-secondary">
-              Player picker step -- next increment. Followed {followedTeams.length} team
-              {followedTeams.length === 1 ? "" : "s"} so far.
-            </div>
+            <div className="text-sm text-text-secondary">Quiz step -- next increment.</div>
             <button
               onClick={() => finishOnboarding(followedTeams.length > 0)}
               className="text-xs font-bold px-4 py-2 rounded-full bg-cyan text-black"

@@ -503,6 +503,38 @@ function lastNDistinctMatches(player: PlayerProfile, format: PlayerFormatKey, n 
  * mock dataset genuinely records the same player's name two different
  * ways across different matches ("Virat Kohli" vs "V Kohli").
  */
+// ----------------------------------------------------------------------------
+// Onboarding real-moment headline (v1.0.165)
+// ----------------------------------------------------------------------------
+
+/**
+ * One-line summary of a player's single most recent recorded appearance
+ * (batting OR bowling, whichever actually happened last -- unlike
+ * getRecentForm()/pickMetric(), which scope to the player's ONE primary
+ * discipline for the graph). Built directly on extractPlayerEntries(),
+ * the same private per-appearance list every other function in this file
+ * already derives from -- no second, parallel match-lookup path. Returns
+ * `null` when the player has no real recorded appearance in this format
+ * at all, so the caller can skip the moment entirely rather than render
+ * an empty/placeholder line.
+ */
+export async function getLastInningsHeadline(
+  player: PlayerProfile,
+  format: PlayerFormatKey
+): Promise<string | null> {
+  const entries = extractPlayerEntries(player, format);
+  if (entries.length === 0) return null;
+  const last = entries[entries.length - 1]; // ascending-chronological -- last is most recent
+  const opponent = opponentName(last.match, last.playerTeamCode);
+  const dateLabel = formatDateLabel(last.startTimeIso);
+  const opponentClause = opponent ? ` vs ${opponent}` : "";
+  const dateClause = dateLabel ? `, ${dateLabel}` : "";
+  if (last.isBowling) {
+    return `${last.value} wkt${last.value === 1 ? "" : "s"}${opponentClause}${dateClause}`;
+  }
+  return `${last.value}${last.out ? "" : "*"} run${last.value === 1 ? "" : "s"}${opponentClause}${dateClause}`;
+}
+
 export async function getPlayerAchievements(
   player: PlayerProfile,
   format: PlayerFormatKey

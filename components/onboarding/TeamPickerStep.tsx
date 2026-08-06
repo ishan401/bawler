@@ -36,9 +36,17 @@ function setRivalTeam(team: Team) {
 export default function TeamPickerStep({
   onComplete,
   onProgress,
+  lockedPreviewShown,
+  markLockedPreviewShown,
 }: {
   onComplete: (followedTeams: Team[]) => void;
   onProgress: (current: number, total: number) => void;
+  /** Shared across BOTH step 1 and step 2 -- the locked-preview trade-off
+   * nudge is one moment in the whole onboarding session, not a per-step
+   * nag. See components/onboarding/OnboardingFlow.tsx, which owns this
+   * state and passes it to both steps. */
+  lockedPreviewShown: boolean;
+  markLockedPreviewShown: () => void;
 }) {
   const teams = useMemo(() => getOnboardingTeams(), []);
   const [index, setIndex] = useState(0);
@@ -46,7 +54,6 @@ export default function TeamPickerStep({
   const [moment, setMoment] = useState<TeamMoment | null>(null);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
   const [rivalAsked, setRivalAsked] = useState(false);
-  const [lockedPreviewSeen, setLockedPreviewSeen] = useState(false);
 
   const total = teams.length;
   const current = teams[index];
@@ -99,9 +106,9 @@ export default function TeamPickerStep({
    * this is "skip the ENTIRE step," distinct from an individual card's
    * left-swipe (handleSkip above). */
   function requestSkipStep() {
-    if (followedTeams.length === 0 && !lockedPreviewSeen) {
+    if (followedTeams.length === 0 && !lockedPreviewShown) {
       setPhase("locked-preview");
-      setLockedPreviewSeen(true);
+      markLockedPreviewShown();
     } else {
       onComplete(followedTeams);
     }
