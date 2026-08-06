@@ -1,4 +1,4 @@
-# Bawler — All Cricket, Every Ball, Visualized (v1.0.157)
+# Bawler — All Cricket, Every Ball, Visualized (v1.0.164)
 
 Live scores, ball-by-ball replays, win probability, and player stats across every format and competition.
 
@@ -91,7 +91,7 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 
 **Digest tab (finished-match path, `buildPostMatchDigest`):** the outcome is known, so the story is told retrospectively. Order: a compact lead-in (the same real/derived/pending result card as the live path's post-match summary), a single match-wide turning-point callout (the one ball with the largest win-probability swing across the WHOLE match, via `findTurningPoint`/`calculateWinProbForMatch` — omitted, not stubbed, when there's no ball data), a whole-match performance card (best bat/bowl across all innings, via `computeMatchTopPerformers`), then the existing day/session or over-group cards with one retrospective sentence appended per card (`applyRetrospectiveFraming` — additive only, never touches `buildNarrative`/`buildOverSummary`/`buildDayReport` or their existing anti-repeat indexing). Matches with `innings.length === 0` (7 of the 12 current Past records) get a `SimpleRecapCard` instead — final score from `match.result`'s teamA/B fields plus the existing one-line summary, explicitly labeled "Simple recap," never styled like an empty/broken Digest.
 
-**Info tab:** Pitch report card (surface, sliders, expected score, dew), lineups side-by-side.
+**Info tab:** Date & Time card (venue name + city, local/UTC time, competition/match number, live/upcoming countdown badge) and Weather card (condition, temp, humidity, wind, rain-risk warning) side by side. Match Context card, slimmed as of v1.0.163 to just toss (once it's happened) and narrative summary (when one exists) — the old team-names/venue header line was dropped since venue now lives in the Date & Time card and teams/score already live in the sticky ScoreBar above every tab. Pitch report card: surface type tag, a compact row of `StatCell` boxes (one per rating stat that has a value — pace/spin/bounce-friendly, avg 1st-innings score, dew factor) with a per-match dynamic column count (v1.0.160/161, replacing the old fixed sliders + a predictive expected-score range), then behaviour bullets. Squads section with lineups side-by-side.
 
 ---
 

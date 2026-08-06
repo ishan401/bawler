@@ -103,7 +103,7 @@
 ### Match page — Live tab
 
 - ✅ Sticky header — score bar + mini-insights bar + tab strip
-- ✅ Mini-insights bar — RRR, last 12 balls, current bowler figures, top scorer
+- ✅ **Mini-insights bar** (`MiniInsightsBar.tsx`) — 3 chips: striker (runs/balls), non-striker (runs/balls), current bowler (wickets/runs conceded, cyan at 2+ wickets). The earlier RRR/last-12-balls/top-scorer version of this bar was superseded (win-prob chip moved to MatchupCard's teaser row in v1.0.121; see that bullet below). **v1.0.164**: the bowler chip's lookup now matches via `samePlayer(id, name, entryId, entryName)` (the same id-or-name union predicate used for every other ball-to-card join) instead of fragile `.includes()` substring matching, and falls back to `deriveBowlingCardFromBalls()` when the lookup still misses — mirroring the batter chips' existing balls-derived fallback — so the chip can no longer silently disappear on a name-format mismatch between `bowlingCard` and ball data.
 - ✅ **Book page-turn animation** — 3D rotateY + translateX on tab switch (swipe or tap); direction-aware
 - ✅ **Swipe between tabs** — left = forward, right = backward; ignores vertical swipes
 - ✅ **Score event badge** — red pulsing dot (wicket) or teal dot (six) on Scorecard tab; clears after 4s
@@ -163,9 +163,11 @@
 
 ### Match page — Info tab
 
-- ✅ Match context (toss, teams, season)
-- ✅ Pitch report card — surface type, 3 sliders, expected score range, dew factor, behaviour bullets. Keyed per-match (not per-venue) since v1.0.154, and every one of the 29 matches has its own report as of v1.0.156 (previously only 5 IPL matches did, sharing one report per venue). Structured fields (sliders/score/dew) are optional since v1.0.155 -- the card omits a section entirely rather than showing a blank value when a field is absent, used deliberately for both Test-match entries.
-- ✅ Lineups — both team squads side-by-side (innings lookup by `battingTeam`, not positional array index)
+- ✅ **Date & Time card** (v1.0.163) — date, local + UTC time, live/upcoming countdown badge, competition + match number, and venue name + city (folded in from the old Match Context header line)
+- ✅ **Weather card** — condition icon, temp, humidity, wind, rain-chance, with a rain-risk warning badge/footer once rain chance hits 30%+
+- ✅ **Match Context card** (slimmed v1.0.163) — just toss (once it's happened) and narrative summary (when one exists); the old team-names/competition header line and venue line were dropped as redundant with the sticky ScoreBar and the new Date & Time card
+- ✅ Pitch report card — surface type tag, then a compact row of `StatCell` boxes (v1.0.160, replacing the old 3 sliders + predictive expected-score range) — one box per rating stat that actually has a value (pace/spin/bounce-friendly, avg 1st-innings score, dew factor), with a per-match dynamic column count (v1.0.161, fixed a fixed-4-column layout bug) — then behaviour bullets. Keyed per-match (not per-venue) since v1.0.154, and every one of the 29 matches has its own report as of v1.0.156 (previously only 5 IPL matches did, sharing one report per venue). Structured fields are optional since v1.0.155 -- the card omits a box entirely rather than showing a blank value when a field is absent, used deliberately for both Test-match entries.
+- ✅ **Squads section** — both team lineups side-by-side (innings lookup by `battingTeam`, not positional array index)
 
 
 ### Platform-wide franchise agnosticism
