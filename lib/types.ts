@@ -66,6 +66,14 @@ export interface Team {
   flagEmoji?: string;       // "🇮🇳" — shown next to national team names
   country?: string;         // ISO 3-letter: "IND", "AUS" — for national teams
   squad?: string[];         // current squad — 11-15 player short-names
+  // v1.0.165: hand-authored editorial one-liner for the onboarding
+  // team-picker card (e.g. "38.4M fans follow this team"). Deliberately
+  // NOT derived from any real or mock analytics -- there is no follower-
+  // count data anywhere in this app, real or fake, and this field must
+  // never be wired up to pretend there is. Optional because only the
+  // curated subset of teams actually offered in onboarding need one;
+  // every other team simply omits it. Read only by the onboarding flow.
+  funFact?: string;
 }
 
 export interface Player {

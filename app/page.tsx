@@ -10,6 +10,7 @@ import { generatePastMatches, generateFutureMatches } from "@/lib/matchGenerator
 import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
 import { PastMatchCard, FutureMatchCard, SpotlightMatchCard } from "@/components/MatchCard";
+import FirstSessionQuest from "@/components/FirstSessionQuest";
 import {
   emptyFollowPrefs,
   getFollowPrefs,
@@ -29,6 +30,8 @@ import { APP_VERSION_LABEL } from "@/lib/version";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
 import CarouselDots from "@/components/CarouselDots";
 import YourPlayersStrip from "@/components/YourPlayersStrip";
+import { useRouter } from "next/navigation";
+import { shouldShowOnboarding } from "@/lib/onboarding";
 
 // ── Popularity sort ──────────────────────────────────────────────────────────
 const COMP_POP: Record<string, number> = {
@@ -160,6 +163,27 @@ export default function Home() {
     const t = setTimeout(() => setIsBooting(false), 350);
     return () => clearTimeout(t);
   }, []);
+
+  // ---- First-run onboarding redirect ----
+  // A brand-new user (zero saved follow preferences, onboarding not yet
+  // completed) gets sent to /onboarding instead of ever seeing the home
+  // feed. This check has to resolve BEFORE the home feed is allowed to
+  // render at all -- otherwise a new user would see a flash of the real
+  // feed for one frame before being yanked away to /onboarding. So
+  // `redirectPending` starts true and gates rendering the same way
+  // `isBooting` does (see the two `isBooting ? <Skeleton/> : ...` render
+  // gates below), and only flips to false when we've confirmed onboarding
+  // should NOT be shown. If it should be shown, it never flips back to
+  // false at all -- router.replace() navigates away before it matters.
+  const router = useRouter();
+  const [redirectPending, setRedirectPending] = useState(true);
+  useEffect(() => {
+    if (shouldShowOnboarding()) {
+      router.replace("/onboarding");
+    } else {
+      setRedirectPending(false);
+    }
+  }, [router]);
 
   // ---- Pull-to-refresh ----
   const [pullY, setPullY] = useState(0);
@@ -462,7 +486,7 @@ export default function Home() {
           that reconciliation is what was making the Filter button (and
           anything else on the page) unresponsive for the first click or
           two while React quietly repaired itself. */}
-      {isBooting ? (
+      {isBooting || redirectPending ? (
         <HeroSkeleton />
       ) : (
         <>
@@ -547,7 +571,7 @@ export default function Home() {
         </>
       )}
 
-      {isBooting ? (
+      {isBooting || redirectPending ? (
         <SkeletonColumns />
       ) : (
         <section className="mt-4 px-3">
@@ -598,6 +622,12 @@ export default function Home() {
       <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
         Bawler {APP_VERSION_LABEL} · all data mocked
       </footer>
+
+      {/* v1.0.165: post-onboarding first-session checklist. Home-screen
+          only, by design (see FirstSessionQuest.tsx's own header comment)
+          -- fixed-position, non-modal, renders null on its own once
+          dismissed/complete/never-initialized. */}
+      <FirstSessionQuest />
     </main>
   );
 }

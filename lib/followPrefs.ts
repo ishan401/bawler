@@ -32,15 +32,27 @@ export interface FollowPrefs {
   series: string[];
   players: string[];
   formats: MatchFormat[];
+  // v1.0.165: one purely-for-fun "rival" team code, captured by the
+  // onboarding flow's "Who do you love to hate?" prompt. Never a
+  // follow signal itself -- qualifyMatch()/getForYouReason() below must
+  // never read this field, it exists only to enrich future rivalry-
+  // framing copy elsewhere in the app. A single Team.code (national or
+  // franchise), or undefined if never set/skipped.
+  rivalTeam?: string;
 }
 
-export type FollowCategory = keyof FollowPrefs;
+// rivalTeam is deliberately excluded -- it is not one of the six real
+// Filter-sheet categories (buildOptions() in FollowSheet.tsx switches
+// exhaustively over FollowCategory, and rivalTeam has no corresponding
+// UI section there, by design -- it's only ever set by onboarding's
+// one-tap "who do you love to hate?" prompt).
+export type FollowCategory = Exclude<keyof FollowPrefs, "rivalTeam">;
 
 const STORAGE_KEY = "bawler:followPrefs";
 const CHANGE_EVENT = "bawler:follow-prefs-changed";
 
 export function emptyFollowPrefs(): FollowPrefs {
-  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [] };
+  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [], rivalTeam: undefined };
 }
 
 // ----------------------------------------------------------------------------
@@ -85,6 +97,11 @@ function validPlayerIds(): Set<string> {
 }
 const VALID_FORMATS = new Set<MatchFormat>(["T20", "T20I", "ODI", "Test", "Hundred"]);
 
+function validRivalTeamCode(code: string | undefined): string | undefined {
+  if (!code) return undefined;
+  return Object.values(ALL_TEAMS).some(t => t.code === code) ? code : undefined;
+}
+
 export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
   const nations = validNationIds();
   const teams = validTeamIds();
@@ -98,6 +115,7 @@ export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
     series: prefs.series.filter(id => series.has(id)),
     players: prefs.players.filter(id => players.has(id)),
     formats: prefs.formats.filter(f => VALID_FORMATS.has(f)),
+    rivalTeam: validRivalTeamCode(prefs.rivalTeam),
   };
 }
 
@@ -114,7 +132,8 @@ function prefsEqual(a: FollowPrefs, b: FollowPrefs): boolean {
     a.tournaments.every(id => b.tournaments.includes(id)) &&
     a.series.every(id => b.series.includes(id)) &&
     a.players.every(id => b.players.includes(id)) &&
-    a.formats.every(f => b.formats.includes(f))
+    a.formats.every(f => b.formats.includes(f)) &&
+    (a.rivalTeam ?? null) === (b.rivalTeam ?? null)
   );
 }
 

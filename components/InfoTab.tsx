@@ -1,8 +1,10 @@
 "use client";
+import { useEffect } from "react";
 import type { Match } from "@/lib/types";
 import PitchReportCard from "./PitchReportCard";
 import LineupsCard from "./LineupsCard";
 import { PITCH_REPORTS } from "@/lib/pitchReports";
+import { markQuestItem } from "@/lib/firstSessionQuest";
 
 // ── Mock weather by city ──────────────────────────────────────────────────────
 const CITY_WEATHER: Record<string, { icon: string; condition: string; tempC: number; humidity: number; windKmh: number; rainChance: number }> = {
@@ -133,6 +135,16 @@ interface InfoTabProps {
 
 export default function InfoTab({ match }: InfoTabProps) {
   const pitch = PITCH_REPORTS[match.id];
+
+  // v1.0.165: first-session quest -- "read a pitch report" fires the
+  // moment a real pitch report actually renders for this match (loose
+  // trigger, same rationale as MatchView.tsx's "open a live match" --
+  // no dwell-time/scroll requirement). Never fires for a match with no
+  // pitch report at all (`pitch` is undefined), so it can't be satisfied
+  // by visiting a match that never had anything to read.
+  useEffect(() => {
+    if (pitch) markQuestItem("readPitchReport");
+  }, [pitch]);
   const weather = CITY_WEATHER[match.venue.city] ?? DEFAULT_WEATHER;
   const rain = getRainLabel(weather.rainChance);
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
