@@ -1,9 +1,9 @@
 "use client";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import type { Team } from "@/lib/types";
 import { getOnboardingTeams, getTeamMoment, isNationalTeam, followIdFor, type TeamMoment } from "@/lib/onboardingTeams";
 import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
-import SwipeCard from "./SwipeCard";
+import SwipeCard, { type SwipeCardHandle } from "./SwipeCard";
 import TeamCard from "./TeamCard";
 import TeamMomentCard from "./TeamMomentCard";
 import RivalPrompt from "./RivalPrompt";
@@ -54,6 +54,22 @@ export default function TeamPickerStep({
   const [moment, setMoment] = useState<TeamMoment | null>(null);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
   const [rivalAsked, setRivalAsked] = useState(false);
+  // Bug fix (post-v1.0.165 live-browser report): the swipe gesture itself
+  // works correctly (confirmed via real Chrome mouse-drag testing -- a
+  // drag past SWIPE_THRESHOLD_PX genuinely calls onSwipeRight/onSwipeLeft
+  // through real trusted PointerEvents), but there was NO tap-based
+  // affordance at all -- SwipeCard's own `registerHandle` prop exists
+  // specifically for "lets the parent trigger a swipe programmatically
+  // (heart/X buttons)" per its own doc comment, but this file never
+  // wired it up, so a user who doesn't drag far enough (or can't/won't
+  // drag at all) had no way to follow a team, despite the original spec
+  // explicitly requiring "swipe right OR tap a heart/check button." This
+  // ref holds the currently-active (top) card's imperative handle so the
+  // two always-visible buttons below can call the exact same
+  // runExit()-driven follow/skip path a real swipe uses -- no duplicated
+  // follow/skip logic, and this now works with zero dependency on
+  // gesture support at all.
+  const activeHandleRef = useRef<SwipeCardHandle | null>(null);
 
   const total = teams.length;
   const current = teams[index];
@@ -143,34 +159,64 @@ export default function TeamPickerStep({
       </div>
 
       {phase === "card" && (
-        <div className="relative h-[420px]">
-          {[2, 1, 0].map(offset => {
-            const t = teams[index + offset];
-            if (!t) return null;
-            const isTop = offset === 0;
-            const scale = 1 - offset * 0.04;
-            const translateY = offset * 10;
-            return (
-              <div
-                key={t.code}
-                className="absolute inset-0"
-                style={{
-                  transform: `translateY(${translateY}px) scale(${scale})`,
-                  zIndex: 10 - offset,
-                  opacity: offset === 2 ? 0.5 : offset === 1 ? 0.75 : 1,
-                }}
-              >
-                <SwipeCard
-                  active={isTop}
-                  onSwipeRight={() => handleFollow(t)}
-                  onSwipeLeft={() => handleSkip(t)}
+        <>
+          <div className="relative h-[420px]">
+            {[2, 1, 0].map(offset => {
+              const t = teams[index + offset];
+              if (!t) return null;
+              const isTop = offset === 0;
+              const scale = 1 - offset * 0.04;
+              const translateY = offset * 10;
+              return (
+                <div
+                  key={t.code}
+                  className="absolute inset-0"
+                  style={{
+                    transform: `translateY(${translateY}px) scale(${scale})`,
+                    zIndex: 10 - offset,
+                    opacity: offset === 2 ? 0.5 : offset === 1 ? 0.75 : 1,
+                  }}
                 >
-                  <TeamCard team={t} />
-                </SwipeCard>
-              </div>
-            );
-          })}
-        </div>
+                  <SwipeCard
+                    active={isTop}
+                    onSwipeRight={() => handleFollow(t)}
+                    onSwipeLeft={() => handleSkip(t)}
+                    registerHandle={isTop ? h => { activeHandleRef.current = h; } : undefined}
+                  >
+                    <TeamCard team={t} />
+                  </SwipeCard>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Always-visible tap controls -- work with zero dependency on
+              swipe/drag gesture support, per the explicit requirement that
+              a single tap must follow a team "full stop." Calls the exact
+              same SwipeCardHandle.swipeLeft/swipeRight a real drag would
+              trigger, so there is exactly one follow/skip code path. */}
+          <div className="flex items-center justify-center gap-8 pt-2">
+            <button
+              onClick={() => activeHandleRef.current?.swipeLeft()}
+              aria-label="Skip this team"
+              className="w-14 h-14 rounded-full border-2 border-negative text-negative flex items-center justify-center tap-scale"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="5" y1="5" x2="19" y2="19" />
+                <line x1="19" y1="5" x2="5" y2="19" />
+              </svg>
+            </button>
+            <button
+              onClick={() => activeHandleRef.current?.swipeRight()}
+              aria-label="Follow this team"
+              className="w-14 h-14 rounded-full border-2 border-boundary text-boundary flex items-center justify-center tap-scale"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path d="M12 21s-6.716-4.35-9.428-8.06C.86 10.42 1.2 6.9 3.76 5.06 6.02 3.44 8.9 4.1 10.6 6.2L12 7.9l1.4-1.7c1.7-2.1 4.58-2.76 6.84-1.14 2.56 1.84 2.9 5.36 1.19 7.88C18.716 16.65 12 21 12 21z" />
+              </svg>
+            </button>
+          </div>
+        </>
       )}
 
       {phase === "moment" && moment && (
