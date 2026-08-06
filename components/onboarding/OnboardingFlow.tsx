@@ -6,6 +6,7 @@ import { markOnboardingComplete } from "@/lib/onboarding";
 import { initFirstSessionQuest } from "@/lib/firstSessionQuest";
 import TeamPickerStep from "./TeamPickerStep";
 import PlayerPickStep from "./PlayerPickStep";
+import QuizStep from "./QuizStep";
 
 type Step = "teams" | "players" | "quiz" | "reveal";
 
@@ -72,8 +73,12 @@ export default function OnboardingFlow() {
         )}
 
         {step === "quiz" && (
+          <QuizStep onComplete={() => setStep("reveal")} />
+        )}
+
+        {step === "reveal" && (
           <div className="flex flex-col items-center gap-4 text-center">
-            <div className="text-sm text-text-secondary">Quiz step -- next increment.</div>
+            <div className="text-sm text-text-secondary">Reveal step -- next increment.</div>
             <button
               onClick={() => finishOnboarding(followedTeams.length > 0)}
               className="text-xs font-bold px-4 py-2 rounded-full bg-cyan text-black"
