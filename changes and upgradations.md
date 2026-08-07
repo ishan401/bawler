@@ -3481,3 +3481,19 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/onboarding/TeamPickerStep.tsx`, `components/PlayerProfileView.tsx`, `components/YourPlayersStrip.tsx`, `package.json` (version bump).
+
+## [1.0.170] 2026-08-07
+
+### Fixed: onboarding follow button changed from solid fill to outline, matching the X button's visual weight
+
+#### Context
+- v1.0.169 gave the onboarding follow button a solid cyan fill. Next to the outline-only X/skip button, the filled button looked pre-selected even though neither option has been chosen yet at that point in the flow.
+
+#### Changed -- `components/onboarding/TeamPickerStep.tsx`
+- Follow button: solid `bg-cyan` fill -> `border-2 border-cyan text-cyan`, transparent background, matching the X button's exact border weight and treatment. Checkmark icon now strokes `currentColor` (cyan) instead of the dark `#0A0E1A` used when there was a cyan fill behind it. Same `#00E5FF` value, no new color. Size/position/tap logic unchanged.
+
+#### Verified
+- Two team cards checked: X and follow buttons render with equal visual weight, neither pre-selected. Tapping follow still correctly registers the team in `followPrefs`. Player-profile follow button and FollowSheet checkboxes confirmed untouched. `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched.
+
+#### Scope
+- `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump).

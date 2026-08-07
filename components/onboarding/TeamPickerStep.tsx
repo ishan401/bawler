@@ -206,22 +206,26 @@ export default function TeamPickerStep({
                 <line x1="19" y1="5" x2="5" y2="19" />
               </svg>
             </button>
-            {/* v1.0.169: cyan-fill + checkmark, not green heart -- unifying
-                every "follow" affordance platform-wide onto the FollowSheet's
-                own selected-state styling (bg #00E5FF, the same checkmark
-                path/viewBox as CheckIndicator in components/FollowSheet.tsx).
-                Stroke is #0A0E1A (the `bg` design token), matching
-                CheckIndicator's actual color -- not white -- since that
-                dark-on-cyan pairing is this codebase's one deliberate
-                legibility convention for a mark on top of a cyan fill. Size/
-                position/tap target and the X (skip) button are unchanged. */}
+            {/* v1.0.169: cyan checkmark, not green heart -- unifying every
+                "follow" affordance platform-wide onto the FollowSheet's own
+                selected-state color (#00E5FF, the same checkmark path/
+                viewBox as CheckIndicator in components/FollowSheet.tsx).
+                v1.0.170: switched from a solid cyan fill to an outline-only
+                treatment (border-2 border-cyan text-cyan, transparent
+                background, same border-2 weight as the X button next to
+                it) -- this card presents skip/follow as two equally-weighted,
+                not-yet-chosen options, so a solid-filled button here read as
+                already-selected before the user had tapped anything. Border
+                and icon both reuse the same #00E5FF value, no new color
+                introduced. Size/position/tap target and the X (skip) button
+                are unchanged. */}
             <button
               onClick={() => activeHandleRef.current?.swipeRight()}
               aria-label="Follow this team"
-              className="w-14 h-14 rounded-full bg-cyan flex items-center justify-center tap-scale"
+              className="w-14 h-14 rounded-full border-2 border-cyan text-cyan flex items-center justify-center tap-scale"
             >
-              <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
-                <path d="M3 8.5L6.2 12L13 4" stroke="#0A0E1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8.5L6.2 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
