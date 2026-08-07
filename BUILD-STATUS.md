@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.168 (deployed)
+**Current version:** v1.0.169 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -681,6 +681,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.162** | Fixed cross-match insight-card bleed: `InsightV2` had no `matchId`, so `MOCK_INSIGHTS_V2`'s single shared 14-entry pool rendered on every match's Live tab regardless of which match was open (PSL and KKR/MI content confirmed bleeding into `ind-aus-t20i-2026-m2-live` and `ind-eng-test-2026-d3-live`). `matchId: string` is now required on `InsightV2`; all 14 existing entries tagged with their verified real match id (none deleted, none guessed); `MatchView.tsx`'s `visibleInsights` now gates on `insight.matchId === match.id` as the primary filter, with ball-level scoping applied only on top of that (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.169)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.169** | Unified the "follow" icon/color across the platform onto one convention: a solid cyan (`#00E5FF`) circle with a dark (`#0A0E1A`) checkmark, matching `FollowSheet.tsx`'s own `CheckIndicator` (its checked-checkbox fill/checkmark), which stays completely unchanged as the reference. Onboarding team-picker's follow button: outlined green heart -> solid cyan circle + checkmark (X/skip button untouched). Player profile follow button: amber (`#FBBF24`) filled star / neutral star outline -> cyan-filled checkmark / neutral outline checkmark. Also fixed the homepage "Your Players" strip's favourited-player badge (amber star emoji -> cyan checkmark), found via a platform-wide audit for any other heart/star/thumbs-up "followed" indicator (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.168)
 

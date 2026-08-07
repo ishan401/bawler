@@ -310,15 +310,23 @@ export default function PlayerProfileView({ player }: Props) {
               followed "Players" filter selection if not already there
               (see lib/playerFavourites.ts's toggleFavouritePlayer), so
               they're guaranteed to appear in the homepage "Your Players"
-              strip the moment they're favourited, not just eventually. */}
+              strip the moment they're favourited, not just eventually.
+              v1.0.169: cyan-fill + checkmark, not amber star -- unifying
+              every "follow" affordance platform-wide onto the FollowSheet's
+              own selected-state styling. Unfavourited state keeps the same
+              neutral `currentColor` outline the star used, just swapped to
+              a checkmark-outline glyph. Favourited state uses the same
+              #00E5FF fill + #0A0E1A checkmark path/viewBox as CheckIndicator
+              in components/FollowSheet.tsx. Size/position/tap target and
+              the toggle logic are unchanged. */}
           <button
             onClick={handleToggleFavourite}
-            className="tap-scale flex items-center justify-center w-8 h-8 rounded-full bg-surface border border-line shrink-0"
+            className={`tap-scale flex items-center justify-center w-8 h-8 rounded-full border border-line shrink-0 ${isFavourited ? "bg-cyan" : "bg-surface"}`}
             aria-label={isFavourited ? "Remove from favourites" : "Add to favourites"}
             aria-pressed={isFavourited}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={isFavourited ? "#FBBF24" : "none"} stroke={isFavourited ? "#FBBF24" : "currentColor"} strokeWidth="1.75">
-              <path d="M12 2.5l3.09 6.26 6.91 1.01-5 4.87 1.18 6.88L12 18.27l-6.18 3.25 1.18-6.88-5-4.87 6.91-1.01L12 2.5z" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8.5L6.2 12L13 4" stroke={isFavourited ? "#0A0E1A" : "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           {/* Role badge */}

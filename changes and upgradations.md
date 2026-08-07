@@ -3456,3 +3456,28 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/useTabSwitcher.ts` (new), `components/MatchView.tsx`, `components/PageTransition.tsx`, `components/PlayerProfileView.tsx`, `app/schedule/page.tsx`, `components/FollowSheet.tsx`, `components/DigestTab.tsx`, `package.json` (version bump).
+
+## [1.0.169] 2026-08-07
+
+### Fixed: unified the "follow" icon/color across the platform onto a cyan checkmark
+
+#### Context
+- The platform used three different icons/colors for the same "follow" action: an outlined green heart (onboarding team-picker), an amber filled/outline star (player profile), and a cyan checkmark (the Filter/Follow sheet's checked checkboxes). The sheet's checkboxes were correct as the reference and left untouched.
+
+#### Premise correction
+- The fix request assumed the FollowSheet's checkmark was white; direct inspection showed it's actually `#0A0E1A` (the dark `bg` token), a deliberate legibility choice documented in that component's own comments. Confirmed with the user to reuse the real value rather than a literal white.
+
+#### Changed -- `components/onboarding/TeamPickerStep.tsx`
+- Follow button: outlined green heart -> solid `#00E5FF` circle with the FollowSheet's exact checkmark glyph, stroked `#0A0E1A`. Same size/position; X (skip) button unchanged; follow logic untouched.
+
+#### Changed -- `components/PlayerProfileView.tsx`
+- Favourite-player toggle: amber star (filled/outline) -> checkmark glyph, cyan-filled when favourited, neutral-outline when not. Same size/position; toggle logic untouched.
+
+#### Changed -- `components/YourPlayersStrip.tsx`
+- Found via platform audit: the homepage "Your Players" strip's favourited-player badge (amber `⭐` emoji) swapped to the same cyan-fill + dark-checkmark badge for consistency.
+
+#### Verified
+- Audited the rest of the codebase for other heart/star/thumbs-up "follow" affordances: none found beyond the three above (one existing text-based follow pill was already cyan and out of scope). `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched. `FollowSheet.tsx` itself confirmed unchanged.
+
+#### Scope
+- `components/onboarding/TeamPickerStep.tsx`, `components/PlayerProfileView.tsx`, `components/YourPlayersStrip.tsx`, `package.json` (version bump).
