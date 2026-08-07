@@ -16,6 +16,7 @@ import {
   type SeriesSummary,
 } from "@/lib/teamSchedule";
 import ScheduleRow, { fmtDate } from "@/components/ScheduleRow";
+import { useTabSwitcher } from "@/lib/useTabSwitcher";
 
 // ============================================================================
 // Schedule tab — v1.0.110, simplified v1.0.111, "All" re-grouped by series
@@ -84,15 +85,28 @@ export default function SchedulePage() {
   }, []);
 
   const teamCodes = useMemo(() => myTeamCodes(followPrefs), [followPrefs]);
-  const [activeTab, setActiveTab] = useState<string>("all");
+  // Bug fix (platform-wide tab/view-switch audit, post-v1.0.167): switching
+  // between "All" and a team tab never reset this page's own scroll
+  // position -- scrolled deep into one team's matches, then tapping
+  // another (much shorter) team's tab left you at that same offset,
+  // usually well past the end of the new tab's content. useTabSwitcher
+  // (lib/useTabSwitcher.ts) resets `window` scroll synchronously on every
+  // genuine switch; this page has no inner overflow-y-auto container
+  // (confirmed -- it's a plain min-h-screen page), so no scrollContainerRef
+  // is needed. No `order` either -- this tab row has no directional
+  // animation to derive one for.
+  const { activeTab, switchTab } = useTabSwitcher<string>("all");
 
   // If the active tab's team gets unfollowed, fall back to "All" instead
-  // of silently showing a narrowed-but-now-meaningless view.
+  // of silently showing a narrowed-but-now-meaningless view. This is a
+  // genuine view change (the visible content really does switch to "All"),
+  // so it goes through switchTab -- not a silent hydration-safe restore --
+  // and correctly resets scroll along with it.
   useEffect(() => {
     if (activeTab !== "all" && !teamCodes.includes(activeTab)) {
-      setActiveTab("all");
+      switchTab("all");
     }
-  }, [teamCodes, activeTab]);
+  }, [teamCodes, activeTab, switchTab]);
 
   const { entries, seriesGroups, loading } = useScheduleTab(activeTab);
   const isAllTab = activeTab === "all";
@@ -149,13 +163,13 @@ export default function SchedulePage() {
           components/MatchTabs.tsx) since the number of team tabs is
           unbounded -- a user could follow a dozen teams. */}
       <div className="px-4 flex items-stretch gap-4 overflow-x-auto no-scrollbar border-b border-line">
-        <TabButton label="All" active={isAllTab} onClick={() => setActiveTab("all")} />
+        <TabButton label="All" active={isAllTab} onClick={() => switchTab("all")} />
         {tabTeams.map(team => (
           <TabButton
             key={team.code}
             label={team.shortName}
             active={activeTab === team.code}
-            onClick={() => setActiveTab(team.code)}
+            onClick={() => switchTab(team.code)}
           />
         ))}
       </div>

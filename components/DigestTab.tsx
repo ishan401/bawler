@@ -22,6 +22,7 @@ import { formatPlayerName } from "@/lib/playerName";
 import { NarrativeThresholds, DEFAULT_NARRATIVE_THRESHOLDS, getNarrativeThresholds } from "@/lib/narrativeThresholds";
 import { calculateWinProbForMatch, totalBallsForFormat } from "@/lib/winProb";
 import { isMatchConclusivelyOver } from "@/lib/matchStatus";
+import { useScrollResetOnChange } from "@/lib/useTabSwitcher";
 import PlayerAvatar from "./PlayerAvatar";
 
 // ============================================================================
@@ -2145,6 +2146,21 @@ export default function DigestTab({ match, allBalls }: Props) {
 
   const activeDay     = selectedDay     ?? latestDay;
   const activeInnings = selectedInnings ?? latestInnings;
+
+  // Day/innings pills are a tab-switcher: picking a new day or innings
+  // swaps which cards are visible below, just like MatchView's Live/Score/
+  // Digest/Info tabs swap the whole panel. `activeDay`/`activeInnings`
+  // aren't local click-driven state though -- they're derived (an explicit
+  // user pick if one exists, else whichever day/innings currently has the
+  // latest data), and that "latest" half can change on its own as new
+  // session/over-group cards arrive live, with no click or swipe involved.
+  // That's exactly the case useScrollResetOnChange (lib/useTabSwitcher.ts)
+  // exists for -- same as PageTransition.tsx's externally-driven pathname
+  // -- so this reuses that one shared reset implementation instead of
+  // hand-rolling a scrollTo/effect here. It fires on every real change of
+  // the active day/innings (click OR live auto-advance), never on an
+  // in-place refresh that leaves the active one unchanged.
+  useScrollResetOnChange(isTest ? `digest-day-${activeDay}` : `digest-inn-${activeInnings}`);
 
   // Filter cards by selected day (Test) or innings (non-Test)
   const visibleCards = useMemo(() => {

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import BottomSheet from "./BottomSheet";
+import { useTabSwitcher } from "@/lib/useTabSwitcher";
 import { NATIONAL_TEAMS, ALL_TEAMS, COMPETITIONS, PLAYERS } from "@/lib/mockData";
 import type { MatchFormat } from "@/lib/types";
 import { getTeamMembershipStatus, type MembershipStatus } from "@/lib/teamData";
@@ -55,6 +56,8 @@ const CATEGORY_META: { key: FollowCategory; label: string }[] = [
   { key: "players", label: "Players" },
   { key: "formats", label: "Formats" },
 ];
+
+const CATEGORY_ORDER: FollowCategory[] = CATEGORY_META.map(c => c.key);
 
 // ============================================================================
 // Nations sort: full ICC members first, associates after -- v1.0.116
@@ -231,7 +234,17 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
   // sheet opens, so re-opening shows current follows, and backing out
   // (backdrop/close/back-swipe) without confirming discards any edits.
   const [draft, setDraft] = useState<FollowPrefs>(emptyFollowPrefs());
-  const [activeCategory, setActiveCategory] = useState<FollowCategory>("nations");
+  // Bug fix (platform-wide tab/view-switch audit, post-v1.0.167): this
+  // category rail never reset the right pane's own overflow-y-auto options
+  // list when switching categories -- scrolled deep into Nations, then
+  // tapping Teams left that list at the same scroll offset instead of its
+  // own top. useTabSwitcher (lib/useTabSwitcher.ts) resets `optionsRef`
+  // synchronously on every genuine category switch.
+  const optionsRef = useRef<HTMLDivElement>(null);
+  const { activeTab: activeCategory, switchTab: switchCategory } = useTabSwitcher<FollowCategory>("nations", {
+    order: CATEGORY_ORDER,
+    scrollContainerRef: optionsRef,
+  });
   const [search, setSearch] = useState("");
   // Resolved once per sheet-open, via the sanctioned getTeamMembershipStatus()
   // adapter -- see the module comment above buildOptions for why this can't
@@ -247,7 +260,7 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
   useEffect(() => {
     if (open) {
       setDraft(getFollowPrefs());
-      setActiveCategory("nations");
+      switchCategory("nations");
       setSearch("");
     }
   }, [open]);
@@ -326,7 +339,7 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
             return (
               <button
                 key={cat.key}
-                onClick={() => { setActiveCategory(cat.key); setSearch(""); }}
+                onClick={() => { switchCategory(cat.key); setSearch(""); }}
                 className={`w-full flex flex-col items-start gap-1 px-2.5 py-3 text-left border-l-2 transition-colors ${
                   active ? "bg-bg-elevated" : "hover:bg-bg-elevated/50"
                 }`}
@@ -365,7 +378,7 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
+          <div ref={optionsRef} className="flex-1 overflow-y-auto scrollbar-thin">
             {filteredOptions.length === 0 ? (
               <p className="text-center text-text-dim text-xs py-8">No matches for "{search}"</p>
             ) : (

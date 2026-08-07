@@ -3434,3 +3434,25 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/onboarding/TeamCard.tsx`, `package.json` (version bump).
+
+## [1.0.168] 2026-08-07
+
+### Fixed: platform-wide tab/segmented-view switching — one shared hook replaces six independent, bug-prone implementations
+
+#### Context
+- A diagnosed-but-not-yet-fixed bug on match pages (v1.0.167 diagnostic entry): switching tabs on a match page could briefly-to-persistently show the OLD tab's content while the new tab's pill was already highlighted, and switching tabs never reset scroll position, leaving users at an arbitrary offset in the new tab.
+
+#### Root cause
+- `MatchView.tsx` kept the active-tab highlight and the actually-rendered content as two separate pieces of state, the second updated only inside a `setTimeout` -- a gap that can widen arbitrarily under main-thread load. A platform-wide audit found the identical pattern independently reimplemented in five more places (`PageTransition.tsx` -- which wraps every page in the app -- `PlayerProfileView.tsx`, `app/schedule/page.tsx`, `FollowSheet.tsx`, `DigestTab.tsx`), none of which reset scroll on switch either.
+
+#### Added -- `lib/useTabSwitcher.ts`
+- One shared `useTabSwitcher()` hook: a single `activeTab` state (no second delayed copy to fall out of sync), synchronous scroll reset on every genuine switch (window or a scrollable container), a no-op on same-tab calls (a live data refresh never resets scroll or replays an animation), and a narrow `restoreTab()` escape hatch for the one legitimate silent-restore case (sessionStorage tab memory on mount). Companion `useScrollResetOnChange()` for the two callers whose active view isn't local click-driven state (route `pathname`, and a day/innings filter that can auto-advance from live data).
+
+#### Changed -- six surfaces migrated, none left with independent tab-switching code
+- `components/MatchView.tsx`, `components/PageTransition.tsx`, `components/PlayerProfileView.tsx`, `app/schedule/page.tsx`, `components/FollowSheet.tsx`, `components/DigestTab.tsx`.
+
+#### Verified
+- All six surfaces individually click/swipe/stress-tested live on the deployed app (see DECISIONS-LOG.md for the full per-surface, per-check results); `tsc --noEmit`/`npm run build` clean; `mockData.ts` untouched.
+
+#### Scope
+- `lib/useTabSwitcher.ts` (new), `components/MatchView.tsx`, `components/PageTransition.tsx`, `components/PlayerProfileView.tsx`, `app/schedule/page.tsx`, `components/FollowSheet.tsx`, `components/DigestTab.tsx`, `package.json` (version bump).

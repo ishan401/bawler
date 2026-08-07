@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PlayerProfile, FormatStats, PlayerFormatKey } from "@/lib/types";
 import { ALL_TEAMS } from "@/lib/mockData";
@@ -9,6 +9,7 @@ import { resolveTeamAccentColor } from "@/lib/teamAccentColor";
 import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type RecentFormPoint, type AchievementLine } from "@/lib/playerForm";
 import { getFavouritePlayers, onFavouritesChanged, toggleFavouritePlayer } from "@/lib/playerFavourites";
 import { CYAN } from "@/lib/tokens";
+import { useTabSwitcher } from "@/lib/useTabSwitcher";
 import RecentFormGraph from "./RecentFormGraph";
 import PlayerAchievements from "./PlayerAchievements";
 import PlayerAvatar from "./PlayerAvatar";
@@ -216,7 +217,21 @@ export default function PlayerProfileView({ player }: Props) {
     return false;
   });
 
-  const [activeTab, setActiveTab] = useState<FormatKey>(tabs[0] ?? "test");
+  // Bug fix (platform-wide tab/view-switch audit, post-v1.0.167): this
+  // format-tab row used to switch `activeTab` with a plain useState and
+  // never reset the page's own scrollable content column (the
+  // `overflow-y-auto` div below) when switching formats -- scrolling down
+  // into, say, Test stats and then tapping T20I left you scrolled to that
+  // same offset in a shorter/differently-laid-out tab, nowhere near its
+  // top. `useTabSwitcher` (lib/useTabSwitcher.ts) is the shared fix: same
+  // single-state guarantee (nothing here was timer-delayed to begin with,
+  // so defect (1) never applied to this component), plus a synchronous
+  // scroll-reset of `contentRef` on every genuine format switch.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { activeTab, switchTab } = useTabSwitcher<FormatKey>(tabs[0] ?? "test", {
+    order: tabs,
+    scrollContainerRef: contentRef,
+  });
 
   const stats =
     activeTab === "test" ? player.testStats :
@@ -316,7 +331,7 @@ export default function PlayerProfileView({ player }: Props) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div ref={contentRef} className="flex-1 overflow-y-auto pb-24">
         {/* ── Hero info ─────────────────────────────────────────────── */}
         <div className="px-4 pt-4 pb-3 space-y-3">
           {/* Personal info row */}
@@ -359,7 +374,7 @@ export default function PlayerProfileView({ player }: Props) {
               {tabs.map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => switchTab(tab)}
                   className={`tap-scale flex-1 py-2 rounded-lg text-[11px] font-extrabold uppercase tracking-widest transition-colors ${
                     activeTab === tab
                       ? "bg-cyan text-bg-base"
