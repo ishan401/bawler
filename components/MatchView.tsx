@@ -745,7 +745,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
             nothing left on screen to animate out of view -- the book-exit-*
             classes are unused here now (still used by the win-prob modal
             below, a genuinely different, single-boolean open/close case). */}
-        <div key={tab} className={`space-y-3 ${direction === "backward" ? "book-enter-backward" : direction === "forward" ? "book-enter-forward" : ""}`}>
+        <div key={tab} data-active-tab={tab} className={`space-y-3 ${direction === "backward" ? "book-enter-backward" : direction === "forward" ? "book-enter-forward" : ""}`}>
         {tab === "live" && (
           <>
             {allBalls.length === 0 ? (
