@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.167 (deployed)
+**Current version:** v1.0.168 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -681,6 +681,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.162** | Fixed cross-match insight-card bleed: `InsightV2` had no `matchId`, so `MOCK_INSIGHTS_V2`'s single shared 14-entry pool rendered on every match's Live tab regardless of which match was open (PSL and KKR/MI content confirmed bleeding into `ind-aus-t20i-2026-m2-live` and `ind-eng-test-2026-d3-live`). `matchId: string` is now required on `InsightV2`; all 14 existing entries tagged with their verified real match id (none deleted, none guessed); `MatchView.tsx`'s `visibleInsights` now gates on `insight.matchId === match.id` as the primary filter, with ball-level scoping applied only on top of that (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.168)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.168** | Fixed platform-wide tab/segmented-view switching: a diagnosed match-page bug (tab pill and rendered content as two separate, `setTimeout`-desynced states, plus zero scroll reset on switch) turned out to be independently reimplemented in five more places (`PageTransition.tsx` -- wraps every page -- `PlayerProfileView.tsx`, `app/schedule/page.tsx`, `FollowSheet.tsx`, `DigestTab.tsx`). Built one shared `lib/useTabSwitcher.ts` hook (single state, synchronous scroll reset, no-op on same-tab calls, narrow `restoreTab()` escape hatch for sessionStorage restore) plus a companion `useScrollResetOnChange()` for the two callers driven by external state (route pathname, live-data-driven day/innings auto-advance) -- migrated all six surfaces to it, none left with independent tab-switching code. Live per-surface click/swipe/stress-test verification on every surface (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.163)
 

@@ -13,6 +13,7 @@ import BallGIF from "@/components/BallGIF";
 import WinProbChart from "@/components/WinProbChart";
 import MomentsStrip from "@/components/MomentsStrip";
 import MatchTabs, { type TabKey, type TabBadge } from "@/components/MatchTabs";
+import { useTabSwitcher } from "@/lib/useTabSwitcher";
 import Scorecard from "@/components/Scorecard";
 import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
@@ -132,8 +133,33 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // mismatch). The real saved tab, if any, is read after mount below.
   const SESSION_KEY = `matchTab:${match.id}`;
 
-  const [tab, setTab] = useState<TabKey>(defaultTab);
-  const [renderedTab, setRenderedTab] = useState<TabKey>(defaultTab);
+  // Every tab this match can show, in display order -- computed here (not
+  // down where it used to live, next to the old swipe-gesture code) because
+  // useTabSwitcher needs it up front to derive a forward/backward direction.
+  const TABS_ORDER: TabKey[] = isFinished
+    ? [
+        "digest",
+        "scorecard",
+        "info",
+        ...(showTable ? ["table" as TabKey] : []),
+      ]
+    : [
+        "live",
+        "scorecard",
+        ...(showDigest ? ["digest" as TabKey] : []),
+        "info",
+        ...(showTable ? ["table" as TabKey] : []),
+      ];
+
+  // Shared tab-switching state (lib/useTabSwitcher.ts) -- see its module
+  // doc comment for the real, reproduced bug this replaced: this page used
+  // to keep a second, timer-delayed "renderedTab" state that could show
+  // stale content under the wrong highlighted tab, and never reset scroll
+  // on a switch. `tab` here IS `activeTab` from the hook -- there is no
+  // second copy for content to lag behind.
+  const { activeTab: tab, direction, switchTab, restoreTab } = useTabSwitcher<TabKey>(defaultTab, {
+    order: TABS_ORDER,
+  });
 
   useEffect(() => {
     const saved = sessionStorage.getItem(SESSION_KEY) as TabKey | null;
@@ -144,13 +170,25 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     // than restoring a tab that no longer exists for this match.
     const restored = isFinished && saved === "live" ? defaultTab : saved;
     if (restored === defaultTab) return;
-    setTab(restored);
-    setRenderedTab(restored);
+    // restoreTab, not switchTab -- this is a silent, hydration-safe
+    // post-mount correction, not a user-triggered switch. See
+    // lib/useTabSwitcher.ts's restoreTab doc comment for why using
+    // switchTab here would be wrong (it would yank scroll and play the
+    // tab-change animation on first paint).
+    restoreTab(restored);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [SESSION_KEY]);
 
-  const [animClass, setAnimClass] = useState("");
-  const transitioningRef = useRef(false);
+  // Thin wrapper: persist the new tab for back-navigation restore, on top
+  // of the shared hook's state-sync + scroll-reset guarantee. This is the
+  // only thing that was genuinely MatchView-specific about the old
+  // goToTab -- everything else (state sync, scroll reset, no-op on a
+  // same-tab call) now lives once, in the shared hook.
+  const goToTab = useCallback((newTab: TabKey) => {
+    switchTab(newTab);
+    sessionStorage.setItem(SESSION_KEY, newTab);
+  }, [switchTab, SESSION_KEY]);
+
   const [showProbModal, setShowProbModal] = useState(false);
 
   // ── Story-card share ──────────────────────────────────────────
@@ -193,36 +231,11 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     }, 240);
   };
 
-  // ── Book-page-turn tab switcher ───────────────────────────────
-  const goToTab = React.useCallback((newTab: TabKey) => {
-    if (newTab === tab || transitioningRef.current) return;
-    const dir = TABS_ORDER.indexOf(newTab) > TABS_ORDER.indexOf(tab) ? "forward" : "backward";
-    transitioningRef.current = true;
-    setTab(newTab); // header highlights new tab immediately
-    sessionStorage.setItem(SESSION_KEY, newTab); // persist for back-navigation
-    setAnimClass(`book-exit-${dir}`);
-    setTimeout(() => {
-      setRenderedTab(newTab);
-      setAnimClass(`book-enter-${dir}`);
-      setTimeout(() => { setAnimClass(""); transitioningRef.current = false; }, 320);
-    }, 220);
-  }, [tab, SESSION_KEY]);
-
   // ── Swipe between tabs ──────────────────────────────────────────
-  const TABS_ORDER: TabKey[] = isFinished
-    ? [
-        "digest",
-        "scorecard",
-        "info",
-        ...(showTable ? ["table" as TabKey] : []),
-      ]
-    : [
-        "live",
-        "scorecard",
-        ...(showDigest ? ["digest" as TabKey] : []),
-        "info",
-        ...(showTable ? ["table" as TabKey] : []),
-      ];
+  // TABS_ORDER now lives up near useTabSwitcher (it needs it too) -- the
+  // book-page-turn setTimeout choreography that used to live here is gone;
+  // goToTab (defined above, right next to the shared hook) is what both
+  // MatchTabs' onChange and onSwipeEnd below call.
   const swipeTouchX = useRef(0);
   const swipeTouchY = useRef(0);
   const swipeIgnored = useRef(false); // true when touch started inside an h-scroll container
@@ -723,8 +736,17 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
       </div>
 
       <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
-        <div className={`space-y-3 ${animClass}`}>
-        {renderedTab === "live" && (
+        {/* key={tab} forces a full remount on every genuine tab change,
+            which is what replays the CSS entrance animation below -- there
+            is no JS timer gating when this content mounts; it mounts in the
+            same render `tab` changes in (see lib/useTabSwitcher.ts). Only an
+            "enter" animation is applied, never an "exit" one: the outgoing
+            tab's content is simply gone once `tab` changes, so there is
+            nothing left on screen to animate out of view -- the book-exit-*
+            classes are unused here now (still used by the win-prob modal
+            below, a genuinely different, single-boolean open/close case). */}
+        <div key={tab} className={`space-y-3 ${direction === "backward" ? "book-enter-backward" : direction === "forward" ? "book-enter-forward" : ""}`}>
+        {tab === "live" && (
           <>
             {allBalls.length === 0 ? (
               /* ── No ball-by-ball data — rich score card ── */
@@ -869,8 +891,8 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           </>
         )}
 
-        {renderedTab === "scorecard" && <Scorecard match={truncatedMatch} />}
-        {renderedTab === "digest" && (
+        {tab === "scorecard" && <Scorecard match={truncatedMatch} />}
+        {tab === "digest" && (
           // A finished match's Digest tells the whole-match story with the
           // outcome already known -- it always uses the full match/balls,
           // never the ball-scrubber's truncated view (that scrubber only
@@ -881,8 +903,8 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
             allBalls={allBalls}
           />
         )}
-        {renderedTab === "info" && <InfoTab match={truncatedMatch} />}
-        {renderedTab === "table" && <StandingsTab competition={tableComp} />}
+        {tab === "info" && <InfoTab match={truncatedMatch} />}
+        {tab === "table" && <StandingsTab competition={tableComp} />}
 
         <footer className="text-[10px] text-text-dim text-center pt-2 pb-8">
           {/* Sourced from lib/version.ts (package.json's "version" field) --

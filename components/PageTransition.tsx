@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useRef } from "react";
+import { useScrollResetOnChange } from "@/lib/useTabSwitcher";
 
 const PAGE_ORDER = [
   (p: string) => p === "/",
@@ -16,56 +17,64 @@ function getPageIndex(path: string) {
   return idx === -1 ? 99 : idx;
 }
 
+// Bug fix (platform-wide tab/view-switch audit, post-v1.0.167): this used to
+// keep TWO pieces of state for "what's on screen" -- `pathname` (from
+// usePathname(), read directly and immediately by BottomNav.tsx for its own
+// active-tab highlight) and a separate `displayed` state, only updated
+// inside a book-exit/book-enter setTimeout(220/320ms) pair. That gap meant
+// BottomNav could highlight the destination tab (e.g. "Schedule") while
+// this wrapper was still showing the PREVIOUS page's content underneath --
+// the exact same defect class independently found and fixed in
+// components/MatchView.tsx's in-page tabs, just at the whole-app routing
+// level, and arguably more central since every navigation in the app goes
+// through this one component. It also never reset scroll position on a
+// route change at all.
+//
+// Fixed by removing the second, delayed state entirely: `children` renders
+// directly, gated by nothing -- it changes in the exact same render
+// `pathname` does, because Next.js re-renders this component on navigation
+// with no extra layer in between. `key={pathname}` forces a fresh mount
+// (replaying the CSS entrance animation below) on every genuine route
+// change; `useScrollResetOnChange` (lib/useTabSwitcher.ts -- the same
+// reset logic MatchView's tab switcher uses) resets scroll synchronously,
+// before the new page is ever painted at the old scroll offset.
 export default function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const prevPath = useRef(pathname);
-  const [displayed, setDisplayed] = useState<ReactNode>(children);
-  const [animClass, setAnimClass] = useState("");
-  const busy = useRef(false);
 
-  useEffect(() => {
-    if (pathname === prevPath.current) {
-      // Same route — just keep children fresh (e.g. query param changes)
-      if (!busy.current) setDisplayed(children);
-      return;
-    }
+  // Direction for the entrance animation, derived the same way the old
+  // code derived it -- compared against a ref of the previous render's
+  // path/index rather than a second state, so this doesn't need its own
+  // effect (and can't itself fall a render behind `pathname`). Mutating a
+  // ref during render to remember "the previous value" is a standard,
+  // React-sanctioned pattern (see the docs' "adjusting state when a prop
+  // changes" example) -- this doesn't call setState, so it can't trigger
+  // an extra render or a loop.
+  const prevPathRef = useRef(pathname);
+  const prevIndexRef = useRef(getPageIndex(pathname));
+  // No animation on the very first render -- the original code's initial
+  // `animClass` was "" until the first real navigation, and a fresh page
+  // load flying in from off-screen would look like a bug, not a feature.
+  const isFirstRenderRef = useRef(true);
+  let animClass = "";
+  if (isFirstRenderRef.current) {
+    isFirstRenderRef.current = false;
+  } else if (prevPathRef.current !== pathname) {
+    const from = prevIndexRef.current;
+    const to = getPageIndex(pathname);
+    animClass = to >= from ? "book-enter-forward" : "book-enter-backward";
+    prevPathRef.current = pathname;
+    prevIndexRef.current = to;
+  }
 
-    if (busy.current) return;
-    busy.current = true;
-
-    const from = getPageIndex(prevPath.current);
-    const to   = getPageIndex(pathname);
-    const dir  = to >= from ? "forward" : "backward";
-
-    prevPath.current = pathname;
-
-    // 1. Exit — current content flips away
-    setAnimClass(`book-exit-${dir}`);
-
-    setTimeout(() => {
-      // 2. Swap content + enter animation
-      setDisplayed(children);
-      setAnimClass(`book-enter-${dir}`);
-      setTimeout(() => {
-        setAnimClass("");
-        busy.current = false;
-      }, 320);
-    }, 220);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
-
-  // Keep children updated when not animating
-  useEffect(() => {
-    if (!busy.current) setDisplayed(children);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children]);
+  useScrollResetOnChange(pathname);
 
   return (
     <div
+      key={pathname}
       className={animClass}
       style={{ minHeight: "100%", transformOrigin: "center center" }}
     >
-      {displayed}
+      {children}
     </div>
   );
 }
