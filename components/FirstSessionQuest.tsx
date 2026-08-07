@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   getFirstSessionQuest,
   onFirstSessionQuestChanged,
@@ -7,6 +7,8 @@ import {
   markCompletionAnimated,
   isQuestComplete,
   shouldShowFirstSessionQuest,
+  isItemAnimated,
+  markItemAnimated,
   type FirstSessionQuestState,
   type FirstSessionQuestItem,
 } from "@/lib/firstSessionQuest";
@@ -29,6 +31,14 @@ const CELEBRATION_DISMISS_MS = 1400;
 // exactly as before, immediately, regardless of this animation's state).
 const CHECK_DRAW_MS = 350;
 const CLEANUP_MS = 600;
+// v1.0.173: when the checklist mounts and finds items that finished on a
+// DIFFERENT page while it wasn't mounted at all (see the "catch-up" effect
+// below), and more than one is pending at once, their catch-up animations
+// start this many ms apart -- in the checklist's own display order --
+// instead of all firing simultaneously. Doesn't apply to a genuine live
+// transition witnessed while already mounted, which still starts
+// immediately exactly as before.
+const CATCHUP_STAGGER_MS = 250;
 // Path length of the shared checkmark glyph (viewBox 0 0 16 16, path
 // "M3 8.5L6.2 12L13 4" -- the same path/viewBox used by FollowSheet's
 // CheckIndicator and the onboarding/player-profile follow buttons, see
@@ -70,6 +80,55 @@ function CheckGlyph({ animate }: { animate: boolean }) {
   );
 }
 
+/** Starts (after `delayMs`) then automatically ends (after CLEANUP_MS more)
+ * one item's completion animation: adds it to the visible `justCompleted`
+ * set, persists its per-item animated flag immediately so it can never be
+ * scheduled again on any future mount, then removes it from the set once
+ * the visual animation has had time to finish. Shared by both the live-
+ * transition path and the on-mount catch-up path below so an item is
+ * marked animated -- and therefore never replayed -- no matter which path
+ * catches it.
+ *
+ * Every timeout id gets pushed onto `pendingTimeoutIdsRef` (a ref that
+ * lives for the component's whole mounted lifetime, cleared only on
+ * unmount -- see the dedicated effect for that below). This is
+ * deliberate: `markItemAnimated()` persists to localStorage, which
+ * dispatches the shared change event, which flows back into this
+ * component's own `state` via its subscribe effect. That's a *new*
+ * `state` object reference on every call, which would re-run any effect
+ * keyed on `[state]` -- including the ones that scheduled this very
+ * animation. If those effects returned a cleanup that cleared a
+ * per-invocation id list, that cleanup would fire on that unrelated
+ * re-render and cancel a still-pending, not-yet-fired stagger delay
+ * (e.g. the 250ms-later second item in a two-item catch-up) before it
+ * ever got to run. Routing every id through one ref that's only ever
+ * swept on true unmount avoids that class of bug entirely. */
+function scheduleItemAnimation(
+  item: FirstSessionQuestItem,
+  delayMs: number,
+  setJustCompleted: Dispatch<SetStateAction<Set<FirstSessionQuestItem>>>,
+  pendingTimeoutIdsRef: { current: number[] }
+): void {
+  const startId = window.setTimeout(() => {
+    setJustCompleted(current => {
+      const next = new Set(current);
+      next.add(item);
+      return next;
+    });
+    markItemAnimated(item);
+    const cleanupId = window.setTimeout(() => {
+      setJustCompleted(current => {
+        if (!current.has(item)) return current;
+        const next = new Set(current);
+        next.delete(item);
+        return next;
+      });
+    }, CLEANUP_MS);
+    pendingTimeoutIdsRef.current.push(cleanupId);
+  }, delayMs);
+  pendingTimeoutIdsRef.current.push(startId);
+}
+
 /**
  * Small floating checklist on the home screen only (never mounted in
  * layout.tsx -- see app/page.tsx's own render, which is the ONE place
@@ -84,10 +143,31 @@ export default function FirstSessionQuest() {
   // which only starts comparing from the second state it observes).
   const [justCompleted, setJustCompleted] = useState<Set<FirstSessionQuestItem>>(new Set());
   const prevStateRef = useRef<FirstSessionQuestState | null>(null);
+  // v1.0.173: guards the catch-up effect below to run its scan exactly
+  // once per mount, the first time `state` becomes available -- not on
+  // every subsequent state change (that's the live-transition effect's
+  // job, unchanged).
+  const hasCaughtUpRef = useRef(false);
+  // v1.0.173: every timeout id scheduleItemAnimation() creates, for the
+  // whole lifetime of this mounted instance. Only ever swept on unmount
+  // (see the dedicated effect right below) -- see scheduleItemAnimation's
+  // own comment for why per-effect cleanup would be actively wrong here.
+  const pendingTimeoutIdsRef = useRef<number[]>([]);
 
   useEffect(() => {
     setState(getFirstSessionQuest());
     return onFirstSessionQuestChanged(() => setState(getFirstSessionQuest()));
+  }, []);
+
+  // Unmount-only sweep of every timeout scheduleItemAnimation() has ever
+  // created for this instance -- avoids leaking timers / calling setState
+  // after this component has actually gone away (e.g. user navigates home
+  // then immediately away again inside CLEANUP_MS). Deliberately NOT tied
+  // to `state` or any other changing dependency; see scheduleItemAnimation.
+  useEffect(() => {
+    return () => {
+      pendingTimeoutIdsRef.current.forEach(id => window.clearTimeout(id));
+    };
   }, []);
 
   useEffect(() => {
@@ -99,35 +179,42 @@ export default function FirstSessionQuest() {
   }, [state]);
 
   // Detect genuine unchecked -> checked transitions, once per item, only
-  // while this component stays mounted. `prevStateRef.current` starts as
+  // while this component stays mounted -- e.g. a future action taken
+  // directly on the home screen itself. `prevStateRef.current` starts as
   // `null`, so the very first state read (page load, possibly with items
-  // already checked from a prior visit) never counts as a transition --
-  // it only seeds the baseline. Every state change after that is compared
-  // against the immediately-preceding one.
+  // already checked from a prior visit or a prior page) never counts as a
+  // transition here -- it only seeds the baseline; the separate catch-up
+  // effect below is what handles anything already done at that first
+  // read. Every state change after that first read is compared against
+  // the immediately-preceding one, exactly as before this version.
   useEffect(() => {
     if (!state) return;
     const prev = prevStateRef.current;
     if (prev) {
       const newlyDone = ITEMS.map(i => i.key).filter(key => !prev[key] && state[key]);
-      if (newlyDone.length > 0) {
-        setJustCompleted(current => {
-          const next = new Set(current);
-          newlyDone.forEach(key => next.add(key));
-          return next;
-        });
-        newlyDone.forEach(key => {
-          window.setTimeout(() => {
-            setJustCompleted(current => {
-              if (!current.has(key)) return current;
-              const next = new Set(current);
-              next.delete(key);
-              return next;
-            });
-          }, CLEANUP_MS);
-        });
-      }
+      newlyDone.forEach(key => scheduleItemAnimation(key, 0, setJustCompleted, pendingTimeoutIdsRef));
     }
     prevStateRef.current = state;
+  }, [state]);
+
+  // v1.0.173: catch-up for items that finished on a DIFFERENT page while
+  // this component wasn't mounted at all -- "Open a live match" and "Read
+  // a pitch report" can only ever be marked from MatchView.tsx/InfoTab.tsx,
+  // neither of which renders this checklist, so the live-transition effect
+  // above never gets a chance to witness their unchecked -> checked moment.
+  // Runs exactly once, on the first `state` this mounted instance ever
+  // sees: anything already `true` there but not yet `*Animated` (per
+  // lib/firstSessionQuest.ts) is a genuine unseen completion, not
+  // something already celebrated in an earlier mount/session -- play its
+  // catch-up animation now, staggered CATCHUP_STAGGER_MS apart in the
+  // checklist's own display order (ITEMS) so simultaneous catch-ups don't
+  // all fire at once. Purely additive: never touches `prevStateRef`, so it
+  // can't interfere with the live-transition effect's own bookkeeping.
+  useEffect(() => {
+    if (!state || hasCaughtUpRef.current) return;
+    hasCaughtUpRef.current = true;
+    const pending = ITEMS.map(i => i.key).filter(key => state[key] && !isItemAnimated(state, key));
+    pending.forEach((key, index) => scheduleItemAnimation(key, index * CATCHUP_STAGGER_MS, setJustCompleted, pendingTimeoutIdsRef));
   }, [state]);
 
   if (!state || !shouldShowFirstSessionQuest(state)) return null;
