@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.172 (deployed)
+**Current version:** v1.0.173 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -687,6 +687,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.170** | Onboarding team-picker follow button: solid cyan fill -> outline-only (border-2 border-cyan text-cyan, transparent background), matching the X/skip button's exact border weight and visual treatment. The card presents skip/follow as two not-yet-chosen, equally-weighted options -- a solid-filled button next to an outline one made follow look pre-selected before any tap. Same #00E5FF value reused for border+icon, no new color. Player-profile follow button and FollowSheet checkboxes untouched (out of scope) (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.173)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.173** | Fixed a timing gap in the first-session checklist's v1.0.171 completion animation: it only played if the checklist was mounted at the exact moment an item flipped to done, but the checklist lives only on the home screen while two of its three items ("Open a live match," "Read a pitch report") get marked complete on the match detail route -- so in real usage they always rendered pre-checked with no animation ever having played. Added three per-item `*Animated` flags to the existing `firstSessionQuest` localStorage object (`lib/firstSessionQuest.ts`, no new storage structure) plus a one-shot catch-up-on-mount effect (`components/FirstSessionQuest.tsx`) that plays the draw-in + ring-pulse for any item that's done but not yet animated, staggered 250ms apart in display order if more than one is pending at once. The existing live-transition path (an item completing while the checklist is already mounted, e.g. "Follow your first team" at onboarding handoff) is untouched and still animates immediately. Pre-existing localStorage data migrates on read so already-completed, already-seen items from before this fix never get a backdated celebration (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.172)
 

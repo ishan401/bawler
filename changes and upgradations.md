@@ -3547,3 +3547,24 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump).
+
+## [1.0.173] 2026-08-07
+
+### Fixed: checklist completion animation must fire on return, not just live
+
+#### Context
+- `FirstSessionQuest.tsx`'s v1.0.171 draw-in + ring-pulse celebration only played if the checklist happened to be mounted at the exact moment an item's state flipped to done. The checklist mounts ONLY on the home screen (`app/page.tsx`), but two of its three items -- "Open a live match" (`markQuestItem` in `MatchView.tsx`) and "Read a pitch report" (`markQuestItem` in `InfoTab.tsx`) -- are marked complete on the match detail route. By the time the user navigated back home, those items already rendered checked with no animation ever having played.
+
+#### Fixed -- `lib/firstSessionQuest.ts`
+- Added three new per-item flags to the existing `FirstSessionQuestState`/localStorage object (no new storage structure): `followTeamAnimated` / `openLiveMatchAnimated` / `readPitchReportAnimated`, each tracking whether that item's own celebration has already played. Added `isItemAnimated()` / `markItemAnimated()` accessors. `getFirstSessionQuest()` migrates pre-existing localStorage data on read: for any item that was already `true` before these flags existed, its `*Animated` flag is force-set `true` too, so returning users never get a backdated celebration for something they finished before this fix shipped.
+
+#### Fixed -- `components/FirstSessionQuest.tsx`
+- Added a new, independently-guarded (`hasCaughtUpRef`) one-shot catch-up-on-mount effect: on every mount, it checks each item for done-but-not-yet-animated and plays its celebration now, staggered 250ms apart (`CATCHUP_STAGGER_MS`) in the checklist's own display order if more than one is pending. Extracted the shared start/cleanup logic into `scheduleItemAnimation()`, used by both this new catch-up path and the pre-existing live-transition effect (refactored to call it, zero behavior change). The pre-existing live-transition effect (comparing consecutive `state` snapshots via `prevStateRef`) is untouched and still fires immediately for an item completing while the checklist is already mounted, e.g. "Follow your first team" at onboarding handoff.
+- All scheduled timeout ids are pushed into a single per-instance ref (`pendingTimeoutIdsRef`) swept only on unmount, not per-effect-run: an earlier draft returned a `[state]`-scoped cleanup per effect, but `markItemAnimated()`'s own localStorage write dispatches a change event that updates `state` again -- which would re-run that effect's cleanup on an unrelated render and cancel a still-pending staggered catch-up (e.g. the 250ms-later second item) before it ever fired. Routing every id through one ref cleared only at true unmount avoids that failure mode.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched (baseline md5 unchanged).
+- Live verification (all 6 required scenarios) below.
+
+#### Scope
+- `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
