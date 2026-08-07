@@ -25,12 +25,34 @@
 // match's pitch report card counts as "read a pitch report," no
 // dwell-time/scroll requirement. See DECISIONS-LOG.md v1.0.165 for why
 // this looser bar was chosen over a stricter engagement-based one.
+//
+// v1.0.173 -- per-item "has its completion animation played yet" tracking
+// (followTeamAnimated/openLiveMatchAnimated/readPitchReportAnimated).
+// Added because the checklist widget only ever mounts on the home screen
+// (components/FirstSessionQuest.tsx), but two of the three items above
+// are marked complete from OTHER pages entirely -- by the time the user
+// navigates back home, the item already reads as checked and the
+// checklist's live "just transitioned" detection (which only compares
+// states observed while it stays mounted) never gets a chance to see the
+// unchecked -> checked moment at all. These three flags are what let a
+// freshly-mounted checklist tell "this item finished before I ever
+// mounted, and I've already shown its celebration" apart from "this item
+// finished before I ever mounted, and I owe it a catch-up celebration
+// right now." Each starts false and flips permanently true the moment
+// its item's animation actually plays (live or catch-up), never reset.
 // ============================================================================
 
 export interface FirstSessionQuestState {
   followTeam: boolean;
   openLiveMatch: boolean;
   readPitchReport: boolean;
+  /** Per-item "has this item's own draw-in + ring-pulse celebration
+   * already played?" -- see the v1.0.173 header comment above. Distinct
+   * from `completionAnimated` below, which is a single whole-quest
+   * ("all three done") celebration flag, not per-item. */
+  followTeamAnimated: boolean;
+  openLiveMatchAnimated: boolean;
+  readPitchReportAnimated: boolean;
   /** User closed the card via its own close icon before completing it. */
   dismissed: boolean;
   /** The card has already shown its "all three done" celebration once --
@@ -47,6 +69,15 @@ export interface FirstSessionQuestState {
 
 export type FirstSessionQuestItem = "followTeam" | "openLiveMatch" | "readPitchReport";
 
+/** Maps each quest item to the state key tracking whether ITS OWN
+ * completion animation has already played. Kept as a lookup table rather
+ * than three separate switch statements at each call site. */
+const ANIMATED_KEY_FOR: Record<FirstSessionQuestItem, "followTeamAnimated" | "openLiveMatchAnimated" | "readPitchReportAnimated"> = {
+  followTeam: "followTeamAnimated",
+  openLiveMatch: "openLiveMatchAnimated",
+  readPitchReport: "readPitchReportAnimated",
+};
+
 const STORAGE_KEY = "bawler:firstSessionQuest";
 const CHANGE_EVENT = "bawler:first-session-quest-changed";
 
@@ -55,6 +86,9 @@ function emptyState(): FirstSessionQuestState {
     followTeam: false,
     openLiveMatch: false,
     readPitchReport: false,
+    followTeamAnimated: false,
+    openLiveMatchAnimated: false,
+    readPitchReportAnimated: false,
     dismissed: false,
     completionAnimated: false,
     initialized: false,
@@ -67,7 +101,22 @@ export function getFirstSessionQuest(): FirstSessionQuestState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
-    return { ...emptyState(), ...parsed };
+    const merged: FirstSessionQuestState = { ...emptyState(), ...parsed };
+    // Migration (v1.0.173): the three `*Animated` flags are new -- state
+    // persisted before this version won't have them in `parsed` at all.
+    // For an item that was already true under the old shape, treat it as
+    // already-animated rather than a fresh catch-up candidate, so a
+    // returning user doesn't get a backdated celebration for something
+    // they finished in a session before this per-item tracking existed.
+    // An item that's still false is unaffected either way -- nothing to
+    // animate yet regardless of this flag's value.
+    (Object.keys(ANIMATED_KEY_FOR) as FirstSessionQuestItem[]).forEach(item => {
+      const animatedKey = ANIMATED_KEY_FOR[item];
+      if (!(animatedKey in parsed) && merged[item]) {
+        merged[animatedKey] = true;
+      }
+    });
+    return merged;
   } catch {
     return emptyState();
   }
@@ -120,6 +169,24 @@ export function markCompletionAnimated(): void {
   const current = getFirstSessionQuest();
   if (current.completionAnimated) return;
   persist({ ...current, completionAnimated: true });
+}
+
+/** Whether `item`'s OWN completion animation has already played -- see
+ * the v1.0.173 header comment. Used by the checklist component both for
+ * its live-transition path and its on-mount catch-up path, so an item
+ * never animates twice regardless of which path caught it. */
+export function isItemAnimated(state: FirstSessionQuestState, item: FirstSessionQuestItem): boolean {
+  return state[ANIMATED_KEY_FOR[item]];
+}
+
+/** Call the moment `item`'s completion animation actually starts playing
+ * (live or catch-up) -- persists immediately so even a fast subsequent
+ * remount (or the same mount re-rendering) can't replay it. */
+export function markItemAnimated(item: FirstSessionQuestItem): void {
+  const current = getFirstSessionQuest();
+  const animatedKey = ANIMATED_KEY_FOR[item];
+  if (current[animatedKey]) return;
+  persist({ ...current, [animatedKey]: true });
 }
 
 export function isQuestComplete(state: FirstSessionQuestState): boolean {
