@@ -3497,3 +3497,34 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump).
+
+## [1.0.171] 2026-08-07
+
+### Added: onboarding visual polish -- card stack, per-team glow, celebration moments, progress chips
+
+#### Context
+- Presentation-layer-only pass over the existing onboarding flow (team swipe step, quiz reveal, first-session checklist). Follow persistence, quiz mechanics, checklist completion rules, and data models are untouched. The X/checkmark follow-decision buttons and the top 3-segment step progress bar were explicitly out of scope and are pixel-unchanged.
+
+#### Premise correction
+- The build spec assumed teams had no color field and gave a 16-nation hex list to add one. `Team.primaryColor` already existed platform-wide, with different (already-researched, already-shipped) values for the 6 overlapping nations, and no coverage at all for the onboarding roster's 10 IPL franchise cards. Confirmed with the user to reuse the existing field as-is rather than overwrite it or invent franchise colors.
+
+#### Changed -- `components/onboarding/SwipeCard.tsx`
+- Drag tilt now scales with drag distance (`dx * 0.1`, capped +/-15deg) instead of the old fixed `dx / 22` ratio; continues rotating to 24deg on a genuine swipe-through exit, on top of the unchanged fly-off translateX. Snap-back timing 200ms -> 250ms.
+
+#### Changed -- `components/onboarding/TeamPickerStep.tsx`
+- Fanned 3-card stack: two background placeholders (rotate 4/8deg, scale 96/92%, opacity 70/50%) render no team content at all, so nothing spoils and nothing needs to animate when the queue advances underneath them. The front card runs a scale/rotate/opacity arrival transition each time a card is dismissed. New progress-chip row (flags of followed teams, caps at 5 + "+N") below the counter row.
+
+#### Changed -- `components/onboarding/TeamCard.tsx`
+- Soft radial glow (team's existing `primaryColor`, ~32% opacity fading to transparent) behind the avatar only. `FLAG_ISO` exported for reuse by the new chip row.
+
+#### Added -- `components/onboarding/PersonaParticles.tsx`
+- One-time, non-blocking particle burst (cyan/green/gold) behind the quiz's persona-reveal title, `pointer-events: none`, self-removing after 1.5s.
+
+#### Changed -- `components/FirstSessionQuest.tsx`
+- Checklist checkmark is now an SVG (shared checkmark path) that draws in with an expanding ring the moment an item is genuinely checked during the current session -- never replayed for items already checked on page load.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched. X/checkmark buttons and 3-segment step bar confirmed zero-diff via `git diff`.
+
+#### Scope
+- `components/onboarding/SwipeCard.tsx`, `components/onboarding/TeamPickerStep.tsx`, `components/onboarding/TeamCard.tsx`, `components/onboarding/PersonaParticles.tsx` (new), `components/onboarding/QuizStep.tsx`, `components/FirstSessionQuest.tsx`, `app/globals.css`, `package.json` (version bump).

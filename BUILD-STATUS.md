@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.170 (deployed)
+**Current version:** v1.0.171 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -687,6 +687,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.170** | Onboarding team-picker follow button: solid cyan fill -> outline-only (border-2 border-cyan text-cyan, transparent background), matching the X/skip button's exact border weight and visual treatment. The card presents skip/follow as two not-yet-chosen, equally-weighted options -- a solid-filled button next to an outline one made follow look pre-selected before any tap. Same #00E5FF value reused for border+icon, no new color. Player-profile follow button and FollowSheet checkboxes untouched (out of scope) (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.171)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.171** | Onboarding visual polish, presentation-only: team swipe step now shows a fanned 3-card stack (two contentless placeholder cards behind the front one, so nothing about upcoming teams is spoiled), the front card tilts proportionally while dragged (capped +/-15deg) and springs back or continues rotating into the fly-off depending on release point, and a small chip row below the counter shows each followed team's flag as you go (capping at 5 + a "+N" badge past 6). Each team's avatar now has a soft ambient glow in that team's existing `primaryColor`. The quiz's persona reveal plays a one-time, non-blocking particle burst (cyan/green/gold); the first-session checklist's checkmark now draws in with an expanding ring the moment an item is genuinely checked this session (never replayed for already-checked items on reload). The X/checkmark follow-decision buttons and the top 3-segment step bar are pixel-unchanged (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.169)
 

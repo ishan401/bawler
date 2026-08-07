@@ -14,7 +14,20 @@ import { useRef, useState, useCallback } from "react";
 
 const SWIPE_THRESHOLD_PX = 80;
 const EXIT_DURATION_MS = 220;
-const SNAP_BACK_MS = 200;
+const SNAP_BACK_MS = 250;
+
+// v1.0.171 (onboarding visual polish): drag-proportional tilt. Degrees =
+// horizontal drag px * DRAG_ROTATE_FACTOR, clamped to +/-DRAG_ROTATE_MAX_DEG
+// while the card is actively being dragged -- released back below the
+// swipe threshold, dx resets to 0 so this formula naturally re-evaluates
+// to 0deg too, no separate "reset rotation" state needed. On a genuine
+// swipe-through exit, rotation continues past the drag cap in the same
+// direction (EXIT_ROTATE_DEG) while the existing translateX fly-off
+// animation plays -- the translateX magnitude/duration are untouched from
+// before this change, only the rotation target is added on top of it.
+const DRAG_ROTATE_FACTOR = 0.1;
+const DRAG_ROTATE_MAX_DEG = 15;
+const EXIT_ROTATE_DEG = 24;
 
 export interface SwipeCardHandle {
   swipeRight: () => void;
@@ -90,7 +103,9 @@ export default function SwipeCard({
 
   const exitOffset = exiting === "right" ? 520 : exiting === "left" ? -520 : 0;
   const translateX = exiting ? exitOffset : dx;
-  const rotate = (exiting ? exitOffset : dx) / 22;
+  const dragRotate = Math.max(-DRAG_ROTATE_MAX_DEG, Math.min(DRAG_ROTATE_MAX_DEG, dx * DRAG_ROTATE_FACTOR));
+  const exitRotate = exiting === "right" ? EXIT_ROTATE_DEG : exiting === "left" ? -EXIT_ROTATE_DEG : 0;
+  const rotate = exiting ? exitRotate : dragRotate;
   const transitionMs = dragging ? 0 : exiting ? EXIT_DURATION_MS : SNAP_BACK_MS;
 
   return (
