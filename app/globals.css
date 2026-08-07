@@ -283,3 +283,38 @@
 .slide-in-right {
   animation: slide-in-right 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ============================================================
+   Onboarding visual polish (v1.0.171)
+   ============================================================
+   Three small, self-contained, purely decorative animations:
+   - chip-in: a followed-team progress chip scaling up from 0 on mount.
+   - persona-particle-burst: one-time particle dots on the quiz reveal.
+   - ring-pulse: the checklist's "just completed" expanding ring.
+   None of these gate any button tap or navigation -- see call sites in
+   components/onboarding/TeamPickerStep.tsx, components/onboarding/
+   QuizStep.tsx (via components/onboarding/PersonaParticles.tsx), and
+   components/FirstSessionQuest.tsx. */
+@keyframes chip-in {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+.chip-in {
+  animation: chip-in 200ms ease-out both;
+}
+
+@keyframes persona-particle-burst {
+  0%   { transform: translate(-50%, -50%) translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(0.4); opacity: 0; }
+}
+.persona-particle {
+  animation: persona-particle-burst 1.3s ease-out forwards;
+}
+
+@keyframes ring-pulse {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+.ring-pulse {
+  animation: ring-pulse 500ms ease-out forwards;
+}

@@ -1,13 +1,32 @@
 "use client";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import type { Team } from "@/lib/types";
 import { getOnboardingTeams, getTeamMoment, isNationalTeam, followIdFor, type TeamMoment } from "@/lib/onboardingTeams";
 import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
 import SwipeCard, { type SwipeCardHandle } from "./SwipeCard";
-import TeamCard from "./TeamCard";
+import TeamCard, { FLAG_ISO } from "./TeamCard";
 import TeamMomentCard from "./TeamMomentCard";
 import RivalPrompt from "./RivalPrompt";
 import LockedPreview from "./LockedPreview";
+
+// v1.0.171 (onboarding visual polish): fanned card-stack + progress-chip
+// constants. The two background placeholder cards never render real team
+// content (no flag, no text) -- purely shaped/colored rectangles, so
+// there is nothing to spoil about which team comes next, and (as a
+// consequence) nothing that visually changes when the queue advances and
+// a different team ends up occupying that slot. Only the front card
+// (real content) needs an explicit arrival animation; see
+// `frontEntering` below.
+const STACK_SLOT_STYLE = [
+  { rotate: 0, translateX: 0, scale: 1, opacity: 1 }, // front card -- handled by SwipeCard itself
+  { rotate: 4, translateX: 7, scale: 0.96, opacity: 0.7 },
+  { rotate: 8, translateX: 14, scale: 0.92, opacity: 0.5 },
+] as const;
+const FRONT_ENTER_MS = 200;
+// Small circular chip per followed team, shown below the "X of 16 teams"
+// row. Caps at 5 real chips + a "+N" badge once more than 6 are followed.
+const CHIP_INLINE_CAP = 6;
+const CHIP_SHOWN_WHEN_CAPPED = 5;
 
 type Phase = "card" | "moment" | "rival" | "locked-preview";
 
@@ -70,6 +89,32 @@ export default function TeamPickerStep({
   // follow/skip logic, and this now works with zero dependency on
   // gesture support at all.
   const activeHandleRef = useRef<SwipeCardHandle | null>(null);
+
+  // v1.0.171 (onboarding visual polish): the front card's "arrival"
+  // animation -- whenever `index` advances (a card was dismissed, by tap
+  // or swipe), the new front card starts at the resting look of the
+  // *second* stack slot (scale 96%, rotate 4deg, content faded out) and
+  // transitions to its normal resting look (scale 100%, rotate 0, fully
+  // visible) over FRONT_ENTER_MS. Skipped on the very first render --
+  // there's no "promotion" happening yet, so the first card should just
+  // appear normally. The two-rAF flip is the same technique
+  // SwipeCard/FirstSessionQuest's own enter-transitions use elsewhere in
+  // this file's neighborhood: paint once at the "before" values, then
+  // flip to the "after" values on the next frame so the CSS transition
+  // has something to animate from.
+  const isFirstIndexRender = useRef(true);
+  const [frontEntering, setFrontEntering] = useState(false);
+  useEffect(() => {
+    if (isFirstIndexRender.current) {
+      isFirstIndexRender.current = false;
+      return;
+    }
+    setFrontEntering(true);
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setFrontEntering(false));
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [index]);
 
   const total = teams.length;
   const current = teams[index];
@@ -147,6 +192,10 @@ export default function TeamPickerStep({
     return null;
   }
 
+  const showChipCap = followedTeams.length > CHIP_INLINE_CAP;
+  const visibleChips = showChipCap ? followedTeams.slice(0, CHIP_SHOWN_WHEN_CAPPED) : followedTeams;
+  const overflowCount = showChipCap ? followedTeams.length - CHIP_SHOWN_WHEN_CAPPED : 0;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between px-1">
@@ -158,6 +207,45 @@ export default function TeamPickerStep({
         </button>
       </div>
 
+      {/* v1.0.171 (onboarding visual polish): per-team follow progress
+          chips -- purely additive, sits below the row above and never
+          touches it. This is a DIFFERENT progress signal from the
+          3-segment step bar OnboardingFlow.tsx renders at the very top
+          of the whole onboarding screen (that one tracks which of the
+          3 onboarding STEPS you're on; this one tracks how many teams
+          you've followed within this step) -- deliberately not merged. */}
+      {followedTeams.length > 0 && (
+        <div className="flex items-center gap-1.5 px-1 -mt-1">
+          {visibleChips.map(t => {
+            const flagIso = t.type === "national" ? FLAG_ISO[t.code] : undefined;
+            return (
+              <div
+                key={t.code}
+                className="chip-in w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 border border-line flex items-center justify-center bg-bg-surface"
+                title={t.fullName}
+              >
+                {flagIso ? (
+                  <img
+                    src={`https://flagcdn.com/w40/${flagIso}.png`}
+                    alt={t.fullName}
+                    width={28}
+                    height={28}
+                    style={{ objectFit: "cover" }}
+                  />
+                ) : (
+                  <span className="text-[9px] font-extrabold text-text-primary">{t.shortName.slice(0, 3)}</span>
+                )}
+              </div>
+            );
+          })}
+          {showChipCap && (
+            <div className="chip-in w-[28px] h-[28px] rounded-full shrink-0 flex items-center justify-center bg-white/20 text-white text-[9px] font-extrabold">
+              +{overflowCount}
+            </div>
+          )}
+        </div>
+      )}
+
       {phase === "card" && (
         <>
           <div className="relative h-[420px]">
@@ -165,18 +253,34 @@ export default function TeamPickerStep({
               const t = teams[index + offset];
               if (!t) return null;
               const isTop = offset === 0;
-              const scale = 1 - offset * 0.04;
-              const translateY = offset * 10;
+              const slot = STACK_SLOT_STYLE[offset];
+
+              if (!isTop) {
+                // Background placeholder -- deliberately renders NO real
+                // team content (no flag, no text) so nothing about the
+                // upcoming team is spoiled, and so nothing needs to
+                // visually change when the queue advances and a
+                // different team ends up occupying this slot (see the
+                // constants' own comment above).
+                return (
+                  <div
+                    key={`slot-${offset}`}
+                    className="absolute inset-0 card h-[420px]"
+                    style={{
+                      transform: `translateX(${slot.translateX}px) rotate(${slot.rotate}deg) scale(${slot.scale})`,
+                      opacity: slot.opacity,
+                      zIndex: 10 - offset,
+                    }}
+                  />
+                );
+              }
+
+              const enterStyle: React.CSSProperties = frontEntering
+                ? { transform: "scale(0.96) rotate(4deg)", opacity: 0, transition: "none" }
+                : { transform: "scale(1) rotate(0deg)", opacity: 1, transition: `transform ${FRONT_ENTER_MS}ms ease-out, opacity ${FRONT_ENTER_MS}ms ease-out` };
+
               return (
-                <div
-                  key={t.code}
-                  className="absolute inset-0"
-                  style={{
-                    transform: `translateY(${translateY}px) scale(${scale})`,
-                    zIndex: 10 - offset,
-                    opacity: offset === 2 ? 0.5 : offset === 1 ? 0.75 : 1,
-                  }}
-                >
+                <div key="slot-0" className="absolute inset-0" style={{ zIndex: 10, ...enterStyle }}>
                   <SwipeCard
                     active={isTop}
                     onSwipeRight={() => handleFollow(t)}

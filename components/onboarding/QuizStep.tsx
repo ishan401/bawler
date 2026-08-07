@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { QUIZ_QUESTIONS, computePersona, type QuizAnswer, type Persona } from "@/lib/onboardingQuiz";
 import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
+import PersonaParticles from "./PersonaParticles";
 
 function persistFormatTags(persona: Persona) {
   const prefs = getFollowPrefs();
@@ -52,8 +53,19 @@ export default function QuizStep({ onComplete }: { onComplete: () => void }) {
   if (persona) {
     return (
       <div className="flex flex-col items-center gap-4 text-center animate-[fadeIn_0.2s_ease-out]">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Your cricket persona</div>
-        <div className="text-2xl font-extrabold text-cyan">{persona.name}</div>
+        {/* v1.0.171 (onboarding visual polish): one-time particle burst,
+            positioned as an absolute overlay behind the title text below.
+            `persona` is only ever set once per quiz completion (this
+            whole branch only renders after that happens), so mounting
+            PersonaParticles unconditionally here already satisfies "plays
+            once, never loops" -- there's no re-render path that would
+            remount it. See that component for why it can never intercept
+            the Share/Continue taps. */}
+        <div className="relative">
+          <PersonaParticles />
+          <div className="text-[10px] font-bold uppercase tracking-widest text-text-dim">Your cricket persona</div>
+          <div className="text-2xl font-extrabold text-cyan">{persona.name}</div>
+        </div>
         <div className="text-sm text-text-secondary max-w-xs">{persona.description}</div>
         <div className="flex gap-3 mt-2">
           <button
