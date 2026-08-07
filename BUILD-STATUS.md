@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.166 (deployed)
+**Current version:** v1.0.167 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -687,6 +687,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.163** | Info tab consolidation, platform-wide, presentation-only: venue name+city now shows once, folded into the Date & Time card's city line (bold venue name, comma, city); Match Context card simplified to at most two lines (toss, then narrative), team-names/tournament/venue lines removed as redundant; Pitch Report's Surface row de-boxed and grouped tightly with the stat-box row, no divider between them. No new data fields, no data restructuring (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.167)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.167** | Fixed onboarding's team-picker card: England showed a generic broken flag emoji while India/Australia showed "IN"/"AU". Root cause traced live: `TeamCard.tsx` rendered `team.flagEmoji` as a raw Unicode character; India/Australia's flags are simple country-code emoji sequences whose unsupported-fallback happens to show readable letters, while England's flag is a different Unicode construction (UK-subdivision tag sequence) whose fallback is a generic glyph -- same defect, uglier failure mode, not an England-only quirk. The app already had the correct fix elsewhere (`MatchCard.tsx`/`SplitTeamBg.tsx`/`FollowSheet.tsx` all render real flagcdn.com images via a `FLAG_ISO` map, England already mapped to `gb-eng`); onboarding's card now reuses that same pattern instead of raw emoji, with computed-text (never emoji) as the fallback for any nation without a map entry (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.166)
 

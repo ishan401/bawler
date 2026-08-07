@@ -3415,3 +3415,22 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump).
+
+## [1.0.167] 2026-08-07
+
+### Fixed: England showed a generic flag emoji instead of a real flag on onboarding's team-picker card
+
+#### Context
+- On `/onboarding` step 1, every national team's avatar showed India as "IN" and Australia as "AU" -- except England, which showed a broken generic flag glyph instead.
+
+#### Root cause
+- `TeamCard.tsx` rendered `team.flagEmoji` as a raw Unicode character. India/Australia's flag emoji happen to be simple two-letter country-code sequences, so this environment's unsupported-emoji fallback shows their embedded letters ("IN"/"AU") -- which looked like intentional initials but never was. England's flag is a different Unicode construction (a UK-subdivision tag sequence), whose fallback is a generic flag glyph instead of letters -- same underlying defect, uglier failure mode, not an England-only bug. The app already had a correct fix for this elsewhere: `MatchCard.tsx`/`SplitTeamBg.tsx`/`FollowSheet.tsx` all render real flag images from flagcdn.com via a `FLAG_ISO` map (England already mapped to `gb-eng`) -- onboarding's card just never reused it.
+
+#### Changed -- `components/onboarding/TeamCard.tsx`
+- Now renders the same `FLAG_ISO` + flagcdn.com image pattern used across the rest of the app for every national team, with a computed-text fallback (never emoji) for any nation without a map entry. Matches how flags render on every other surface in the app.
+
+#### Verified
+- Live: England's card now shows its real flag image; India/Australia spot-checked for no regression; confirmed on a second surface. `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched.
+
+#### Scope
+- `components/onboarding/TeamCard.tsx`, `package.json` (version bump).
