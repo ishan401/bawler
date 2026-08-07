@@ -89,13 +89,20 @@ function PlayerChip({ entry }: { entry: YourPlayerEntry }) {
           textColor={isFavourited ? "#FBBF24" : "var(--text-dim)"}
           borderWidthPx={isFavourited ? 2 : 1.5}
         />
+        {/* v1.0.169: cyan-fill + checkmark badge, not amber star emoji --
+            this badge is a passive "you favourited this player" reflection
+            of the same isFavourited state the profile page's own follow
+            button now shows as a solid cyan circle, so it now uses the
+            identical #00E5FF fill + #0A0E1A checkmark instead of a second,
+            differently-colored "followed" indicator. */}
         {isFavourited && (
           <span
-            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] bg-bg-base"
-            style={{ border: "1px solid #FBBF24" }}
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center bg-cyan"
             aria-label="Favourited"
           >
-            ⭐
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8.5L6.2 12L13 4" stroke="#0A0E1A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </span>
         )}
       </div>

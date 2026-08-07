@@ -206,13 +206,22 @@ export default function TeamPickerStep({
                 <line x1="19" y1="5" x2="5" y2="19" />
               </svg>
             </button>
+            {/* v1.0.169: cyan-fill + checkmark, not green heart -- unifying
+                every "follow" affordance platform-wide onto the FollowSheet's
+                own selected-state styling (bg #00E5FF, the same checkmark
+                path/viewBox as CheckIndicator in components/FollowSheet.tsx).
+                Stroke is #0A0E1A (the `bg` design token), matching
+                CheckIndicator's actual color -- not white -- since that
+                dark-on-cyan pairing is this codebase's one deliberate
+                legibility convention for a mark on top of a cyan fill. Size/
+                position/tap target and the X (skip) button are unchanged. */}
             <button
               onClick={() => activeHandleRef.current?.swipeRight()}
               aria-label="Follow this team"
-              className="w-14 h-14 rounded-full border-2 border-boundary text-boundary flex items-center justify-center tap-scale"
+              className="w-14 h-14 rounded-full bg-cyan flex items-center justify-center tap-scale"
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                <path d="M12 21s-6.716-4.35-9.428-8.06C.86 10.42 1.2 6.9 3.76 5.06 6.02 3.44 8.9 4.1 10.6 6.2L12 7.9l1.4-1.7c1.7-2.1 4.58-2.76 6.84-1.14 2.56 1.84 2.9 5.36 1.19 7.88C18.716 16.65 12 21 12 21z" />
+              <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
+                <path d="M3 8.5L6.2 12L13 4" stroke="#0A0E1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
           </div>
