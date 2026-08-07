@@ -2393,3 +2393,23 @@ A second `npx tsx` + `react-dom/server` harness smoke-rendered the actual leaf c
 Both the tap/click-only interaction style (steps 2-6, 8 above) and the swipe/drag gesture path (the mouse-drag re-test in the root-cause section) were independently confirmed working against the real deployed page in this pass.
 
 **Scope**: `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump). No other file touched.
+
+## Fixed: England rendered a generic flag emoji instead of a real flag on onboarding's team-picker card — v1.0.167 (2026-08-07)
+
+**Bug report.** On `/onboarding` step 1, every national team's circular avatar showed initials-looking text ("IN" for India, "AU" for Australia) except England, which showed a generic flag emoji (🚩-looking placeholder) instead. Reproduced live: England is card 3 of 16.
+
+**Root cause, traced (not guessed) — and it overturned the bug report's own working assumption.** `components/onboarding/TeamCard.tsx` rendered `team.flagEmoji` -- a raw Unicode character -- directly for every national team. That depends entirely on the viewer's OS/browser having a matching color-emoji glyph:
+- India's and Australia's flag emoji are simple *regional-indicator* sequences (their two-letter ISO codes, e.g. "I"+"N" for India). On this Chrome/Linux environment, which lacks a color-flag glyph for them, the unsupported-fallback rendering shows the sequence's two embedded letters as plain text -- "IN", "AU". This LOOKED like intentional two-letter initials, but was never a designed feature; it was an accidental, platform-dependent side effect of a missing emoji glyph.
+- England's flag is a structurally different Unicode construction -- an Emoji Tag Sequence representing the England subdivision flag (not a country-code pair). Its unsupported-fallback is the generic black-flag base character, not letters. Same underlying defect (unreliable raw-emoji rendering), different, uglier failure mode -- not a special England-only bug.
+
+Confirmed this wasn't a data gap (England's `flagEmoji`/`shortName`/`country` fields are all populated correctly in `lib/mockData.ts`, same shape as every other nation) -- the bug was purely in how the onboarding card chose to render a national flag.
+
+**The rest of the app had already solved this correctly.** `components/MatchCard.tsx`, `components/SplitTeamBg.tsx`, and `components/FollowSheet.tsx` all render real flag *images* from flagcdn.com via a small `FLAG_ISO` code map (each file's own comment documents per-file duplication of that map as the established convention here), with England already correctly mapped to `"gb-eng"` -- MatchCard's own comment even notes this explicitly solves the Windows-rendering problem. `components/onboarding/TeamCard.tsx` never reused this; its own header comment claimed "no dedicated TeamBadge/TeamLogo component exists... confirmed by search," which was simply incorrect/stale.
+
+**Decision point, surfaced to the user rather than assumed:** fixing this "generally" had two materially different, both-valid outcomes -- (a) match the app's own established flagcdn.com image convention (what every other surface does, English flag renders as a real image, but visually changes India/Australia's onboarding card from accidental "IN"/"AU" text to real flag images), or (b) compute literal two-letter text for every nation from data, preserving the "IN"/"AU" look. User chose (a) -- reuse the established, real, working pattern.
+
+**Fix.** `TeamCard.tsx` now carries the same `FLAG_ISO` map (22 nations, matching `FollowSheet.tsx`'s full list) and renders `<img src="https://flagcdn.com/w160/{iso}.png">` for any national team with a map entry -- real image, works identically on every OS/browser, matches how flags render everywhere else in the app. Any national team without a `FLAG_ISO` entry (none exist among the curated 16 today) falls back to computed text (`team.shortName`), never to an emoji glyph -- so the fallback chain is now: real image → computed text, with no path that can render an unreliable Unicode glyph. Franchise teams are untouched (their shortName-in-circle badge was never broken).
+
+**Safety process.** Dedicated branch (`fix/onboarding-england-flag`). `tsc --noEmit` and `npm run build` clean. `lib/mockData.ts` untouched (baseline unchanged: md5 `823864fe4adc1e33cd09560bed643bcb`, 15174 lines, 26 exports). Version bumped via `package.json` only (`lib/version.ts` derives from it; `scripts/version-check.ts` PASS).
+
+**Scope**: `components/onboarding/TeamCard.tsx`, `package.json` (version bump). No other file touched. `components/MatchCard.tsx`, `components/SplitTeamBg.tsx`, `components/FollowSheet.tsx` (the other 3 flag-image render sites) were inspected and confirmed already correct -- not modified.
