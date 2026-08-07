@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.171 (deployed)
+**Current version:** v1.0.172 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -687,6 +687,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.170** | Onboarding team-picker follow button: solid cyan fill -> outline-only (border-2 border-cyan text-cyan, transparent background), matching the X/skip button's exact border weight and visual treatment. The card presents skip/follow as two not-yet-chosen, equally-weighted options -- a solid-filled button next to an outline one made follow look pre-selected before any tap. Same #00E5FF value reused for border+icon, no new color. Player-profile follow button and FollowSheet checkboxes untouched (out of scope) (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.172)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.172** | Bug fix caught during v1.0.171's own live-verification pass: the team swipe step's front card could get stuck permanently invisible (rendered 520px off-screen at opacity 0) after certain dismiss sequences -- root cause was `SwipeCard` reusing the same component instance (and its stale exit-animation state) across teams in the front stack slot. Fixed by keying `SwipeCard` per-team (`key={t.code}`) so a fresh instance mounts for every new card, regardless of dismiss method. No change to follow/skip logic, persistence, or any other onboarding behavior (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.171)
 

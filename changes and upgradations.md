@@ -3528,3 +3528,22 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/onboarding/SwipeCard.tsx`, `components/onboarding/TeamPickerStep.tsx`, `components/onboarding/TeamCard.tsx`, `components/onboarding/PersonaParticles.tsx` (new), `components/onboarding/QuizStep.tsx`, `components/FirstSessionQuest.tsx`, `app/globals.css`, `package.json` (version bump).
+
+## [1.0.172] 2026-08-07
+
+### Fixed: front-slot SwipeCard state leak (live-verification catch, no scope change)
+
+#### Context
+- Caught during the required 9-step live-browser verification pass for v1.0.171's card-stack feature. Reproduced by dismissing three cards in a row (drag-follow, tap-follow, tap-skip): after the tap-skip, the next team's card rendered fully invisible and shifted 520px off-screen -- the correct team content (confirmed via DOM text) was present underneath, just permanently hidden.
+
+#### Root cause
+- `TeamPickerStep.tsx`'s front-card wrapper key was the fixed string `"slot-0"` (a stack POSITION, not a per-team identity), and `SwipeCard` itself had no key at all. React therefore reused the exact same `SwipeCard` component instance -- and its internal `dx`/`dragging`/`exiting` state -- across every team that ever occupies the front slot. `SwipeCard.runExit()` sets `exiting` but never clears it; that's harmless only when the surrounding `phase==="card"` tree happens to fully unmount and remount in between (e.g. a follow that shows the "moment" or "rival" phase first), which is why the first two dismissals in the repro looked fine. A plain skip -- or any follow with neither a moment nor a rival prompt pending -- never leaves `phase==="card"`, so the stale `exiting="left"/"right"` carried straight into the next team's card.
+
+#### Fixed -- `components/onboarding/TeamPickerStep.tsx`
+- Added `key={t.code}` to the `<SwipeCard>` element itself (the wrapping position `<div>` correctly keeps its static `"slot-0"` key). Forces a fresh `SwipeCard` instance -- and fresh `dx`/`dragging`/`exiting` state -- every time a new team reaches the front slot, regardless of which phase transitions did or didn't happen in between.
+
+#### Verified
+- Re-ran the 3-in-a-row dismiss sequence (drag-follow, tap-follow, tap-skip) three additional times post-fix, including two consecutive tap-skips back-to-back (the exact shape that never got masked by a phase detour) -- the next card always renders immediately and fully visible in every case. `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched.
+
+#### Scope
+- `components/onboarding/TeamPickerStep.tsx`, `package.json` (version bump).

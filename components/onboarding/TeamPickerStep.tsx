@@ -281,7 +281,27 @@ export default function TeamPickerStep({
 
               return (
                 <div key="slot-0" className="absolute inset-0" style={{ zIndex: 10, ...enterStyle }}>
+                  {/* Bug fix (v1.0.172, caught during live verification): this
+                      wrapper div's own key must stay the fixed "slot-0" (it's
+                      the front POSITION, not a per-team node), but SwipeCard
+                      itself needs a per-team key. Without one, React reuses
+                      the same SwipeCard instance across every team that
+                      passes through the front slot, so its internal
+                      dx/dragging/exiting state survives from the outgoing
+                      card into the incoming one. That's invisible whenever a
+                      follow happens to route through the "moment" or "rival"
+                      phase in between (the whole phase==="card" tree
+                      unmounts and remounts fresh) -- but a plain skip (or any
+                      follow with neither a moment nor a rival prompt pending)
+                      stays on phase "card" the entire time, so the same
+                      SwipeCard instance carries its exiting="left"/"right"
+                      state forward and the next team's card renders
+                      permanently off-screen at opacity 0. Keying by
+                      `t.code` forces a fresh SwipeCard (and fresh internal
+                      state) for every team, which is exactly what a "new
+                      card in the front slot" should be. */}
                   <SwipeCard
+                    key={t.code}
                     active={isTop}
                     onSwipeRight={() => handleFollow(t)}
                     onSwipeLeft={() => handleSkip(t)}
