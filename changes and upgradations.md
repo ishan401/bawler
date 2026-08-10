@@ -3564,7 +3564,14 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Verified
 - `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched (baseline md5 unchanged).
-- Live verification (all 6 required scenarios) below.
+- Live-browser verification of the 6 required scenarios, using a `MutationObserver` on `document.body` (attached before each client-side navigation, so it survives the route change and timestamps every `.ring-pulse` element add/remove with `performance.now()` -- avoids relying on tool-call round-trip timing, which is far slower than the animation itself):
+  1. **PASS** -- fresh onboarding, follow a team: `followTeamAnimated` flips `true` the moment the checklist first mounts on the home handoff (via the catch-up path, since `initFirstSessionQuest()` already sets `followTeam:true` in `OnboardingFlow.tsx` before `router.replace("/")` ever runs -- the live-transition path's `prevStateRef` never gets a chance to see a `false -> true` edge for this item either; see DECISIONS-LOG.md for the corrected understanding of why this item animates via catch-up, not live-transition, in practice).
+  2. **PASS** -- live match viewed on `/match/[id]` (Live tab only, no Info tab visit), then home via the bottom-nav (client-side transition): exactly one `ring-pulse` add-then-remove cycle observed (~790ms span), `openLiveMatchAnimated` flipped `true`, zero console errors.
+  3. **NOT YET RUN** -- pitch-report-in-isolation (non-live match's Info tab, then home).
+  4. **NOT YET RUN** -- two-item stagger (both openLiveMatch + readPitchReport pending, one return home).
+  5. **NOT YET RUN** -- no-replay after all three items have already animated once.
+  6. **NOT YET RUN** -- full console-error sweep across all of the above.
+  Steps 3-6 were blocked mid-session by a Claude-in-Chrome extension connectivity outage that did not recover after roughly 20 retries over several minutes; the user was handed a manual click-by-click verification script (visit target URLs, watch the checklist, run a `localStorage` reset snippet for the two-pending-items case) to run themselves and report results back. This entry should be updated with the steps 3-6 outcome once that's done -- see task #469 in the session's tracked task list, still `in_progress` for exactly this reason.
 
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).

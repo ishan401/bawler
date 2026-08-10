@@ -247,6 +247,7 @@
 - [ ] Real domain (off `bawler-gold.vercel.app`)
 
 ### Nice-to-have
+- [ ] Complete live-browser verification of the v1.0.173 checklist catch-up-on-mount fix, scenarios 3-6 (pitch-report-in-isolation, two-item 250ms stagger, no-replay-after-all-animated, console-error sweep). Scenarios 1-2 already confirmed live via a `MutationObserver`-based timing harness; 3-6 were blocked mid-session by a Claude-in-Chrome extension connectivity outage that didn't recover after ~20 retries. User has a manual click-by-click script to run these themselves -- see DECISIONS-LOG.md v1.0.173 entry for full detail.
 - [ ] Vitest + RTL tests on `BallGIF`, `DeliveryCard`, `MatchView`
 - [x] Remove legacy unused components — completed v1.0.148: `ViewSwitcher.tsx`, `MomentsCollapsible.tsx`, `PressureGauge.tsx`, `ProjectedScore.tsx`, `DemoControls.tsx`, `AIMetrics.tsx` + `lib/metrics.ts` [orphaned since v1.0.23's AI-metrics-row removal], `MiniWinProb.tsx` [orphaned since v1.0.46/v1.0.121] all deleted, re-verified zero references immediately before removal. `InsightsPanel` intentionally NOT included — it wasn't on the explicit deletion list for this round and remains unaudited/untouched.
 - [ ] Service worker for offline-cached last-seen match state
