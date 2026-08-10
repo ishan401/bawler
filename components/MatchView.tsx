@@ -189,6 +189,28 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     sessionStorage.setItem(SESSION_KEY, newTab);
   }, [switchTab, SESSION_KEY]);
 
+  // Field/pitch scene entrance-animation guard (v1.0.175) -- see
+  // components/BallGIF.tsx's `skipEntranceAnimation` prop doc comment for
+  // the full story. The `key={tab}` on the tab-content wrapper below
+  // deliberately remounts everything on every genuine tab switch so the
+  // book-enter transition can replay -- correct for that transition, but
+  // it also meant BallGIF's own internal `.scene-fade-in` entrance
+  // replayed from opacity 0 every time a user switched back into the
+  // Live tab, not just on the match page's true first load (confirmed
+  // live: the BallGIF root is a brand-new DOM node, not the one from
+  // before the switch, every single time "live" becomes active again).
+  // This ref lives here, ABOVE that keyed/remounted subtree, specifically
+  // so it survives every tab switch: it starts false, flips permanently
+  // true the first time the Live tab is ever shown, and that "already
+  // shown once" value is threaded down to gate BallGIF's entrance
+  // animation on every subsequent visit -- no change to `key={tab}`,
+  // `useTabSwitcher.ts`, or the book-enter/exit CSS, all of which are
+  // correct and untouched.
+  const hasShownLiveSceneRef = useRef(false);
+  useEffect(() => {
+    if (tab === "live") hasShownLiveSceneRef.current = true;
+  }, [tab]);
+
   const [showProbModal, setShowProbModal] = useState(false);
 
   // ── Story-card share ──────────────────────────────────────────
@@ -848,6 +870,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                     loopMs={GIF_LOOP_MS}
                     partnership={partnershipInfo ?? undefined}
                     onShare={triggerShare}
+                    skipEntranceAnimation={hasShownLiveSceneRef.current}
                   />
                 )}
                 {matchupInfo && (

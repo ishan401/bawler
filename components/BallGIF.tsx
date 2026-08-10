@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor, type OutcomeKind } from "@/lib/outcomeColors";
 import { SPIN } from "@/lib/tokens";
@@ -16,6 +16,29 @@ interface BallGIFProps {
   loopMs?: number;
   partnership?: PartnershipInfo;
   onShare?: (ball: Ball) => void; // centralised in MatchView
+  /* v1.0.175 -- suppresses the very first `.scene-fade-in` entrance
+     animation on this mount. Why this exists: MatchView.tsx wraps its
+     tab content in a `key={tab}`-keyed div so the book-enter/exit page
+     transition can replay on every genuine tab switch -- correct for
+     that transition, but it also means this entire component (BallGIF)
+     is fully unmounted and a brand-new instance is mounted every time a
+     user switches back into the Live tab, not just on the match page's
+     true first load. That remount was confirmed live via DOM-node-
+     identity probing (the root DOM node is a different node object each
+     time, not the same one persisting). Because the scene div below
+     re-mounts too, its `.scene-fade-in` class replayed the fade from
+     opacity 0 on every tab-switch-back, producing a visible flash.
+     Rather than touch `key={tab}`, useTabSwitcher.ts, or the book-enter/
+     exit CSS (all of which are correct and serve a different, legitimate
+     transition), MatchView.tsx threads down whether the Live tab has
+     already been shown once during this match-page visit via a ref that
+     lives ABOVE the keyed/remounted subtree and therefore survives tab
+     switches. When true, this mount is a tab-switch-back remount, not a
+     true first mount, so the entrance fade is skipped for the initial
+     scene render only -- the normal per-clip cross-fade animation (the
+     legitimate bowler/overhead swap every loopMs/2) is untouched and
+     continues to play normally afterward. */
+  skipEntranceAnimation?: boolean;
 }
 
 const OUTCOME_WORD: Record<OutcomeKind, string> = {
@@ -43,8 +66,19 @@ export default function BallGIF({
   ball, match, fielders, loopMs = 6000,
   partnership,
   onShare,
+  skipEntranceAnimation,
 }: BallGIFProps) {
   const [activeClip, setActiveClip] = useState<"bowler" | "overhead">("bowler");
+
+  // Lazy-init: only reads `skipEntranceAnimation` on this instance's true
+  // first render. Flipped to false in an effect (post-commit, not during
+  // render) exactly once, so the very first scene render can consult the
+  // pre-mutation value while every later render (clip swaps, ball updates)
+  // gets the normal animated behavior regardless of the prop's value.
+  const suppressFirstFadeRef = useRef(skipEntranceAnimation ?? false);
+  useEffect(() => {
+    suppressFirstFadeRef.current = false;
+  }, []);
 
 
   const isBigMoment = ball.isWicket || ball.isBoundary6 || ball.isBoundary4;
@@ -101,7 +135,10 @@ export default function BallGIF({
         </div>
 
         {/* scene */}
-        <div key={`${activeClip}-${ball.id}`} className="scene-fade-in absolute inset-0">
+        <div
+          key={`${activeClip}-${ball.id}`}
+          className={suppressFirstFadeRef.current ? "absolute inset-0" : "scene-fade-in absolute inset-0"}
+        >
           {activeClip === "bowler"
             ? <BowlerView ball={ball} loopMs={loopMs / 2} battingColor={battingTeam.primaryColor} bowlingColor={bowlingTeam.primaryColor} />
             : <OverheadView ball={ball} fielders={fielders} loopMs={loopMs / 2} />}
