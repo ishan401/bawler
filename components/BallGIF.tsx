@@ -16,29 +16,6 @@ interface BallGIFProps {
   loopMs?: number;
   partnership?: PartnershipInfo;
   onShare?: (ball: Ball) => void; // centralised in MatchView
-  /* v1.0.175 -- suppresses the very first `.scene-fade-in` entrance
-     animation on this mount. Why this exists: MatchView.tsx wraps its
-     tab content in a `key={tab}`-keyed div so the book-enter/exit page
-     transition can replay on every genuine tab switch -- correct for
-     that transition, but it also means this entire component (BallGIF)
-     is fully unmounted and a brand-new instance is mounted every time a
-     user switches back into the Live tab, not just on the match page's
-     true first load. That remount was confirmed live via DOM-node-
-     identity probing (the root DOM node is a different node object each
-     time, not the same one persisting). Because the scene div below
-     re-mounts too, its `.scene-fade-in` class replayed the fade from
-     opacity 0 on every tab-switch-back, producing a visible flash.
-     Rather than touch `key={tab}`, useTabSwitcher.ts, or the book-enter/
-     exit CSS (all of which are correct and serve a different, legitimate
-     transition), MatchView.tsx threads down whether the Live tab has
-     already been shown once during this match-page visit via a ref that
-     lives ABOVE the keyed/remounted subtree and therefore survives tab
-     switches. When true, this mount is a tab-switch-back remount, not a
-     true first mount, so the entrance fade is skipped for the initial
-     scene render only -- the normal per-clip cross-fade animation (the
-     legitimate bowler/overhead swap every loopMs/2) is untouched and
-     continues to play normally afterward. */
-  skipEntranceAnimation?: boolean;
 }
 
 const OUTCOME_WORD: Record<OutcomeKind, string> = {
@@ -66,144 +43,64 @@ export default function BallGIF({
   ball, match, fielders, loopMs = 6000,
   partnership,
   onShare,
-  skipEntranceAnimation,
 }: BallGIFProps) {
   const [activeClip, setActiveClip] = useState<"bowler" | "overhead">("bowler");
 
-  // Lazy-init: only reads `skipEntranceAnimation` on this instance's true
-  // first render. Flipped to false in an effect exactly once, so the very
-  // first scene render can consult the pre-mutation value while every
-  // later render (clip swaps, ball updates) gets the normal animated
-  // behavior regardless of the prop's value.
+  // v1.0.178 -- ARCHITECTURE CHANGE, replacing four rounds of patches
+  // (v1.0.174's fill-mode fix, v1.0.175's suppression ref, v1.0.176's
+  // widened suppression window, v1.0.177's setTimeout watchdog) with a
+  // single structural fix instead of a fifth patch stacked on top.
   //
-  // v1.0.177 -- the flip used to happen in a same-tick `useEffect(() => {},
-  // [])` (fires essentially the instant React commits, well under a
-  // millisecond after mount). That was too eager. MatchView.tsx's
-  // `key={tab}` wrapper plays a concurrent 300ms `book-enter-forward` /
-  // `book-enter-backward` transition (3D `perspective()` transform +
-  // opacity) on the ANCESTOR of this component at the exact same moment a
-  // tab-switch-back-into-Live remount happens. `direction` (and so this
-  // transition) is only ever non-null after a genuine `switchTab` call --
-  // see useTabSwitcher.ts -- so it is NOT present on a true fresh page
-  // load or while just sitting on Live. That lines up exactly with the
-  // reported symptom: only ever seen right after switching tabs INTO
-  // Live, never on fresh load, never mid-session.
+  // Every prior round treated this scene as invisible-by-default
+  // (opacity 0 via a `.scene-fade-in` CSS `@keyframes` animation) and
+  // tried to guarantee SOMETHING would eventually make it visible: a
+  // correct fill-mode, a suppression flag, a wider suppression window, a
+  // JS watchdog. Each attempt fixed one specific way that guarantee could
+  // fail, and each time a new way surfaced -- most recently, direct
+  // DOM-node-identity + getComputedStyle polling proved the SAME node can
+  // report `animationPlayState: "running"` while `opacity` stays at "0"
+  // for multiple real seconds, and separately, a live product-owner
+  // report showed even the v1.0.177 JS watchdog never ran at all in a
+  // real repro (no inline `style` attribute present after 15+ stuck
+  // seconds). A chain where visibility depends on an animation timeline,
+  // a suppression flag, AND a timer all doing the right thing, in order,
+  // is fragile by construction -- any single link failing leaves the
+  // user looking at broken content with no fallback.
   //
-  // If the mock live-simulation ticks a new ball (or the periodic
-  // bowler/overhead cross-fade interval fires) inside that ~300ms window,
-  // the scene div remounts again with a fresh key -- and under the old
-  // same-tick flip, suppressFirstFadeRef.current had already gone false
-  // by then, so `.scene-fade-in` applied normally to that second remount,
-  // nesting its own opacity animation inside an ancestor whose compositing
-  // layer was still being established by the in-flight 3D-transform
-  // animation. This is a plausible, well-established class of browser
-  // compositor bug (a child layer's animation starting before its
-  // transform-animating ancestor's own layer has been promoted/committed
-  // can be left stranded on a pre-animation frame) and is the best
-  // explanation that fits every reported detail, including that it does
-  // not self-correct on its own.
+  // The fix: remove the dependency entirely. The scene div below has no
+  // opacity-affecting class or inline style at all -- it renders fully
+  // visible (browser default `opacity: 1`) synchronously, on its very
+  // first paint, with nothing that needs to complete, fire, or be
+  // suppressed correctly for that to be true. There is no more
+  // `.scene-fade-in` animation, no suppression ref, no watchdog timer --
+  // removed outright rather than left stacked underneath this change.
+  // `app/globals.css`'s `.scene-fade-in` keyframe/class is likewise
+  // deleted (grep-confirmed: this was its only caller). The per-clip
+  // bowler/overhead swap and per-ball updates are unaffected in every
+  // other respect -- only the entrance-fade visual flourish is gone; the
+  // content itself, the swap timing, and the interval below are
+  // unchanged.
   //
-  // IMPORTANT CAVEAT for whoever revisits this: repeated direct
-  // getComputedStyle polling in this session's testing (both Claude-in-
-  // Chrome automation and manual code tracing) could NOT reproduce a
-  // *permanently* stuck opacity value -- every sampled instance this
-  // session settled to opacity 1 within roughly 300-500ms once actually
-  // rechecked with real timers. That automation runs in a tab that is
-  // permanently `document.hidden: true` (a structural limitation of the
-  // extension, documented elsewhere in this codebase -- see
-  // useCarouselIndex.ts's rAF-suspension note), and this session also
-  // independently confirmed that screenshots captured from that hidden
-  // tab are unreliable and can show a page-wide washed-out render that
-  // does NOT match the underlying computed DOM/CSS state at that instant.
-  // So this fix is based on: (1) a real, reproducible concurrency window
-  // that only exists on tab-switch-back (confirmed directly -- direction
-  // is null on fresh load, set on switches), (2) a mechanistically sound
-  // explanation for why a race in that window could produce a frame that
-  // never repaints on its own, and (3) the live product owner's direct,
-  // repeated, non-automated report of exactly that persistent symptom on
-  // a real device -- but NOT a first-hand, tool-verified capture of the
-  // stuck frame itself, which this automation environment cannot produce.
-  // If this fix does not fully resolve the report, the next place to look
-  // is whatever is unique to the reporter's real device/browser (GPU,
-  // OS-level "reduce motion", extensions, viewport size) that this
-  // environment cannot emulate.
-  //
-  // Fix: keep suppression active for the book-enter transition's full
-  // 300ms window (320ms with margin), not just the first commit, whenever
-  // this mount is a repeat tab-switch-back (`skipEntranceAnimation` true).
-  // Any scene remount landing inside that window -- ball tick or
-  // interval-driven clip swap alike -- also skips `.scene-fade-in`,
-  // removing the nested-animation race entirely; once the window closes,
-  // the normal per-clip cross-fade resumes exactly as before. A genuine
-  // first-ever mount of this component (`skipEntranceAnimation` false --
-  // fresh page load, or the very first time this match-page visit ever
-  // switches into Live) is unaffected: the ref already starts `false` in
-  // that case, so this effect no-ops and the entrance fade plays
-  // immediately as originally designed. NOTE: this means the very first
-  // time a session ever switches INTO Live (as opposed to a repeat visit)
-  // is still theoretically exposed to the same race, since no suppression
-  // flag is active on that occasion -- flagged in DECISIONS-LOG.md as a
-  // known residual gap, not fixed here since it wasn't the reported/
-  // tested scenario (which was always Live -> Score -> Live, i.e. always
-  // a repeat visit).
-  const suppressFirstFadeRef = useRef(skipEntranceAnimation ?? false);
+  // TEMPORARY DEBUG INSTRUMENTATION (per explicit request, remove once
+  // confirmed fixed on a real device): logs the scene's actual resting
+  // opacity shortly after every mount, so behavior can be checked from
+  // real console output rather than a written claim. `sceneDebugRef` is
+  // read-only and used for nothing except this log line -- it has no
+  // effect on rendering.
+  const sceneDebugRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!suppressFirstFadeRef.current) return;
+    // eslint-disable-next-line no-console
+    console.log(`[scene-debug] mounted ball=${ball.id} clip=${activeClip} -- no fade dependency, rendered visible synchronously`);
     const id = setTimeout(() => {
-      suppressFirstFadeRef.current = false;
-    }, 320);
-    return () => clearTimeout(id);
-  }, []);
-
-  // v1.0.177 -- direct, node-identity-confirmed reproduction (not a guess):
-  // repeat-tested this component's rendered scene div post-v1.0.176 and
-  // found the SAME DOM node (`===` identity checked) reporting
-  // `animationPlayState: "running"` while `opacity` stayed at the literal
-  // string "0" for multiple real seconds -- 10x+ longer than
-  // `.scene-fade-in`'s 280ms spec duration, and well outside the ~300ms
-  // book-enter-transition window v1.0.176 targeted. So the v1.0.176 fix
-  // (narrowing WHEN the race window against book-enter can occur) was
-  // real and correct as far as it went, but it does not address the
-  // deeper problem it was built on top of: `.scene-fade-in`'s own
-  // browser-driven timeline can, independent of any tab-switch
-  // concurrency, simply fail to progress from its 0% keyframe to
-  // completion, with no code-level guarantee it ever will. A "hope the
-  // animation plays" CSS keyframe with no fallback is inherently fragile
-  // to whatever causes a browser to deprioritize a compositor timeline
-  // (backgrounded/occluded tab, GPU/main-thread contention, etc.) --
-  // this automation's tab happens to be permanently `document.hidden`,
-  // which is sufficient to trigger it reliably for testing, but nothing
-  // about the failure mode itself is specific to automation.
-  //
-  // Fix: a JS-driven watchdog per scene mount, using `setTimeout` rather
-  // than `requestAnimationFrame` deliberately -- this codebase already
-  // established (see `lib/useCarouselIndex.ts`) that rAF is fully
-  // suspended (not just throttled) on a hidden/backgrounded tab, while
-  // `setTimeout` keeps running. 400ms after a scene div mounts (280ms
-  // animation spec + margin), if this render wasn't suppressed (nothing
-  // to guard when there's no animation class in the first place), force
-  // `animation: none` inline -- which unconditionally overrides an
-  // author-stylesheet `animation` shorthand and stops the browser from
-  // continuing to author the element's opacity -- immediately followed by
-  // a plain `opacity: 1`. This guarantees the correct end state regardless
-  // of whether `.scene-fade-in`'s own timeline ever actually completes. If
-  // the animation already finished normally, this is a harmless no-op
-  // (opacity is already 1). Scoped via `useEffect` deps matching the scene
-  // div's own `key` (`activeClip`, `ball.id`) so it re-arms exactly once
-  // per genuine remount of that div, not on every unrelated re-render.
-  const sceneNodeRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (suppressFirstFadeRef.current) return;
-    const id = setTimeout(() => {
-      const el = sceneNodeRef.current;
-      if (!el) return;
-      el.style.animation = "none";
-      el.style.opacity = "1";
-    }, 400);
+      const el = sceneDebugRef.current;
+      const opacity = el ? getComputedStyle(el).opacity : "no-node";
+      const hasAnimationClass = el ? el.className.includes("scene-fade-in") : false;
+      // eslint-disable-next-line no-console
+      console.log(`[scene-debug] resting state: opacity=${opacity} hasAnimationClass=${hasAnimationClass} (expect opacity=1, hasAnimationClass=false, always)`);
+    }, 50);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeClip, ball.id]);
-
 
   const isBigMoment = ball.isWicket || ball.isBoundary6 || ball.isBoundary4;
   const kind = outcomeKindOf(ball);
@@ -261,8 +158,8 @@ export default function BallGIF({
         {/* scene */}
         <div
           key={`${activeClip}-${ball.id}`}
-          ref={sceneNodeRef}
-          className={suppressFirstFadeRef.current ? "absolute inset-0" : "scene-fade-in absolute inset-0"}
+          ref={sceneDebugRef}
+          className="absolute inset-0"
         >
           {activeClip === "bowler"
             ? <BowlerView ball={ball} loopMs={loopMs / 2} battingColor={battingTeam.primaryColor} bowlingColor={bowlingTeam.primaryColor} />

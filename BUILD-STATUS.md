@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.177 (deployed)
+**Current version:** v1.0.178 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -676,6 +676,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.178)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.178** | Architecture change replacing v1.0.174-177's patches: the Live-tab scene (`components/BallGIF.tsx`) is now visible-by-default with zero dependency on any animation, suppression flag, or timer. Removed entirely: `.scene-fade-in` CSS animation, `skipEntranceAnimation` prop, the suppression ref, the suppression-window effect, and the setTimeout watchdog (user reproduced v1.0.177 directly and found the watchdog had never run -- no inline style present after 15+ stuck seconds). `MatchView.tsx`'s now-dead `hasShownLiveSceneRef` also removed. Added temporary `[scene-debug]` console.log instrumentation at mount and resting-state so behavior is checkable from real console output (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.177)
 

@@ -3576,6 +3576,31 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.178] 2026-08-10
+
+### Architecture change: Live-tab scene is visible-by-default, removing the invisible-by-default/animation-dependent pattern entirely (replaces v1.0.174-177 patches)
+
+#### Context
+- Round 5 on the same underlying symptom. v1.0.174 (fill-mode fix), v1.0.175 (suppression ref), v1.0.176 (widened suppression window), and v1.0.177 (setTimeout watchdog) each fixed one specific way the Live-tab scene could fail to become visible, and each time a new failure mode surfaced. Most recently, the user reproduced v1.0.177 themselves on a real repro: Live -> Score -> Live, left untouched for 15 continuous seconds, stayed visually broken the entire time -- and inspected the scene element directly, finding NO inline `style` attribute at all (the v1.0.177 watchdog had never run). The user's diagnosis, which this change accepts in full: the recurring failure isn't any single bug, it's the architecture. Every round treated the scene as invisible by default (`opacity: 0`) and tried to guarantee something -- a fill-mode, a flag, a timer -- would make it visible. Any one of those links failing, for any reason, leaves the user looking at broken content with no fallback.
+
+#### The architecture change -- `components/BallGIF.tsx`
+- Removed entirely: the `.scene-fade-in` CSS `@keyframes` animation and its class, the `skipEntranceAnimation` prop, `suppressFirstFadeRef`, the 320ms suppression-window `useEffect`, and the 400ms `setTimeout` watchdog that forced `animation: none; opacity: 1`. None of this is left stacked underneath the new approach -- it's deleted, not superseded-but-present.
+- The scene div now renders with a single static class (`"absolute inset-0"`) and no opacity-affecting style of any kind. Its resting/default state -- the very first paint, before any effect has had a chance to run -- is the browser's own default `opacity: 1`. There is nothing that needs to complete, fire, or be suppressed correctly for the content to be visible. If a future entrance flourish is ever wanted, per explicit instruction it must only ever animate FROM a lower starting point UP to 1, triggered explicitly after mount as a bonus, never the reverse -- no such flourish was reintroduced here; it was judged not worth the risk after five rounds of failures on exactly this kind of mechanism, and removing it outright was preferred to inventing a sixth, newly-untested "safe" version of the same idea.
+- `app/globals.css`'s `.scene-fade-in` keyframe and class deleted (grep-confirmed only caller was this component).
+- `components/MatchView.tsx`'s `hasShownLiveSceneRef` and the `skipEntranceAnimation={hasShownLiveSceneRef.current}` prop threading removed -- both existed solely to support the now-deleted suppression mechanism.
+
+#### Temporary debug instrumentation -- `components/BallGIF.tsx`
+- Added, per explicit request, `console.log` lines tagged `[scene-debug]`: one at every scene mount, and one ~50ms later reporting the actual computed `opacity` and whether any `scene-fade-in` class is present (expected: `opacity=1`, `hasAnimationClass=false`, unconditionally, every time). This makes the fix checkable from real console output, not a written claim. Flagged for removal once confirmed fixed on a real device.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Full pass over `BallGIF.tsx` and `MatchView.tsx` confirmed no dead/conflicting code remains from any of the four prior rounds -- `skipEntranceAnimation`, `suppressFirstFadeRef`, `sceneNodeRef`, and `hasShownLiveSceneRef` no longer exist anywhere in either file (grep-confirmed zero occurrences).
+- Live console-log-verified reproduction (verbatim output, both matches, 5+ cycles each, 15s untouched per cycle) reported directly to the user alongside this entry -- see that report / DECISIONS-LOG.md for the raw logs, since this changelog is for narrative summary, not raw data dumps.
+- Explicit environment honesty, unchanged from prior rounds: this session's testing tool cannot produce a genuinely foregrounded, non-backgrounded browser tab. What changes with this fix is that the fix no longer depends on foreground/background timing at all -- the scene's default state is visible regardless of whether any animation, timer, or effect ever runs, which is verifiable as a static code fact (grep for any opacity-affecting rule) rather than a timing-sensitive live capture.
+
+#### Scope
+- `components/BallGIF.tsx` (scene div + removed hooks/effects), `components/MatchView.tsx` (removed dead ref/prop threading), `app/globals.css` (removed `.scene-fade-in`), `package.json` + `README.md` + `BUILD-STATUS.md` (version bump). `lib/useTabSwitcher.ts` and the book-enter/exit CSS remain untouched throughout this entire five-round saga.
+
 ## [1.0.177] 2026-08-10
 
 ### Fixed: directly reproduced the persistent (non-self-healing) Live-tab flash and added a guaranteed-correctness fallback
