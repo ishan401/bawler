@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor, type OutcomeKind } from "@/lib/outcomeColors";
 import { SPIN } from "@/lib/tokens";
@@ -304,13 +304,28 @@ function ShareIcon() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Clip A — Bowler's direction (unchanged from original)
+// Clip A — Bowler's direction (geometry/visuals unchanged; SVG def ids
+// made per-instance-unique in v1.0.180 -- see the comment inside)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; loopMs: number; battingColor: string; bowlingColor: string }) {
-  // ROUND 6 diagnostic -- see useSvgIdCollisionCheck above. Checks the
-  // exact 4 fixed ids this view defines in its own <defs>.
-  useSvgIdCollisionCheck("BowlerView", ["pitchB", "ballB", "pre-B", "post-B"], ball.id);
+  // ROUND 6 fix -- see the file-level comment above useSvgIdCollisionCheck.
+  // useId() gives each mounted instance of this view its own suffix, so
+  // fill="url(#pitchB-<uid>)" etc. can never resolve against a different
+  // (including about-to-be-removed) instance's element, regardless of how
+  // a future refactor might change when/how many of these can be mounted
+  // at once. Deliberate rapid/irregular tab-switching (40 real, verified
+  // switches across both matches, timed to straddle the ~3s clip-swap
+  // boundary) never actually caught a live collision under the OLD fixed
+  // ids -- this is preventative hardening, not a fix for an observed
+  // failure. The collision-check below is kept, now checking the
+  // suffixed ids, specifically to prove that stays true going forward.
+  const uid = useId();
+  const ids = {
+    pitchB: `pitchB-${uid}`, ballB: `ballB-${uid}`,
+    preB: `pre-B-${uid}`, postB: `post-B-${uid}`,
+  };
+  useSvgIdCollisionCheck("BowlerView", Object.values(ids), ball.id);
   const initials = (n: string) => { const p = n.trim().split(" "); return p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : n.slice(0,2).toUpperCase(); };
   const W = 800, H = 500;
   const PITCH_TOP_W = 80, PITCH_BOT_W = 220, PITCH_TOP_Y = 80, PITCH_BOT_Y = 380, CX = W / 2;
@@ -351,16 +366,16 @@ function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full block" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <linearGradient id="pitchB" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id={ids.pitchB} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="#3B2918"/><stop offset="100%" stopColor="#6B4828"/>
         </linearGradient>
-        <radialGradient id="ballB" cx="35%" cy="35%" r="60%">
+        <radialGradient id={ids.ballB} cx="35%" cy="35%" r="60%">
           <stop offset="0%" stopColor="#FFE9A0"/><stop offset="100%" stopColor="#FF6B35"/>
         </radialGradient>
-        <path id="pre-B" d={`M ${releaseX} ${releaseY} Q ${prePitchControl.x} ${prePitchControl.y} ${impactX} ${impactY}`}/>
-        <path id="post-B" d={`M ${impactX} ${impactY} Q ${postPitchControl.x} ${postPitchControl.y} ${batterArrivalX} ${batterArrivalY}`}/>
+        <path id={ids.preB} d={`M ${releaseX} ${releaseY} Q ${prePitchControl.x} ${prePitchControl.y} ${impactX} ${impactY}`}/>
+        <path id={ids.postB} d={`M ${impactX} ${impactY} Q ${postPitchControl.x} ${postPitchControl.y} ${batterArrivalX} ${batterArrivalY}`}/>
       </defs>
-      <path d={pitchPath} fill="url(#pitchB)" stroke="#5B3E22" strokeWidth="1"/>
+      <path d={pitchPath} fill={`url(#${ids.pitchB})`} stroke="#5B3E22" strokeWidth="1"/>
       <line x1={CX-PITCH_TOP_W/2-6} y1={PITCH_TOP_Y+12} x2={CX+PITCH_TOP_W/2+6} y2={PITCH_TOP_Y+12} stroke="#FFFFFF" strokeOpacity="0.35"/>
       {/* Return crease line on bowler side */}
       <line x1={releaseX} y1={PITCH_TOP_Y+14} x2={releaseX} y2={PITCH_TOP_Y-10} stroke="#FFFFFF" strokeOpacity="0.25" strokeWidth="0.8" strokeDasharray="3 3"/>
@@ -384,27 +399,30 @@ function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; 
       <text x={CX-88} y={PITCH_BOT_Y+50} textAnchor="middle" dominantBaseline="central" fill={battingColor} fontSize="8" fontWeight="800" fontFamily="Inter,sans-serif">{initials(ball.batterName)}</text>
       <text x={CX-74} y={PITCH_BOT_Y+56} textAnchor="start" fill="#F8FAFC" fontSize="14" fontWeight="700" fontFamily="Inter, sans-serif">{ball.batterName}</text>
       <text x={CX-74} y={PITCH_BOT_Y+72} textAnchor="start" fill="#94A3B8" fontSize="10" fontWeight="600" fontFamily="Inter, sans-serif">Batter</text>
-      <use href="#pre-B" stroke="#FF6B35" strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.5"/>
-      <use href="#post-B" stroke={ball.spinDirection!=="none"?SPIN:"#00E5FF"} strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.55"/>
+      <use href={`#${ids.preB}`} stroke="#FF6B35" strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.5"/>
+      <use href={`#${ids.postB}`} stroke={ball.spinDirection!=="none"?SPIN:"#00E5FF"} strokeWidth="1.4" fill="none" strokeDasharray="2 4" opacity="0.55"/>
       <circle cx={impactX} cy={impactY} r="9" fill="#FF6B35" opacity="0.4"/>
       <circle cx={impactX} cy={impactY} r="4" fill="#FFE9A0"/>
       <circle r="4" fill="#000" opacity="0.5"><animateMotion dur={`${prePitchMs}ms`} repeatCount="indefinite" path={`M ${releaseX} ${releaseY+8} L ${impactX} ${impactY}`}/></circle>
-      <circle r="6" fill="url(#ballB)"><animateMotion dur={`${prePitchMs}ms`} repeatCount="indefinite" keyTimes="0;1" keySplines="0.4 0 0.7 1"><mpath href="#pre-B"/></animateMotion><animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.05;0.5;0.95;1" dur={`${prePitchMs}ms`} repeatCount="indefinite"/></circle>
+      <circle r="6" fill={`url(#${ids.ballB})`}><animateMotion dur={`${prePitchMs}ms`} repeatCount="indefinite" keyTimes="0;1" keySplines="0.4 0 0.7 1"><mpath href={`#${ids.preB}`}/></animateMotion><animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.05;0.5;0.95;1" dur={`${prePitchMs}ms`} repeatCount="indefinite"/></circle>
       <circle r="4" fill="#000" opacity="0.5"><animateMotion dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite" path={`M ${impactX} ${impactY} L ${batterArrivalX} ${batterArrivalY}`}/></circle>
-      <circle r="6" fill="url(#ballB)"><animateMotion dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite"><mpath href="#post-B"/></animateMotion><animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.05;0.5;0.95;1" dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite"/></circle>
+      <circle r="6" fill={`url(#${ids.ballB})`}><animateMotion dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite"><mpath href={`#${ids.postB}`}/></animateMotion><animate attributeName="opacity" values="0;1;1;1;0" keyTimes="0;0.05;0.5;0.95;1" dur={`${postPitchMs}ms`} begin={`${prePitchMs}ms`} repeatCount="indefinite"/></circle>
       {ball.isWicket&&<rect x="0" y="0" width={W} height={H} fill="#EF4444" style={{animation:`wicket-flash ${loopMs}ms ease-out infinite`}}/>}
     </svg>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Clip B — Overhead (unchanged)
+// Clip B — Overhead (geometry/visuals unchanged; SVG def ids made
+// per-instance-unique in v1.0.180 -- see BowlerView's comment)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: FielderPosition[]; loopMs: number }) {
-  // ROUND 6 diagnostic -- see useSvgIdCollisionCheck above. Checks the
-  // exact 3 fixed ids this view defines in its own <defs>.
-  useSvgIdCollisionCheck("OverheadView", ["fieldO", "ballO", "shotPath"], ball.id);
+  // ROUND 6 fix -- see BowlerView's identical comment above. Same
+  // useId()-suffixed-ids treatment for this view's own 3 fixed ids.
+  const uid = useId();
+  const ids = { fieldO: `fieldO-${uid}`, ballO: `ballO-${uid}`, shotPath: `shotPath-${uid}` };
+  useSvgIdCollisionCheck("OverheadView", Object.values(ids), ball.id);
   const W=800,H=500,CX=W/2,CY=H/2,FIELD_RX=W/2-12,FIELD_RY=H/2-12;
   const PITCH_W=24,PITCH_H=78,BATTER_X=CX,BATTER_Y=CY+PITCH_H/2;
   const angleRad=((ball.shotAngle??0)*Math.PI)/180;
@@ -418,11 +436,11 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full block" preserveAspectRatio="xMidYMid meet">
       <defs>
-        <radialGradient id="fieldO" cx="50%" cy="50%" r="65%"><stop offset="0%" stopColor="#1B243A"/><stop offset="100%" stopColor="#0A0E1A"/></radialGradient>
-        <radialGradient id="ballO" cx="35%" cy="35%" r="60%"><stop offset="0%" stopColor="#FFE9A0"/><stop offset="100%" stopColor="#FF6B35"/></radialGradient>
-        <path id="shotPath" d={isAerial?`M ${BATTER_X} ${BATTER_Y} Q ${(BATTER_X+shotEndX)/2} ${Math.min(BATTER_Y,shotEndY)-80*(ball.shotLoft??0.5)} ${shotEndX} ${shotEndY}`:`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`}/>
+        <radialGradient id={ids.fieldO} cx="50%" cy="50%" r="65%"><stop offset="0%" stopColor="#1B243A"/><stop offset="100%" stopColor="#0A0E1A"/></radialGradient>
+        <radialGradient id={ids.ballO} cx="35%" cy="35%" r="60%"><stop offset="0%" stopColor="#FFE9A0"/><stop offset="100%" stopColor="#FF6B35"/></radialGradient>
+        <path id={ids.shotPath} d={isAerial?`M ${BATTER_X} ${BATTER_Y} Q ${(BATTER_X+shotEndX)/2} ${Math.min(BATTER_Y,shotEndY)-80*(ball.shotLoft??0.5)} ${shotEndX} ${shotEndY}`:`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`}/>
       </defs>
-      <ellipse cx={CX} cy={CY} rx={FIELD_RX} ry={FIELD_RY} fill="url(#fieldO)"/>
+      <ellipse cx={CX} cy={CY} rx={FIELD_RX} ry={FIELD_RY} fill={`url(#${ids.fieldO})`}/>
       <ellipse cx={CX} cy={CY} rx={FIELD_RX*0.55} ry={FIELD_RY*0.55} fill="none" stroke="#1E293B" strokeWidth="1.2" strokeDasharray="4 6"/>
       <ellipse cx={CX} cy={CY} rx={FIELD_RX} ry={FIELD_RY} fill="none" stroke={isSix?"#A855F7":isFour?"#00E5FF":"#1E293B"} strokeWidth={isSix||isFour?"3":"1.2"} style={isSix||isFour?{animation:`pulse-soft 1.4s ease-out infinite`}:undefined}/>
       <rect x={CX-PITCH_W/2} y={CY-PITCH_H/2} width={PITCH_W} height={PITCH_H} fill="#3B2918" rx="1"/>
@@ -431,7 +449,7 @@ function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: Field
       {fielders?.map((f,i)=>{const a=(f.angle*Math.PI)/180,d=f.distance*Math.min(FIELD_RX,FIELD_RY)*0.95,fx=BATTER_X+Math.sin(a)*d,fy=BATTER_Y-Math.cos(a)*d;return<g key={i}><circle cx={fx} cy={fy} r="5" fill="#94A3B8" stroke="#0A0E1A" strokeWidth="1.5"/></g>;})}
       {!wasLeft&&<><path d={isAerial?`M ${BATTER_X} ${BATTER_Y} Q ${(BATTER_X+shotEndX)/2} ${Math.min(BATTER_Y,shotEndY)-80*(ball.shotLoft??0.5)} ${shotEndX} ${shotEndY}`:`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`} stroke={ball.isWicket?"#EF4444":isSix?"#A855F7":isFour?"#00E5FF":"#94A3B8"} strokeWidth="2.5" strokeDasharray={isAerial?"0":"6 4"} fill="none" opacity="0.9"/><circle cx={shotEndX} cy={shotEndY} r="4" fill={ball.isWicket?"#EF4444":isSix?"#A855F7":isFour?"#00E5FF":"#94A3B8"}/></>}
       {firstContact&&<g><circle cx={firstContact.x} cy={firstContact.y} r="6" fill="none" stroke="#FFE9A0" strokeWidth="1.5" opacity="0.85"><animate attributeName="r" values="3;9;3" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.6s" repeatCount="indefinite"/></circle><circle cx={firstContact.x} cy={firstContact.y} r="2.5" fill="#FFE9A0"/></g>}
-      {!wasLeft&&<>{isAerial&&<circle r="4" fill="#000" opacity="0.4"><animateMotion dur={`${loopMs*0.9}ms`} repeatCount="indefinite" path={`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`}/></circle>}<circle r="6" fill="url(#ballO)"><animateMotion dur={`${loopMs*0.9}ms`} repeatCount="indefinite"><mpath href="#shotPath"/></animateMotion></circle></>}
+      {!wasLeft&&<>{isAerial&&<circle r="4" fill="#000" opacity="0.4"><animateMotion dur={`${loopMs*0.9}ms`} repeatCount="indefinite" path={`M ${BATTER_X} ${BATTER_Y} L ${shotEndX} ${shotEndY}`}/></circle>}<circle r="6" fill={`url(#${ids.ballO})`}><animateMotion dur={`${loopMs*0.9}ms`} repeatCount="indefinite"><mpath href={`#${ids.shotPath}`}/></animateMotion></circle></>}
       {isSix&&<circle cx={shotEndX} cy={shotEndY} r="0" fill="none" stroke="#A855F7" strokeWidth="3" style={{animation:`boundary-pulse ${loopMs}ms ease-out infinite`}}/>}
       {isFour&&!isSix&&<circle cx={shotEndX} cy={shotEndY} r="0" fill="none" stroke="#00E5FF" strokeWidth="2" style={{animation:`boundary-pulse ${loopMs}ms ease-out infinite`}}/>}
     </svg>

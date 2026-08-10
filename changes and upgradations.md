@@ -3576,6 +3576,25 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.180] 2026-08-10
+
+### Round 6 fix: per-instance-unique SVG ids in BallGIF.tsx (hardening, no observed bug fixed)
+
+#### Context
+- v1.0.179 shipped diagnostic-only instrumentation to test the hypothesis that BallGIF.tsx's fixed SVG `<defs>` ids (`pitchB`, `ballB`, `pre-B`, `post-B`, `fieldO`, `ballO`, `shotPath`) could transiently collide with a second instance during a tab-switch remount landing near the ~3s bowler/overhead clip-swap boundary, and manifest as the product owner's reported "intermittent, sometimes self-corrects, sometimes stuck" Live-tab content issue.
+- Ran 40 real, verified rapid/irregular tab switches (20 per match on both `ind-eng-test-2026-d3-live` and `ind-aus-t20i-2026-m2-live`), driven by an in-page script clicking the actual tab buttons with irregular delays (150ms-3.6s) deliberately chosen to straddle the clip-swap boundary repeatedly, confirmed via a parallel `data-active-tab` log to have genuinely alternated tabs at the intended timing (not just fired click events that failed to register). Zero `ID COLLISION` or `MISSING` warnings, zero console errors, across all 40 switches.
+
+#### Fixed -- `components/BallGIF.tsx`
+- Applied `useId()` to give each mounted `BowlerView`/`OverheadView` instance its own unique id suffix (e.g. `pitchB-:r3:` instead of a bare `pitchB`), so `fill="url(#id)"` and `href="#id"` references can never resolve against a different instance's element regardless of how a future change to this component's mount/unmount timing might alter today's guarantees. This is defense-in-depth, not a fix for an observed failure -- duplicate global SVG ids are invalid per spec independent of whether this specific app ever manifested the bug, and the fix is free (no behavior change, same visuals).
+- Kept the v1.0.179 collision-check instrumentation in place, now checking the new suffixed ids, so it continues proving (rather than merely asserting) that no collision occurs.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Post-fix: re-ran the same 40-switch rapid/irregular protocol on both matches -- reported directly to the user with the real console output. See DECISIONS-LOG.md.
+
+#### Scope
+- `components/BallGIF.tsx`, `package.json` + `README.md` (version bump), `BUILD-STATUS.md` changelog table.
+
 ## [1.0.179] 2026-08-10
 
 ### Round 6 diagnostic instrumentation: SVG id-collision detection in BallGIF.tsx (no functional change)
