@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.174 (deployed)
+**Current version:** v1.0.175 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -676,6 +676,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.175)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.175** | Fixed a follow-up to v1.0.174: switching Live -> Score -> Live (or Digest/Info -> Live) replayed the field scene's entrance fade from `opacity: 0` every time, a <1s flash on every switch-back, not just first load. Root cause confirmed via DOM-node-identity probing: `MatchView.tsx`'s `key={tab}` wrapper (which correctly replays the book-enter page transition) also fully unmounts/remounts `BallGIF.tsx` on every switch back into Live. Fixed by threading a `hasShownLiveSceneRef` (declared above the keyed subtree, survives tab switches) into a new `skipEntranceAnimation` prop on `BallGIF`, which suppresses `.scene-fade-in` only on the first scene render of a remount that isn't the match page's true first mount -- fresh-load and the legitimate per-clip cross-fade animation are both unaffected. `lib/useTabSwitcher.ts` and the book-enter/exit CSS untouched (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.174)
 
