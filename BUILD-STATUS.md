@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.176 (deployed)
+**Current version:** v1.0.177 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -676,6 +676,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.177)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.177** | Directly reproduced (DOM-node-identity + getComputedStyle confirmed, not inferred) the persistent Live-tab flash: the same scene div held `opacity: "0"` with `animationPlayState: "running"` for multiple real seconds -- 10x+ `.scene-fade-in`'s 280ms spec, well outside v1.0.176's 300ms book-enter race window. Root cause: a fire-and-forget CSS `@keyframes` animation has no guarantee its timeline ever actually progresses to completion once started (most likely tied to Chromium deprioritizing compositor timelines on backgrounded tabs, but not inherently automation-specific). Fixed by adding a `setTimeout`-based watchdog (400ms per scene mount) in `components/BallGIF.tsx` that forces `animation: none` + `opacity: 1` unconditionally, guaranteeing the correct end state regardless of whether the CSS animation itself ever completes. Additive to, not a replacement for, v1.0.176's suppression-window fix (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.176)
 

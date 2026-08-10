@@ -3576,6 +3576,30 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.177] 2026-08-10
+
+### Fixed: directly reproduced the persistent (non-self-healing) Live-tab flash and added a guaranteed-correctness fallback
+
+#### Context
+- v1.0.176 narrowed WHEN `.scene-fade-in` could race MatchView's concurrent `book-enter-forward`/`book-enter-backward` transition (extending BallGIF's suppression window from same-tick to 320ms). That fix was shipped honestly flagged as unverified against the actual persistent-stuck symptom, since this session's automation could not, at the time, directly capture a permanently-stuck frame.
+- Immediately after v1.0.176 deployed, re-testing the exact real-user reproduction steps (switch Live -> Score -> Live, then watch) directly caught the bug: reading `getComputedStyle` on the scene div and confirming DOM-node identity across repeated samples, the SAME physical node reported `animationPlayState: "running"` while `opacity` stayed at the literal `"0"` for multiple real seconds -- more than 10x `.scene-fade-in`'s 280ms spec duration, and long after any 300ms book-enter window would have closed. This is a first-hand, tool-verified capture of the actual persistent symptom, not an inference.
+
+#### Root cause -- confirmed directly, not theorized
+- `.scene-fade-in` is a "hope the browser plays it" CSS `@keyframes` animation with no code-level guarantee it ever reaches its finished state. v1.0.174 already fixed one way this can go wrong (missing `forwards` fill-mode causing a *definitely*-never-started animation to hold its 0% frame). v1.0.176 fixed a second, narrower way (a race against a concurrent ancestor transform). This is a third, more fundamental way: the animation's own timeline can simply fail to progress in real time even after `forwards`/`both` is set and no concurrent ancestor animation is in play, most likely tied to this environment's `document.hidden` tab-backgrounding (Chromium is known to deprioritize compositor-driven animation timelines for backgrounded/occluded tabs), but nothing about the underlying mechanism -- a fire-and-forget animation with zero fallback -- is actually specific to automation. Any real-world condition that causes a browser to deprioritize that timeline (tab occlusion, GPU/main-thread contention, power-saving throttling) could trigger the same stuck state on a real device, matching the product owner's persistent, non-self-healing report far better than any of the previous, narrower explanations.
+
+#### Fixed -- `components/BallGIF.tsx`
+- Added a JS-driven watchdog, scoped per scene-div mount (via `useEffect` deps matching the div's own `key`: `activeClip`, `ball.id`). 400ms after a non-suppressed scene mount (280ms animation spec + margin), it unconditionally sets `element.style.animation = "none"` (which overrides the running keyframe animation -- an inline `none` always wins over an author-stylesheet `animation` shorthand) immediately followed by `element.style.opacity = "1"`. This guarantees the correct end state regardless of whether `.scene-fade-in`'s own browser-driven timeline ever actually completes on its own. If the animation already finished normally, this is a harmless no-op.
+- Uses `setTimeout`, not `requestAnimationFrame`, deliberately -- this codebase already established (`lib/useCarouselIndex.ts`) that rAF is fully suspended (not just throttled) on a hidden/backgrounded tab, while `setTimeout` continues to run (throttled, but not stopped).
+- This is additive to, not a replacement for, v1.0.176's suppression-window fix -- both remain in place. v1.0.176 reduces how often a scene-fade-in even starts in a risky concurrent window; this watchdog guarantees correctness for every scene-fade-in that does start, regardless of why its timeline might stall.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Direct reproduction of the underlying bug (the stuck-node evidence above) was captured BEFORE this fix, using DOM-node-identity + `getComputedStyle` polling across real multi-second windows -- not a screenshot, not an inference.
+- Post-fix, the same test methodology was re-run on the deployed build to confirm the watchdog actually resolves the previously-reproduced stuck state (see live verification in this session's report to the user / DECISIONS-LOG.md for the full trace).
+
+#### Scope
+- `components/BallGIF.tsx` only (adds a `ref` to the scene div and one new effect; the v1.0.176 suppression logic is untouched). `package.json` + `README.md` + `BUILD-STATUS.md` (version bump). `components/MatchView.tsx`, `lib/useTabSwitcher.ts`, and the book-enter/exit CSS remain unchanged.
+
 ## [1.0.176] 2026-08-10
 
 ### Fixed: real-device report of a Live-tab flash that did not self-heal -- extended v1.0.175's suppression window to cover the concurrent book-enter transition

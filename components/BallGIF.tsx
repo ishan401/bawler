@@ -155,6 +155,55 @@ export default function BallGIF({
     return () => clearTimeout(id);
   }, []);
 
+  // v1.0.177 -- direct, node-identity-confirmed reproduction (not a guess):
+  // repeat-tested this component's rendered scene div post-v1.0.176 and
+  // found the SAME DOM node (`===` identity checked) reporting
+  // `animationPlayState: "running"` while `opacity` stayed at the literal
+  // string "0" for multiple real seconds -- 10x+ longer than
+  // `.scene-fade-in`'s 280ms spec duration, and well outside the ~300ms
+  // book-enter-transition window v1.0.176 targeted. So the v1.0.176 fix
+  // (narrowing WHEN the race window against book-enter can occur) was
+  // real and correct as far as it went, but it does not address the
+  // deeper problem it was built on top of: `.scene-fade-in`'s own
+  // browser-driven timeline can, independent of any tab-switch
+  // concurrency, simply fail to progress from its 0% keyframe to
+  // completion, with no code-level guarantee it ever will. A "hope the
+  // animation plays" CSS keyframe with no fallback is inherently fragile
+  // to whatever causes a browser to deprioritize a compositor timeline
+  // (backgrounded/occluded tab, GPU/main-thread contention, etc.) --
+  // this automation's tab happens to be permanently `document.hidden`,
+  // which is sufficient to trigger it reliably for testing, but nothing
+  // about the failure mode itself is specific to automation.
+  //
+  // Fix: a JS-driven watchdog per scene mount, using `setTimeout` rather
+  // than `requestAnimationFrame` deliberately -- this codebase already
+  // established (see `lib/useCarouselIndex.ts`) that rAF is fully
+  // suspended (not just throttled) on a hidden/backgrounded tab, while
+  // `setTimeout` keeps running. 400ms after a scene div mounts (280ms
+  // animation spec + margin), if this render wasn't suppressed (nothing
+  // to guard when there's no animation class in the first place), force
+  // `animation: none` inline -- which unconditionally overrides an
+  // author-stylesheet `animation` shorthand and stops the browser from
+  // continuing to author the element's opacity -- immediately followed by
+  // a plain `opacity: 1`. This guarantees the correct end state regardless
+  // of whether `.scene-fade-in`'s own timeline ever actually completes. If
+  // the animation already finished normally, this is a harmless no-op
+  // (opacity is already 1). Scoped via `useEffect` deps matching the scene
+  // div's own `key` (`activeClip`, `ball.id`) so it re-arms exactly once
+  // per genuine remount of that div, not on every unrelated re-render.
+  const sceneNodeRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (suppressFirstFadeRef.current) return;
+    const id = setTimeout(() => {
+      const el = sceneNodeRef.current;
+      if (!el) return;
+      el.style.animation = "none";
+      el.style.opacity = "1";
+    }, 400);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClip, ball.id]);
+
 
   const isBigMoment = ball.isWicket || ball.isBoundary6 || ball.isBoundary4;
   const kind = outcomeKindOf(ball);
@@ -212,6 +261,7 @@ export default function BallGIF({
         {/* scene */}
         <div
           key={`${activeClip}-${ball.id}`}
+          ref={sceneNodeRef}
           className={suppressFirstFadeRef.current ? "absolute inset-0" : "scene-fade-in absolute inset-0"}
         >
           {activeClip === "bowler"
