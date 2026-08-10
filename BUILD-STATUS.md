@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.175 (deployed)
+**Current version:** v1.0.176 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -676,6 +676,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.176)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.176** | Real-device follow-up to v1.0.175: product owner confirmed on his own (non-automated) device that the Live-tab flash still occurs on tab-switch-back and does NOT self-heal after 10-15s -- ruling out this session's earlier "periodic 3-second cross-fade" explanation as the whole story. Root cause traced to a concurrency window: `MatchView.tsx`'s `book-enter-forward`/`book-enter-backward` transition runs concurrently with `BallGIF.tsx`'s scene remount for ~300ms after any tab switch; if a ball tick or the periodic clip-swap interval fires inside that window, v1.0.175's suppression (which only covered the very first render) had already lapsed, letting `.scene-fade-in` start nested inside an ancestor whose compositing layer was still being established -- a plausible browser compositor race with no built-in reason to self-correct. Fixed by extending the suppression window to the full 320ms (`components/BallGIF.tsx` only). Explicitly documented, in-code and in DECISIONS-LOG.md, that this automation environment's permanently-`document.hidden` tab could not directly capture the persistent stuck frame itself -- the fix is grounded in a confirmed concurrency window + mechanistic reasoning + the product owner's direct report, and final real-device confirmation is still pending (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.175)
 

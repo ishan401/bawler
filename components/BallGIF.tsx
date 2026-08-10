@@ -71,13 +71,88 @@ export default function BallGIF({
   const [activeClip, setActiveClip] = useState<"bowler" | "overhead">("bowler");
 
   // Lazy-init: only reads `skipEntranceAnimation` on this instance's true
-  // first render. Flipped to false in an effect (post-commit, not during
-  // render) exactly once, so the very first scene render can consult the
-  // pre-mutation value while every later render (clip swaps, ball updates)
-  // gets the normal animated behavior regardless of the prop's value.
+  // first render. Flipped to false in an effect exactly once, so the very
+  // first scene render can consult the pre-mutation value while every
+  // later render (clip swaps, ball updates) gets the normal animated
+  // behavior regardless of the prop's value.
+  //
+  // v1.0.177 -- the flip used to happen in a same-tick `useEffect(() => {},
+  // [])` (fires essentially the instant React commits, well under a
+  // millisecond after mount). That was too eager. MatchView.tsx's
+  // `key={tab}` wrapper plays a concurrent 300ms `book-enter-forward` /
+  // `book-enter-backward` transition (3D `perspective()` transform +
+  // opacity) on the ANCESTOR of this component at the exact same moment a
+  // tab-switch-back-into-Live remount happens. `direction` (and so this
+  // transition) is only ever non-null after a genuine `switchTab` call --
+  // see useTabSwitcher.ts -- so it is NOT present on a true fresh page
+  // load or while just sitting on Live. That lines up exactly with the
+  // reported symptom: only ever seen right after switching tabs INTO
+  // Live, never on fresh load, never mid-session.
+  //
+  // If the mock live-simulation ticks a new ball (or the periodic
+  // bowler/overhead cross-fade interval fires) inside that ~300ms window,
+  // the scene div remounts again with a fresh key -- and under the old
+  // same-tick flip, suppressFirstFadeRef.current had already gone false
+  // by then, so `.scene-fade-in` applied normally to that second remount,
+  // nesting its own opacity animation inside an ancestor whose compositing
+  // layer was still being established by the in-flight 3D-transform
+  // animation. This is a plausible, well-established class of browser
+  // compositor bug (a child layer's animation starting before its
+  // transform-animating ancestor's own layer has been promoted/committed
+  // can be left stranded on a pre-animation frame) and is the best
+  // explanation that fits every reported detail, including that it does
+  // not self-correct on its own.
+  //
+  // IMPORTANT CAVEAT for whoever revisits this: repeated direct
+  // getComputedStyle polling in this session's testing (both Claude-in-
+  // Chrome automation and manual code tracing) could NOT reproduce a
+  // *permanently* stuck opacity value -- every sampled instance this
+  // session settled to opacity 1 within roughly 300-500ms once actually
+  // rechecked with real timers. That automation runs in a tab that is
+  // permanently `document.hidden: true` (a structural limitation of the
+  // extension, documented elsewhere in this codebase -- see
+  // useCarouselIndex.ts's rAF-suspension note), and this session also
+  // independently confirmed that screenshots captured from that hidden
+  // tab are unreliable and can show a page-wide washed-out render that
+  // does NOT match the underlying computed DOM/CSS state at that instant.
+  // So this fix is based on: (1) a real, reproducible concurrency window
+  // that only exists on tab-switch-back (confirmed directly -- direction
+  // is null on fresh load, set on switches), (2) a mechanistically sound
+  // explanation for why a race in that window could produce a frame that
+  // never repaints on its own, and (3) the live product owner's direct,
+  // repeated, non-automated report of exactly that persistent symptom on
+  // a real device -- but NOT a first-hand, tool-verified capture of the
+  // stuck frame itself, which this automation environment cannot produce.
+  // If this fix does not fully resolve the report, the next place to look
+  // is whatever is unique to the reporter's real device/browser (GPU,
+  // OS-level "reduce motion", extensions, viewport size) that this
+  // environment cannot emulate.
+  //
+  // Fix: keep suppression active for the book-enter transition's full
+  // 300ms window (320ms with margin), not just the first commit, whenever
+  // this mount is a repeat tab-switch-back (`skipEntranceAnimation` true).
+  // Any scene remount landing inside that window -- ball tick or
+  // interval-driven clip swap alike -- also skips `.scene-fade-in`,
+  // removing the nested-animation race entirely; once the window closes,
+  // the normal per-clip cross-fade resumes exactly as before. A genuine
+  // first-ever mount of this component (`skipEntranceAnimation` false --
+  // fresh page load, or the very first time this match-page visit ever
+  // switches into Live) is unaffected: the ref already starts `false` in
+  // that case, so this effect no-ops and the entrance fade plays
+  // immediately as originally designed. NOTE: this means the very first
+  // time a session ever switches INTO Live (as opposed to a repeat visit)
+  // is still theoretically exposed to the same race, since no suppression
+  // flag is active on that occasion -- flagged in DECISIONS-LOG.md as a
+  // known residual gap, not fixed here since it wasn't the reported/
+  // tested scenario (which was always Live -> Score -> Live, i.e. always
+  // a repeat visit).
   const suppressFirstFadeRef = useRef(skipEntranceAnimation ?? false);
   useEffect(() => {
-    suppressFirstFadeRef.current = false;
+    if (!suppressFirstFadeRef.current) return;
+    const id = setTimeout(() => {
+      suppressFirstFadeRef.current = false;
+    }, 320);
+    return () => clearTimeout(id);
   }, []);
 
 
