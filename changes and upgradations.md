@@ -3576,6 +3576,29 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.181] 2026-08-10
+
+### Onboarding: add "Skip" control to the cricket-persona quiz step
+
+#### Context
+- Confirmed bug: onboarding's team-picker and player-picker steps each have a top-right "Skip" link, but the 3-question cricket-persona quiz that follows had no such control on any of its 3 questions -- the only onboarding step a user could not bypass.
+
+#### New -- `lib/onboardingQuiz.ts`
+- `SKIP_PERSONA`: a fixed, hardcoded `Persona` (`name: "All-Rounder"`, `description: "You're here for the cricket, in whatever form it takes."`), deliberately kept outside `PERSONA_TABLE` since it is never computed from answers and never varies by which question was open when Skip was pressed.
+
+#### Changed -- `components/onboarding/QuizStep.tsx`
+- Added a "Skip" link to the header row of all 3 questions, reusing the identical `text-xs font-bold text-text-dim` style and `flex items-center justify-between px-1` row layout already used by `TeamPickerStep.tsx`/`PlayerPickStep.tsx` -- no new visual style introduced.
+- New `skipQuiz()` handler: discards whatever's in `answers` (0, 1, or 2 responses) and calls `setPersona(SKIP_PERSONA)` directly, bypassing `computePersona()`/`persistFormatTags()` entirely -- skipping from any question produces the exact same fixed result, regardless of how many questions were already answered.
+- The persona-reveal branch (label, title, description, Share, Continue) is unchanged code -- it already read `persona.name`/`persona.description` generically, so it renders `SKIP_PERSONA`'s copy through the exact same markup, same `sharePersona()` mechanism, and the same `onComplete` callback as a normal, fully-answered quiz completion.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- The existing 6-entry `PERSONA_TABLE` and `computePersona()` are untouched -- answering all 3 questions honestly still produces the same computed personas as before, byte-for-byte.
+- 4 required sequences tested live (0-answers skip, 1-answer skip, 2-answers skip, full 3-answer completion) -- see DECISIONS-LOG.md for verbatim results.
+
+#### Scope
+- `lib/onboardingQuiz.ts`, `components/onboarding/QuizStep.tsx`, `package.json` + `README.md` (version bump), `BUILD-STATUS.md` changelog table.
+
 ## [1.0.180] 2026-08-10
 
 ### Round 6 fix: per-instance-unique SVG ids in BallGIF.tsx (hardening, no observed bug fixed)

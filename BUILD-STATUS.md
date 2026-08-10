@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.180 (deployed)
+**Current version:** v1.0.181 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -14,6 +14,8 @@
 - 🔍 **Round 6 diagnostic instrumentation (BallGIF.tsx)** — the v1.0.178 visibility fix is confirmed correct and unrelated to this; the product owner separately reports the Live-tab scene is *intermittently* slow/empty after a tab-switch (self-corrects sometimes, stays stuck other times) -- the signature of a timing-dependent race, not a static visibility bug. Added temporary `[content-debug]` logging in `BowlerView`/`OverheadView` that checks, on every mount via `useLayoutEffect`, whether any of the view's fixed SVG `<defs>` ids (`pitchB`, `ballB`, `pre-B`, `post-B`, `fieldO`, `ballO`, `shotPath`) exist more than once in the document at that instant -- the concrete, testable version of the "SVG id collision during a colliding remount" hypothesis. No functional change yet; this build exists to gather real evidence before touching anything. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.180)
+
+- ⏭️ **Onboarding quiz: added a Skip control** — the cricket-persona quiz was the only onboarding step with no way to bypass it (team-picker and player-picker both already have a top-right "Skip" link). Added an identical "Skip" link (same `text-xs font-bold text-text-dim`, same top-right row) to all 3 quiz questions in `QuizStep.tsx`. Clicking it from any question discards whatever answers were already given (0, 1, or 2) and jumps straight to the persona reveal screen with a new fixed, non-computed result (`SKIP_PERSONA` in `lib/onboardingQuiz.ts`): "YOUR CRICKET PERSONA" / "All-Rounder" / "You're here for the cricket, in whatever form it takes." Share and Continue behave exactly as they do for a normal, fully-answered quiz. The existing 6-persona `PERSONA_TABLE` and `computePersona()` are untouched -- answering all 3 questions honestly still produces the same computed personas as before (verified: same 3 answers as the original bug report still yield "Boundary Hunter", unchanged word-for-word).
 
 - 🛡️ **Round 6 hardening: per-instance-unique SVG ids in BallGIF.tsx** — the v1.0.179 diagnostic instrumentation ran 40 real, verified rapid/irregular tab-switches across both matches (timed to deliberately straddle the ~3s bowler/overhead clip-swap boundary) and never once observed the hypothesized SVG id collision. Applied the id-uniqueness fix anyway (`useId()`-suffixed ids for `pitchB`/`ballB`/`pre-B`/`post-B`/`fieldO`/`ballO`/`shotPath`) as defense-in-depth, since duplicate global SVG ids are invalid regardless of whether a live collision was ever caught. Collision-check instrumentation kept in place, now checking the suffixed ids. See DECISIONS-LOG.md for the full investigation and honest findings.
 

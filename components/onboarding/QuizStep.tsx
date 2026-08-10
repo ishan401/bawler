@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { QUIZ_QUESTIONS, computePersona, type QuizAnswer, type Persona } from "@/lib/onboardingQuiz";
+import { QUIZ_QUESTIONS, computePersona, SKIP_PERSONA, type QuizAnswer, type Persona } from "@/lib/onboardingQuiz";
 import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
 import PersonaParticles from "./PersonaParticles";
 
@@ -50,6 +50,16 @@ export default function QuizStep({ onComplete }: { onComplete: () => void }) {
     }
   }
 
+  // "Skip" link -- present on all 3 questions (added alongside the
+  // team-picker/player-picker Skip links, matching their behavior:
+  // skips only this step). Whatever's already in `answers` (0, 1, or
+  // 2 responses) is discarded, never fed into computePersona -- the
+  // skip path always lands on the fixed SKIP_PERSONA result, exactly
+  // as if 0 questions had been answered.
+  function skipQuiz() {
+    setPersona(SKIP_PERSONA);
+  }
+
   if (persona) {
     return (
       <div className="flex flex-col items-center gap-4 text-center animate-[fadeIn_0.2s_ease-out]">
@@ -88,8 +98,13 @@ export default function QuizStep({ onComplete }: { onComplete: () => void }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="text-xs font-bold text-text-dim px-1">
-        Question {questionIndex + 1} of {QUIZ_QUESTIONS.length}
+      <div className="flex items-center justify-between px-1">
+        <div className="text-xs font-bold text-text-dim">
+          Question {questionIndex + 1} of {QUIZ_QUESTIONS.length}
+        </div>
+        <button onClick={skipQuiz} className="text-xs font-bold text-text-dim">
+          Skip
+        </button>
       </div>
       <div className="text-lg font-bold text-text-primary text-center px-2">{question.prompt}</div>
       <div className="flex flex-col gap-3">

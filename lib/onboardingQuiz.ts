@@ -112,6 +112,21 @@ const PERSONA_TABLE: Record<Style, Record<FormatLean, Persona>> = {
   },
 };
 
+// Fixed, hardcoded result shown ONLY when a user clicks the quiz's
+// "Skip" link (added alongside the team-picker/player-picker Skip
+// links -- see QuizStep.tsx). Deliberately NOT part of PERSONA_TABLE
+// above: it is never computed from answers, never varies by which
+// question was open when Skip was pressed, and applies identically
+// whether 0, 1, or 2 of the 3 questions were answered first. Any
+// partial answers collected before Skip was pressed are discarded --
+// this persona is the only outcome of the skip path, always.
+export const SKIP_PERSONA: Persona = {
+  id: "all-rounder-skip",
+  name: "All-Rounder",
+  description: "You're here for the cricket, in whatever form it takes.",
+  formatTags: [],
+};
+
 /**
  * `answers` must be exactly 3 values, in QUIZ_QUESTIONS order
  * ([style, format1, format2]).
