@@ -2,7 +2,7 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.173 (deployed)
+**Current version:** v1.0.174 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
@@ -676,6 +676,12 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.161** | Fixed a real layout bug in v1.0.160's pitch-report box row: the fixed 4-column chunking wrapped a 5th box (Dew) onto its own mostly-empty second row for the 19 matches with 5 fields. Column count is now derived per match from however many fields are actually present (capped defensively at 6), so every match renders one single row with no wrapping. `StatCell` gained an optional `size` prop so denser rows scale padding/type down slightly; the default "md" size is byte-for-byte unchanged, confirmed the player profile's stat tiles are unaffected (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.174)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.174** | Fixed the Live tab's field/ball-tracking visual rendering as a barely-visible washed-out grid: `BallGIF.tsx`'s `.scene-fade-in` entrance animation (`app/globals.css`) used `backwards` as its only fill-mode, the sole one-shot opacity 0->1 entrance animation in the file missing `forwards` (every sibling entrance animation already used `both`). Confirmed via a live A/B toggle that this single fill-mode gap -- not remount timing, not the tab-switch transition -- was the entire cause: the element had no guaranteed path to its finished, visible state whenever the browser didn't progress the animation's intermediate frames in real time (reproducible on a backgrounded/non-foreground tab). Fixed by changing `backwards` to `both`; also fixed the same latent (but currently unused/dead) gap on `.anim-pull-up` for consistency. No component, hook, or tab-switch logic touched (DECISIONS-LOG.md) |
 
 ## Changelog additions (v1.0.162)
 

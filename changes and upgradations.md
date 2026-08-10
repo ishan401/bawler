@@ -3575,3 +3575,26 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
+
+## [1.0.174] 2026-08-10
+
+### Fixed: Live-tab field/ball-tracking visual stuck invisible (root cause: missing `forwards` fill-mode)
+
+#### Context
+- The field/pitch visualization panel on the match Live tab (`BallGIF.tsx`'s `.scene-fade-in`-wrapped scene, which swaps between a bowler-view and overhead-view SVG every clip cycle) was rendering as a barely-visible washed-out grid instead of its real graphic. Direct DOM inspection showed the wrapper's computed `opacity` stuck at `0` with `animation-name: scene-fade-in` and `animation-play-state: running` -- the entrance fade was never resolving to its finished, visible state.
+
+#### Root cause -- `app/globals.css`
+- `.scene-fade-in { animation: scene-fade-in 280ms ease-out backwards; }` used `backwards` as its only fill-mode. `backwards` governs the pre-start state (relevant only if there's an `animation-delay`, which this rule doesn't have); it does nothing to guarantee the post-finish state. Every other one-shot, opacity-affecting entrance animation already defined in this file (`.anim-pull-up`, `.book-enter-forward`, `.book-enter-backward`, `.slide-in-right`, `.chip-in`) already used `both` (backwards + forwards) for exactly this reason -- `.scene-fade-in` was the sole exception. Confirmed live via a direct A/B toggle of the rule on the deployed page (`getComputedStyle` sampled repeatedly over 24+ seconds): with `backwards` only, opacity never left `0`; switching the same rule to `both` (no other change) settled it to `1` within seconds and it stayed there. No JS, remount timing, or tab-switch-transition logic was involved -- this was purely a CSS fill-mode gap that left the element with no guaranteed path to its finished, visible state whenever the browser didn't get to progress the animation's intermediate frames in lockstep with real time (confirmed to occur on a backgrounded/non-foreground tab; this codebase has hit the same class of visibility-dependent animation-timing surprise before, see the `document.hidden` note in `lib/useCarouselIndex.ts`).
+
+#### Fixed -- `app/globals.css`
+- `.scene-fade-in`: `backwards` -> `both`. Field/pitch visual now always resolves to and holds `opacity: 1` once mounted, regardless of whether the browser painted every intermediate frame, and continues to do so correctly on every subsequent clip-swap remount (the `key={`${activeClip}-${ball.id}`}` swap in `BallGIF.tsx` was untouched -- it's a legitimate, working remount-per-clip-swap design, not the bug).
+- `.anim-pull-up`: same `backwards` -> `both` fix applied for consistency. This class isn't referenced by any component today (grep-confirmed dead CSS), so it wasn't causing a live bug, but it carried the identical latent gap and was corrected so it can't be copy-pasted into a future filter-animation caller in its broken form.
+- Audited every other keyframe-driven class in `app/globals.css` for the same pattern (one-shot, opacity-affecting, mount-triggered, missing `forwards`/`both`): `.modal-slide-up` and `.anim-leave-left`/`.anim-leave-right` are also unused dead CSS today (grep-confirmed) and don't share this exact gap (`anim-leave-*` already use `forwards`; `modal-slide-up` has no fill-mode but was never observed stuck since nothing mounts it). All `infinite`-iteration animations (`.live-dot`, `.excitement-glow`, `.skeleton`, wicket/boundary pulses) are unaffected by fill-mode by construction. No other live instance of this bug pattern found.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean. `mockData.ts` untouched.
+- Live A/B fill-mode toggle test on `ind-aus-t20i-2026-m2-live` (documented above) isolated the fix to this single CSS property change before it was applied to source.
+- Full live verification (both matches, multiple poll cycles, tab-switch cycles, regression checklist) recorded further down in this file / DECISIONS-LOG.md once complete.
+
+#### Scope
+- `app/globals.css`, `package.json` + `README.md` (version bump). No component, hook, or animation-timing logic touched -- `useTabSwitcher.ts`, the book-enter/exit transitions, `BallGIF.tsx`'s clip-swap interval, and the checklist catch-up animation are all unchanged.
