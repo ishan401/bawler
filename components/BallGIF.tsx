@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Ball, FielderPosition, Match } from "@/lib/types";
 import { outcomeKindOf, cardBackgroundFor, type OutcomeKind } from "@/lib/outcomeColors";
 import { SPIN } from "@/lib/tokens";
@@ -16,6 +16,51 @@ interface BallGIFProps {
   loopMs?: number;
   partnership?: PartnershipInfo;
   onShare?: (ball: Ball) => void; // centralised in MatchView
+}
+
+// ROUND 6 -- TEMPORARY diagnostic instrumentation, remove once the
+// intermittent "content sometimes fails to render after a tab-switch"
+// report is confirmed fixed or ruled out. This is deliberately a
+// DIFFERENT signal than the [scene-debug] opacity logs from v1.0.178
+// (opacity has already been proven always correct -- this checks
+// something opacity can't: whether the SVG's own fixed-id <defs>
+// (gradients/paths referenced via fill="url(#id)" and href="#id") ever
+// exist more than once in the document at the same time. A duplicate id
+// is exactly the failure mode the product owner's "sometimes fine,
+// sometimes broken, sometimes self-corrects" report would produce if a
+// tab-switch remount ever collided with the ~3s bowler/overhead clip-swap
+// remount: whichever element the browser picks for a given id could
+// belong to an instance that's about to be torn down, leaving the
+// surviving instance's fill/motion-path pointing at nothing.
+// eslint-disable-next-line no-console
+const _contentDebugLog = (...args: unknown[]) => console.log("[content-debug]", ...args);
+// eslint-disable-next-line no-console
+const _contentDebugWarn = (...args: unknown[]) => console.warn("[content-debug]", ...args);
+
+function useSvgIdCollisionCheck(viewName: string, ids: string[], mountKey: string) {
+  const instanceId = useRef<string>(`${viewName}-${Math.random().toString(36).slice(2, 8)}`).current;
+  // useLayoutEffect, not useEffect: fires synchronously right after DOM
+  // commit, before the browser paints -- the earliest point JS can run to
+  // observe the post-remount DOM, and before any old node a collision
+  // would depend on could have been removed by a LATER task (there isn't
+  // one; React's commit is synchronous, but this rules out any doubt).
+  useLayoutEffect(() => {
+    _contentDebugLog(`${viewName} mounted instance=${instanceId} mountKey=${mountKey}`);
+    for (const id of ids) {
+      const matches = document.querySelectorAll(`[id="${id}"]`);
+      if (matches.length > 1) {
+        _contentDebugWarn(`ID COLLISION id=${id} count=${matches.length} instance=${instanceId} mountKey=${mountKey}`);
+      } else if (matches.length === 0) {
+        _contentDebugWarn(`MISSING id=${id} count=0 instance=${instanceId} mountKey=${mountKey} -- fill/href referencing this id will resolve to nothing`);
+      } else {
+        _contentDebugLog(`id=${id} count=1 (ok) instance=${instanceId} mountKey=${mountKey}`);
+      }
+    }
+    return () => {
+      _contentDebugLog(`${viewName} unmounted instance=${instanceId} mountKey=${mountKey}`);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }
 
 const OUTCOME_WORD: Record<OutcomeKind, string> = {
@@ -263,6 +308,9 @@ function ShareIcon() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; loopMs: number; battingColor: string; bowlingColor: string }) {
+  // ROUND 6 diagnostic -- see useSvgIdCollisionCheck above. Checks the
+  // exact 4 fixed ids this view defines in its own <defs>.
+  useSvgIdCollisionCheck("BowlerView", ["pitchB", "ballB", "pre-B", "post-B"], ball.id);
   const initials = (n: string) => { const p = n.trim().split(" "); return p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : n.slice(0,2).toUpperCase(); };
   const W = 800, H = 500;
   const PITCH_TOP_W = 80, PITCH_BOT_W = 220, PITCH_TOP_Y = 80, PITCH_BOT_Y = 380, CX = W / 2;
@@ -354,6 +402,9 @@ function BowlerView({ ball, loopMs, battingColor, bowlingColor }: { ball: Ball; 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function OverheadView({ ball, fielders, loopMs }: { ball: Ball; fielders?: FielderPosition[]; loopMs: number }) {
+  // ROUND 6 diagnostic -- see useSvgIdCollisionCheck above. Checks the
+  // exact 3 fixed ids this view defines in its own <defs>.
+  useSvgIdCollisionCheck("OverheadView", ["fieldO", "ballO", "shotPath"], ball.id);
   const W=800,H=500,CX=W/2,CY=H/2,FIELD_RX=W/2-12,FIELD_RY=H/2-12;
   const PITCH_W=24,PITCH_H=78,BATTER_X=CX,BATTER_Y=CY+PITCH_H/2;
   const angleRad=((ball.shotAngle??0)*Math.PI)/180;

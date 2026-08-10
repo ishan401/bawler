@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.178 (deployed)
+**Current version:** v1.0.179 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.179)
+
+- 🔍 **Round 6 diagnostic instrumentation (BallGIF.tsx)** — the v1.0.178 visibility fix is confirmed correct and unrelated to this; the product owner separately reports the Live-tab scene is *intermittently* slow/empty after a tab-switch (self-corrects sometimes, stays stuck other times) -- the signature of a timing-dependent race, not a static visibility bug. Added temporary `[content-debug]` logging in `BowlerView`/`OverheadView` that checks, on every mount via `useLayoutEffect`, whether any of the view's fixed SVG `<defs>` ids (`pitchB`, `ballB`, `pre-B`, `post-B`, `fieldO`, `ballO`, `shotPath`) exist more than once in the document at that instant -- the concrete, testable version of the "SVG id collision during a colliding remount" hypothesis. No functional change yet; this build exists to gather real evidence before touching anything. See DECISIONS-LOG.md.
 
 ## Shipped ✅
 

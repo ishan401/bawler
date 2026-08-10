@@ -3576,6 +3576,26 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.179] 2026-08-10
+
+### Round 6 diagnostic instrumentation: SVG id-collision detection in BallGIF.tsx (no functional change)
+
+#### Context
+- The product owner confirmed v1.0.178's fix is real: the scene wrapper's opacity is unconditionally 1, verified independently on their end. But they report the Live tab still, intermittently, "keeps looking fine sometimes, but also broken sometimes" after a tab-switch, with a noticeable load delay, and -- critically -- the stuck state sometimes self-corrects and sometimes doesn't. That inconsistency rules out a pure visibility bug (which would be consistently stuck or consistently fine) and points at a race: something that usually finishes in time but occasionally doesn't, depending on timing.
+- Working theory to test: `BallGIF.tsx`'s `BowlerView`/`OverheadView` define SVG gradients/paths with fixed, hardcoded `id`s (`pitchB`, `ballB`, `pre-B`, `post-B`, `fieldO`, `ballO`, `shotPath`) referenced via `fill="url(#id)"` and `href="#id"`. SVG id references resolve globally against the whole document, not scoped to their own `<svg>`. If a tab-switch remount of the whole Live tab ever collided with the independent ~3-second bowler/overhead clip-swap remount inside `BallGIF.tsx`, two instances defining the same ids could transiently coexist, and a reference could resolve to the wrong or about-to-be-removed element -- exactly the kind of failure that would sometimes finish correctly and sometimes not, depending on timing.
+
+#### What shipped in this version
+- Read `components/BallGIF.tsx` in full: confirmed there is no data fetch, no `useEffect`/`useState` pair that populates content asynchronously after mount, and no un-cancelled async operation of any kind -- every pixel of the scene (pitch geometry, gradients, trajectory curves) is computed synchronously in the render body from props already in hand. This rules out the "uncancelled async write from a superseded mount" half of the hypothesis as inapplicable to this file (there's no async write to cancel).
+- The SVG-id-collision half of the hypothesis is concrete and testable. Added temporary `[content-debug]` instrumentation (`useSvgIdCollisionCheck`, called from both `BowlerView` and `OverheadView`) that runs in a `useLayoutEffect` on every mount -- synchronously, right after DOM commit, before the browser paints -- and checks `document.querySelectorAll('[id="..."]')` for each of that view's fixed ids, logging a count for each and a loud `ID COLLISION` warning if any id resolves to more than one element. This is a deliberately different signal from v1.0.178's `[scene-debug]` opacity logs (already proven always correct) since it tests something opacity can't.
+- No functional/behavioral change in this version -- ids are still the old shared fixed strings, unchanged. This build exists solely to gather real evidence (via deliberate rapid/irregular tab-switching timed near the clip-swap boundary) before deciding whether a fix is needed and what shape it should take.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Live reproduction results (rapid/irregular switching, both matches) reported directly to the user -- see DECISIONS-LOG.md and this session's chat report.
+
+#### Scope
+- `components/BallGIF.tsx` (instrumentation only), `package.json` + `README.md` (version bump), `BUILD-STATUS.md` changelog table.
+
 ## [1.0.178] 2026-08-10
 
 ### Architecture change: Live-tab scene is visible-by-default, removing the invisible-by-default/animation-dependent pattern entirely (replaces v1.0.174-177 patches)
