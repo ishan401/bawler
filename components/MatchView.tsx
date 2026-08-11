@@ -13,7 +13,7 @@ import BallGIF from "@/components/BallGIF";
 import WinProbChart from "@/components/WinProbChart";
 import MomentsStrip from "@/components/MomentsStrip";
 import MatchTabs, { type TabKey, type TabBadge } from "@/components/MatchTabs";
-import { useTabSwitcher } from "@/lib/useTabSwitcher";
+import { useTabSwitcher, ENTRANCE_ANIMATION_MS } from "@/lib/useTabSwitcher";
 import Scorecard from "@/components/Scorecard";
 import CommentaryFeed from "@/components/CommentaryFeed";
 import InfoTab from "@/components/InfoTab";
@@ -219,6 +219,23 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     scoreText: string; situationText: string;
   } | null>(null);
   const [isClosingProb, setIsClosingProb] = useState(false);
+  // Same wash-out mechanism ENTRANCE_ANIMATION_MS fixes for the tab panes
+  // (see lib/useTabSwitcher.ts's comment) applies here too: this modal's
+  // wrapper carries `book-enter-forward` for as long as it's open (it's
+  // only ever swapped for `book-exit-backward` while actively closing), so
+  // its content -- WinProbChart's own SVG -- stayed pinned to the same
+  // degraded compositing layer for the modal's entire open duration, which
+  // for this specific view is often minutes, not milliseconds. Once the
+  // entrance has had its declared 300ms to finish, drop the class so the
+  // modal settles into ordinary, non-GPU-layer-promoted painting for as
+  // long as it stays open -- reset back to false on close so the next open
+  // replays the entrance from a clean state.
+  const [hasEnteredProbModal, setHasEnteredProbModal] = useState(false);
+  useEffect(() => {
+    if (!showProbModal) { setHasEnteredProbModal(false); return; }
+    const id = setTimeout(() => setHasEnteredProbModal(true), ENTRANCE_ANIMATION_MS);
+    return () => clearTimeout(id);
+  }, [showProbModal]);
 
   // Back-swipe / browser back gesture for win-prob modal
   useEffect(() => {
@@ -968,7 +985,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           onClick={closeProbModal}
         >
           <div
-            className={`${isClosingProb ? "book-exit-backward" : "book-enter-forward"} w-full max-w-[430px] flex flex-col`}
+            className={`${isClosingProb ? "book-exit-backward" : hasEnteredProbModal ? "" : "book-enter-forward"} w-full max-w-[430px] flex flex-col`}
             onClick={(e) => e.stopPropagation()}
           >
             <WinProbChart

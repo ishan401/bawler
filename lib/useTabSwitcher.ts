@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 // ============================================================================
 // Shared tab/segmented-view switching state -- THE ONLY place this logic is
@@ -44,6 +44,52 @@ import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "
 // book-enter-backward keyframes in app/globals.css) -- never a second JS
 // timer standing between the state change and the content it gates.
 // ============================================================================
+
+// v1.0.184 -- Live-tab wash-out after fast tab-switch, fixed here (not in
+// MatchView.tsx or BallGIF.tsx). Real screenshots proved the animated tab
+// pane renders washed-out/unreadable after Live -> Score -> Digest -> Live
+// and never self-corrects, while every DOM/CSS/JS state check (opacity,
+// gradient refs, SVG ids, live data updating) reports everything correct --
+// because the defect is in how Chromium COMPOSITES the pane, not in any of
+// those values. Isolated live, in order:
+//   - `animationend` never fires for `book-enter-forward`/`book-enter-
+//     backward` across a real repro sequence, even with a capture-phase
+//     listener registered before the triggering clicks -- so cleanup keyed
+//     off that event (or off `animationPlayState`, already known unreliable
+//     from the v1.0.177 postmortem) is not just fragile but unusable here.
+//   - A plain reflow read (`offsetHeight`/`getBoundingClientRect()`) does
+//     NOT clear the wash-out -- it isn't a "just needs a layout flush" bug.
+//   - Toggling an unrelated, non-transform style property does NOT clear it
+//     either -- it isn't a "any repaint nudge fixes it" bug.
+//   - Removing the `transform`/`animation` declaration from the element is
+//     the ONLY thing that clears it, instantly and every time.
+// That isolates the mechanism precisely: the mere PRESENCE of an active
+// `animation` shorthand targeting `transform` (book-enter-fwd/bwd's
+// `perspective(900px) ... rotateY(...)`) keeps the element pinned to a
+// degraded-quality GPU compositing layer for as long as the class stays
+// applied -- regardless of the matrix value it resolves to (even literal
+// `transform: none` at rest doesn't help while the animation is still
+// declared) and regardless of whether the animation has actually finished
+// progressing. Since nothing ever removed `book-enter-forward`/`-backward`
+// after mount, every tab pane stayed on that degraded layer forever after
+// its very first entrance.
+//
+// The fix: `direction` (and therefore the class it drives) is now cleared
+// back to `null` a fixed, known `ENTRANCE_ANIMATION_MS` after every switch
+// -- exactly the CSS's own declared `animation-duration` for book-enter-fwd/
+// bwd (app/globals.css), not a guessed watchdog delay. This does NOT
+// reintroduce the "two states, one gated by a timer" defect this file's own
+// header and ARCHITECTURE.md's "Tab switching: one state, no timer" entry
+// ban: `activeTab` and the content it gates are untouched by this timer and
+// stay exactly as correct and in sync as before, on every single frame
+// including the ones before this timer fires. `direction` only ever chooses
+// a cosmetic entrance-animation class for content that is already fully
+// mounted, visible, and correct -- nothing the user can see or interact
+// with depends on its value once the entrance has finished playing. The
+// timer's only job is to stop that finished animation's class from
+// outliving its own animation, so the compositing layer it forces can be
+// released instead of staying pinned for the rest of that tab's mount.
+export const ENTRANCE_ANIMATION_MS = 300;
 
 export interface UseTabSwitcherOptions<T extends string> {
   /**
@@ -144,6 +190,22 @@ export function useTabSwitcher<T extends string>(
   const restoreTab = useCallback((tab: T) => {
     setActiveTab(tab);
   }, []);
+
+  // Clear `direction` back to null once the entrance animation it drives has
+  // had its own declared duration to finish -- see the ENTRANCE_ANIMATION_MS
+  // comment above for the full mechanism this fixes. Deliberately a plain
+  // `useEffect` (runs after paint, same as any other post-render cleanup),
+  // not `useLayoutEffect`: there is nothing here that needs to beat the
+  // browser's first paint of the new tab, unlike `switchTab`'s own scroll
+  // reset above. Re-running whenever `direction` changes to non-null is
+  // correct and sufficient -- a second genuine switch before this fires just
+  // replaces the pending timeout with a fresh one for the new direction,
+  // via the cleanup function, exactly like any other effect-scheduled timer.
+  useEffect(() => {
+    if (direction === null) return;
+    const id = setTimeout(() => setDirection(null), ENTRANCE_ANIMATION_MS);
+    return () => clearTimeout(id);
+  }, [direction]);
 
   return { activeTab, direction, switchTab, restoreTab };
 }
