@@ -158,24 +158,23 @@ function AnswerButton({
 // fully pauses the timer, then restarts a fresh 2.5s run from 0% once
 // the share sheet closes -- never a resumed partial timer).
 //
-// The countdown is driven by a single requestAnimationFrame loop that
-// tracks real elapsed ms in `elapsedRef` -- the progress-bar width
-// (`progress` state, 0 to 1) and the actual navigation trigger both read
-// from that same clock, so the bar can never drift out of sync with when
-// onComplete() actually fires. An earlier version used a CSS keyframe
-// animation for the bar plus a separate setTimeout for navigation; the
-// two were only loosely coupled (animation-play-state vs a JS timer) and
-// the bar visually never advanced. Driving both from one clock avoids
-// that class of bug entirely.
+// Deliberately setTimeout/setInterval-based, NOT requestAnimationFrame --
+// an earlier version drove both the bar and the navigation off a single
+// rAF loop, which is exactly wrong for this screen: rAF callbacks are
+// fully suspended by the browser while the tab is backgrounded/hidden
+// (confirmed live via document.hidden during testing), so on a
+// backgrounded tab the loop would simply never advance and the user
+// would never reach Home. setTimeout/setInterval still fire in that
+// state (only their rate gets clamped), and computing elapsed time from
+// Date.now() rather than counting frame deltas means the displayed
+// percentage is always correct for however much wall-clock time has
+// actually passed, however chunky the interval's own firing rate gets.
 function PersonaReveal({
   persona, onComplete, copied, setCopied,
 }: { persona: Persona; onComplete: () => void; copied: boolean; setCopied: (v: boolean) => void }) {
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
-  const elapsedRef = useRef(0);
-  const lastTsRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
-  // Always-current onComplete, read from inside the rAF loop -- avoids
+  // Always-current onComplete, read from inside the timer -- avoids
   // needing onComplete in the effect's dependency array (its identity
   // comes from an inline arrow function one level up in OnboardingFlow.tsx
   // and isn't guaranteed stable across renders).
@@ -183,28 +182,18 @@ function PersonaReveal({
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (paused) {
-      // Dropping the last-frame timestamp means the next resume's first
-      // frame computes a fresh (small) delta instead of one inflated by
-      // however long the pause itself lasted.
-      lastTsRef.current = null;
-      return;
-    }
-    function tick(ts: number) {
-      if (lastTsRef.current === null) lastTsRef.current = ts;
-      elapsedRef.current += ts - lastTsRef.current;
-      lastTsRef.current = ts;
-      if (elapsedRef.current >= AUTO_ADVANCE_MS) {
-        setProgress(1);
-        onCompleteRef.current();
-        return;
-      }
-      setProgress(elapsedRef.current / AUTO_ADVANCE_MS);
-      rafRef.current = requestAnimationFrame(tick);
-    }
-    rafRef.current = requestAnimationFrame(tick);
+    if (paused) return; // no timers at all while the share sheet is open
+    const startedAt = Date.now();
+    const navTimer = window.setTimeout(() => {
+      setProgress(1);
+      onCompleteRef.current();
+    }, AUTO_ADVANCE_MS);
+    const tickInterval = window.setInterval(() => {
+      setProgress(Math.min(1, (Date.now() - startedAt) / AUTO_ADVANCE_MS));
+    }, 50);
     return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      window.clearTimeout(navTimer);
+      window.clearInterval(tickInterval);
     };
   }, [paused]);
 
@@ -212,16 +201,14 @@ function PersonaReveal({
     // Share has its own hit area and must NOT also trigger the card's
     // tap-to-skip handler below.
     e.stopPropagation();
-    setPaused(true);
+    setPaused(true); // effect cleanup above clears both timers immediately
     await sharePersona(persona);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
     // Whether the user actually shared or cancelled, the share sheet is
-    // now closed either way -- reset the clock to 0 BEFORE resuming, so
-    // the next tick starts a full fresh AUTO_ADVANCE_MS run rather than
-    // resuming a partially-elapsed one, per the build spec.
-    elapsedRef.current = 0;
-    lastTsRef.current = null;
+    // now closed either way -- flipping `paused` back to false re-runs
+    // the effect with a fresh `startedAt`, i.e. a full new AUTO_ADVANCE_MS
+    // run, never a resumed partially-elapsed one, per the build spec.
     setProgress(0);
     setPaused(false);
   }
