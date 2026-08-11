@@ -3576,6 +3576,40 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.184] 2026-08-11
+
+### Fixed: Live-tab wash-out after tab-switch -- real mechanism found (GPU compositing, not visibility)
+
+#### Context
+- Every prior round (v1.0.174-180) fixed a real bug in `BallGIF.tsx` itself and was verified by reading DOM/CSS/JS state after the fix. This round's report came with an actual screenshot (not a state check): Live -> Score -> Digest -> Live on `ind-aus-t20i-2026-m2-live` showed the field/pitch panel and everything below it visibly washed-out, not self-correcting after several seconds -- while the code state at that exact instant read fully correct (opacity 1, no fade class, gradients resolving, live data updating, zero console errors). The instruction: investigate as a rendering/paint problem, not a logic one, and stop looking at visibility flags (already ruled out thoroughly in v1.0.178).
+
+#### Investigation -- six live, screenshot-verified experiments against the running page
+- Patching `book-enter-fwd`/`book-enter-bwd`'s "to" keyframe `transform` to `none` via the CSSOM: computed transform correctly became a 2D identity matrix, but the wash-out still occurred -- disproving "a specific 3D matrix value degrades raster quality."
+- Removing both `transform` and `animation` from the element entirely fixed it instantly, every time -- isolating the cause to the mere presence of the declared animation, independent of its resolved value.
+- A plain reflow read (`offsetHeight`) did not fix it; toggling an unrelated non-transform style property did not fix it either -- ruling out "needs a layout flush" and "any repaint nudge fixes it."
+- `animationend`/`animationstart`/`animationcancel`, registered document-level in capture phase before the triggering clicks, never fired once across a real Live -> Score -> Digest -> Live sequence -- any event-driven cleanup would be unusable here, not just fragile.
+- A `setTimeout` scheduled for exactly `getComputedStyle(el).animationDuration` (the CSS's own declared 300ms, read live) reliably cleared the wash-out every time, confirmed via a clean, unconfounded retest.
+
+#### Root cause
+- `MatchView.tsx`'s tab-content wrapper applies `book-enter-forward`/`book-enter-backward` (`app/globals.css`, a genuine 3D `perspective()+rotateY()` transform via a 300ms `animation` shorthand) on every tab remount and never removes it. Chromium promotes an element with an active `animation` targeting `transform` to its own GPU compositing layer, and that layer stays pinned to a degraded/washed-out paint quality for as long as the animation stays *declared* -- regardless of the resolved transform value and regardless of whether the animation has finished progressing. This mechanism (commit `05139a8`) predates every prior BallGIF-focused round and was never previously examined.
+
+#### Fixed -- `lib/useTabSwitcher.ts`
+- New `ENTRANCE_ANIMATION_MS = 300` constant (matches the CSS's own declared duration) and a `useEffect` that clears `direction` back to `null` exactly that long after every switch, via React state (not direct DOM manipulation) so the entrance class is naturally absent afterward and stays absent through unrelated re-renders. `activeTab` and content mounting are completely untouched by this timer -- only a cosmetic, already-finished entrance-animation class is cleared, which does not reintroduce the "two states, one gated by a timer" pattern ARCHITECTURE.md's "Tab switching: one state, no timer" section bans.
+
+#### Fixed -- `components/MatchView.tsx`
+- The win-prob modal (`showProbModal`) had the identical unfixed defect -- `book-enter-forward` applied for its entire open duration, sometimes minutes. Added `hasEnteredProbModal`, cleared to the modal's classname the same way after `ENTRANCE_ANIMATION_MS`, reusing the existing `setTimeout(..., 240)`-matched-to-CSS-duration pattern already present in this file's `closeProbModal`.
+
+#### Verified (screenshot-based, as required)
+- 10 real screenshots: 5 cycles of Live -> Score -> Digest -> Live on each of `ind-aus-t20i-2026-m2-live` and `ind-eng-test-2026-d3-live`, one screenshot immediately after every switch back to Live. Every single one crisp and fully readable -- field/pitch panel, trajectory dots, delivery-type card, partnership row, matchup selector, win-prob box, Moments cards -- with live score/win-prob values visibly updating between switches.
+- Opened the win-prob modal, held it open 2+ seconds (past the 300ms cleanup window): chart stayed crisp, live win-prob value kept updating. Closed via the exit animation; Live tab underneath remained crisp.
+- `tsc --noEmit` / `npm run build` clean. Zero console errors/warnings across the entire verification session (both matches, all 10 switches, modal open/close).
+
+#### Flagged, not fixed
+- `components/PageTransition.tsx` (the whole-app route wrapper for every page navigation) independently applies the same `book-enter-*` classes via its own logic and also never removes them -- an identical, currently-unfixed instance of this exact mechanism. Does not consume `useTabSwitcher`'s `direction` state, so this fix does not touch it; flagged as a known follow-up.
+
+#### Scope
+- `lib/useTabSwitcher.ts`, `components/MatchView.tsx`, `package.json`/`README.md` (version bump). `components/BallGIF.tsx`'s v1.0.178 architecture is unchanged.
+
 ## [1.0.183] 2026-08-11
 
 ### Product decision: "For You" scoped to explicit team/nation follows only

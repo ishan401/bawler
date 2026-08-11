@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.183 (deployed)
+**Current version:** v1.0.184 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.184)
+
+- 🖼️ **Live-tab wash-out after tab-switch, real root cause found and fixed (compositing, not visibility)** — every prior round (v1.0.174-180) fixed real bugs in `BallGIF.tsx`'s own visibility/fade/SVG-id logic, but a screenshot-based repro (Live → Score → Digest → Live) proved the field/pitch panel still rendered visibly washed-out at the exact instant every DOM/CSS/JS state check (opacity, gradients, SVG ids, live data) reported everything correct -- a state-vs-paint gap pointing at a rendering/compositing defect, not a logic one. Root cause, isolated via six live screenshot-verified experiments: `MatchView.tsx`'s tab-content wrapper applies a `book-enter-forward`/`-backward` class (`app/globals.css`, a 3D `perspective()+rotateY()` transform via `animation: ... 300ms ... both`) on every tab remount and never removes it -- Chromium pins the element to a degraded-quality GPU compositing layer for as long as that class stays applied, regardless of the resolved transform value or whether the animation has finished. `animationend`/`animationstart`/`animationcancel` were proven to never fire at all in this repro sequence (even with correctly-timed capture-phase listeners), so `lib/useTabSwitcher.ts` now clears its `direction` state back to `null` via a `setTimeout` matched to the CSS's own declared `ENTRANCE_ANIMATION_MS` (300ms) instead of relying on any animation-lifecycle event -- letting React naturally drop the class once the entrance has visually finished. The win-prob modal in `MatchView.tsx` (`showProbModal`) had the identical unfixed defect (stayed classed `book-enter-forward` for its entire open duration) and got the equivalent fix via a `hasEnteredProbModal` flag on the same constant. Verified via 10 real screenshots (5 cycles × 2 matches) plus a held-open win-prob-modal check -- crisp every time, zero console errors, zero regressions in ball-card overlay/trajectory line/partnership row/matchup selector/win-prob/Moments cards. `components/PageTransition.tsx` (the whole-app route wrapper) has an independent, unfixed instance of the identical class-never-removed pattern -- flagged here as a known follow-up, out of scope of this fix since it doesn't consume `useTabSwitcher`'s `direction` state. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.183)
 
