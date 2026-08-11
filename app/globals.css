@@ -435,17 +435,14 @@
   overflow: hidden;
   border-radius: 0 0 24px 24px;
 }
+/* Width is driven directly by QuizStep.tsx via inline style (a
+   requestAnimationFrame loop tracking real elapsed ms), not a CSS
+   animation/transition -- an earlier keyframe-animation version of this
+   looked visually frozen at 0% because pausing/restarting it precisely
+   in sync with the JS pause/resume state was unreliable. Driving the
+   width from the same JS clock that decides when to navigate keeps the
+   bar and the actual timer always in agreement. */
 .onboarding-autoadvance-fill {
   height: 100%;
-  width: 0%;
   background: rgba(63, 184, 184, 0.6);
-  animation: onboarding-autoadvance-fill-anim 2500ms linear forwards;
-}
-/* `animation-play-state` (set inline by QuizStep.tsx while the persona
-   reveal's share sheet is open) can pause this in place -- a plain CSS
-   `transition` has no equivalent pause API, which is why this is a
-   keyframe animation instead of a width transition. */
-@keyframes onboarding-autoadvance-fill-anim {
-  from { width: 0%; }
-  to   { width: 100%; }
 }

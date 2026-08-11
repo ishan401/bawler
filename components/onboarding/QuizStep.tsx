@@ -157,20 +157,56 @@ function AnswerButton({
 // the user taps the card (immediate skip-the-wait) or opens Share (which
 // fully pauses the timer, then restarts a fresh 2.5s run from 0% once
 // the share sheet closes -- never a resumed partial timer).
+//
+// The countdown is driven by a single requestAnimationFrame loop that
+// tracks real elapsed ms in `elapsedRef` -- the progress-bar width
+// (`progress` state, 0 to 1) and the actual navigation trigger both read
+// from that same clock, so the bar can never drift out of sync with when
+// onComplete() actually fires. An earlier version used a CSS keyframe
+// animation for the bar plus a separate setTimeout for navigation; the
+// two were only loosely coupled (animation-play-state vs a JS timer) and
+// the bar visually never advanced. Driving both from one clock avoids
+// that class of bug entirely.
 function PersonaReveal({
   persona, onComplete, copied, setCopied,
 }: { persona: Persona; onComplete: () => void; copied: boolean; setCopied: (v: boolean) => void }) {
-  // `runId` forces a fresh remount (and therefore a fresh 0%-start) of the
-  // progress-fill div every time a genuinely new AUTO_ADVANCE_MS run
-  // begins -- initial mount, and again after the share sheet closes.
-  const [runId, setRunId] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
+  const elapsedRef = useRef(0);
+  const lastTsRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+  // Always-current onComplete, read from inside the rAF loop -- avoids
+  // needing onComplete in the effect's dependency array (its identity
+  // comes from an inline arrow function one level up in OnboardingFlow.tsx
+  // and isn't guaranteed stable across renders).
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (paused) return;
-    const t = window.setTimeout(onComplete, AUTO_ADVANCE_MS);
-    return () => window.clearTimeout(t);
-  }, [runId, paused, onComplete]);
+    if (paused) {
+      // Dropping the last-frame timestamp means the next resume's first
+      // frame computes a fresh (small) delta instead of one inflated by
+      // however long the pause itself lasted.
+      lastTsRef.current = null;
+      return;
+    }
+    function tick(ts: number) {
+      if (lastTsRef.current === null) lastTsRef.current = ts;
+      elapsedRef.current += ts - lastTsRef.current;
+      lastTsRef.current = ts;
+      if (elapsedRef.current >= AUTO_ADVANCE_MS) {
+        setProgress(1);
+        onCompleteRef.current();
+        return;
+      }
+      setProgress(elapsedRef.current / AUTO_ADVANCE_MS);
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, [paused]);
 
   async function handleShare(e: React.MouseEvent) {
     // Share has its own hit area and must NOT also trigger the card's
@@ -181,10 +217,13 @@ function PersonaReveal({
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1500);
     // Whether the user actually shared or cancelled, the share sheet is
-    // now closed either way -- restart the FULL 2.5s timer/progress bar
-    // from 0%, per the build spec (never resume a partially-elapsed one).
+    // now closed either way -- reset the clock to 0 BEFORE resuming, so
+    // the next tick starts a full fresh AUTO_ADVANCE_MS run rather than
+    // resuming a partially-elapsed one, per the build spec.
+    elapsedRef.current = 0;
+    lastTsRef.current = null;
+    setProgress(0);
     setPaused(false);
-    setRunId(r => r + 1);
   }
 
   return (
@@ -223,9 +262,8 @@ function PersonaReveal({
 
         <div className="onboarding-autoadvance-track" aria-hidden="true">
           <div
-            key={runId}
             className="onboarding-autoadvance-fill"
-            style={{ animationPlayState: paused ? "paused" : "running" }}
+            style={{ width: `${Math.round(progress * 100)}%` }}
           />
         </div>
       </div>
