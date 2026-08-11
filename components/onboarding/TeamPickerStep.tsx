@@ -230,13 +230,21 @@ export default function TeamPickerStep({
   const visibleChips = showChipCap ? followedTeams.slice(0, CHIP_SHOWN_WHEN_CAPPED) : followedTeams;
   const overflowCount = showChipCap ? followedTeams.length - CHIP_SHOWN_WHEN_CAPPED : 0;
 
+  // v1.0.186 (onboarding visual overhaul): the counter/Skip row (and the
+  // follow-progress chips right below it) are fixed-height chrome at the
+  // TOP of this step, deliberately kept OUTSIDE the `flex-1 justify-center`
+  // wrapper below -- only the actual phase content (card stack, moment
+  // card, or rival prompt) should be vertically centered in the remaining
+  // space, per the "center the primary card" build spec. `flex-1` on this
+  // root div is what lets it fill 100% of OnboardingFlow's own content
+  // area, giving the inner centering wrapper real space to center within.
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex-1 flex flex-col gap-4">
       <div className="flex items-center justify-between px-1">
         <div className="text-xs font-bold text-text-dim">
           {index + 1} of {total} teams
         </div>
-        <button onClick={requestSkipStep} className="text-xs font-bold text-text-dim">
+        <button onClick={requestSkipStep} className="onboarding-skip-pill text-xs font-bold text-text-dim">
           Skip
         </button>
       </div>
@@ -280,6 +288,7 @@ export default function TeamPickerStep({
         </div>
       )}
 
+      <div className="flex-1 flex flex-col justify-center gap-4">
       {phase === "card" && (
         <>
           <div className="relative h-[420px]">
@@ -299,7 +308,7 @@ export default function TeamPickerStep({
                 return (
                   <div
                     key={`slot-${offset}`}
-                    className="absolute inset-0 card h-[420px]"
+                    className="absolute inset-0 onboarding-card h-[420px]"
                     style={{
                       transform: `translateX(${slot.translateX}px) rotate(${slot.rotate}deg) scale(${slot.scale})`,
                       opacity: slot.opacity,
@@ -357,7 +366,7 @@ export default function TeamPickerStep({
             <button
               onClick={() => activeHandleRef.current?.swipeLeft()}
               aria-label="Skip this team"
-              className="w-14 h-14 rounded-full border-2 border-negative text-negative flex items-center justify-center tap-scale"
+              className="onboarding-icon-btn onboarding-icon-btn-negative text-negative tap-scale"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="5" y1="5" x2="19" y2="19" />
@@ -380,7 +389,7 @@ export default function TeamPickerStep({
             <button
               onClick={() => activeHandleRef.current?.swipeRight()}
               aria-label="Follow this team"
-              className="w-14 h-14 rounded-full border-2 border-cyan text-cyan flex items-center justify-center tap-scale"
+              className="onboarding-icon-btn onboarding-icon-btn-positive text-cyan tap-scale"
             >
               <svg width="22" height="22" viewBox="0 0 16 16" fill="none">
                 <path d="M3 8.5L6.2 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -404,6 +413,7 @@ export default function TeamPickerStep({
           onSkip={handleRivalResolved}
         />
       )}
+      </div>
     </div>
   );
 }

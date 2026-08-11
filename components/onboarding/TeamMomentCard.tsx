@@ -17,7 +17,7 @@ export default function TeamMomentCard({
   const [reminderSet, setReminderSet] = useState(false);
 
   return (
-    <div className="card w-full p-4 flex flex-col gap-3 animate-[fadeIn_0.2s_ease-out]">
+    <div className="onboarding-card w-full p-4 flex flex-col gap-3 animate-[fadeIn_0.2s_ease-out]">
       <div className="text-[9px] font-bold uppercase tracking-widest text-text-dim">
         {moment.tier === 1 ? "🔴 Live right now" : moment.tier === 2 ? "📅 Coming up" : "📊 Recent result"}
       </div>
@@ -36,9 +36,13 @@ export default function TeamMomentCard({
         </button>
       )}
 
+      {/* v1.0.186 (onboarding visual overhaul): restyled from a bare text
+          link into the shared pill-button token (20px radius), matching
+          the "Remind me" pill just above it in this same card -- same
+          action/placement, visual-only change. */}
       <button
         onClick={onContinue}
-        className="mt-1 text-xs font-bold text-text-dim self-end"
+        className="onboarding-pill mt-1 text-xs font-bold text-text-dim self-end px-4 py-2 bg-white/[0.06]"
       >
         Continue →
       </button>

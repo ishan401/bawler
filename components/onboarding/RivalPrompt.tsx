@@ -17,7 +17,7 @@ export default function RivalPrompt({
   onSkip: () => void;
 }) {
   return (
-    <div className="card w-full p-4 flex flex-col gap-3 animate-[fadeIn_0.2s_ease-out]">
+    <div className="onboarding-card w-full p-4 flex flex-col gap-3 animate-[fadeIn_0.2s_ease-out]">
       <div className="text-sm font-bold text-text-primary">Who do you love to hate? 😈</div>
       <div className="text-xs text-text-secondary">
         Pick a rival, purely for fun -- we'll remember it for future banter.
@@ -33,7 +33,7 @@ export default function RivalPrompt({
           </button>
         ))}
       </div>
-      <button onClick={onSkip} className="self-end text-[11px] font-bold text-text-dim">
+      <button onClick={onSkip} className="onboarding-skip-pill self-end text-[11px] font-bold text-text-dim">
         Skip
       </button>
     </div>

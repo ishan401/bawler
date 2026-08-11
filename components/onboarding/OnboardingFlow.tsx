@@ -60,7 +60,21 @@ export default function OnboardingFlow() {
   return (
     <div className="min-h-screen bg-bg flex flex-col">
       <ProgressBar step={step} teamsProgress={teamsProgress} />
-      <div className="flex-1 flex flex-col justify-center px-4 py-6 max-w-md mx-auto w-full">
+      {/* v1.0.186 (onboarding visual overhaul): `pb-[...]` adds explicit
+          clearance for BottomNav (rendered globally in app/layout.tsx, a
+          `fixed bottom-0` element ~52px tall that overlaps this flex
+          container's own box rather than participating in its layout).
+          Before this fix, `justify-center` centered each step's content
+          against the FULL height down to the phone-frame's bottom edge,
+          so ~52px of that "centered" space was always hidden behind the
+          nav bar -- the true visible gap below a step's content came out
+          smaller than the gap above it, reading as empty space
+          concentrated at the top even though the box-level math was
+          symmetric. Reserving the nav's own height as bottom padding
+          makes the remaining box match the actually-visible area between
+          the progress bar and the nav bar, so centering now splits real
+          empty space evenly above/below. */}
+      <div className="flex-1 flex flex-col justify-center px-4 pt-6 pb-[calc(1.5rem_+_52px)] max-w-md mx-auto w-full">
         {step === "teams" && (
           <TeamPickerStep
             onProgress={(current, total) => setTeamsProgress(current / total)}

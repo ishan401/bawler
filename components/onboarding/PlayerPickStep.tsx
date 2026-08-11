@@ -97,11 +97,18 @@ export default function PlayerPickStep({
     );
   }
 
+  // v1.0.186 (onboarding visual overhaul): unlike the other onboarding
+  // screens, this one's "primary content" is a variable-length, scrollable
+  // player list rather than a single fixed-size card, so there's no
+  // single element to vertically center -- the correct analog here is
+  // letting the list fill the available space (flex-1 on both this root
+  // and the list container below, replacing the old fixed max-h-[440px]
+  // cap) so empty space never collects above/below it either.
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex-1 flex flex-col gap-3">
       <div className="flex items-center justify-between px-1">
         <div className="text-xs font-bold text-text-dim">Pick your players</div>
-        <button onClick={requestFinish} className="text-xs font-bold text-text-dim">
+        <button onClick={requestFinish} className="onboarding-skip-pill text-xs font-bold text-text-dim">
           {followedIds.size > 0 ? "Continue" : "Skip"}
         </button>
       </div>
@@ -113,7 +120,7 @@ export default function PlayerPickStep({
         className="w-full rounded-full bg-white/[0.06] px-4 py-2 text-sm text-text-primary placeholder:text-text-dim outline-none"
       />
 
-      <div className="flex flex-col gap-2 max-h-[440px] overflow-y-auto scrollbar-thin">
+      <div className="flex-1 flex flex-col gap-2 overflow-y-auto scrollbar-thin">
         {rows.length === 0 && (
           <div className="text-xs text-text-dim text-center py-6">
             {query ? "No players match your search." : "Follow a team in the previous step to see suggestions here, or search for anyone."}
@@ -123,7 +130,7 @@ export default function PlayerPickStep({
           const followed = followedIds.has(row.player.id);
           const tagLine = [...row.affiliations, roleLabel(row.player)].join(" · ");
           return (
-            <div key={row.player.id} className="card flex items-center justify-between p-3">
+            <div key={row.player.id} className="onboarding-row flex items-center justify-between p-3">
               <div className="flex flex-col">
                 <div className="text-sm font-bold text-text-primary">{row.player.shortName}</div>
                 <div className="text-[10px] text-text-dim">{tagLine}</div>

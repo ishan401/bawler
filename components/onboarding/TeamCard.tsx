@@ -51,7 +51,7 @@ export default function TeamCard({ team }: { team: Team }) {
   const flagIso = isNational ? FLAG_ISO[team.code] : undefined;
   const glowRgb = hexToRgbTriple(team.primaryColor);
   return (
-    <div className="card w-full h-[420px] flex flex-col items-center justify-between p-6 overflow-hidden">
+    <div className="onboarding-card w-full h-[420px] flex flex-col items-center justify-between p-6 overflow-hidden">
       <div className="relative mt-6 shrink-0 w-36 h-36 flex items-center justify-center">
         {/* v1.0.171 (onboarding visual polish): per-team ambient glow --
             purely decorative, sits behind the avatar circle only (never
@@ -79,6 +79,12 @@ export default function TeamCard({ team }: { team: Team }) {
           className="relative w-36 h-36 rounded-full flex items-center justify-center"
           style={{
             background: `linear-gradient(135deg, ${team.primaryColor}, ${team.secondaryColor})`,
+            // v1.0.186 (onboarding visual overhaul): glow ring behind the
+            // flag circle, sampling this team's own primaryColor via the
+            // same hexToRgbTriple() helper already used for the ambient
+            // glow blob above -- additive to that existing effect, not a
+            // replacement for it.
+            boxShadow: `0 0 0 6px rgba(${glowRgb}, 0.18)`,
             zIndex: 1,
           }}
         >
