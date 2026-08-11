@@ -3576,6 +3576,43 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.185] 2026-08-11
+
+### Fixed: same GPU-compositing wash-out on all page-level navigation (PageTransition.tsx), platform-wide
+
+#### Context
+- v1.0.184's DECISIONS-LOG entry explicitly flagged `components/PageTransition.tsx` -- the whole-app route wrapper used on every page navigation (Home/Filter/Schedule/Match/Player/onboarding) -- as an identical, unfixed instance of the same class-never-removed pattern that caused the Live-tab wash-out. The user independently reproduced it live: navigating Home into a match page left the destination page washed-out and illegible for 5+ seconds while live score data kept updating underneath.
+
+#### Fixed -- `components/PageTransition.tsx`
+- `animClass` (the local deciding which `book-enter-forward`/`book-enter-backward` class to apply) converted to real `useState`, and a new effect clears it back to `""` via `setTimeout` matched to `ENTRANCE_ANIMATION_MS` (300ms, imported from `lib/useTabSwitcher.ts`, not re-guessed).
+- `animClass` had to become state rather than staying a plain local: the component does the "adjust state during render" pattern (comparing pathname against a ref, then calling `setAnimClass` mid-render), and a plain local would be silently dropped on React's same-render retry (the ref used for the diff check is already mutated on the first pass, so the retry's condition reads false and skips recomputing the plain local). State, unlike a plain local, is guaranteed to survive the retry.
+- This defect was worse than the tab-switch case fixed in v1.0.184: since `PageTransition.tsx` never cleared the class at all, a destination page's entire visit duration -- not just the moment of transition -- could stay pinned to the degraded GPU compositing layer.
+
+#### New -- `lib/animationCleanup.ts`
+- `useClearValueAfterDuration<T>(value, clearedValue, durationMs, setValue)`: a generic hook that schedules `setValue(clearedValue)` via `setTimeout` whenever `value !== clearedValue`, matched to a caller-supplied duration. Used by `PageTransition.tsx` and the two newly-discovered instances below.
+- Per explicit instruction, `lib/useTabSwitcher.ts` and `components/MatchView.tsx` (both confirmed working in v1.0.184) were deliberately **not** migrated to call this utility and are byte-for-byte unchanged -- the stricter "leave it exactly as is" instruction took precedence over the softer suggestion to share the hook across all three call sites.
+
+#### Fixed -- full codebase audit found two more unreported instances
+- **`components/WinProbBadge.tsx`** (`.winprob-pulse`, 180ms): the shared win-prob-display component (match cards, matchup rows, win-prob chart) applied the pulse class and never cleared it. New internal `WinProbValue` wrapper using `useClearValueAfterDuration`; existing `key={pct}` remount-on-change behavior preserved at all 3 call sites.
+- **`components/onboarding/TeamPickerStep.tsx`** (`.chip-in`, 200ms): the follow-progress chip row (per-team chips + overflow chip) applied the entrance class and never cleared it. New internal `EntranceChip` wrapper, same mechanism.
+- Confirmed dead CSS (zero call sites): `.modal-slide-up`, `.anim-leave-left`/`.anim-leave-right`, `.anim-pull-up`, `.slide-in-right`.
+- Confirmed correct-by-different-mechanism (self-unmounting via their own cleanup timers): `persona-particle-burst` (`PersonaParticles.tsx`), `ring-pulse` (`FirstSessionQuest.tsx`).
+- Confirmed out of scope by design (short-lived, uniquely-`key`ed per-ball elements, not persistently-mounted): `.live-dot`, `.excitement-glow`, `.skeleton`, and `BallGIF.tsx`'s per-ball `infinite` keyframes (`wicket-flash`, `pulse-soft`, `boundary-pulse`, `stumps-fly`).
+
+#### Verified (screenshot-based, exhaustive, both matches)
+- Home <-> live-match round trip (5+ cycles, both directions, real bottom-nav/card taps). Filter -> Schedule -> Home (5+ cycles). Live -> completed -> pre-match -> Home cycling.
+- Player-profile open/back via real in-app `<Link>`s (Score tab batter names) -- typed-URL navigation was deliberately avoided for this check since it's a full page reload that never exercises `PageTransition.tsx`'s client-side transition logic at all.
+- Win-prob modal open/hold/close on both the T20 and Test match.
+- Full onboarding flow start to finish (team picker with a follow + rival-prompt celebration moment, player picker, all 3 quiz questions, persona reveal, Continue to Home) -- every step transition screenshotted.
+- Every required path repeated on `ind-eng-test-2026-d3-live` (different card-count layout, different tab set including `TABLE`).
+- Every screenshot showed sharp, fully-legible content immediately, with live data visibly ticking underneath. `read_console_messages` with `onlyErrors: true` returned zero errors across the entire session.
+
+#### Found, not fixed -- flagged for the user
+- A diagonal dithering/hatching overlay appears on the match page's **Live** tab specifically (never Score/Digest/Info/Table, never Home, never a player profile). Confirmed via a **hard, full browser reload** to be unrelated to the animation-class mechanism above (a reload carries no leftover React state, ruling that mechanism out entirely). Correlates with `BallGIF.tsx`'s gradient-heavy SVGs combined with the app's `backdrop-filter: blur(8px)` header/nav bars; `getComputedStyle`/WebGL checks confirmed this session's browser uses real, hardware-accelerated D3D11 rendering (Intel UHD Graphics via ANGLE), not software/headless rendering -- most likely an Intel-GPU driver compositing quirk, not an app logic bug. Different mechanism, different visual signature (moire, not desaturation) from the fix above; left unscoped pending direction.
+
+#### Scope
+- New: `lib/animationCleanup.ts`. Modified: `components/PageTransition.tsx`, `components/WinProbBadge.tsx`, `components/onboarding/TeamPickerStep.tsx`, `package.json`/`README.md` (version bump). `lib/useTabSwitcher.ts` and `components/MatchView.tsx` unchanged.
+
 ## [1.0.184] 2026-08-11
 
 ### Fixed: Live-tab wash-out after tab-switch -- real mechanism found (GPU compositing, not visibility)

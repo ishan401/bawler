@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.184 (deployed)
+**Current version:** v1.0.185 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.185)
+
+- 🖼️ **Same GPU-compositing wash-out fixed on all page-level navigation, platform-wide** — v1.0.184 flagged `components/PageTransition.tsx` (the whole-app route wrapper for every page navigation) as an unfixed instance of the same class-never-removed pattern; the user reproduced it live (Home → match page left the destination washed-out for 5+ seconds). Fixed with the same proven mechanism: `animClass` converted to real `useState` (required so its value survives React's same-render retry when set mid-render) and cleared via `setTimeout` matched to the CSS's declared 300ms duration, extracted into a new shared `lib/animationCleanup.ts` utility (`useClearValueAfterDuration`). A full codebase audit for the same anti-pattern found two more self-discovered, unreported instances — `components/WinProbBadge.tsx`'s `.winprob-pulse` (platform-wide win-prob displays) and `components/onboarding/TeamPickerStep.tsx`'s `.chip-in` (follow-progress chips) — both fixed the same way; 4 CSS classes confirmed dead, 2 confirmed correct-by-different-mechanism (self-unmounting), and the ball-visualizer's per-ball `infinite` animations confirmed out of scope (short-lived, uniquely-keyed elements). `lib/useTabSwitcher.ts` and `components/MatchView.tsx` deliberately left byte-for-byte unchanged per explicit instruction. Verified via exhaustive real-tap (not URL-bar) screenshot testing across both the T20 and Test match: Home↔match round trips, Filter→Schedule→Home, live/completed/pre-match cycling, player-profile via real in-app links, win-prob modal, and the full onboarding flow (team picker → player picker → quiz → reveal → Home) — zero wash-out, zero console errors. Also surfaced, and explicitly left unfixed pending direction: an unrelated diagonal-dithering rendering artifact specific to the match page's Live tab (gradient-heavy ball-visualizer SVGs + `backdrop-filter` blur, likely an Intel-GPU compositing quirk in this session's real Chrome browser) — confirmed via a hard page reload to be unrelated to the animation-class mechanism, since a reload carries no leftover React state. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.184)
 
