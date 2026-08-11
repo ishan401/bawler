@@ -17,7 +17,7 @@ import {
   onFollowPrefsChanged,
   hasAnyFollow,
   qualifyMatch,
-  isTier1Match,
+  isForYouMatch,
   followedMatchSide,
   getForYouReason,
   type FollowPrefs,
@@ -145,6 +145,16 @@ const SPOTLIGHT_MAX = 3;
 // series > tournament > player > format") didn't mention team -- team is
 // added here, ranked above nation, since "most specific first" requires it
 // (one side of one match is more specific than an entire nation's schedule).
+//
+// v1.0.183 UPDATE: since forYouResult now gates entry into `active` via
+// isForYouMatch() (team or nation ONLY -- see lib/followPrefs.ts), the
+// series/tournament/format ranks below can no longer be the reason a match
+// enters `active` at all -- every item this function is called on already
+// qualifies via team and/or nation. They're left in place, unchanged,
+// purely as a harmless tie-break nuance for a match that happens to ALSO
+// match a followed series/tournament/format alongside the team/nation
+// follow that actually qualified it -- never removed, since bestFollowRank
+// itself wasn't asked to change, only what's allowed to feed `active`.
 function bestFollowRank(q: MatchQualification): number {
   if (q.team) return 1;
   if (q.series) return 2;
@@ -357,15 +367,21 @@ export default function Home() {
     const empty = { liveIds: new Set<string>(), liveReasons: new Map<string, string>(), upcoming: null };
     if (!followsAnything) return empty;
 
+    // v1.0.183 -- "For You" product decision: only an explicitly followed
+    // team (franchise/club, via `prefs.teams`, or national, via
+    // `prefs.nations`) may ever produce a "for you" badge. Every other
+    // signal qualifyMatch() computes -- format (including the v1.0.182
+    // skip-everything default-format fallback), tournament, series, and
+    // player -- must never gate this anymore; isForYouMatch() (lib/
+    // followPrefs.ts) is the single, narrow gate enforcing that. There is
+    // no more Tier-1/player-only fallback split -- a match either
+    // involves a followed team or it doesn't.
     const pool = [...ALL_LIVE_MATCHES, ...ALL_UPCOMING_MATCHES];
-    const tier1: { m: Match; rank: number }[] = [];
-    const playerOnly: { m: Match; rank: number }[] = [];
+    const active: { m: Match; rank: number }[] = [];
     for (const m of pool) {
       const q = qualifyMatch(m, followPrefs);
-      if (isTier1Match(q)) tier1.push({ m, rank: bestFollowRank(q) });
-      else if (q.player) playerOnly.push({ m, rank: bestFollowRank(q) });
+      if (isForYouMatch(q)) active.push({ m, rank: bestFollowRank(q) });
     }
-    const active = tier1.length > 0 ? tier1 : playerOnly;
     if (active.length === 0) return empty;
     const activeIds = new Set(active.map(a => a.m.id));
 

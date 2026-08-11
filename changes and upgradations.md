@@ -3576,6 +3576,38 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.183] 2026-08-11
+
+### Product decision: "For You" scoped to explicit team/nation follows only
+
+#### Context
+- Explicit product decision: "For You" badges must only ever be triggered by an explicitly followed team (national, e.g. India, or franchise/club, e.g. RCB) -- via `followPrefs.nations` or `followPrefs.teams`. No other signal -- format, tournament, series, or player, including the v1.0.182 skip-everything default-format fallback -- may produce a "For You" badge under any circumstance.
+
+#### Audit findings (pre-change)
+- `getForYouReason()` (the badge's reason-text generator) checked, in priority order: Player, Team, Nation, Series, Tournament, then Format (with a `defaultFormats` sub-check added in v1.0.182 to distinguish "Because you follow X" from "Popular in X").
+- The badge's gating logic (`isTier1Match`/`isAnyMatch`, consumed only by `app/page.tsx`'s `forYouResult` computation) treated Nation, Team, Tournament, Series, and Format as equally-qualifying "Tier 1," with Player as a lower-priority "Tier 2" fallback when nothing else qualified.
+
+#### New -- `lib/followPrefs.ts`
+- `isForYouMatch(q: MatchQualification): boolean` -- the new, sole gate for the "For You" badge: `q.nation || q.team`, nothing else. `isTier1Match`/`isAnyMatch` are left in place, unchanged, but are no longer called anywhere for "for you" purposes -- flagged in their doc comments as currently unused outside `scripts/series-category-check.ts`, not deleted.
+
+#### Changed -- `lib/followPrefs.ts`
+- `getForYouReason()`: removed the Player, Series, Tournament, and Format branches entirely (including the v1.0.182 `defaultFormats` "Popular in X" logic). Only Team then Nation remain -- the function can no longer return anything but `"Because you follow {team/nation}"` (or the "both" variant), or `null`.
+
+#### Changed -- `app/page.tsx`
+- `forYouResult`'s qualifying loop now calls `isForYouMatch(q)` directly instead of `isTier1Match(q)` plus a player-only fallback bucket -- there is no more Tier-1/Tier-2 split, a match either involves a followed team or it doesn't.
+- `bestFollowRank()` left unchanged (still ranks team/series/tournament/nation/format) -- its series/tournament/format branches are now unreachable as the deciding qualifier (since only team/nation can gate entry into the ranked set at all), left in place as a harmless tie-break nuance, not removed, since only what feeds "for you" was in scope.
+
+#### Not removed -- flagged for a separate decision
+- The v1.0.182 `defaultFormats` field, `DEFAULT_FALLBACK_FORMATS` constant, and `applyOnboardingFallbackIfNeeded()` function are untouched and still run at the end of onboarding -- a skip-everything user still gets `formats: ["T20","T20I","Hundred"]` written to storage. This data now has NO functional consumer anywhere in the app (confirmed by full-repo grep) beyond `qualifyMatch()`'s own `format` field, which nothing reads for "for you" purposes anymore. Left in place, dormant, rather than deleted unilaterally -- a product call on whether to keep it for potential future use (a format-based feed, a Filter tab default, etc.) or remove it outright.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Isolated logic tests (localStorage-mocked `tsx` script): full-skip onboarding assigns default formats to storage but produces zero "for you" qualifying matches; an explicit-format-only account (simulating full quiz completion) also produces zero; an India-only follow produces "for you" badges (and only those) on India's 3 pool matches, all reading "Because you follow India"; India + RCB produces badges on all of both teams' matches, each correctly labeled.
+- 4 required live sequences run against the deployed build -- see DECISIONS-LOG.md for verbatim results.
+
+#### Scope
+- `lib/followPrefs.ts`, `app/page.tsx`, `package.json` + `README.md` (version bump), `BUILD-STATUS.md` changelog table. Onboarding flow, the quiz, skip controls, follow-icon treatment, tab-switching, and match selection for the carousel/Spotlight/Past/Coming Up sections are untouched.
+
 ## [1.0.182] 2026-08-11
 
 ### Fix: "For You" badge copy honesty -- distinguish explicit follows from the onboarding default

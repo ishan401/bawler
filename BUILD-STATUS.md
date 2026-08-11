@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.182 (deployed)
+**Current version:** v1.0.183 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.183)
+
+- 🎯 **"For You" scoped to explicit team/nation follows only** — product decision: format, tournament, series, and player follows (including the v1.0.182 skip-everything default-format fallback) can no longer produce a "For You" badge under any circumstance. Only an explicitly followed national team (`followPrefs.nations`) or franchise/club team (`followPrefs.teams`) can. New `isForYouMatch()` gate in `lib/followPrefs.ts`; `getForYouReason()` now only ever resolves Team or Nation. The v1.0.182 `defaultFormats`/`DEFAULT_FALLBACK_FORMATS` data model is left in place (still written to storage on skip-everything onboarding) but is now functionally dormant — no consumer anywhere in the app reads it for anything user-visible. Match selection for the carousel/Spotlight/Past/Coming Up sections is completely unaffected — only "for you" badge presence/wording changed. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.182)
 

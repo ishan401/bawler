@@ -313,60 +313,77 @@ export function qualifyMatch(match: Match, prefs: FollowPrefs): MatchQualificati
   return { nation, team, tournament, series, format, player };
 }
 
-/** Tier 1 = nation, team, tournament, series, or format. These outrank Player. */
+/** Tier 1 = nation, team, tournament, series, or format. These outrank Player.
+ *
+ * v1.0.183 NOTE: as of the "For You" teams-only product decision (see
+ * isForYouMatch below), this function is no longer used to gate the "for
+ * you" badge -- app/page.tsx's forYouResult computation now calls
+ * isForYouMatch() directly instead of this + the player fallback isAnyMatch
+ * used to provide. Left in place, unchanged, as a general-purpose "how
+ * broadly does this match relate to any followed category" utility (still
+ * exercised by scripts/series-category-check.ts) -- not deleted, since
+ * nothing asked for match-qualification breakdown itself to disappear,
+ * only for it to stop deciding the For You badge. Currently has no live
+ * caller in the app beyond that script; flagged here rather than removed
+ * silently. */
 export function isTier1Match(q: MatchQualification): boolean {
   return q.nation || q.team || q.tournament || q.series || q.format;
 }
 
+/** v1.0.183 NOTE: same status as isTier1Match above -- no longer used to
+ * gate the "for you" badge, kept as a general-purpose utility. */
 export function isAnyMatch(q: MatchQualification): boolean {
   return isTier1Match(q) || q.player;
 }
 
 /**
- * Resolves WHICH specific followed entity is responsible for a match's
+ * v1.0.183 -- "For You" product decision: a match may ONLY be surfaced as
+ * "for you" when the user has explicitly followed one of its two teams --
+ * either as a franchise/club team (`prefs.teams`) or as a national team
+ * (`prefs.nations`). Every other signal qualifyMatch() computes (format,
+ * tournament, series, player) must NEVER produce a "for you" badge,
+ * regardless of how those preferences were set (manually in the Follow
+ * sheet, via the onboarding quiz, or via the skip-everything default-
+ * format fallback in applyOnboardingFallbackIfNeeded above). This is the
+ * ONLY function app/page.tsx's forYouResult computation should call to
+ * decide whether a match counts as "for you" -- isTier1Match/isAnyMatch
+ * above are intentionally NOT used for this anymore. */
+export function isForYouMatch(q: MatchQualification): boolean {
+  return q.nation || q.team;
+}
+
+/**
+ * Resolves WHICH specific followed TEAM is responsible for a match's
  * "for you" status, for the homepage reason line ("Because you follow
- * {name}") -- v1.0.149.
+ * {name}") -- v1.0.149, narrowed to teams-only by the v1.0.183 product
+ * decision below.
  *
- * Deliberately a DIFFERENT priority order than isTier1Match's Tier 1
- * (nation/team/tournament/series/format) vs Tier 2 (player) grouping
- * above -- that tiering answers "is this match relevant at all, and how
- * strongly," and stays completely untouched by this function. This
- * answers a narrower, purely presentational question -- "which SINGLE
- * reason is most specific/useful to surface to the user" -- per explicit
- * product spec: Player > Team > Nation > Series > Tournament > Format.
+ * v1.0.183 -- "For You" is now scoped to explicit team/nation follows
+ * ONLY. Player, Series, Tournament, and Format (including the v1.0.182
+ * skip-everything default-format fallback) used to each have their own
+ * branch here and could each independently produce a reason string --
+ * all four branches were removed. A match can now reach this function
+ * with a resolvable reason if and only if isForYouMatch() (above) already
+ * returned true for it, i.e. it involves a franchise/club team in
+ * `prefs.teams` or a national team in `prefs.nations` -- nothing else.
  * Does not change qualifyMatch/isTier1Match/isAnyMatch/matchIsFollowed in
- * any way; this is a pure additional read using the same underlying
- * match/prefs fields those functions already check.
+ * any way; those still compute/report every category honestly, this is
+ * just no longer fed by anything but the two allowed categories.
  *
  * If the SAME category matches both competing sides (e.g. the user
  * follows both teams, or both nations, playing each other), names both
- * sides: "Because you follow both {A} and {B}". Series/Tournament/Format
- * are whole-match attributes (not tied to a specific side), so that
- * exception cannot apply to them -- only Player/Team/Nation are ever
- * resolved per-side.
+ * sides: "Because you follow both {A} and {B}".
  *
  * Returns null if no reason can be resolved (should not normally happen
- * for a match that already qualifies via qualifyMatch/isAnyMatch) --
- * callers must render the plain "for you" label with no reason line in
- * that case, never a placeholder or undefined text.
+ * for a match that already qualifies via isForYouMatch) -- callers must
+ * render the plain "for you" label with no reason line in that case,
+ * never a placeholder or undefined text.
  */
 export function getForYouReason(match: Match, prefs: FollowPrefs): string | null {
   const singleReason = (name: string) => `Because you follow ${name}`;
   const bothReason = (nameA: string, nameB: string) => `Because you follow both ${nameA} and ${nameB}`;
-  const playerLabel = (pid: string) => PLAYERS[pid]?.shortName ?? PLAYERS[pid]?.name ?? pid;
 
-  // 1. Player -- highest priority.
-  if (prefs.players.length > 0) {
-    const lineupA = getMatchLineup(match, match.teamA);
-    const lineupB = getMatchLineup(match, match.teamB);
-    const playerA = prefs.players.find(pid => lineupA.includes(pid));
-    const playerB = prefs.players.find(pid => lineupB.includes(pid));
-    if (playerA && playerB) return bothReason(playerLabel(playerA), playerLabel(playerB));
-    if (playerA) return singleReason(playerLabel(playerA));
-    if (playerB) return singleReason(playerLabel(playerB));
-  }
-
-  // 2. Team -- franchise teams only (national teams are matched under
+  // 1. Team -- franchise teams only (national teams are matched under
   // Nation below; see validTeamIds()/sanitizeFollowPrefs above).
   {
     const teamA = prefs.teams.includes(match.teamA.code);
@@ -376,7 +393,7 @@ export function getForYouReason(match: Match, prefs: FollowPrefs): string | null
     if (teamB) return singleReason(match.teamB.shortName);
   }
 
-  // 3. Nation.
+  // 2. Nation.
   if (prefs.nations.length > 0) {
     const nationA = nationOf(match.teamA.code, match.teamA.country, match.teamA.type);
     const nationB = nationOf(match.teamB.code, match.teamB.country, match.teamB.type);
@@ -385,32 +402,6 @@ export function getForYouReason(match: Match, prefs: FollowPrefs): string | null
     if (matchesA && matchesB) return bothReason(match.teamA.fullName, match.teamB.fullName);
     if (matchesA) return singleReason(match.teamA.fullName);
     if (matchesB) return singleReason(match.teamB.fullName);
-  }
-
-  // 4. Series (bilateral competitions) -- whole-match attribute, no
-  // per-side "both" case possible.
-  if (prefs.series.length > 0) {
-    if (prefs.series.includes(match.competition.id)) return singleReason(match.competition.shortName);
-    if (match.championship && prefs.series.includes(match.championship.id)) return singleReason(match.championship.shortName);
-  }
-
-  // 5. Tournament -- same shape as Series, different category.
-  if (prefs.tournaments.length > 0) {
-    if (prefs.tournaments.includes(match.competition.id)) return singleReason(match.competition.shortName);
-    if (match.championship && prefs.tournaments.includes(match.championship.id)) return singleReason(match.championship.shortName);
-  }
-
-  // 6. Format -- lowest priority. v1.0.182: a format-based match can be
-  // "for you" for two different reasons -- a real, deliberate choice
-  // (quiz completion, or a manual pick in the Follow sheet) or the
-  // onboarding skip-everything fallback (see DEFAULT_FALLBACK_FORMATS/
-  // applyOnboardingFallbackIfNeeded above). Both still count as a match
-  // via the exact same prefs.formats.includes(...) check qualifyMatch()
-  // itself uses -- only the wording of the explanation differs, never
-  // whether the match qualifies.
-  if (prefs.formats.includes(match.format)) {
-    if (prefs.defaultFormats.includes(match.format)) return `Popular in ${match.format}`;
-    return singleReason(match.format);
   }
 
   return null;
