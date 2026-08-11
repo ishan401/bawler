@@ -32,6 +32,22 @@ export interface FollowPrefs {
   series: string[];
   players: string[];
   formats: MatchFormat[];
+  // v1.0.182: the subset of `formats` (above) that were auto-assigned by
+  // the onboarding skip-everything fallback (see
+  // DEFAULT_FALLBACK_FORMATS/applyOnboardingFallbackIfNeeded below) rather
+  // than a real, deliberate choice -- completing the onboarding quiz, or
+  // manually checking a format in the "Follow your cricket" settings
+  // sheet, are both genuine explicit choices and never land here. Always
+  // a subset of `formats`, kept as its own array (not a boolean per
+  // format, not a parallel prefs bucket) so every existing array-shaped
+  // helper below (sanitizeFollowPrefs, prefsEqual, emptyFollowPrefs)
+  // extends the same way it already handles every other category.
+  // Read ONLY by getForYouReason() to choose "Because you follow X" vs.
+  // the honest "Popular in X" -- qualifyMatch()/isTier1Match()/
+  // isAnyMatch() (i.e. which matches count as "for you" at all) never
+  // consult it, so introducing it cannot change match targeting, only
+  // the wording of the reason line.
+  defaultFormats: MatchFormat[];
   // v1.0.165: one purely-for-fun "rival" team code, captured by the
   // onboarding flow's "Who do you love to hate?" prompt. Never a
   // follow signal itself -- qualifyMatch()/getForYouReason() below must
@@ -41,18 +57,23 @@ export interface FollowPrefs {
   rivalTeam?: string;
 }
 
-// rivalTeam is deliberately excluded -- it is not one of the six real
-// Filter-sheet categories (buildOptions() in FollowSheet.tsx switches
-// exhaustively over FollowCategory, and rivalTeam has no corresponding
-// UI section there, by design -- it's only ever set by onboarding's
-// one-tap "who do you love to hate?" prompt).
-export type FollowCategory = Exclude<keyof FollowPrefs, "rivalTeam">;
+// rivalTeam and defaultFormats are deliberately excluded -- neither is
+// one of the six real Filter-sheet categories (buildOptions() in
+// FollowSheet.tsx switches exhaustively over FollowCategory). rivalTeam
+// has no corresponding UI section, by design -- it's only ever set by
+// onboarding's one-tap "who do you love to hate?" prompt. defaultFormats
+// (v1.0.182) is a read-only annotation on top of `formats` (which
+// entries in it are auto-assigned vs. explicit) -- it's never rendered,
+// checked, or toggled as its own category; the Follow sheet's "formats"
+// toggle handler updates it as a side effect instead (see toggle() in
+// FollowSheet.tsx).
+export type FollowCategory = Exclude<keyof FollowPrefs, "rivalTeam" | "defaultFormats">;
 
 const STORAGE_KEY = "bawler:followPrefs";
 const CHANGE_EVENT = "bawler:follow-prefs-changed";
 
 export function emptyFollowPrefs(): FollowPrefs {
-  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [], rivalTeam: undefined };
+  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [], defaultFormats: [], rivalTeam: undefined };
 }
 
 // ----------------------------------------------------------------------------
@@ -108,13 +129,21 @@ export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
   const tournaments = validTournamentIds();
   const series = validSeriesIds();
   const players = validPlayerIds();
+  const formats = prefs.formats.filter(f => VALID_FORMATS.has(f));
+  // v1.0.182: defaultFormats must always be a SUBSET of the sanitized
+  // formats list above -- e.g. a user who unfollows a format via the
+  // Follow sheet (removing it from `formats`) but never touches
+  // `defaultFormats` directly shouldn't leave a stale "this is a
+  // default" marker for a format that isn't even followed anymore.
+  const defaultFormats = (prefs.defaultFormats ?? []).filter(f => formats.includes(f));
   return {
     nations: prefs.nations.filter(id => nations.has(id)),
     teams: prefs.teams.filter(id => teams.has(id)),
     tournaments: prefs.tournaments.filter(id => tournaments.has(id)),
     series: prefs.series.filter(id => series.has(id)),
     players: prefs.players.filter(id => players.has(id)),
-    formats: prefs.formats.filter(f => VALID_FORMATS.has(f)),
+    formats,
+    defaultFormats,
     rivalTeam: validRivalTeamCode(prefs.rivalTeam),
   };
 }
@@ -127,12 +156,14 @@ function prefsEqual(a: FollowPrefs, b: FollowPrefs): boolean {
     a.series.length === b.series.length &&
     a.players.length === b.players.length &&
     a.formats.length === b.formats.length &&
+    a.defaultFormats.length === b.defaultFormats.length &&
     a.nations.every(id => b.nations.includes(id)) &&
     a.teams.every(id => b.teams.includes(id)) &&
     a.tournaments.every(id => b.tournaments.includes(id)) &&
     a.series.every(id => b.series.includes(id)) &&
     a.players.every(id => b.players.includes(id)) &&
     a.formats.every(f => b.formats.includes(f)) &&
+    a.defaultFormats.every(f => b.defaultFormats.includes(f)) &&
     (a.rivalTeam ?? null) === (b.rivalTeam ?? null)
   );
 }
@@ -193,6 +224,42 @@ export function totalFollowCount(prefs: FollowPrefs): number {
 
 export function hasAnyFollow(prefs: FollowPrefs): boolean {
   return totalFollowCount(prefs) > 0;
+}
+
+// ----------------------------------------------------------------------------
+// Onboarding skip-everything fallback -- v1.0.182
+// ----------------------------------------------------------------------------
+// Confirmed bug (v1.0.182): a user who skips team selection, skips player
+// selection, AND skips (or never explicitly answers) the onboarding quiz
+// previously ended up with a genuinely EMPTY FollowPrefs -- no personalization
+// signal of any kind, so the homepage "for you" row/badge simply never
+// appeared for them. That's honest, but a fully-empty "for you" experience
+// for a brand-new user is a worse product outcome than a soft, clearly-
+// labeled default. This is the ONE place in the app formats are ever set
+// without a real user action behind them -- everywhere else (the quiz's
+// persistFormatTags in QuizStep.tsx, and a manual checkbox tap in the
+// "Follow your cricket" settings sheet) a user did something deliberate.
+export const DEFAULT_FALLBACK_FORMATS: MatchFormat[] = ["T20", "T20I", "Hundred"];
+
+/**
+ * Call exactly once, at the very end of onboarding (see
+ * OnboardingFlow.tsx's finishOnboarding()) -- AFTER the team/player/quiz
+ * steps have already had their chance to write real, explicit follows.
+ * If the user leaves with genuinely zero follows of any kind (skipped
+ * every step), assigns DEFAULT_FALLBACK_FORMATS so "for you" has
+ * something to work with, and records those exact formats in
+ * `defaultFormats` too so getForYouReason() can render them honestly
+ * ("Popular in T20", not "Because you follow T20"). No-op whenever the
+ * user already has ANY real follow -- including formats captured by
+ * honestly completing the quiz -- so this never overwrites or dilutes a
+ * genuine preference signal.
+ */
+export function applyOnboardingFallbackIfNeeded(): void {
+  const prefs = getFollowPrefs();
+  if (hasAnyFollow(prefs)) return;
+  prefs.formats = [...DEFAULT_FALLBACK_FORMATS];
+  prefs.defaultFormats = [...DEFAULT_FALLBACK_FORMATS];
+  setFollowPrefs(prefs);
 }
 
 function nationOf(code: string, country?: string, type?: string): string | undefined {
@@ -333,8 +400,18 @@ export function getForYouReason(match: Match, prefs: FollowPrefs): string | null
     if (match.championship && prefs.tournaments.includes(match.championship.id)) return singleReason(match.championship.shortName);
   }
 
-  // 6. Format -- lowest priority.
-  if (prefs.formats.includes(match.format)) return singleReason(match.format);
+  // 6. Format -- lowest priority. v1.0.182: a format-based match can be
+  // "for you" for two different reasons -- a real, deliberate choice
+  // (quiz completion, or a manual pick in the Follow sheet) or the
+  // onboarding skip-everything fallback (see DEFAULT_FALLBACK_FORMATS/
+  // applyOnboardingFallbackIfNeeded above). Both still count as a match
+  // via the exact same prefs.formats.includes(...) check qualifyMatch()
+  // itself uses -- only the wording of the explanation differs, never
+  // whether the match qualifies.
+  if (prefs.formats.includes(match.format)) {
+    if (prefs.defaultFormats.includes(match.format)) return `Popular in ${match.format}`;
+    return singleReason(match.format);
+  }
 
   return null;
 }

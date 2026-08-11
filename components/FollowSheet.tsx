@@ -294,7 +294,20 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
     setDraft(prev => {
       const list = prev[activeCategory] as string[];
       const next = list.includes(id) ? list.filter(x => x !== id) : [...list, id];
-      return { ...prev, [activeCategory]: next };
+      const updated = { ...prev, [activeCategory]: next };
+      // v1.0.182: any format the user manually taps here -- following OR
+      // unfollowing -- is a genuine, deliberate action through this
+      // dedicated settings sheet. Reclassify it as an explicit follow,
+      // even if it was only present because of the onboarding
+      // skip-everything fallback (see lib/followPrefs.ts's
+      // DEFAULT_FALLBACK_FORMATS/applyOnboardingFallbackIfNeeded), so a
+      // user who consciously re-confirms "T20" here gets credited with a
+      // real choice ("Because you follow T20"), not left silently marked
+      // as a default ("Popular in T20").
+      if (activeCategory === "formats") {
+        updated.defaultFormats = prev.defaultFormats.filter(f => f !== id);
+      }
+      return updated;
     });
   }
 

@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.181 (deployed)
+**Current version:** v1.0.182 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.182)
+
+- 🏷️ **"For You" badge copy honesty: explicit follows vs. the onboarding default** — a user who skipped team/player selection and never made a real format choice was still shown "Because you follow T20", overstating a choice they never made. Investigation found no fallback-default mechanism existed in code at all -- `formats` was only ever set by the quiz's own `persistFormatTags()`, a genuine explicit-choice mechanism. Added a new, clearly-flagged default (`DEFAULT_FALLBACK_FORMATS` in `lib/followPrefs.ts`, applied once at the very end of onboarding only when the user has zero real follows) so "for you" isn't empty for a fully-skipped user, and a new `defaultFormats` field distinguishing those from real choices. `getForYouReason()` now renders defaulted formats as "Popular in T20" instead of "Because you follow T20" -- exact wording, real explicit follows unchanged. Which matches qualify as "for you" is completely unaffected; only this one wording choice changed. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.179)
 

@@ -3576,6 +3576,38 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 #### Scope
 - `lib/firstSessionQuest.ts`, `components/FirstSessionQuest.tsx`, `package.json` (version bump).
 
+## [1.0.182] 2026-08-11
+
+### Fix: "For You" badge copy honesty -- distinguish explicit follows from the onboarding default
+
+#### Context
+- Confirmed bug: a test account that skipped team selection, skipped player selection, and never went through a real format-selection step still showed a "FOR YOU" badge reading "Because you follow T20" on the homepage. Its stored prefs: `teams: []`, `formats: ["T20", "T20I", "Hundred"]`.
+
+#### Mechanism finding (v1.0.182 investigation)
+- There was NO existing fallback-default mechanism anywhere in the codebase before this fix -- `formats` was previously only ever written by `components/onboarding/QuizStep.tsx`'s `persistFormatTags()`, called exclusively from `answer()` when a user genuinely completes all 3 quiz questions (mapped through `PERSONA_TABLE` in `lib/onboardingQuiz.ts`). This is intentional, documented, existing behavior -- the quiz is the app's designed format-preference-capture mechanism, and a real answer there is treated as an explicit choice, the same bucket as a team-picker follow or a manual pick in the "Follow your cricket" settings sheet. `skipQuiz()` (v1.0.181's `SKIP_PERSONA`) never calls `persistFormatTags()` at all (`formatTags: []`), so the current build's true "skip everything" path (team, player, AND quiz) previously left a user with zero followed formats and no "for you" badge whatsoever -- not a mislabeled one.
+- A brand-new fallback was built as part of this fix (see below) so that a genuinely fully-skipped user gets *some* personalization instead of none, per product direction that such a default is reasonable to have -- but it did not previously exist in code, contrary to the bug report's own hypothesis.
+
+#### New -- `lib/followPrefs.ts`
+- `FollowPrefs.defaultFormats: MatchFormat[]` -- always a subset of `formats`; marks which followed formats were auto-assigned rather than chosen. Extended through `emptyFollowPrefs()`, `sanitizeFollowPrefs()` (kept as a subset of the sanitized `formats` list), and `prefsEqual()`, the same way every other category already flows through those three functions.
+- `FollowCategory` now also excludes `"defaultFormats"` (alongside the existing `"rivalTeam"` exclusion) -- it's a read-only annotation on `formats`, never its own Filter-sheet section.
+- `DEFAULT_FALLBACK_FORMATS = ["T20", "T20I", "Hundred"]` and `applyOnboardingFallbackIfNeeded()`: called once, at the very end of onboarding, after the team/player/quiz steps already had their chance to write a real follow. No-ops whenever the user has ANY real follow (including quiz-derived formats); otherwise assigns the fallback set into both `formats` and `defaultFormats`.
+- `getForYouReason()`'s format branch (lowest priority, unchanged position) now checks `defaultFormats` before falling back to the existing `"Because you follow {format}"` copy -- a defaulted format instead returns `"Popular in {format}"`, exact wording, no paraphrasing. The qualification check itself (`prefs.formats.includes(match.format)`) is untouched, so this only changes wording, never whether a match counts as "for you".
+
+#### Changed -- `components/onboarding/OnboardingFlow.tsx`
+- `finishOnboarding()` now calls `applyOnboardingFallbackIfNeeded()` immediately before `markOnboardingComplete()`.
+
+#### Changed -- `components/FollowSheet.tsx`
+- `toggle()`: any format the user manually taps in the "Follow your cricket" sheet (on or off) now also clears that format out of `draft.defaultFormats` -- a deliberate re-confirmation through this dedicated settings UI always counts as a fresh explicit choice, never left silently flagged as a default.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- `qualifyMatch()`/`isTier1Match()`/`isAnyMatch()` untouched -- confirmed via code diff that no call site of those functions changed and neither function reads `defaultFormats`.
+- Isolated logic tests (localStorage-mocked `tsx` script): full-skip onboarding produces `formats`/`defaultFormats` both `["T20","T20I","Hundred"]` and `getForYouReason()` returns `"Popular in T20"`; a simulated honest quiz completion leaves `defaultFormats: []` and returns `"Because you follow T20"`; a mixed case (default fallback formats + a separately, explicitly followed team) resolves each match's reason independently and correctly by which specific preference actually qualifies that match.
+- 3 required live sequences run against the deployed build -- see DECISIONS-LOG.md for verbatim results.
+
+#### Scope
+- `lib/followPrefs.ts`, `components/onboarding/OnboardingFlow.tsx`, `components/FollowSheet.tsx`, `package.json` + `README.md` (version bump), `BUILD-STATUS.md` changelog table. Onboarding flow steps, the quiz's own content/Skip control, `qualifyMatch`/targeting logic, and all prior rounds of fixes are untouched.
+
 ## [1.0.181] 2026-08-10
 
 ### Onboarding: add "Skip" control to the cricket-persona quiz step

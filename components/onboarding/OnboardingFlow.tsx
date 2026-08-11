@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import type { Team } from "@/lib/types";
 import { PLAYERS } from "@/lib/mockData";
 import { markOnboardingComplete } from "@/lib/onboarding";
+import { applyOnboardingFallbackIfNeeded } from "@/lib/followPrefs";
 import { initFirstSessionQuest } from "@/lib/firstSessionQuest";
 import TeamPickerStep from "./TeamPickerStep";
 import PlayerPickStep from "./PlayerPickStep";
@@ -44,6 +45,13 @@ export default function OnboardingFlow() {
   const [lockedPreviewShown, setLockedPreviewShown] = useState(false);
 
   function finishOnboarding(anyTeamFollowed: boolean) {
+    // v1.0.182: must run AFTER every step (teams/players/quiz) has already
+    // had its chance to write a real, explicit follow, and BEFORE
+    // markOnboardingComplete() -- it only ever fills in
+    // DEFAULT_FALLBACK_FORMATS for a user who leaves with genuinely zero
+    // follows of any kind (see lib/followPrefs.ts). A user who followed a
+    // team/player, or answered the quiz, is untouched by this call.
+    applyOnboardingFallbackIfNeeded();
     markOnboardingComplete();
     initFirstSessionQuest(anyTeamFollowed);
     router.replace("/");
