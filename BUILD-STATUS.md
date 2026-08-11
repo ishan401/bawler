@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.185 (deployed)
+**Current version:** v1.0.186 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.186)
+
+- 🎨 **Onboarding visual overhaul: translucent cards + removed the forced persona-reveal tap** — every onboarding screen (team picker, rival-prompt/live-nudge cards, player picker, all 3 quiz questions, persona reveal) now shares one design-token set (`app/globals.css`): 38%-opacity blurred cards with 24px radius and soft shadow, 18px-radius blurred rows, 20px pill buttons, 44px tinted circular icon buttons, a per-team glow ring on the team-picker card sampling the team's own color. Fixed the real cause of the reported "empty space at top": `BottomNav`'s fixed ~52px height wasn't subtracted from the onboarding flow's centered content box, and each step's header/Skip row was inside the same centered block as the card instead of pinned above it — both fixed via layout restructuring, verified via `getBoundingClientRect()` math. Quiz answers now hold a real 200ms selected-state (teal border + fading-in checkmark) before advancing. The persona reveal screen's Continue button is gone entirely — it now auto-advances via the same navigation Continue used to trigger, 2.5s after render, with a thin progress bar filling in step; tapping the card skips immediately, tapping Share pauses the timer for the share's duration and restarts it fresh (never resumed) afterward. The auto-advance timer itself was rebuilt twice after live-browser testing caught real bugs: a CSS `@keyframes`-driven version never actually progressed its own animation clock, and a `requestAnimationFrame`-driven rewrite was found to fully stop firing in backgrounded/hidden tabs — the shipped version uses `setTimeout`/`setInterval` with `Date.now()`-based elapsed time instead, which keeps firing (if throttled) where `requestAnimationFrame` would not, avoiding a real risk of a user's auto-advance (and eventual navigation home) silently never completing if they alt-tab mid-reveal. No icon-class library exists in this codebase, so persona icons are new hand-drawn inline SVGs (`components/onboarding/PersonaIcon.tsx`) rather than the spec's assumed `ti-*` classes — full mapping disclosed to the user for review rather than finalized silently. Verified with real screenshots (mid-tap quiz selection, a deliberately-paused persona-reveal card with zero Continue button) plus precise in-page timing traces for the parts a screenshot round-trip is too slow to catch (the full reveal-to-home chain is ~4.7s, screenshot latency in this environment sometimes exceeded that). Zero console errors across the pass. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.185)
 

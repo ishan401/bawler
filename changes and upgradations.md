@@ -3,6 +3,16 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.186] 2026-08-11
+
+### Onboarding visual overhaul: translucent cards, rounder corners, and a real auto-advancing persona reveal
+
+- Shared design tokens (`app/globals.css`) applied across every onboarding screen: translucent blurred cards (24px radius), blurred rows (18px radius) for quiz answers and player-picker rows, 20px pill buttons, 44px tinted circular icon buttons, per-team glow ring on the team-picker card.
+- Fixed the real layout bug behind the "empty space at top" report: `BottomNav`'s fixed height wasn't reserved in the onboarding flow's centered content box, and each step's header/Skip row was centered along with the card instead of pinned above it.
+- Quiz answers hold a real 200ms selected state (border + checkmark) before advancing to the next question.
+- Persona reveal: removed the forced "Continue" tap. Auto-advances 2.5s after render via the same navigation Continue used to trigger, with a filling progress bar; tapping the card skips immediately; tapping Share pauses the timer for the share's duration and always restarts it fresh afterward, never resumed. Rebuilt the timer implementation twice after live testing found real bugs (a CSS-animation version that never actually progressed, then a `requestAnimationFrame` version that fully stops in backgrounded tabs) — shipped version uses `setTimeout`/`setInterval` with `Date.now()`-based elapsed time.
+- New `components/onboarding/PersonaIcon.tsx`: hand-drawn inline SVGs for the persona badge icon, since no icon-class library exists in this codebase; full persona-to-icon mapping disclosed to the user rather than finalized silently.
+
 ## [1.0.125] 2026-07-28
 
 ### New: "Your Players" homepage strip -- favourites + honest live-status sort
