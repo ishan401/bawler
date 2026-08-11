@@ -3,11 +3,45 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import type { Team } from "@/lib/types";
 import { getOnboardingTeams, getTeamMoment, isNationalTeam, followIdFor, type TeamMoment } from "@/lib/onboardingTeams";
 import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
+import { useClearValueAfterDuration } from "@/lib/animationCleanup";
 import SwipeCard, { type SwipeCardHandle } from "./SwipeCard";
 import TeamCard, { FLAG_ISO } from "./TeamCard";
 import TeamMomentCard from "./TeamMomentCard";
 import RivalPrompt from "./RivalPrompt";
 import LockedPreview from "./LockedPreview";
+
+// v1.0.185 -- found during the platform-wide GPU-compositing audit
+// (DECISIONS-LOG.md, v1.0.185): each follow-progress chip below is keyed
+// by team code and, once added, stays mounted in the DOM for the rest of
+// this onboarding step (a follow here is one-way -- chips are never
+// removed). The `chip-in` class (`.chip-in { animation: chip-in 200ms ...
+// both; }`, app/globals.css) was never cleared after that 200ms finished,
+// so every chip stayed pinned to a degraded GPU compositing layer for the
+// rest of the step -- same mechanism as the v1.0.184/185 tab/page-nav
+// wash-out fixes, just on small 28px chips instead of a full page. Fixed
+// the same way: a per-chip `entering` flag, cleared via the shared
+// `useClearValueAfterDuration` helper exactly `CHIP_ENTER_MS` (the class's
+// own declared duration) after each chip's own fresh mount.
+const CHIP_ENTER_MS = 200;
+
+/** Small wrapper so each chip's own `chip-in` entrance class is cleared
+ * after its declared duration instead of staying declared for the chip's
+ * entire remaining lifetime (see the comment above `CHIP_ENTER_MS`). Each
+ * instance is a genuinely fresh mount (parent keys these by team code, and
+ * a follow is never un-done within this step), so `useState(true)`
+ * correctly starts every chip in its "entering" state with no extra
+ * reset-on-prop-change logic needed. */
+function EntranceChip({
+  className, title, children,
+}: { className: string; title?: string; children: React.ReactNode }) {
+  const [entering, setEntering] = useState(true);
+  useClearValueAfterDuration(entering, false, CHIP_ENTER_MS, setEntering);
+  return (
+    <div className={`${entering ? "chip-in " : ""}${className}`} title={title}>
+      {children}
+    </div>
+  );
+}
 
 // v1.0.171 (onboarding visual polish): fanned card-stack + progress-chip
 // constants. The two background placeholder cards never render real team
@@ -219,9 +253,9 @@ export default function TeamPickerStep({
           {visibleChips.map(t => {
             const flagIso = t.type === "national" ? FLAG_ISO[t.code] : undefined;
             return (
-              <div
+              <EntranceChip
                 key={t.code}
-                className="chip-in w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 border border-line flex items-center justify-center bg-bg-surface"
+                className="w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 border border-line flex items-center justify-center bg-bg-surface"
                 title={t.fullName}
               >
                 {flagIso ? (
@@ -235,13 +269,13 @@ export default function TeamPickerStep({
                 ) : (
                   <span className="text-[9px] font-extrabold text-text-primary">{t.shortName.slice(0, 3)}</span>
                 )}
-              </div>
+              </EntranceChip>
             );
           })}
           {showChipCap && (
-            <div className="chip-in w-[28px] h-[28px] rounded-full shrink-0 flex items-center justify-center bg-white/20 text-white text-[9px] font-extrabold">
+            <EntranceChip className="w-[28px] h-[28px] rounded-full shrink-0 flex items-center justify-center bg-white/20 text-white text-[9px] font-extrabold">
               +{overflowCount}
-            </div>
+            </EntranceChip>
           )}
         </div>
       )}

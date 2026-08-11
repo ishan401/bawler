@@ -1,6 +1,36 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { useClearValueAfterDuration } from "@/lib/animationCleanup";
+
+// v1.0.185 -- `.winprob-pulse`'s own declared duration (app/globals.css:
+// `.winprob-pulse { animation: winprob-pulse 180ms ...; }`), not a guessed
+// value. Each pulse element below is remounted fresh via `key={pct}`
+// whenever the percentage genuinely changes (so React's own useState
+// initializer already gives every mount a correctly-reset starting class
+// -- no extra reset-on-prop-change logic needed here), but a win
+// probability can easily sit unchanged for many seconds or minutes at a
+// time once it settles near 50/50 or near a lopsided finish. Without this,
+// the element stayed classed `winprob-pulse` -- an `animation` shorthand
+// targeting `transform: scale(...)` -- for that entire dormant stretch,
+// which is the same GPU-compositing wash-out mechanism fixed platform-wide
+// in v1.0.184/v1.0.185 (see DECISIONS-LOG.md): the element stays pinned to
+// a degraded compositing layer for as long as the class stays declared,
+// regardless of whether the 180ms animation actually finished long ago.
+// Found during the v1.0.185 codebase-wide audit for this exact pattern.
+const WINPROB_PULSE_MS = 180;
+
+/** Wraps the win-prob value text so its brief entrance pulse (retriggered
+ * only on a genuine `pct` change, via the caller's own `key={pct}`) is
+ * cleared back to a plain, non-animated class once its declared duration
+ * has elapsed -- see WINPROB_PULSE_MS above. */
+function WinProbValue({
+  as: Tag = "span", className, children,
+}: { as?: "div" | "span"; className: string; children: React.ReactNode }) {
+  const [pulseClass, setPulseClass] = useState<"winprob-pulse" | "">("winprob-pulse");
+  useClearValueAfterDuration(pulseClass, "", WINPROB_PULSE_MS, setPulseClass);
+  return <Tag className={`${className} ${pulseClass}`.trim()}>{children}</Tag>;
+}
 
 /**
  * WinProbBadge — the ONE shared presentation for "leading team + win
@@ -113,7 +143,7 @@ export default function WinProbBadge({
         {/* key={pct} remounts this node only when the percentage itself
             genuinely changes, retriggering the scale-only micro-pulse --
             never on an unrelated re-render. */}
-        <div key={pct} className="text-2xl font-extrabold num text-white winprob-pulse">{pct}%</div>
+        <WinProbValue key={pct} as="div" className="text-2xl font-extrabold num text-white">{pct}%</WinProbValue>
         <div className="text-[9px] text-text-dim uppercase tracking-widest">{label} lead</div>
       </Tag>
     );
@@ -134,7 +164,7 @@ export default function WinProbBadge({
         aria-label={ariaLabel}
       >
         <span className="text-[8px] font-bold uppercase tracking-widest text-text-dim truncate max-w-full">Win Prob</span>
-        <span key={pct} className="text-[15px] font-extrabold text-white num winprob-pulse truncate max-w-full">{label} {pct}%</span>
+        <WinProbValue key={pct} className="text-[15px] font-extrabold text-white num truncate max-w-full">{label} {pct}%</WinProbValue>
       </Tag>
     );
   }
@@ -146,7 +176,7 @@ export default function WinProbBadge({
       aria-label={ariaLabel}
     >
       <span className="text-[7px] font-bold uppercase tracking-widest text-text-dim">Win Prob</span>
-      <span key={pct} className="text-[18px] font-extrabold text-white num winprob-pulse">{label} {pct}%</span>
+      <WinProbValue key={pct} className="text-[18px] font-extrabold text-white num">{label} {pct}%</WinProbValue>
     </Tag>
   );
 }
