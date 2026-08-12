@@ -21,6 +21,8 @@ import type { PlayerProfile, Team } from "./types";
 import { isPlayerCurrentlyLive } from "./playerActivity";
 import { getLastInningsHeadline } from "./playerForm";
 import type { PlayerFormatKey } from "./types";
+import { parsePlayerName } from "./playerName";
+import { CURATED_NATION_CODES, isNationalTeam } from "./onboardingTeams";
 
 export interface TaggedPlayer {
   player: PlayerProfile;
@@ -45,7 +47,12 @@ export function roleLabel(player: PlayerProfile): string {
  * to the raw code, since not every national team's own follow-id
  * (Team.country) is textually identical to its Team.code (South Africa:
  * code "SA", country "RSA"). */
-function nationDisplayName(teamCode: string | undefined): string | undefined {
+// Exported (v1.0.200) -- buildOnboardingPlayerDeck() below needs the
+// exact same team-code -> display-label resolution getRelevantPlayers()
+// already uses to tag `affiliations`, so it can match a followed team
+// back to its own subsequence of that array without a second, possibly-
+// diverging label rule.
+export function nationDisplayName(teamCode: string | undefined): string | undefined {
   if (!teamCode) return undefined;
   return NATIONAL_TEAMS[teamCode]?.shortName ?? teamCode;
 }
@@ -115,4 +122,92 @@ export async function getPlayerMoment(player: PlayerProfile, liveMatches: import
     if (headline) return { headline: `${player.shortName}: ${headline}`, isLive: false };
   }
   return null;
+}
+
+// ============================================================================
+// Onboarding step 2 deck builder -- v1.0.200
+// ============================================================================
+// Step 2 used to render a flat, scrollable, unbounded list of every
+// relevant player. It's now a 5-card swipe deck (matching step 1's own
+// interaction pattern) built by ONE of two rules, chosen by whether the
+// user followed any team at all in step 1:
+//
+//   Scenario A (>=1 team followed): round-robin across the followed
+//   teams, in the order they were followed -- first-followed team
+//   contributes the deck's first pick, second-followed team the second
+//   pick, etc., cycling back to the first team again if needed, until 5
+//   players are picked or every followed team's pool is exhausted
+//   (never padded with unrelated players). Per-team order is NOT
+//   reinvented here -- each team's queue is a plain filtered subsequence
+//   of getRelevantPlayers()'s own existing sort (most-affiliated first,
+//   then shortName), so a single team's queue is byte-for-byte "today's
+//   existing order" for that team, just sliced out of the one list that
+//   already establishes it.
+//
+//   Scenario B (0 teams followed): a fixed, non-randomized 5-player
+//   fallback -- one player per curated onboarding nation (the same
+//   CURATED_NATION_CODES / order step 1's own deck uses), each chosen by
+//   a captain flag if the data model had one. It doesn't (grep-confirmed
+//   -- PlayerProfile in lib/types.ts has no captain/marquee field; a few
+//   players' free-text `bio` happens to mention "captain", but that's
+//   prose, not a queryable flag), so each nation's pick is instead its
+//   alphabetically-first player BY SURNAME (via lib/playerName.ts's
+//   parsePlayerName(), the same surname-parsing this app already uses
+//   everywhere else for name display/sorting -- not a new rule).
+// ============================================================================
+
+/** Every player belonging to `team`, in the exact relative order they
+ * already have inside `relevant` (today's existing sort) -- a plain
+ * filtered subsequence, not a new ranking. */
+function teamQueueFrom(relevant: TaggedPlayer[], team: Team): PlayerProfile[] {
+  const label = isNationalTeam(team) ? (nationDisplayName(team.code) ?? team.code) : team.code;
+  return relevant.filter(r => r.affiliations.includes(label)).map(r => r.player);
+}
+
+const PLAYER_DECK_SIZE = 5;
+
+/** Scenario A: round-robin across `followedTeams`, in followed order. */
+function buildRoundRobinDeck(followedTeams: Team[]): PlayerProfile[] {
+  const relevant = getRelevantPlayers(followedTeams);
+  const queues = followedTeams.map(team => teamQueueFrom(relevant, team));
+  const picked: PlayerProfile[] = [];
+  const pickedIds = new Set<string>();
+
+  while (picked.length < PLAYER_DECK_SIZE) {
+    let anyPickedThisRound = false;
+    for (const queue of queues) {
+      if (picked.length >= PLAYER_DECK_SIZE) break;
+      // A player who (in principle) belongs to more than one followed
+      // team could already have been picked via an earlier team's turn --
+      // skip forward past any such duplicate rather than picking them twice.
+      while (queue.length > 0 && pickedIds.has(queue[0].id)) queue.shift();
+      if (queue.length === 0) continue;
+      const player = queue.shift()!;
+      picked.push(player);
+      pickedIds.add(player.id);
+      anyPickedThisRound = true;
+    }
+    if (!anyPickedThisRound) break; // every followed team's queue is exhausted
+  }
+  return picked;
+}
+
+/** Scenario B: fixed fallback, one player per curated nation, captain-
+ * flag-if-it-existed else alphabetical-by-surname. Deterministic -- same
+ * input (the curated nation list) always produces the same output. */
+function buildFallbackDeck(): PlayerProfile[] {
+  const picked: PlayerProfile[] = [];
+  for (const code of CURATED_NATION_CODES) {
+    const roster = Object.values(PLAYERS).filter(p => p.teamCode === code);
+    if (roster.length === 0) continue;
+    const sorted = [...roster].sort((a, b) =>
+      parsePlayerName(a.name).surname.localeCompare(parsePlayerName(b.name).surname)
+    );
+    picked.push(sorted[0]);
+  }
+  return picked;
+}
+
+export function buildOnboardingPlayerDeck(followedTeams: Team[]): PlayerProfile[] {
+  return followedTeams.length > 0 ? buildRoundRobinDeck(followedTeams) : buildFallbackDeck();
 }

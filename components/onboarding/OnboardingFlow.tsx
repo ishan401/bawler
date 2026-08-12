@@ -42,7 +42,6 @@ export default function OnboardingFlow() {
   const [teamsProgress, setTeamsProgress] = useState(0);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
   const [followedPlayerIds, setFollowedPlayerIds] = useState<string[]>([]);
-  const [lockedPreviewShown, setLockedPreviewShown] = useState(false);
 
   function finishOnboarding(anyTeamFollowed: boolean) {
     // v1.0.182: must run AFTER every step (teams/players/quiz) has already
@@ -78,8 +77,6 @@ export default function OnboardingFlow() {
         {step === "teams" && (
           <TeamPickerStep
             onProgress={(current, total) => setTeamsProgress(current / total)}
-            lockedPreviewShown={lockedPreviewShown}
-            markLockedPreviewShown={() => setLockedPreviewShown(true)}
             onComplete={teams => {
               setFollowedTeams(teams);
               setTeamsProgress(1);
@@ -91,8 +88,6 @@ export default function OnboardingFlow() {
         {step === "players" && (
           <PlayerPickStep
             followedTeams={followedTeams}
-            lockedPreviewShown={lockedPreviewShown}
-            markLockedPreviewShown={() => setLockedPreviewShown(true)}
             onComplete={playerIds => {
               setFollowedPlayerIds(playerIds);
               setStep("quiz");

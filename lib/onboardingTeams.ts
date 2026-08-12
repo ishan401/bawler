@@ -24,7 +24,12 @@ import type { Team } from "./types";
 // exactly that on first Home arrival). Fixed, deterministic order -- not
 // shuffled -- so "3 of 5" and the underlying deck are stable and testable
 // run to run.
-const CURATED_NATION_CODES = ["IND", "AUS", "ENG", "NZ", "SA"] as const;
+// Exported (v1.0.200) so lib/onboardingPlayers.ts's Scenario-B fallback
+// player deck (step 2, zero-teams-followed case) can build its "one
+// player per curated nation" fallback from this exact same list/order --
+// a single source of truth instead of a second hand-typed copy that could
+// silently drift from this one.
+export const CURATED_NATION_CODES = ["IND", "AUS", "ENG", "NZ", "SA"] as const;
 
 export function getOnboardingTeams(): Team[] {
   return CURATED_NATION_CODES.map(code => NATIONAL_TEAMS[code]).filter((t): t is Team => Boolean(t));

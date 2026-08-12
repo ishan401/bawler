@@ -6,7 +6,6 @@ import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
 import { useClearValueAfterDuration } from "@/lib/animationCleanup";
 import SwipeCard, { type SwipeCardHandle } from "./SwipeCard";
 import TeamCard, { FLAG_ISO } from "./TeamCard";
-import LockedPreview from "./LockedPreview";
 
 // v1.0.185 -- found during the platform-wide GPU-compositing audit
 // (DECISIONS-LOG.md, v1.0.185): each follow-progress chip below is keyed
@@ -60,8 +59,6 @@ const FRONT_ENTER_MS = 200;
 const CHIP_INLINE_CAP = 6;
 const CHIP_SHOWN_WHEN_CAPPED = 5;
 
-type Phase = "card" | "locked-preview";
-
 /** Persists a team follow into the SAME shared FollowPrefs store the rest
  * of the app's FOR YOU logic already reads -- national teams go into
  * `nations` (keyed by Team.country, falling back to Team.code, mirroring
@@ -81,21 +78,12 @@ function followTeam(team: Team) {
 export default function TeamPickerStep({
   onComplete,
   onProgress,
-  lockedPreviewShown,
-  markLockedPreviewShown,
 }: {
   onComplete: (followedTeams: Team[]) => void;
   onProgress: (current: number, total: number) => void;
-  /** Shared across BOTH step 1 and step 2 -- the locked-preview trade-off
-   * nudge is one moment in the whole onboarding session, not a per-step
-   * nag. See components/onboarding/OnboardingFlow.tsx, which owns this
-   * state and passes it to both steps. */
-  lockedPreviewShown: boolean;
-  markLockedPreviewShown: () => void;
 }) {
   const teams = useMemo(() => getOnboardingTeams(), []);
   const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState<Phase>("card");
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
   // Bug fix (post-v1.0.165 live-browser report): the swipe gesture itself
   // works correctly (confirmed via real Chrome mouse-drag testing -- a
@@ -149,7 +137,6 @@ export default function TeamPickerStep({
         onComplete(nextFollowed);
       } else {
         setIndex(i => i + 1);
-        setPhase("card");
         onProgress(index + 2, total); // report the UPCOMING card's 1-based position
       }
     },
@@ -178,23 +165,12 @@ export default function TeamPickerStep({
 
   /** Called by the step-level "Skip" link/the flow's own skip affordance --
    * this is "skip the ENTIRE step," distinct from an individual card's
-   * left-swipe (handleSkip above). */
+   * left-swipe (handleSkip above). v1.0.200: goes straight to step 2, no
+   * interstitial -- the "Follow a team to unlock this" nudge
+   * (LockedPreview.tsx) has been removed entirely, per explicit product
+   * decision. See DECISIONS-LOG.md. */
   function requestSkipStep() {
-    if (followedTeams.length === 0 && !lockedPreviewShown) {
-      setPhase("locked-preview");
-      markLockedPreviewShown();
-    } else {
-      onComplete(followedTeams);
-    }
-  }
-
-  if (phase === "locked-preview") {
-    return (
-      <LockedPreview
-        onGoBack={() => setPhase("card")}
-        onSkipAnyway={() => onComplete(followedTeams)}
-      />
-    );
+    onComplete(followedTeams);
   }
 
   if (!current) {
@@ -269,8 +245,6 @@ export default function TeamPickerStep({
       )}
 
       <div className="flex-1 flex flex-col justify-center gap-4">
-      {phase === "card" && (
-        <>
           <div className="relative h-[420px]">
             {[2, 1, 0].map(offset => {
               const t = teams[index + offset];
@@ -304,22 +278,19 @@ export default function TeamPickerStep({
 
               return (
                 <div key="slot-0" className="absolute inset-0" style={{ zIndex: 10, ...enterStyle }}>
-                  {/* Bug fix (v1.0.172, caught during live verification;
-                      reconfirmed still necessary after the v1.0.190 "LIVE
-                      RIGHT NOW" interstitial removal, which made phase
-                      always stay "card" for every transition, not just
-                      plain skips): this wrapper div's own key must stay the
-                      fixed "slot-0" (it's the front POSITION, not a
-                      per-team node), but SwipeCard itself needs a per-team
-                      key. Without one, React reuses the same SwipeCard
-                      instance across every team that passes through the
-                      front slot, so its internal dx/dragging/exiting state
-                      survives from the outgoing card into the incoming
-                      one -- the next team's card would render permanently
-                      off-screen at opacity 0. Keying by `t.code` forces a
-                      fresh SwipeCard (and fresh internal state) for every
-                      team, which is exactly what a "new card in the front
-                      slot" should be. */}
+                  {/* Bug fix (v1.0.172, caught during live verification):
+                      this wrapper div's own key must stay the fixed
+                      "slot-0" (it's the front POSITION, not a per-team
+                      node), but SwipeCard itself needs a per-team key.
+                      Without one, React reuses the same SwipeCard instance
+                      across every team that passes through the front slot,
+                      so its internal dx/dragging/exiting state survives
+                      from the outgoing card into the incoming one -- the
+                      next team's card would render permanently off-screen
+                      at opacity 0. Keying by `t.code` forces a fresh
+                      SwipeCard (and fresh internal state) for every team,
+                      which is exactly what a "new card in the front slot"
+                      should be. */}
                   <SwipeCard
                     key={t.code}
                     active={isTop}
@@ -373,8 +344,6 @@ export default function TeamPickerStep({
               </svg>
             </button>
           </div>
-        </>
-      )}
       </div>
     </div>
   );
