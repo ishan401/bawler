@@ -3,6 +3,15 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.188] 2026-08-12
+
+### Fix: "Select more" nudge visit-counter off-by-one (+ same-bug audit)
+
+- `bawler:homeVisitCount` was reading 2 after a single genuine first Home visit — caused by `registerHomeVisit()` also counting the fleeting, unavoidable pre-onboarding-redirect mount every brand-new user's first `"/"` hit causes. Fixed by gating its call site in `app/page.tsx` behind the same `isBooting || redirectPending` check the "Select more" coachmark's own effect already used.
+- Same bug silently shortened the existing "Follow a team..." empty-state nudge's visible window from 3 real sessions to 2 for onboarding users — fixed by the same change (it shares the same counter).
+- Investigated a report that the "Select more" popup itself never renders — could not reproduce against the actual shipped code; live instrumented traces showed it reliably mounting and rendering correctly, just ~1-2s after the click that finishes onboarding rather than instantly. No change made to the popup's own logic.
+- Audited `FirstSessionQuest.tsx` ("Get Started" checklist) for the same exposure: unaffected, since it has no visit-counting logic at all.
+
 ## [1.0.187] 2026-08-12
 
 ### Onboarding cut to 5 teams, rival-question step removed, new "Select more" Home coachmark

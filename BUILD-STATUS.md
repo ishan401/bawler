@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.187 (deployed)
+**Current version:** v1.0.188 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.188)
+
+- 🐛 **"Select more" nudge investigation: `homeVisitCount` off-by-one fixed at the source; popup itself confirmed working** — investigated a report that the new "Select more" coachmark never rendered. Confirmed real: `bawler:homeVisitCount` (an existing, separate counter from v1.0.52's empty-state follow nudge) read `2` after a single genuine first Home visit, not `1`. Root cause: `registerHomeVisit()`'s call site in `app/page.tsx` ran in a bare `useEffect(() => {...}, [])`, which also fires on the fleeting, unavoidable pre-onboarding-redirect mount every brand-new user's first `"/"` hit causes — a real mount, just not one the user ever perceives, since `router.replace("/onboarding")` navigates away before it renders anything visible. Fixed by gating that effect behind the same `isBooting || redirectPending` check the coachmark's own effect already correctly used, so the counter only ever counts a resolved, genuinely-seen visit. This also fixes a real, previously-unreported side effect: the same off-by-one silently shortened the pre-existing "Follow a team..." empty-state nudge's visible window from 3 real sessions to 2 for any user who went through onboarding. Separately, could NOT reproduce "the popup never renders" against a diagnostic-instrumented build of the actual shipped code — live console-trace evidence across multiple full runs showed the coachmark reliably mounting and rendering correctly, just slightly later (~1-2s after the click that finishes onboarding, due to the necessary chain of the 350ms boot timer + the spec's own 800ms delay) than a naive very-early check might catch. Audited `FirstSessionQuest.tsx` ("Get Started" checklist) for the same exposure per instruction: unaffected, since it has no visit-counting logic at all, only persisted per-item completion booleans. See DECISIONS-LOG.md for the full investigation.
 
 ## Changelog additions (v1.0.187)
 

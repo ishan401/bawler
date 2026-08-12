@@ -31,8 +31,6 @@ export function markSelectMoreNudgeSeen(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, "true");
-    // eslint-disable-next-line no-console
-    console.log("[diag] markSelectMoreNudgeSeen CALLED", new Error().stack);
   } catch {
     // no-op -- the flag just won't persist.
   }

@@ -190,10 +190,7 @@ export default function Home() {
   const router = useRouter();
   const [redirectPending, setRedirectPending] = useState(true);
   useEffect(() => {
-    const should = shouldShowOnboarding();
-    // eslint-disable-next-line no-console
-    console.log("[diag] redirect effect ran, shouldShowOnboarding=" + should, new Error().stack);
-    if (should) {
+    if (shouldShowOnboarding()) {
       router.replace("/onboarding");
     } else {
       setRedirectPending(false);
@@ -213,20 +210,10 @@ export default function Home() {
   // effect can legitimately re-run more than once as those flags settle.
   const [showSelectMoreNudge, setShowSelectMoreNudge] = useState(false);
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log("[diag] showSelectMoreNudge effect ran, isBooting=" + isBooting + " redirectPending=" + redirectPending + " hasSeen=" + hasSeenSelectMoreNudge());
     if (isBooting || redirectPending) return;
     if (hasSeenSelectMoreNudge()) return;
-    const t = window.setTimeout(() => {
-      // eslint-disable-next-line no-console
-      console.log("[diag] 800ms timer fired, setting showSelectMoreNudge(true)");
-      setShowSelectMoreNudge(true);
-    }, 800);
-    return () => {
-      // eslint-disable-next-line no-console
-      console.log("[diag] showSelectMoreNudge effect CLEANUP (timer cleared)");
-      window.clearTimeout(t);
-    };
+    const t = window.setTimeout(() => setShowSelectMoreNudge(true), 800);
+    return () => window.clearTimeout(t);
   }, [isBooting, redirectPending]);
 
   // ---- Pull-to-refresh ----
@@ -307,11 +294,23 @@ export default function Home() {
 
   // ---- Empty-state nudge — only while nothing's ever been followed, not
   // dismissed, and still within the first few Home visits. ----
+  // v1.0.188: gated behind isBooting/redirectPending (same two gates the
+  // "Select more" coachmark below already uses) so registerHomeVisit() only
+  // ever counts a genuine, resolved Home visit. Before this fix it ran in a
+  // bare `useEffect(() => {...}, [])`, which also fires on the fleeting
+  // pre-onboarding-redirect mount every brand-new user's very first "/" hit
+  // causes (app/page.tsx mounts, synchronously discovers
+  // shouldShowOnboarding() === true, and calls router.replace("/onboarding")
+  // -- but every effect in this component still runs once before that
+  // navigation completes). That meant a brand-new user's first REAL Home
+  // visit (the one after finishing onboarding) was already being counted as
+  // visit #2, not #1 -- see DECISIONS-LOG.md v1.0.188 for the full repro.
   const [showNudge, setShowNudge] = useState(false);
   useEffect(() => {
+    if (isBooting || redirectPending) return;
     const visitCount = registerHomeVisit();
     setShowNudge(visitCount <= NUDGE_MAX_SESSIONS && !isNudgeDismissed());
-  }, []);
+  }, [isBooting, redirectPending]);
   const followsAnything = hasAnyFollow(followPrefs);
 
   // ---- Spotlight — excitement>=8 matches, pulled OUT of the quiet grid and
