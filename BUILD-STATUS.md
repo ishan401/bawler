@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.192 (deployed)
+**Current version:** v1.0.193 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.193)
+
+- 🐛 **Match-page fixed header, three related fixes:** (1) each team's score in the sticky `ScoreBar` now shows its over count in parentheses (e.g. "175/8 (20)"), reusing the exact format Home's live cards already use, whenever an innings exists (LIVE/FINAL, never PRE). (2) The top-right "LIVE" (red dot) and "PRE" status labels were removed entirely, no replacement, no reserved gap; **FINAL** is completely unchanged in position/styling. (3) Root cause fixed for the LIVE tab incorrectly appearing on upcoming matches (alongside a non-functional Score tab): `MatchTabs.tsx` used to derive its own tab set independently from `MatchView.tsx`'s already-correct `TABS_ORDER`, and neither derivation knew about the "upcoming" state. `MatchTabs.tsx` now just renders whatever ordered `tabs` array it's given; `TABS_ORDER` gained an `isUpcoming` branch showing only Info (+ Table where eligible). Table-tab eligibility logic untouched. Disclosed (not fixed, pre-existing/out of scope): the fixed header has never rendered a compound multi-innings score; a pre-existing hydration issue (React error #425) was found on LIVE/PRE pages, root-caused to `lib/mockData.ts`'s `Date.now()`-based mock timestamps (untouched by this commit).
 
 ## Changelog additions (v1.0.192)
 

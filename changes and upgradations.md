@@ -3964,3 +3964,31 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `app/globals.css`, `package.json` + `README.md` (version bump). No component, hook, or animation-timing logic touched -- `useTabSwitcher.ts`, the book-enter/exit transitions, `BallGIF.tsx`'s clip-swap interval, and the checklist catch-up animation are all unchanged.
+
+## [1.0.193] 2026-08-12
+
+### Fixed: match-page fixed header — over count added, LIVE/PRE status labels removed, LIVE tab restricted to in-progress matches
+
+#### Context
+- Three related gaps in the fixed header shared by every match page: the sticky score row showed no over count (Home's cards already do); the top-right status label showed "LIVE"/"PRE" text that the design no longer wants (FINAL should stay); and the LIVE tab (plus a non-functional Score tab) incorrectly appeared on upcoming matches, which have no live content behind either.
+
+#### Fixed — `components/ScoreBar.tsx`
+- Added `" (overs)"` (exact Home-card format) after each team's runs/wickets figure, inside the existing `lastInnA`/`lastInnB` conditional blocks — renders on LIVE and FINAL, never PRE, with zero new gating logic.
+- Status-label div changed from always-rendered (cycling LIVE/PRE/FINAL text) to `{isPost && (<div>FINAL</div>)}` — LIVE and PRE now render nothing in that slot, no reserved space; FINAL is byte-for-byte unchanged in position/styling.
+- Disclosed, not fixed (pre-existing, out of scope): this header has never rendered a compound multi-innings score ("199/10 & 28/2") — `lastInnA`/`lastInnB` only ever surface the single most recent innings per team.
+
+#### Fixed — `components/MatchTabs.tsx` (rewritten) + `components/MatchView.tsx`
+- Root cause: `MatchTabs.tsx` derived its own tab set independently (unaware of "upcoming"), separately from `MatchView.tsx`'s already-correct-for-live/finished `TABS_ORDER` — two different derivations of the same thing, neither taught about the PRE state.
+- `MatchTabs.tsx` no longer derives anything; it renders exactly the ordered `tabs` array it's passed.
+- `TABS_ORDER` gained an `isUpcoming` branch: PRE now shows only Info (+ Table where eligible) — no Live, no Score, no Digest. LIVE and FINAL tab sets unchanged.
+- SessionStorage tab-restore staleness check generalized to "is the saved tab a member of `TABS_ORDER`" — covers the PRE case and falls back to that state's own default tab (Score/Info/Live) automatically.
+- `showTable`/`tableComp.hasStandings` (Table-tab eligibility) untouched.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Screenshots across live T20I/Test(multi-innings)/IPL/PSL, completed T20I/IPL, and upcoming T20I/IPL (no upcoming Test exists in the mocked schedule) confirmed all three parts; Table-eligibility cross-checked unchanged across all 3 states for both an eligible (IPL) and non-eligible (T20I/ODI bilateral) competition.
+- Phone width: the automation tool's `resize_window` did not actually change the real viewport in this environment; verified instead at the code level that `.phone-frame`'s unconditional `max-width: 430px` plus zero responsive Tailwind classes in all three touched files mean every desktop screenshot already taken is representative of true phone-width rendering.
+- Console check surfaced a pre-existing, unrelated hydration issue (React error #425) on LIVE/PRE pages, root-caused to `lib/mockData.ts`'s `Date.now()`-based `startTimeIso`/`timestampIso` fields (untouched by this commit) differing between server render and client hydration — disclosed, not fixed, as out of scope for this round.
+
+#### Scope
+- `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx`, `package.json` + `README.md` (version bump). `lib/useTabSwitcher.ts`, `lib/mockData.ts`, and Table-eligibility logic are unchanged.
