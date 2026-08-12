@@ -153,9 +153,25 @@ export default function InfoTab({ match }: InfoTabProps) {
   const weather = CITY_WEATHER[match.venue.city] ?? DEFAULT_WEATHER;
   const rain = getRainLabel(weather.rainChance);
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
-  // v1.0.194 -- null until mounted; the countdown badge below renders a
-  // stable placeholder (no text) until then instead of computing it from
-  // `new Date()` during a render pass that also runs on the server.
+  // v1.0.195 -- null until mounted. Originally (v1.0.194) only `countdown`
+  // was gated on this, on the theory that `dateStr`/`timeStr`/`utcStr` were
+  // pure formatting with no "now" dependency and therefore hydration-safe.
+  // That theory was wrong: `toLocaleDateString`/`toLocaleTimeString` with no
+  // explicit `timeZone` resolve to the RUNTIME's local timezone, and the
+  // server (Vercel, UTC) and a visitor's browser (whatever timezone they're
+  // in) are different runtimes -- confirmed live, this exact match rendered
+  // "10:38 am local" in the server-rendered HTML and "04:08 pm local" after
+  // client hydration (same UTC instant, different local-timezone
+  // formatting), which is a real text-content mismatch -- Minified React
+  // error #425/#418/#423, not a false alarm. `utcStr` alone was never at
+  // risk (getUTCHours/getUTCMinutes are timezone-independent by
+  // definition), but it's gated along with the other two below for one
+  // simple reason: they're one visual unit (the whole Date & Time card
+  // body), and gating the unit means there is never a version of this
+  // block that renders during SSR/first-hydration to diff against -- the
+  // real, timezone-correct value appears the instant this component
+  // mounts on the client, matching the pattern used everywhere else in
+  // this codebase (see lib/useClientNow.ts).
   const clientNow = useClientNow();
   const { dateStr, timeStr, utcStr, countdown } = formatMatchTime(match.startTimeIso, clientNow ?? 0);
 
@@ -170,10 +186,10 @@ export default function InfoTab({ match }: InfoTabProps) {
           <div className="text-[9px] font-bold uppercase tracking-widest text-text-dim mb-2">📅 Date & Time</div>
           <div className="flex-1 flex flex-col justify-between">
             <div>
-              <div className="text-xs font-bold text-text-primary leading-snug">{dateStr}</div>
+              <div className="text-xs font-bold text-text-primary leading-snug">{clientNow !== null && dateStr}</div>
               <div className="text-[10px] text-text-secondary mt-1 leading-snug">
-                {timeStr} local<br/>
-                <span className="text-text-dim">({utcStr})</span>
+                {clientNow !== null && <>{timeStr} local<br/>
+                <span className="text-text-dim">({utcStr})</span></>}
               </div>
               <div className="text-[10px] text-text-dim mt-1 leading-snug">
                 {match.venue.name ? (

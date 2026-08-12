@@ -101,7 +101,16 @@ export default function ScheduleRow({ entry, focusTeamCode }: { entry: ScheduleE
       <div className="text-right shrink-0">
         {bucket === "upcoming" && (
           <>
-            <div className="text-[10px] font-bold num">{fmtTime(match.startTimeIso)}</div>
+            {/* v1.0.195 -- fmtTime() was ungated here, unlike fmtDate() right
+                below it. toLocaleString() with no explicit timeZone resolves
+                to the RUNTIME's local timezone, so the server (UTC) and a
+                visitor's browser (any other timezone) render different text
+                for the same instant -- a real hydration mismatch on the
+                dedicated series page (app/schedule/series/[competitionId]/
+                page.tsx), which is server-rendered/SSG and embeds this
+                Client Component directly. Gated on the same `now` this file
+                already uses for fmtDate, so both swap in together. */}
+            <div className="text-[10px] font-bold num">{now !== null && fmtTime(match.startTimeIso)}</div>
             <div className="text-[9px] text-text-dim">{now !== null && fmtDate(match.startTimeIso, now)}</div>
           </>
         )}
