@@ -190,7 +190,10 @@ export default function Home() {
   const router = useRouter();
   const [redirectPending, setRedirectPending] = useState(true);
   useEffect(() => {
-    if (shouldShowOnboarding()) {
+    const should = shouldShowOnboarding();
+    // eslint-disable-next-line no-console
+    console.log("[diag] redirect effect ran, shouldShowOnboarding=" + should, new Error().stack);
+    if (should) {
       router.replace("/onboarding");
     } else {
       setRedirectPending(false);
@@ -210,10 +213,20 @@ export default function Home() {
   // effect can legitimately re-run more than once as those flags settle.
   const [showSelectMoreNudge, setShowSelectMoreNudge] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[diag] showSelectMoreNudge effect ran, isBooting=" + isBooting + " redirectPending=" + redirectPending + " hasSeen=" + hasSeenSelectMoreNudge());
     if (isBooting || redirectPending) return;
     if (hasSeenSelectMoreNudge()) return;
-    const t = window.setTimeout(() => setShowSelectMoreNudge(true), 800);
-    return () => window.clearTimeout(t);
+    const t = window.setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.log("[diag] 800ms timer fired, setting showSelectMoreNudge(true)");
+      setShowSelectMoreNudge(true);
+    }, 800);
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log("[diag] showSelectMoreNudge effect CLEANUP (timer cleared)");
+      window.clearTimeout(t);
+    };
   }, [isBooting, redirectPending]);
 
   // ---- Pull-to-refresh ----

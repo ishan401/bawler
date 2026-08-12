@@ -36,7 +36,13 @@ export default function SelectMoreNudge() {
   // 800ms-after-render delay has elapsed and the one-time flag was still
   // unset at that moment.
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log("[diag] SelectMoreNudge MOUNTED");
     markSelectMoreNudgeSeen();
+    return () => {
+      // eslint-disable-next-line no-console
+      console.log("[diag] SelectMoreNudge UNMOUNTED");
+    };
   }, []);
 
   useEffect(() => {

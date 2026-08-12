@@ -20,6 +20,8 @@ export function registerHomeVisit(): number {
   try {
     const n = parseInt(window.localStorage.getItem(VISIT_COUNT_KEY) ?? "0", 10) + 1;
     window.localStorage.setItem(VISIT_COUNT_KEY, String(n));
+    // eslint-disable-next-line no-console
+    console.log("[diag] registerHomeVisit -> " + n, new Error().stack);
     return n;
   } catch {
     return NUDGE_MAX_SESSIONS + 1;
