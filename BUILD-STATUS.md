@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.188 (deployed)
+**Current version:** v1.0.189 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.189)
+
+- 🧪 **"Select more" nudge: full live re-verification, second diagnostic round removed, shipped** — a further live check after v1.0.188 still showed the popup's `seenNudge` flag already `true` with nothing visible in that run's screenshot. Redeployed temporary diagnostics a second time to determine whether this was a new defect or the same disclosed "checked after it already auto-dismissed" timing pattern from v1.0.187/v1.0.188 — confirmed it was the latter: `homeVisitCount` consistently read `"1"` (the v1.0.188 fix holds, no regression), and a "wait, then screenshot with zero intervening tool calls" protocol reliably caught the popup mid-display on every subsequent run. Ran three fresh-`localStorage.clear()` scenarios end to end with screenshot evidence for each: full completion (team + player followed, all 3 quiz questions answered), skip from the very first screen, and a mixed run (one team followed, rest skipped via the Skip link, player picker skipped, one quiz question answered then the rest skipped) — the popup appeared above the Filter tab in all three. All three dismissal paths reconfirmed (tap Filter opens the real Filter sheet underneath; tap elsewhere dismisses with no navigation; 6s auto-dismiss), plain reload after dismissal confirmed not to re-show it, and zero console errors across the full pass. Both rounds of temporary diagnostic `console.log` instrumentation removed from `app/page.tsx` and `components/SelectMoreNudge.tsx` — grep-confirmed zero `[diag]` references remain. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.188)
 

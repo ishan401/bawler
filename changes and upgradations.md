@@ -3,6 +3,15 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.189] 2026-08-12
+
+### "Select more" nudge: full live re-verification against a second diagnostic round, shipped
+
+- A further live check after v1.0.188 still showed the nudge's `seenNudge` flag already `true` with nothing visible in that run's screenshot. Redeployed temporary diagnostics a second time to confirm whether this was a new defect or the same disclosed "checked after it already auto-dismissed" timing pattern already named in v1.0.187/v1.0.188 — confirmed the latter, with `homeVisitCount` consistently reading `"1"` (no regression to the v1.0.188 fix).
+- Ran three fresh-`localStorage.clear()` end-to-end scenarios with screenshot evidence: full completion, skip from the very first screen, and a mixed answered/skipped run. Popup appeared above the Filter tab in all three.
+- Reconfirmed all three dismissal paths (tap Filter, tap elsewhere, 6s auto-dismiss) and reload-persistence; zero console errors across the full pass.
+- Removed both rounds of temporary diagnostic `console.log` instrumentation from `app/page.tsx` and `components/SelectMoreNudge.tsx` — grep-confirmed clean.
+
 ## [1.0.188] 2026-08-12
 
 ### Fix: "Select more" nudge visit-counter off-by-one (+ same-bug audit)
