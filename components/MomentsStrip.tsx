@@ -8,7 +8,6 @@ interface MomentsStripProps {
   events: MatchEvent[];
   activeBallId?: string;
   onSelect: (event: MatchEvent | null) => void;
-  onShare?: (event: MatchEvent) => void;
   isLive: boolean;
   format?: MatchFormat;
 }
@@ -29,7 +28,7 @@ const KIND_STYLES: Record<MatchEvent["kind"], { color: string; bg: string; borde
   "five-for":       { color: "text-special",          bg: "bg-special/10",   border: "border-special/40",   chip: "5W", chipBg: "bg-special text-white" },
 };
 
-function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format }: MomentsStripProps) {
+function MomentsStrip({ events, activeBallId, onSelect, isLive, format }: MomentsStripProps) {
   const sorted = [...events].sort((a, b) => b.overFloat - a.overFloat);
 
   return (
@@ -54,7 +53,6 @@ function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format 
             format={format}
             active={!isLive && event.ballId === activeBallId}
             onClick={() => onSelect(event)}
-            onShare={onShare && event.ballId ? () => onShare(event) : undefined}
           />
         ))}
       </div>
@@ -62,7 +60,7 @@ function MomentsStrip({ events, activeBallId, onSelect, onShare, isLive, format 
   );
 }
 
-function EventChip({ event, format, active, onClick, onShare }: { event: MatchEvent; format?: MatchFormat; active: boolean; onClick: () => void; onShare?: () => void }) {
+function EventChip({ event, format, active, onClick }: { event: MatchEvent; format?: MatchFormat; active: boolean; onClick: () => void }) {
   const s = KIND_STYLES[event.kind];
   // Reconstruct Cricinfo-style label from overFloat
   // overFloat = (0-indexed over) + (ball / bps), e.g. 19 + 6/6 = 20.0 for last T20 ball
@@ -81,20 +79,15 @@ function EventChip({ event, format, active, onClick, onShare }: { event: MatchEv
       }`}
       style={{ minWidth: 90, maxWidth: 120 }}
     >
-      {/* Share icon — top-right corner */}
-      {onShare && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onShare(); }}
-          className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded-md text-white/25 hover:text-white/70 hover:bg-white/10 transition-colors active:scale-90 z-10"
-          aria-label="Share this moment"
-        >
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-            <polyline points="16 6 12 2 8 6" />
-            <line x1="12" y1="2" x2="12" y2="15" />
-          </svg>
-        </button>
-      )}
+      {/* v1.0.191: the per-card share icon that used to sit here (top-right
+          corner, absolute-positioned) is removed entirely -- not just
+          hidden. Moments cards are no longer shareable; the whole
+          onShare prop chain was deleted from MomentsStripProps/EventChip/
+          MatchView.tsx's handleMomentShare rather than left dormant. The
+          shared "capture a story-card image" mechanism (triggerShare /
+          ShareCard) that this used to hand off to is untouched -- it's
+          still used by BallGIF's own share button and MatchupCard's own
+          share button, both unrelated features. See DECISIONS-LOG.md. */}
 
       {/* Tappable content area */}
       <button onClick={onClick} className="w-full text-left">

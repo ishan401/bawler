@@ -581,11 +581,11 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     }
   }, [allBalls.length]);
 
-  const handleMomentShare = React.useCallback((event: MatchEvent) => {
-    if (!event.ballId) return;
-    const ball = allBalls.find(b => b.id === event.ballId);
-    if (ball) triggerShare(ball);
-  }, [allBalls, triggerShare]);
+  // v1.0.191: handleMomentShare (used to look up the ball for a Moments-card
+  // share tap and hand it to the shared triggerShare() story-card capture)
+  // is removed entirely along with the Moments card's own share icon --
+  // see MomentsStrip.tsx and DECISIONS-LOG.md. triggerShare() itself is
+  // untouched and still powers BallGIF's own unrelated share button below.
 
   // ── Matchup card — always-on, always accurate ───────────────────────────
   // Show current striker vs current bowler on every ball.
@@ -902,7 +902,6 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
                   activeBallId={currentBall?.id}
                   isLive={isLiveFollowing}
                   onSelect={handleMomentSelect}
-                  onShare={handleMomentShare}
                   format={match.format}
                 />
                 <div className="pt-1">

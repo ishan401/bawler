@@ -99,7 +99,17 @@ function deriveMiniInsights(
       const s = batterStats(strikerName);
       chips.push({
         value: `${s.runs}(${s.balls})`,
-        valueColor: s.runs >= 50 ? "text-boundary" : "text-text-primary",
+        // v1.0.191: always plain white in this row, regardless of
+        // milestones -- was `s.runs >= 50 ? "text-boundary" :
+        // "text-text-primary"`. The milestone check itself (`s.runs >=
+        // 50`) is intentionally still computed nowhere near here; this
+        // row simply no longer reads that state for its own color. The
+        // moment-detection logic that drives the Moments strip's own
+        // milestone events is untouched and lives entirely elsewhere
+        // (see lib/matchStatus.ts / event derivation) -- this chip just
+        // stopped rendering a second, redundant color cue for the same
+        // fact. See DECISIONS-LOG.md.
+        valueColor: "text-text-primary",
         label: formatPlayerName(strikerName) + "*",
       });
     }
@@ -107,7 +117,8 @@ function deriveMiniInsights(
       const s = batterStats(nonStrikerName);
       chips.push({
         value: `${s.runs}(${s.balls})`,
-        valueColor: s.runs >= 50 ? "text-boundary" : "text-text-primary",
+        // v1.0.191: same fixed plain-white rule as the striker chip above.
+        valueColor: "text-text-primary",
         label: formatPlayerName(nonStrikerName),
       });
     }
@@ -151,7 +162,15 @@ function deriveMiniInsights(
       if (bowlerStats) {
         chips.push({
           value: `${bowlerStats.wickets}/${bowlerStats.runsConceded}`,
-          valueColor: bowlerStats.wickets >= 2 ? "text-cyan" : "text-text-primary",
+          // v1.0.191: always plain white -- was `bowlerStats.wickets >= 2
+          // ? "text-cyan" : "text-text-primary"`. Same rule as the two
+          // batter chips above: this row's own color styling is now fixed,
+          // independent of wicket count. `bowlerStats.wickets` itself is
+          // still computed exactly as before and still available to
+          // anything else that needs it (e.g. the Moments strip's own
+          // wicket events) -- only this chip's color reaction to it is
+          // gone. See DECISIONS-LOG.md.
+          valueColor: "text-text-primary",
           label: formatPlayerName(currentBowlerName),
         });
       }

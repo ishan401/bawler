@@ -248,7 +248,7 @@ export default function InfoTab({ match }: InfoTabProps) {
       </div>
 
       {/* ── Pitch Report ──────────────────────────────────────────────── */}
-      {pitch && <PitchReportCard pitch={pitch} venue={match.venue} />}
+      {pitch && <PitchReportCard pitch={pitch} />}
 
       {/* ── Squads ────────────────────────────────────────────────────── */}
       <div>

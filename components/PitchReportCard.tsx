@@ -1,10 +1,8 @@
 import type { PitchReport } from "@/lib/pitchReports";
-import type { Venue } from "@/lib/types";
 import StatCell, { type StatCellSize } from "./StatCell";
 
 interface PitchReportCardProps {
   pitch: PitchReport;
-  venue: Venue;
 }
 
 /**
@@ -73,7 +71,7 @@ function sizeForColumnCount(n: number): StatCellSize {
   return "xs";
 }
 
-export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) {
+export default function PitchReportCard({ pitch }: PitchReportCardProps) {
   // Declarative field -> box mapping. A box is included only if its field
   // actually has a value on THIS match's report -- adding a future optional
   // field here is a one-line addition, not a new branch of layout logic;
@@ -98,12 +96,16 @@ export default function PitchReportCard({ pitch, venue }: PitchReportCardProps) 
 
   return (
     <div className="card overflow-hidden">
+      {/* v1.0.191: the venue name/city line that used to render here
+          ("Wankhede Stadium, Mumbai") is removed -- it duplicated the same
+          info already shown once on this same Info tab, in the Date &
+          Time card (see InfoTab.tsx). The header div now holds only the
+          "Pitch report" label, so the stat rows below sit directly under
+          it with no leftover gap or empty line where the venue text used
+          to be -- `border-b` on this div still separates the label from
+          the surface/stat-box content beneath. See DECISIONS-LOG.md. */}
       <div className="px-4 py-3 border-b border-line">
         <h3 className="text-xs font-bold uppercase tracking-widest text-text-dim">Pitch report</h3>
-        <div className="text-sm mt-0.5">
-          <span className="font-bold">{venue.name}</span>
-          <span className="text-text-secondary"> · {venue.city}</span>
-        </div>
       </div>
 
       <div className="px-4 py-4 space-y-4">
