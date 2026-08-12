@@ -1,12 +1,11 @@
 "use client";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import type { Team } from "@/lib/types";
-import { getOnboardingTeams, getTeamMoment, isNationalTeam, followIdFor, type TeamMoment } from "@/lib/onboardingTeams";
+import { getOnboardingTeams, isNationalTeam, followIdFor } from "@/lib/onboardingTeams";
 import { getFollowPrefs, setFollowPrefs } from "@/lib/followPrefs";
 import { useClearValueAfterDuration } from "@/lib/animationCleanup";
 import SwipeCard, { type SwipeCardHandle } from "./SwipeCard";
 import TeamCard, { FLAG_ISO } from "./TeamCard";
-import TeamMomentCard from "./TeamMomentCard";
 import LockedPreview from "./LockedPreview";
 
 // v1.0.185 -- found during the platform-wide GPU-compositing audit
@@ -61,7 +60,7 @@ const FRONT_ENTER_MS = 200;
 const CHIP_INLINE_CAP = 6;
 const CHIP_SHOWN_WHEN_CAPPED = 5;
 
-type Phase = "card" | "moment" | "locked-preview";
+type Phase = "card" | "locked-preview";
 
 /** Persists a team follow into the SAME shared FollowPrefs store the rest
  * of the app's FOR YOU logic already reads -- national teams go into
@@ -97,7 +96,6 @@ export default function TeamPickerStep({
   const teams = useMemo(() => getOnboardingTeams(), []);
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("card");
-  const [moment, setMoment] = useState<TeamMoment | null>(null);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
   // Bug fix (post-v1.0.165 live-browser report): the swipe gesture itself
   // works correctly (confirmed via real Chrome mouse-drag testing -- a
@@ -159,30 +157,23 @@ export default function TeamPickerStep({
   );
 
   function handleSkip(team: Team) {
-    void team; // left-swipe: no follow, no moment card
+    void team; // left-swipe: no follow
     advanceOrFinish(followedTeams);
   }
 
-  async function handleFollow(team: Team) {
+  // v1.0.190: this used to await getTeamMoment(team) and, if a live/
+  // upcoming/recent match was found, branch into a "LIVE RIGHT NOW"
+  // interstitial (TeamMomentCard, deleted) before advancing -- and before
+  // that, per the v1.0.187 comment this replaces, into a one-time "Who do
+  // you love to hate?" rival prompt (RivalPrompt.tsx, also deleted). Both
+  // detours are gone now: following a team always goes straight to the
+  // next card/step, exactly like a plain skip already did, regardless of
+  // whether that team has a live match right now.
+  function handleFollow(team: Team) {
     followTeam(team);
     const next = [...followedTeams, team];
     setFollowedTeams(next);
-    const m = await getTeamMoment(team);
-    if (m) {
-      setMoment(m);
-      setPhase("moment");
-    } else {
-      afterMomentOrSkip(next);
-    }
-  }
-
-  // v1.0.187: this used to branch into a one-time "Who do you love to
-  // hate?" rival prompt before advancing (see RivalPrompt.tsx, deleted --
-  // the rival-question step was removed from onboarding entirely, per
-  // product decision). Now goes straight to the next card/step, exactly
-  // like a plain skip would.
-  function afterMomentOrSkip(followedSoFar: Team[]) {
-    advanceOrFinish(followedSoFar);
+    advanceOrFinish(next);
   }
 
   /** Called by the step-level "Skip" link/the flow's own skip affordance --
@@ -221,8 +212,9 @@ export default function TeamPickerStep({
   // v1.0.186 (onboarding visual overhaul): the counter/Skip row (and the
   // follow-progress chips right below it) are fixed-height chrome at the
   // TOP of this step, deliberately kept OUTSIDE the `flex-1 justify-center`
-  // wrapper below -- only the actual phase content (card stack, moment
-  // card) should be vertically centered in the remaining
+  // wrapper below -- only the actual phase content (the card stack; the
+  // "LIVE RIGHT NOW" moment card that used to also live here was removed
+  // in v1.0.190) should be vertically centered in the remaining
   // space, per the "center the primary card" build spec. `flex-1` on this
   // root div is what lets it fill 100% of OnboardingFlow's own content
   // area, giving the inner centering wrapper real space to center within.
@@ -312,25 +304,22 @@ export default function TeamPickerStep({
 
               return (
                 <div key="slot-0" className="absolute inset-0" style={{ zIndex: 10, ...enterStyle }}>
-                  {/* Bug fix (v1.0.172, caught during live verification): this
-                      wrapper div's own key must stay the fixed "slot-0" (it's
-                      the front POSITION, not a per-team node), but SwipeCard
-                      itself needs a per-team key. Without one, React reuses
-                      the same SwipeCard instance across every team that
-                      passes through the front slot, so its internal
-                      dx/dragging/exiting state survives from the outgoing
-                      card into the incoming one. That's invisible whenever a
-                      follow happens to route through the "moment"
-                      phase in between (the whole phase==="card" tree
-                      unmounts and remounts fresh) -- but a plain skip (or any
-                      follow with no moment pending)
-                      stays on phase "card" the entire time, so the same
-                      SwipeCard instance carries its exiting="left"/"right"
-                      state forward and the next team's card renders
-                      permanently off-screen at opacity 0. Keying by
-                      `t.code` forces a fresh SwipeCard (and fresh internal
-                      state) for every team, which is exactly what a "new
-                      card in the front slot" should be. */}
+                  {/* Bug fix (v1.0.172, caught during live verification;
+                      reconfirmed still necessary after the v1.0.190 "LIVE
+                      RIGHT NOW" interstitial removal, which made phase
+                      always stay "card" for every transition, not just
+                      plain skips): this wrapper div's own key must stay the
+                      fixed "slot-0" (it's the front POSITION, not a
+                      per-team node), but SwipeCard itself needs a per-team
+                      key. Without one, React reuses the same SwipeCard
+                      instance across every team that passes through the
+                      front slot, so its internal dx/dragging/exiting state
+                      survives from the outgoing card into the incoming
+                      one -- the next team's card would render permanently
+                      off-screen at opacity 0. Keying by `t.code` forces a
+                      fresh SwipeCard (and fresh internal state) for every
+                      team, which is exactly what a "new card in the front
+                      slot" should be. */}
                   <SwipeCard
                     key={t.code}
                     active={isTop}
@@ -386,11 +375,6 @@ export default function TeamPickerStep({
           </div>
         </>
       )}
-
-      {phase === "moment" && moment && (
-        <TeamMomentCard moment={moment} onContinue={() => afterMomentOrSkip(followedTeams)} />
-      )}
-
       </div>
     </div>
   );

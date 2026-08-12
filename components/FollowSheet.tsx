@@ -44,17 +44,21 @@ const FORMAT_OPTIONS: Option[] = [
 ];
 
 // Order matches how people actually think about following cricket: country
-// first, then the tournament/league context, then the specific bilateral
-// series (a related but distinct concept -- see the "series" case below),
-// then the specific club, then individual players, then format as the
-// catch-all last option.
+// first, then the tournament/league context, then the specific club, then
+// individual players.
+//
+// Series and Formats tabs removed from this UI (v1.0.190) -- UI-only, not a
+// data deletion: `FollowPrefs.series`/`.formats`, `FollowCategory` (still
+// includes both as valid data keys), `qualifyMatch()`'s format/series
+// matching, `DEFAULT_FALLBACK_FORMATS`, and `applyOnboardingFallbackIfNeeded()`
+// are all untouched and keep operating on any already-stored values exactly
+// as before -- those two categories are just no longer reachable/editable
+// through this sheet. See DECISIONS-LOG.md for the removal rationale.
 const CATEGORY_META: { key: FollowCategory; label: string }[] = [
   { key: "nations", label: "Nations" },
   { key: "tournaments", label: "Tournaments" },
-  { key: "series", label: "Series" },
   { key: "teams", label: "Teams" },
   { key: "players", label: "Players" },
-  { key: "formats", label: "Formats" },
 ];
 
 const CATEGORY_ORDER: FollowCategory[] = CATEGORY_META.map(c => c.key);
@@ -287,8 +291,14 @@ export default function FollowSheet({ open, onClose }: { open: boolean; onClose:
     return options.filter(o => o.label.toLowerCase().includes(q) || o.sublabel?.toLowerCase().includes(q));
   }, [options, search]);
 
+  // Sums only the 4 categories still reachable through this sheet (v1.0.190).
+  // Any already-stored draft.series/draft.formats selections are deliberately
+  // excluded from this UI-facing count -- they're inert/invisible here, not
+  // deleted -- so this stays an honest "how many things you can see and
+  // change in this sheet are selected" figure, not a stale total that
+  // includes categories the user can no longer view or edit.
   const totalSelected =
-    draft.nations.length + draft.teams.length + draft.tournaments.length + draft.series.length + draft.players.length + draft.formats.length;
+    draft.nations.length + draft.teams.length + draft.tournaments.length + draft.players.length;
 
   function toggle(id: string) {
     setDraft(prev => {
