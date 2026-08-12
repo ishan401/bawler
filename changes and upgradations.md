@@ -3,6 +3,16 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.187] 2026-08-12
+
+### Onboarding cut to 5 teams, rival-question step removed, new "Select more" Home coachmark
+
+- Team-picker deck reduced from 16 teams to exactly 5 national sides — India, Australia, England, New Zealand, South Africa, fixed order (`lib/onboardingTeams.ts`). Counter reads "X of 5 teams" automatically. No IPL franchises in onboarding anymore; that's handled afterward via Filter.
+- The "Who do you love to hate?" rival-question step is removed entirely (`RivalPrompt.tsx` deleted). The unrelated "LIVE RIGHT NOW" inline nudge card is untouched.
+- `followPrefs.rivalTeam` had zero downstream consumers (grep-confirmed) — removed the whole mechanism (field, sanitizer, equality check), not just the step that populated it.
+- Onboarding progress bar still shows exactly 3 segments (team/player/quiz) — the rival step was always an internal sub-phase, never its own segment.
+- New one-time "Select more" coachmark (`components/SelectMoreNudge.tsx`) above the Filter tab, shown 800ms after a device's first-ever Home arrival post-onboarding (however onboarding was exited), gated by a dedicated `bawler_seen_select_more_nudge` flag set at show-time. Reuses v1.0.186 card tokens at a new 14px radius. Fully non-blocking — dismisses on tapping Filter (which still opens normally), tapping elsewhere, or after 6s untouched.
+
 ## [1.0.186] 2026-08-11
 
 ### Onboarding visual overhaul: translucent cards, rounder corners, and a real auto-advancing persona reveal

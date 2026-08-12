@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.186 (deployed)
+**Current version:** v1.0.187 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.187)
+
+- 🏏 **Onboarding cut to 5 teams, rival-question step removed, new "Select more" Home coachmark** — three independent changes. (1) The team-picker deck shrank from 16 teams (6 national sides + 10 IPL franchises) to exactly 5 national sides — India, Australia, England, New Zealand, South Africa, fixed order (`lib/onboardingTeams.ts`) — with the "X of 16 teams" counter now correctly reading "X of 5 teams" automatically, since it was already computed from the deck's real length. No franchise-follow option remains inside onboarding; that's now handled afterward via Filter. (2) The "Who do you love to hate?" rival-question step is deleted entirely (`RivalPrompt.tsx` removed, `TeamPickerStep.tsx` simplified) — the separate "LIVE RIGHT NOW" inline nudge card is unrelated and untouched. Grepped `followPrefs.rivalTeam` for downstream consumers and found none, so the entire mechanism (field, sanitizer, equality check) was removed as dead code, not just the UI step that used to populate it. The onboarding progress bar was confirmed structurally immune to this removal — the rival prompt was always an internal sub-phase, never its own top-level progress segment. (3) New one-time "Select more" coachmark (`components/SelectMoreNudge.tsx`) appears above the Filter tab 800ms after a device's first-ever arrival at Home post-onboarding (however onboarding was exited — completed, partially skipped, or skipped from the very first screen), gated by a dedicated `bawler_seen_select_more_nudge` localStorage flag set the instant it's shown. Reuses the exact v1.0.186 onboarding-card tokens at a new 14px radius. Fully non-blocking (`pointer-events: none` on the whole bubble, dismissal via a single capture-phase `pointerdown` listener) so a tap on Filter still opens the real Filter sheet underneath; also dismisses on tapping elsewhere, or auto-dismisses after 6s. An apparent early-dismissal timing anomaly during testing was investigated via a `MutationObserver`-based measurement (immune to polling-loop timer drift) and confirmed to be a test-harness artifact, not a real bug — no code changes resulted. Verified with real screenshots: exact 5-team order/count, rival screen never appearing, progress bar's 3 segments filling correctly, the coachmark's appearance/styling/position, and all three dismissal paths on separate fresh runs. Zero console errors across the full pass. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.186)
 
