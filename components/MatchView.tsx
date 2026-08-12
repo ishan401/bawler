@@ -280,31 +280,19 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // any cache splice) has already finished, since JS is single-threaded.
   const defaultTabRef = useRef(defaultTab);
   defaultTabRef.current = defaultTab;
-  const currentTabRef = useRef(tab);
-  currentTabRef.current = tab;
   useEffect(() => {
     const ownPath = "/match/" + match.id;
     let lastPath = window.location.pathname;
-    console.log("[DEBUG-199b] poll started for", match.id, "lastPath=", lastPath, "currentTab=", currentTabRef.current);
     const id = setInterval(() => {
       const current = window.location.pathname;
       if (current !== lastPath) {
-        console.log("[DEBUG-199b] pathname changed", lastPath, "->", current, "currentTab=", currentTabRef.current);
         if (current === ownPath && lastPath !== ownPath) {
-          console.log("[DEBUG-199b] TRANSITION DETECTED -- calling restoreTab(", defaultTabRef.current, ") currentTab before=", currentTabRef.current);
           restoreTab(defaultTabRef.current);
-          setTimeout(() => console.log("[DEBUG-199b] +50ms after restoreTab, currentTab=", currentTabRef.current), 50);
-          setTimeout(() => console.log("[DEBUG-199b] +200ms after restoreTab, currentTab=", currentTabRef.current), 200);
-          setTimeout(() => console.log("[DEBUG-199b] +500ms after restoreTab, currentTab=", currentTabRef.current), 500);
-          setTimeout(() => console.log("[DEBUG-199b] +1000ms after restoreTab, currentTab=", currentTabRef.current), 1000);
         }
         lastPath = current;
       }
     }, 120);
-    return () => {
-      console.log("[DEBUG-199b] poll stopped for", match.id);
-      clearInterval(id);
-    };
+    return () => clearInterval(id);
   }, [match.id, restoreTab]);
 
   // v1.0.196 -- no longer persists to sessionStorage. This used to be a
