@@ -172,7 +172,11 @@ export default function Home() {
   // ---- Boot skeleton ----
   const [isBooting, setIsBooting] = useState(true);
   useEffect(() => {
-    const t = setTimeout(() => setIsBooting(false), 350);
+    console.log("[diag] Home MOUNT (isBooting effect) at", performance.now());
+    const t = setTimeout(() => {
+      console.log("[diag] isBooting -> false at", performance.now());
+      setIsBooting(false);
+    }, 350);
     return () => clearTimeout(t);
   }, []);
 
@@ -190,6 +194,7 @@ export default function Home() {
   const router = useRouter();
   const [redirectPending, setRedirectPending] = useState(true);
   useEffect(() => {
+    console.log("[diag] redirect effect MOUNT at", performance.now(), "shouldShowOnboarding=", shouldShowOnboarding());
     if (shouldShowOnboarding()) {
       router.replace("/onboarding");
     } else {
@@ -210,9 +215,13 @@ export default function Home() {
   // effect can legitimately re-run more than once as those flags settle.
   const [showSelectMoreNudge, setShowSelectMoreNudge] = useState(false);
   useEffect(() => {
+    console.log("[diag] showSelectMoreNudge effect run at", performance.now(), "isBooting=", isBooting, "redirectPending=", redirectPending, "hasSeen=", hasSeenSelectMoreNudge());
     if (isBooting || redirectPending) return;
     if (hasSeenSelectMoreNudge()) return;
-    const t = window.setTimeout(() => setShowSelectMoreNudge(true), 800);
+    const t = window.setTimeout(() => {
+      console.log("[diag] showSelectMoreNudge timer FIRED at", performance.now());
+      setShowSelectMoreNudge(true);
+    }, 800);
     return () => window.clearTimeout(t);
   }, [isBooting, redirectPending]);
 

@@ -36,13 +36,19 @@ export default function SelectMoreNudge() {
   // 800ms-after-render delay has elapsed and the one-time flag was still
   // unset at that moment.
   useEffect(() => {
+    console.log("[diag] SelectMoreNudge MOUNTED at", performance.now());
     markSelectMoreNudgeSeen();
   }, []);
 
   useEffect(() => {
-    if (!visible) return;
-    const autoTimer = window.setTimeout(() => setVisible(false), AUTO_DISMISS_MS);
-    function onPointerDown() {
+    if (!visible) { console.log("[diag] SelectMoreNudge visible->false effect at", performance.now()); return; }
+    console.log("[diag] SelectMoreNudge visible effect (re)armed at", performance.now());
+    const autoTimer = window.setTimeout(() => {
+      console.log("[diag] SelectMoreNudge AUTO-DISMISS fired at", performance.now());
+      setVisible(false);
+    }, AUTO_DISMISS_MS);
+    function onPointerDown(e: PointerEvent) {
+      console.log("[diag] SelectMoreNudge DISMISS via pointerdown at", performance.now(), "target=", (e.target as HTMLElement)?.tagName, (e.target as HTMLElement)?.className);
       setVisible(false);
     }
     window.addEventListener("pointerdown", onPointerDown, true);
