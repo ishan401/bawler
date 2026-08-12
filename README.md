@@ -33,10 +33,13 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 | Route | Description |
 |---|---|
 | `/` | Home — live carousel + past/future match columns, pull-to-refresh, infinite scroll |
+| `/onboarding` | First-run gamified onboarding flow (team picker -> player picker -> quiz -> reveal -> first-session checklist), shown at most once — see "Onboarding" below |
 | `/match/[id]` | Match page — full live experience (4 tabs). Non-existent id renders a branded `not-found.tsx` (v1.0.148) instead of Next.js's generic default 404 — dark-theme styled, friendly message, primary CTA back to `/`. |
 | `/player/[id]` | Player profile — bio, ICC rankings, per-format stats |
-| `/schedule/[competitionId]` | Schedule for a specific competition |
-| `/schedule/[competitionId]/[teamCode]` | Schedule filtered by team |
+| `/schedule` | Schedule tab — "All" series-grouped summary rows plus a tab per followed team, see "Schedule tab" below |
+| `/schedule/series/[competitionId]` | Dedicated series page — every match a series has, past/live/upcoming, no inclusion-rule filtering |
+| `/schedule/[competitionId]` | Schedule for a specific competition (legacy drill-down, reachable from `MiniStandings`) |
+| `/schedule/[competitionId]/[teamCode]` | Schedule filtered by team (legacy drill-down, reachable from `MiniStandings`) |
 | `/table` | Multi-competition standings (IPL, PSL, BBL, Hundred, SA20, T20WC, CT, WTC) |
 
 ---
@@ -116,6 +119,18 @@ Vercel auto-deploys on push via GitHub webhook. Build time ~40–60s.
 - Match cards look identical regardless of which tab/page they appear on — no color-coding by result (the v1.0.110 win/loss colored left-border strip and colored text were both removed in v1.0.111); the "Won"/"Lost" text label itself still reflects the active tab's team perspective, just uncolored. Rendered via the shared `components/ScheduleRow.tsx` (extracted in v1.0.113 so the dedicated series page uses the identical card, not a lookalike).
 - **`lib/teamSchedule.ts`** — the sanctioned async interface: `getSeriesGroupedSchedule()` for "All"'s qualifying series (ongoing/upcoming only), `summarizeSeriesGroup()`/`formatLastResult()` (pure presentation derivations, not data access) turn each into its one-row summary, `getTeamSchedule(teamCode)` for a team tab (flat, everything), `getMatchesForCompetition(competitionId)`/`getAllCompetitionIds()` back the dedicated series page and its `generateStaticParams`. All share the same underlying match/competition validation (`scheduleEntries`/`toScheduleEntry`/`safeCompetition`). See "Key data rules" below and `ARCHITECTURE.md` for the full real-data-readiness treatment.
 - `/schedule/[competitionId]` and `/schedule/[competitionId]/[teamCode]` still exist as drill-down routes reachable from `MiniStandings`, but are no longer linked from the main Schedule tab itself -- distinct from the new `/schedule/series/[competitionId]` route above.
+
+## Onboarding (`/onboarding`)
+
+First-run flow, gamified and mock-data-only, shown at most once per device (zero saved follow prefs AND not yet marked complete — `lib/onboarding.ts`'s `shouldShowOnboarding()`; `app/page.tsx` redirects before the home feed renders). Five steps, all in `components/onboarding/*`, driven by `OnboardingFlow.tsx`'s top-level step state and a shared 3-segment progress bar:
+
+1. **Team picker** (`TeamPickerStep.tsx`) — swipeable cards over a fixed 5-nation roster (India, Australia, England, New Zealand, South Africa — `lib/onboardingTeams.ts`'s `CURATED_NATION_CODES`), each with a per-team ambient glow ring in that team's own color. Drag or tap the X/checkmark to skip/follow; top-right "Skip" exits the whole step and goes straight to the player picker with zero interstitial (the earlier "Follow a team to unlock this" nudge, and an earlier "LIVE RIGHT NOW" real-moment interstitial, and a "who do you love to hate" rival prompt, were each shipped and later deleted outright — see BUILD-STATUS.md/DECISIONS-LOG.md for the full history).
+2. **Player picker** (`PlayerPickStep.tsx`, rebuilt to swipe cards in v1.0.200) — one player per card (`PlayerCard.tsx`, reusing `PlayerAvatar` + the player's own `bio` field), deck capped at exactly 5 via `lib/onboardingPlayers.ts`'s `buildOnboardingPlayerDeck()`: round-robin across step 1's followed teams (in followed order, reusing each team's existing sort) if any were followed, else a fixed non-random fallback of one player per curated nation (alphabetical-by-surname, since the data model has no captain flag). A search bar lets you follow anyone else regardless of deck progress; following fires a non-blocking `PlayerMomentCard` popup if that player has live involvement right now.
+3. **Cricket-personality quiz** (`QuizStep.tsx`) — 3 either/or questions -> one of 6 fixed personas (`lib/onboardingQuiz.ts`), doubling as the app's only format-preference input (writes into the same `FollowPrefs.formats` field Filter reads). Has its own "Skip" link, jumping to a fixed `SKIP_PERSONA` result.
+4. **Persona reveal** (`RevealStep.tsx`) — a capped ~2.5s cosmetic "Building your feed..." transition, auto-advances (tap to skip, Share pauses the timer), non-blocking particle burst, native share sheet with pre-filled persona text.
+5. **First-session checklist** (`components/FirstSessionQuest.tsx`) — non-modal floating checklist on Home (follow a team / open a live match / read a pitch report), checked off by real app actions, localStorage-backed.
+
+---
 
 ## Table page (`/table`)
 
@@ -215,5 +230,9 @@ lib/
 ├── playerFavourites.ts  # (v1.0.125) favourite-player localStorage store, same shape as followPrefs.ts; toggleFavouritePlayer() one-way-links favouriting to FollowPrefs.players
 ├── playerActivity.ts    # (v1.0.125, follow-on fix v1.0.126) getLiveActivePlayerIds() — "currently batting/bowling" derived from the CURRENT innings' full battingCard+bowlingCard (via lib/matchStatus.ts's shared getCurrentInnings(), same lookup ScoreBar.tsx uses), gated on balls.length > 0; never battingCard/bowlingCard's onStrike (which can leak end-of-innings final state), and never just the single last ball (missed multi-batter-deep follow-on innings pre-v1.0.126)
 ├── yourPlayers.ts        # (v1.0.125) getYourPlayers() — pure 4-tier favourited/live sort for the homepage "Your Players" strip, surname-keyed via playerName.ts
-└── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
+├── useCarouselIndex.ts # shared scroll-position -> active-index hook for snap-x carousels
+├── onboarding.ts        # (v1.0.165) shouldShowOnboarding()/markOnboardingComplete() — gates the one-time /onboarding redirect in app/page.tsx
+├── onboardingTeams.ts   # (v1.0.165, cut to 5 nations v1.0.187) CURATED_NATION_CODES (exported v1.0.200, single source of truth also used by onboardingPlayers.ts's Scenario-B fallback) + nation lookup helpers behind the team-picker step
+├── onboardingPlayers.ts # (v1.0.165, deck-builder added v1.0.200) getRelevantPlayers()/getPlayerMoment() plus buildOnboardingPlayerDeck() -- round-robin-across-followed-teams or fixed-fallback 5-player deck builder behind the swipe-card player-picker step
+└── onboardingQuiz.ts    # (v1.0.165, Skip added v1.0.174) PERSONA_TABLE/computePersona()/SKIP_PERSONA — the 3-question cricket-personality quiz's persona logic
 ```
