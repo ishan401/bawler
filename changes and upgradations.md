@@ -4031,3 +4031,11 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/InfoTab.tsx`, `components/ScheduleRow.tsx`, `package.json` version bump. No calculation logic changed.
+
+## Changelog additions (v1.0.196–199)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.196** | Fixed match pages reopening on a stale tab instead of the correct fresh default: removed the `matchTab:${match.id}` sessionStorage read/write entirely from `MatchView.tsx`. Fully fixes every case except genuine browser Back/Forward (DECISIONS-LOG.md) |
+| **v1.0.197–198** | Second, independent root cause found for the same symptom via browser Back/Forward specifically: Next.js's Client Router Cache can restore a previously-committed tab without re-running the page's render or hooks. A `popstate`-listener-based fix was attempted and, after live console-log verification, proven to never actually fire during a genuine cache-restore (DECISIONS-LOG.md) |
+| **v1.0.199** | Replaced the non-functional `popstate` listener with a `setInterval`-based `window.location.pathname` watcher, independent of any event Next's router might intercept. Measurably better than v1.0.198 and verified working across a full walkthrough of live/completed/upcoming matches, cross-match independence, and in-page-switching regression — with an honestly disclosed residual limitation for a subset of true Router-Cache-preserved Back/Forward restores that no application-level code was able to detect (DECISIONS-LOG.md) |

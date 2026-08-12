@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.193 (deployed)
+**Current version:** v1.0.199 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.196–199)
+
+- 🐛 **Match page opening on the wrong tab, two independent root causes found and fixed (one fully, one partially — disclosed)** — reported bug: a match page should always open on a tab computed fresh from the match's current status (Live → LIVE, Finished → SCORE, Upcoming → INFO), never a remembered tab from a prior visit. Two unrelated mechanisms were found causing this. **Root cause 1 (v1.0.196, fully fixed):** `MatchView.tsx` persisted the last-viewed tab to `sessionStorage` and restored it on mount, overriding the fresh `defaultTab` computation on every subsequent visit within the same browser session. Fix: removed the `sessionStorage` read/write entirely — `defaultTab` (`isUpcoming ? "info" : isFinished ? "scorecard" : "live"`) is now the only source for a mount's initial tab, unconditionally. **Root cause 2 (v1.0.197–199, real fix shipped with a disclosed residual gap):** even after fix 1, genuine browser Back/Forward navigation could still show a stale tab. Root-caused to Next.js App Router's Client-side Router Cache: on some Back/Forward navigations Next restores a previously-committed React tree (component instance and its state, including `activeTab`) without re-running the component's mount logic at all — no re-render, no effect re-run, and (proven via live console-log instrumentation) not even a `popstate` event on a listener registered inside the page component. A `popstate`-based staggered-reapply attempt (v1.0.198) was shipped first but proven, via direct log evidence against the live site, to never have its handler fire during a real Router-Cache restore — every apparent "pass" during earlier testing was Next coincidentally doing a full remount instead. Replaced in v1.0.199 with an event-independent `setInterval`-based watcher (120ms tick) that polls `window.location.pathname` directly and calls the existing `restoreTab()` escape hatch (silent correction, no scroll/animation) whenever it observes the path transition away from and back to the match's own URL. **Disclosed limitation:** this is a genuine improvement — it correctly self-heals in the large majority of real Back/Forward trials, including every case where Next performs a full remount — but has been shown, via the same live console-log methodology, to still miss at least one real case where the Router Cache preserves the exact component instance with zero observable render/event/timer engagement during the whole round trip; the underlying reason the interval sometimes never observes the intervening path change in that specific case was investigated but not conclusively determined, and there is no supported Next.js API to disable the cache-restore behavior outright. Only `components/MatchView.tsx` was touched across this arc. See DECISIONS-LOG.md for full investigation detail, evidence, and the complete verification pass.
 
 ## Changelog additions (v1.0.193)
 
