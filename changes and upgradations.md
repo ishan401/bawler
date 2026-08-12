@@ -3,6 +3,15 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.190] 2026-08-12
+
+### Two independent fixes: Filter modal down to 4 tabs (UI-only); onboarding's "LIVE RIGHT NOW" interstitial deleted
+
+- `FollowSheet.tsx`'s "Follow your cricket" modal: removed the Series and Formats tabs from `CATEGORY_META`, leaving exactly Nations, Tournaments, Teams, Players. UI-only — `followPrefs.series`/`.formats`, `DEFAULT_FALLBACK_FORMATS`, `applyOnboardingFallbackIfNeeded()`, and `qualifyMatch()`'s format/series matching are all untouched; any already-stored values keep working exactly as before, just inert/inaccessible through this sheet until the tabs are reintroduced. `totalSelected`'s badge sum narrowed to the 4 visible categories. Grep-confirmed no deep link or shortcut anywhere else in the app pointed specifically at the removed tabs.
+- Onboarding's team-picker: deleted the "LIVE RIGHT NOW" interstitial (`TeamMomentCard.tsx`, plus `getTeamMoment()`/`TeamMoment` in `lib/onboardingTeams.ts`) that used to appear after following a team with a live/upcoming/recent match, before advancing to the next card. `handleFollow()` now calls `advanceOrFinish()` directly, exactly like `handleSkip()` already did — following or skipping any team, regardless of live-match status, always shows the next card immediately, or the player picker after the 5th.
+- Confirmed untouched: the player-picker's own separate live-match nudge, the persona reveal's auto-advance, and `FirstSessionQuest`'s "Open a live match" quest gating (still driven only by real navigation into a live match from Home).
+- Verified with real screenshots: Filter modal's exact 4-tab order; onboarding following a live team (India) and a non-live team (England) both advancing directly to the next card with no interstitial; full 5-team walkthrough with an accurate "X of 5 teams" counter throughout, landing in the player picker. Zero console errors across the full pass.
+
 ## [1.0.189] 2026-08-12
 
 ### "Select more" nudge: full live re-verification against a second diagnostic round, shipped

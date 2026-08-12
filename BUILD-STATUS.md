@@ -2,12 +2,16 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.189 (deployed)
+**Current version:** v1.0.190 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.190)
+
+- 🧹 **Two independent fixes: Filter modal down to 4 tabs; onboarding's "LIVE RIGHT NOW" interstitial deleted** — (1) `FollowSheet.tsx`'s "Follow your cricket" modal (opened via the bottom-nav Filter tab) had its Series and Formats tabs removed from `CATEGORY_META`, leaving exactly Nations, Tournaments, Teams, Players in that order. This is a UI-only removal, not a data deletion: `followPrefs.series`/`.formats`, `DEFAULT_FALLBACK_FORMATS`, `applyOnboardingFallbackIfNeeded()`, and `qualifyMatch()`'s format/series matching are all untouched and keep operating on any already-stored values exactly as before — those two categories are just no longer reachable through this sheet. `totalSelected`'s sum was narrowed to the 4 visible categories so it stays an honest count of what's actually shown; no deep link, badge, or shortcut anywhere else in the app pointed at these two tabs specifically (grep-confirmed), so no dead links resulted. (2) Onboarding's team-picker (`TeamPickerStep.tsx`) used to branch into a "LIVE RIGHT NOW" interstitial (`TeamMomentCard.tsx`, showing the match's live score line and a "Continue →" button) after following a team with a live, upcoming, or recently-completed match — the fix deletes this branch entirely; `handleFollow()` now calls the same `advanceOrFinish()` the skip path already used, so following or skipping any team always shows the next card immediately, or advances straight to the player picker after the 5th. `TeamMomentCard.tsx` and the `getTeamMoment()`/`TeamMoment` mechanism in `lib/onboardingTeams.ts` were fully deleted (grep-confirmed zero other consumers), following the codebase's existing precedent of removing confirmed-dead mechanisms rather than leaving them dormant. The player-picker's own separate live-match nudge (`PlayerMomentCard.tsx`), the persona reveal's auto-advance, and `FirstSessionQuest`'s "Open a live match" quest gating (driven solely by real navigation into a live match from Home, in `MatchView.tsx`) are all confirmed untouched. Verified with real screenshots: the Filter modal showing exactly the 4 remaining tabs in order; a fresh onboarding run following India (which has a live match in the mocked data) advancing directly to team card 2 with no interstitial; a repeat following a non-live team (England) showing identical direct-to-next-card behavior; and a full 5-team walkthrough (India → Australia → England → New Zealand → South Africa) with the "X of 5 teams" counter accurate at every step, landing correctly in the player picker. Zero console errors across the full pass; quiz selected-state feedback, persona reveal auto-advance, and the Get Started checklist's "Open a live match" quest (confirmed not auto-completing despite followed teams having a live match) all re-verified intact. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.189)
 
