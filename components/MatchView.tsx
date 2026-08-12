@@ -124,14 +124,21 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // data, avoiding a duplicate Digest entry. Already forced false for
   // isUpcoming too (no ball data exists pre-match to build one from).
   const showDigest = allBalls.length > 0 && !isUpcoming && !isFinished;
+  // v1.0.196 -- this is now the ONLY thing that determines the opening tab,
+  // on every single mount, with nothing able to override it. It used to be
+  // just the seed for `useTabSwitcher`'s initial state, with a sessionStorage
+  // read-effect below silently overwriting it right after mount whenever a
+  // per-match saved tab existed (see the removed SESSION_KEY mechanism, and
+  // its full postmortem in DECISIONS-LOG.md v1.0.196). That was a real,
+  // reproduced bug: switch a live match to Info, go Home, reopen the same
+  // match -- it wrongly reopened on Info instead of Live, because the saved
+  // tab was still a "valid" member of that match's (unchanged) TABS_ORDER,
+  // which is the only staleness check that mechanism ever had. There is no
+  // requirement anywhere for a previously-viewed tab to carry over into a
+  // fresh visit, so the fix removes that carryover entirely rather than
+  // trying to make its staleness check smarter -- `defaultTab` is derived
+  // fresh from `match.status` every time this component mounts, full stop.
   const defaultTab: TabKey = isUpcoming ? "info" : isFinished ? "digest" : "live";
-
-  // Restore the last-viewed tab when navigating back from a player profile.
-  // Render with defaultTab on both server and the client's first pass (no
-  // sessionStorage read during render -- that would differ between server
-  // and the client's own pre-hydration render and trigger a hydration
-  // mismatch). The real saved tab, if any, is read after mount below.
-  const SESSION_KEY = `matchTab:${match.id}`;
 
   // Every tab this match can show, in display order -- computed here (not
   // down where it used to live, next to the old swipe-gesture code) because
@@ -181,44 +188,25 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // to keep a second, timer-delayed "renderedTab" state that could show
   // stale content under the wrong highlighted tab, and never reset scroll
   // on a switch. `tab` here IS `activeTab` from the hook -- there is no
-  // second copy for content to lag behind.
-  const { activeTab: tab, direction, switchTab, restoreTab } = useTabSwitcher<TabKey>(defaultTab, {
+  // second copy for content to lag behind. Seeded directly from
+  // `defaultTab` with nothing to override it after mount (see v1.0.196
+  // comment above) -- no sessionStorage restore, no other persisted value
+  // of any kind. `restoreTab` (the hook's escape hatch for exactly that
+  // kind of silent post-mount correction) is intentionally unused here now.
+  const { activeTab: tab, direction, switchTab } = useTabSwitcher<TabKey>(defaultTab, {
     order: TABS_ORDER,
   });
 
-  useEffect(() => {
-    const saved = sessionStorage.getItem(SESSION_KEY) as TabKey | null;
-    if (!saved) return;
-    // A saved tab can go stale -- e.g. "live" was stored while this match
-    // was still in progress, and it has since finished, so "live" is no
-    // longer part of this match's tab set (or "live"/"scorecard" was saved
-    // before the match started and it's since gone live/finished). Fall
-    // back to defaultTab -- this match's CURRENT state's own default tab --
-    // rather than restoring, or leaving the user stranded on, a tab that no
-    // longer exists for this match. TABS_ORDER (above) is exactly this
-    // match's current-state-correct tab set, so membership in it is the
-    // single, general test for staleness -- this generalizes the older
-    // isFinished-only special case to cover every state transition.
-    const restored = TABS_ORDER.includes(saved) ? saved : defaultTab;
-    if (restored === defaultTab) return;
-    // restoreTab, not switchTab -- this is a silent, hydration-safe
-    // post-mount correction, not a user-triggered switch. See
-    // lib/useTabSwitcher.ts's restoreTab doc comment for why using
-    // switchTab here would be wrong (it would yank scroll and play the
-    // tab-change animation on first paint).
-    restoreTab(restored);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [SESSION_KEY]);
-
-  // Thin wrapper: persist the new tab for back-navigation restore, on top
-  // of the shared hook's state-sync + scroll-reset guarantee. This is the
-  // only thing that was genuinely MatchView-specific about the old
-  // goToTab -- everything else (state sync, scroll reset, no-op on a
-  // same-tab call) now lives once, in the shared hook.
+  // v1.0.196 -- no longer persists to sessionStorage. This used to be a
+  // thin wrapper that also wrote the new tab to a per-match sessionStorage
+  // key, so a later fresh mount of this same match could silently restore
+  // it -- that write-then-restore pair was the entire bug (see removed
+  // SESSION_KEY mechanism above). In-page switching itself is completely
+  // unchanged: this is still the single handler MatchTabs/swipe/etc. call,
+  // still just `switchTab` underneath.
   const goToTab = useCallback((newTab: TabKey) => {
     switchTab(newTab);
-    sessionStorage.setItem(SESSION_KEY, newTab);
-  }, [switchTab, SESSION_KEY]);
+  }, [switchTab]);
 
   // v1.0.178 -- `hasShownLiveSceneRef`/`skipEntranceAnimation` (v1.0.175)
   // removed. That mechanism existed to suppress BallGIF's entrance-fade
