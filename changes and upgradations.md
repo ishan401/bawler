@@ -3,6 +3,15 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.191] 2026-08-12
+
+### Three precise UI fixes: Moments-card sharing removed, current-batters/bowler row forced plain white, duplicate ground/city text removed from Pitch Report
+
+- `MomentsStrip.tsx`: removed the share icon (and its click handler + the story-card capture/preview it opened) from every card in the Live tab's MOMENTS row, across every match and format. `MatchView.tsx`'s `handleMomentShare` callback and the `onShare` prop passed into `MomentsStrip` were removed. The shared `triggerShare`/`ShareCard` mechanism is untouched and still powers `BallGIF`'s and `MatchupCard`'s own separate share buttons; the onboarding persona-reveal's "Share" button is untouched. Event-detection logic behind the Moments cards is untouched.
+- `MiniInsightsBar.tsx`: the current-batters/bowler chip row (directly under the score header) no longer turns green at 50 runs or cyan at 2 wickets — all three chips now render plain white (`text-text-primary`) unconditionally. The milestone/wicket detection logic itself is untouched. The PSHIP line, the matchup card, and the Score tab's own coloring are separate mechanisms and were confirmed unchanged.
+- `PitchReportCard.tsx`: removed the `{venue.name}, {venue.city}` line from the card header — redundant with the Info tab's Date & Time card, which remains the single place this shows. `InfoTab.tsx`'s call site updated to match; no leftover gap in the card.
+- Verified with real screenshots: zero share icons across four live matches (T20I, Test, IPL, PSL), with `BallGIF`'s own share icon confirmed still present; tapping the former icon location just selects the ball, no console error. Plain-white batters/bowler row confirmed at the exact moment two batters had passed 50 and a bowler had 2 wickets (PSL match), plus a second live T20I example — PSHIP line and Score tab retained their own coloring unchanged in the same screenshots. Pitch Report venue/city line confirmed absent (no gap) on a pre-match, a live match, and a completed match, with the Date & Time card still showing venue on all three. Full regression pass (Filter modal 4-tab layout, fresh onboarding run, quiz feedback, persona auto-advance, tab-switching, homepage transition) reconfirmed intact. Zero console errors throughout.
+
 ## [1.0.190] 2026-08-12
 
 ### Two independent fixes: Filter modal down to 4 tabs (UI-only); onboarding's "LIVE RIGHT NOW" interstitial deleted
