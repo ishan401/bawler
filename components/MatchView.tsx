@@ -196,10 +196,15 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // on a switch. `tab` here IS `activeTab` from the hook -- there is no
   // second copy for content to lag behind. Seeded directly from
   // `defaultTab` on every genuine mount, with no sessionStorage restore
-  // and no other persisted value of any kind (v1.0.196). See the
-  // popstate listener below (v1.0.199) for how browser Back/Forward is
-  // kept from restoring a stale tab via Next's Router Cache.
-  const { activeTab: tab, direction, switchTab } = useTabSwitcher<TabKey>(defaultTab, {
+  // and no other persisted value of any kind (v1.0.196). `restoreTab`
+  // is used below by the v1.0.199 pathname-polling watcher, which is
+  // what keeps browser Back/Forward from restoring a stale tab via
+  // Next's Router Cache -- see that effect's own comment for why a
+  // native `popstate` listener (the v1.0.198 approach) turned out not
+  // to work at all. `restoreTab`, not `switchTab`, since this remains a
+  // silent, non-user-triggered correction: no scroll reset, no switch
+  // animation.
+  const { activeTab: tab, direction, switchTab, restoreTab } = useTabSwitcher<TabKey>(defaultTab, {
     order: TABS_ORDER,
   });
 
@@ -231,44 +236,64 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // v1.0.198 attempted fix: a plain native `popstate` listener calling
   // `restoreTab(defaultTab)` after the browser's own dispatch (first a
   // single `setTimeout(0)`, then hardened to staggered re-applies at
-  // [0, 50, 150, 350]ms to try to win the race against Next's own async
-  // cache-restore). Repeated live re-testing showed this remained
-  // genuinely flaky even after hardening: a rigorous trial switching a
-  // finished match's tab to Digest, then browser Back to Home, then
-  // browser Forward back into the match, left Digest showing (not the
-  // correct Score default) for 2+ seconds -- well past the 350ms
-  // window, so this was not merely a lost race, it was not correcting
-  // at all in that case.
+  // [0, 50, 150, 350]ms to try to win a suspected race against Next's
+  // own async cache-restore). Live re-testing showed this remained
+  // genuinely broken. v1.0.199 added temporary `[DEBUG-199]` logging to
+  // both a `popstate`-based attempt and confirmed, conclusively, across
+  // repeated trials: the `popstate` handler NEVER fired at all during a
+  // genuine browser Back into Home then Forward back into this exact
+  // match -- not once, not even after the correct "listener attached"
+  // log confirmed it was registered. So this was never actually a race
+  // that we sometimes won and sometimes lost -- the entire mechanism
+  // never engaged. The earlier "passes" seen while testing the
+  // `restoreTab` version were not this listener correcting anything;
+  // they happened on trials where Next chose to do a genuine fresh
+  // remount instead of a Router-Cache splice, which computes `defaultTab`
+  // correctly on its own with no correction needed. Whether Next does a
+  // fresh remount or a cache-splice on any given Back/Forward appears to
+  // be Next's own internal, unobservable decision -- not something this
+  // component's lifecycle can be relied on to detect via any DOM event,
+  // most plausibly because Next's own router registers its own
+  // capture-phase `popstate` listener ahead of this component's (App
+  // Router sets this up at the root, before any page-level component
+  // mounts) and calls `stopPropagation()` there, which suppresses this
+  // listener's bubble-phase (and any later capture-phase) callback
+  // entirely, regardless of `setTimeout` delay.
   //
-  // DEBUG (temporary, v1.0.199 in progress): logging added below to
-  // determine whether this listener's `popstate` handler is even firing
-  // during a Router-Cache-served restore, since the flakiness pattern is
-  // also consistent with the listener never firing in that case at all
-  // (i.e. the earlier "passes" were coincidental full remounts, not this
-  // listener correcting anything). Once that's confirmed, the fix below
-  // switches from a soft, in-React correction (`restoreTab`, which
-  // depends on winning a race against an opaque async process) to a
-  // hard `window.location.reload()`, which sidesteps the race entirely:
-  // a real reload re-runs this whole page from scratch over the network,
-  // so `defaultTab` is freshly recomputed with no cached React state or
-  // Router Cache involved at all, regardless of timing.
+  // Fix: stop trying to catch an event that never reaches us, and
+  // instead poll the one thing that's always ground truth regardless of
+  // Next's internals -- `window.location.pathname` itself -- via a
+  // plain `setInterval`, independent of React's render cycle, browser
+  // events, or Next's router. If a cache-splice keeps this exact
+  // component instance alive in memory while the user is elsewhere
+  // (e.g. looking at Home), this effect and its interval keep running
+  // the entire time, invisibly, and will observe the pathname actually
+  // change away to "/" and then back to this match's own URL -- a
+  // concrete "left and returned" transition. That transition, and ONLY
+  // that transition, is when a stale tab could have survived, so that
+  // is the one moment `restoreTab(defaultTab)` is applied. A plain
+  // in-page tab tap never touches `window.location.pathname` at all
+  // (no History API call happens), so this can't misfire on normal
+  // switching, and it needs no timing assumption about Next at all --
+  // by the time our own interval callback runs, any synchronous work
+  // Next just did as part of committing that pathname change (including
+  // any cache splice) has already finished, since JS is single-threaded.
   const defaultTabRef = useRef(defaultTab);
   defaultTabRef.current = defaultTab;
   useEffect(() => {
-    console.log("[DEBUG-199] popstate listener attached for", match.id);
-    const handlePopState = () => {
-      console.log("[DEBUG-199] popstate fired, pathname=", window.location.pathname, "expected=", "/match/" + match.id);
-      if (window.location.pathname === "/match/" + match.id) {
-        console.log("[DEBUG-199] pathname matches this match -- forcing hard reload");
-        window.location.reload();
+    const ownPath = "/match/" + match.id;
+    let lastPath = window.location.pathname;
+    const id = setInterval(() => {
+      const current = window.location.pathname;
+      if (current !== lastPath) {
+        if (current === ownPath && lastPath !== ownPath) {
+          restoreTab(defaultTabRef.current);
+        }
+        lastPath = current;
       }
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => {
-      console.log("[DEBUG-199] popstate listener removed for", match.id);
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [match.id]);
+    }, 120);
+    return () => clearInterval(id);
+  }, [match.id, restoreTab]);
 
   // v1.0.196 -- no longer persists to sessionStorage. This used to be a
   // thin wrapper that also wrote the new tab to a per-match sessionStorage
