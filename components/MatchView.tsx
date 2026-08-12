@@ -110,7 +110,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
   // A finished match has no "live" state left to show -- Digest takes over
   // slot 1 in its place instead of being appended as an extra tab (see
-  // firstTab below). Scoped to "post-match" specifically, not the broader
+  // TABS_ORDER below). Scoped to "post-match" specifically, not the broader
   // "!== live" -- an upcoming/pre-match fixture has no result or innings
   // data to build any kind of digest from, so it keeps today's exact
   // tab layout untouched.
@@ -120,10 +120,10 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const showTable = tableComp.hasStandings;
   // Old standalone-extra-Digest-tab behavior -- unchanged for a still-live
   // match with ball data. Finished matches get Digest in slot 1 instead
-  // (firstTab below), so this is forced false for them regardless of ball
-  // data, avoiding a duplicate Digest entry.
+  // (TABS_ORDER below), so this is forced false for them regardless of ball
+  // data, avoiding a duplicate Digest entry. Already forced false for
+  // isUpcoming too (no ball data exists pre-match to build one from).
   const showDigest = allBalls.length > 0 && !isUpcoming && !isFinished;
-  const firstTab: "live" | "digest" = isFinished ? "digest" : "live";
   const defaultTab: TabKey = isUpcoming ? "info" : isFinished ? "digest" : "live";
 
   // Restore the last-viewed tab when navigating back from a player profile.
@@ -136,10 +136,35 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // Every tab this match can show, in display order -- computed here (not
   // down where it used to live, next to the old swipe-gesture code) because
   // useTabSwitcher needs it up front to derive a forward/backward direction.
+  // This is the SINGLE source of truth for this match's tab set: MatchTabs
+  // below renders exactly this array (see its v1.0.193 comment), and the
+  // sessionStorage-restore effect below uses membership in it to decide
+  // whether a previously-saved tab is still valid for this match's CURRENT
+  // state -- so there is exactly one place that decides "which of
+  // {live, scorecard, digest, info, table} apply right now," not two
+  // independently-maintained copies that can drift (that drift was the
+  // actual root cause of the LIVE tab -- and, separately, the Score tab --
+  // staying visible on upcoming matches: MatchTabs used to derive its own
+  // tab set from showTable/showDigest/firstTab alone, which had no concept
+  // of isUpcoming at all).
+  //
+  // v1.0.193 -- a PRE (upcoming) match shows ONLY Info (+ Table where this
+  // competition already has one) -- no Live, no Score, no Digest. There is
+  // no score to show yet (Live/Score both assume an innings exists) and no
+  // ball-by-ball history to build a Digest from, so neither tab has
+  // anything real to display before the match starts; showing them anyway
+  // (the old behavior) meant Live rendered a score card full of literal "—"
+  // placeholders and Score had nothing to show at all. A LIVE match's own
+  // tab set is completely unchanged below.
   const TABS_ORDER: TabKey[] = isFinished
     ? [
         "digest",
         "scorecard",
+        "info",
+        ...(showTable ? ["table" as TabKey] : []),
+      ]
+    : isUpcoming
+    ? [
         "info",
         ...(showTable ? ["table" as TabKey] : []),
       ]
@@ -166,9 +191,15 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
     if (!saved) return;
     // A saved tab can go stale -- e.g. "live" was stored while this match
     // was still in progress, and it has since finished, so "live" is no
-    // longer part of this match's tab set. Fall back to defaultTab rather
-    // than restoring a tab that no longer exists for this match.
-    const restored = isFinished && saved === "live" ? defaultTab : saved;
+    // longer part of this match's tab set (or "live"/"scorecard" was saved
+    // before the match started and it's since gone live/finished). Fall
+    // back to defaultTab -- this match's CURRENT state's own default tab --
+    // rather than restoring, or leaving the user stranded on, a tab that no
+    // longer exists for this match. TABS_ORDER (above) is exactly this
+    // match's current-state-correct tab set, so membership in it is the
+    // single, general test for staleness -- this generalizes the older
+    // isFinished-only special case to cover every state transition.
+    const restored = TABS_ORDER.includes(saved) ? saved : defaultTab;
     if (restored === defaultTab) return;
     // restoreTab, not switchTab -- this is a silent, hydration-safe
     // post-mount correction, not a user-triggered switch. See
@@ -758,7 +789,7 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
           match={truncatedMatch}
           insights={visibleInsights}
         />
-        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} showTable={showTable} showDigest={showDigest} firstTab={firstTab} />
+        <MatchTabs active={tab} onChange={goToTab} badge={scorecardBadge} tabs={TABS_ORDER} />
       </div>
 
       <main className="flex-1 px-3 py-3 pb-24" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>

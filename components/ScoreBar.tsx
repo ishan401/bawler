@@ -95,22 +95,25 @@ function ScoreBar({ match }: ScoreBarProps) {
           {lastInnA && (
             <span className="num font-bold text-text-primary">
               {lastInnA.runs}<span className="text-text-dim font-normal">/{lastInnA.wickets}</span>
+              <span className="text-text-dim font-normal text-[10px]"> ({lastInnA.overs})</span>
             </span>
           )}
           <span className="text-text-dim">vs</span>
           {lastInnB && (
             <span className="num font-bold text-cyan">
               {lastInnB.runs}<span className="text-text-dim font-normal">/{lastInnB.wickets}</span>
+              <span className="text-text-dim font-normal text-[10px]"> ({lastInnB.overs})</span>
             </span>
           )}
           <Team code={match.teamB.shortName} color={match.teamB.primaryColor} batting={!teamACurrentlyBatting && innings.length > 0} />
         </div>
 
         <div className="flex flex-col items-end gap-0.5">
-          <div className="text-[10px] uppercase tracking-widest text-text-dim flex items-center gap-1.5">
-            {isLive && <span className="live-dot inline-block w-1.5 h-1.5 rounded-full bg-live" />}
-            {isLive ? "LIVE" : isPost ? "FINAL" : "PRE"}
-          </div>
+          {isPost && (
+            <div className="text-[10px] uppercase tracking-widest text-text-dim flex items-center gap-1.5">
+              FINAL
+            </div>
+          )}
           <div className="flex items-center gap-1">
             {match.format !== "T20" && match.format !== "T20I" && match.format !== "Hundred" && (
               <span className="text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded leading-none text-text-dim border border-line">
