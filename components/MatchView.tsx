@@ -255,7 +255,22 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   defaultTabRef.current = defaultTab;
   useEffect(() => {
     const handlePopState = () => {
-      setTimeout(() => restoreTab(defaultTabRef.current), 0);
+      const target = defaultTabRef.current;
+      // Re-apply repeatedly for a short window after the browser's own
+      // popstate dispatch, not just once. Real testing (screenshots
+      // before/after, on this exact deployed fix) proved a single
+      // setTimeout(0) call is NOT reliably last: it wins the race against
+      // Next.js's own async Router Cache restore sometimes but not always
+      // -- confirmed by reproducing both a pass and a hard fail with
+      // identical steps on the same build. That means Next's restore is
+      // not always finished within one macrotask of the popstate event.
+      // Reapplying on a few staggered delays makes this correction the
+      // last write regardless of which macrotask Next's own restore
+      // actually lands on, at the cost of a possible one-frame flash on
+      // the slowest case -- still strictly better than staying wrong.
+      [0, 50, 150, 350].forEach(delay => {
+        setTimeout(() => restoreTab(target), delay);
+      });
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
