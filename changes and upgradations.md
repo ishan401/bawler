@@ -3,6 +3,14 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## [1.0.192] 2026-08-12
+
+### Home featured "For You" card: fixed live-match short-circuit blocking the upcoming pick
+
+- `app/page.tsx`: removed a single early-return in `forYouResult` that made *any* qualifying live match anywhere in the pool (other than the hero) suppress the entire upcoming-featured-card computation, even when that live match belonged to a different followed nation's own, unrelated, genuinely upcoming fixture. This is why the card previously only ever appeared for exactly one followed nation, and even then only for some nations (Australia/South Africa worked by accident since their live-match status happened to avoid the early return; India/England tripped it via an unrelated live India-vs-England Test). The live-badge pool and the upcoming pick are now computed fully independently; a followed nation's own live fixture still can never populate the slot, since it structurally isn't a member of the upcoming pool.
+- `lib/followPrefs.ts`: added `getFeaturedForYouReason()`, used only by the featured card, rendering "Because you follow {A} and {B}" (no "both") when both sides of a match are followed. The inline "For you" tag's existing `getForYouReason()` keeps its original "both A and B" wording unchanged for its own callers — extracted a shared `resolveForYouReason()` helper parameterized by a `join` callback so the two outputs can differ without duplicating the team>nation resolution logic.
+- Verified with screenshots + matching `localStorage` state for all six originally-reported cases, plus all-5-nations, opponents-in-same-match, two-unrelated-matches, and order-independence scenarios, plus a full real-onboarding-flow run. Full regression pass: inline "For you" tag, live-match hero banner, Filter modal's 4 tabs, 5-team onboarding flow, Coming Up list ordering/dedup, and all three v1.0.191 fixes confirmed intact. Zero console errors throughout.
+
 ## [1.0.191] 2026-08-12
 
 ### Three precise UI fixes: Moments-card sharing removed, current-batters/bowler row forced plain white, duplicate ground/city text removed from Pitch Report

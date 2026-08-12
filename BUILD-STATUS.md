@@ -2,12 +2,18 @@
 
 > Snapshot of what's shipped, what's mocked, what's pending. Updated alongside every deploy.
 
-**Current version:** v1.0.191 (deployed)
+**Current version:** v1.0.192 (deployed)
 **Live URL:** `bawler-gold.vercel.app`
 **Repo:** `github.com/ishan401/bawler`
 **Local dev:** `cd bawler-main && npm install && npm run dev`
 
 ---
+
+## Changelog additions (v1.0.192)
+
+- 🐛 **Home featured "For You" card: fixed live-match short-circuit blocking the upcoming pick** — a single early-return line in `app/page.tsx`'s `forYouResult` (`if (liveIds.size > 0) return {..., upcoming: null}`) made the presence of *any* qualifying live match anywhere in the pool (other than the site-wide hero) suppress the entire upcoming-match computation, even when that live match belonged to a completely different followed nation's own, unrelated, genuinely upcoming fixture. This explained all six originally-reported failures precisely: following Australia or South Africa alone happened to work only because their live/no-live status structurally avoided the early return by accident (Australia's live match is the hero and is excluded; South Africa has no live match at all), while following India, England, or India-together-with-anything tripped the early return via a separate, non-hero live India-vs-England Test that had nothing to do with the actual upcoming fixture being suppressed. Removed the early return; the live-badge pool and the upcoming featured pick are now computed fully independently, so a followed nation's own live fixture still can never populate the slot (it simply isn't a member of the upcoming pool), but an unrelated live match can no longer suppress it either. `qualifyMatch()`, `isForYouMatch()`, and `bestFollowRank()` (the v1.0.91 tie-break: team > series > tournament > nation > format > player, still deciding ties by earliest kickoff) were all already correct and are unchanged.
+- Reason-text fix, scoped to the featured card only: added `getFeaturedForYouReason()` in `lib/followPrefs.ts` (shares a new private `resolveForYouReason()` helper with the existing `getForYouReason()`, parameterized by a `join` callback for the one line that needs to differ), rendering the two-sides-followed case as "Because you follow {A} and {B}" for the featured card, while the inline "For you" tag's own `getForYouReason()` keeps its original "Because you follow both {A} and {B}" wording byte-for-byte, since that mechanism was explicitly out of scope.
+- Verified with real screenshots plus the matching `localStorage.getItem('bawler:followPrefs')` value for each: all six original repro cases (Australia-only, India-only, India+Australia+New-Zealand, England-only, South-Africa-only, Australia-then-add-India) now produce correct output; plus all 5 nations together (earliest-kickoff wins), two nations who are each other's opponents (confirmed "and" wording), two nations with two different unrelated matches (earlier-kickoff wins outright, other match stays untagged in Coming Up), and order-independence. Also confirmed end to end through a real fresh onboarding run (not just direct `localStorage` injection). Full regression pass: inline "For you" tag (Live tab) and the featured card confirmed correctly coexisting on the same match set; live-match hero banner unaffected; Filter modal's 4 tabs; 5-team onboarding flow incl. no-interstitial behavior; Coming Up list's normal ordering/dedup; v1.0.191's Moments-share removal, plain-white batters/bowler row, and Pitch Report ground/city removal all spot-checked intact. Zero console errors throughout. See DECISIONS-LOG.md.
 
 ## Changelog additions (v1.0.191)
 
