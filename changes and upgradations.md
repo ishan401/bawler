@@ -3992,3 +3992,42 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx`, `package.json` + `README.md` (version bump). `lib/useTabSwitcher.ts`, `lib/mockData.ts`, and Table-eligibility logic are unchanged.
+
+## v1.0.194 — Platform-wide hydration error fix (Date.now()-based mock timestamps)
+
+#### Fixed — new `lib/useClientNow.ts`
+- Shared hook: `useState<number | null>(null)`, set via `useEffect` on mount (optional tick interval). Single "now" source for every render-time countdown/elapsed/today-tomorrow calculation platform-wide.
+- Every call site changed to accept `now` as a parameter, gated on `useClientNow() !== null` — SSR/first hydration render a placeholder (usually nothing), real value swaps in within a fraction of a second of mount. `suppressHydrationWarning` never used.
+
+#### Fixed — call sites
+- `app/page.tsx` (Home countdown + "For You" featured card), `components/MatchCard.tsx` (`FutureMatchCard`, `SpotlightMatchCard`), `components/LiveCarousel.tsx` (fallback card), `components/InfoTab.tsx` (countdown badge), `components/PlayerProfileView.tsx` (age-from-DOB), `components/ScheduleRow.tsx` (gained `"use client"`), new `components/ScheduleDateLabel.tsx` leaf for the statically-prerendered `app/schedule/[competitionId]/page.tsx`, `app/schedule/page.tsx`'s `SeriesSummaryRow` (a second, separate call into `ScheduleRow`'s `fmtDate`, caught by `tsc` after the signature change).
+
+#### Confirmed safe, untouched
+- `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx` — zero `Date.now()`/`new Date(` of their own.
+- `lib/teamSchedule.ts`, `lib/transformers.ts`, `components/onboarding/QuizStep.tsx`, dead code (`InsightFeed.tsx`/`InsightsPanel.tsx`), and several pure-formatting-only files.
+
+#### Verified, with an honest gap
+- `tsc --noEmit` / `npm run build` clean. Post-deploy: 0 errors on Home/Schedule/live match — but an upcoming match page still failed. See v1.0.195.
+
+#### Scope
+- 11 files changed, `lib/useClientNow.ts` + `components/ScheduleDateLabel.tsx` new, `package.json` version bump.
+
+## v1.0.195 — Fixing the v1.0.194 gap: timezone, not Date.now() drift
+
+#### Root cause
+- `components/InfoTab.tsx`'s `dateStr`/`timeStr` used `toLocaleDateString`/`toLocaleTimeString` with no explicit `timeZone` — resolves to the runtime's local timezone. Server (Vercel, UTC) and a visitor's browser format the same instant differently. Confirmed live: server HTML showed "10:38 am local", client DOM showed "04:08 pm local", same match, same UTC instant.
+
+#### Fixed — `components/InfoTab.tsx`
+- Gated `dateStr`/`timeStr`/`utcStr` (whole Date & Time card body, as one unit) behind `clientNow !== null`, same pattern as the `countdown` value already used.
+
+#### Fixed — `components/ScheduleRow.tsx`
+- `fmtTime(match.startTimeIso)` (upcoming-row branch) was ungated while the neighboring `fmtDate()` call already was. Reachable via `app/schedule/series/[competitionId]/page.tsx` (SSG, embeds `ScheduleRow` directly). Gated the same way.
+
+#### Audited, no fix needed
+- `MatchCard.tsx`'s `SpotlightMatchCard` (never renders during initial hydration — `fullMemberLookup`-gated `useMemo`), `LiveCarousel.tsx`'s sheets (both `view !== "none"`-gated), `app/schedule/[competitionId]/page.tsx` + `.../[teamCode]/page.tsx` (plain Server Components, never hydrated — flagged as a separate, non-error staleness/timezone bug, out of scope), `lib/teamSchedule.ts`'s month/year-only label, `PlayerProfileView.tsx`'s DOB formatting, `app/page.tsx`'s `fmtTime`/`fmtShortDate` (fully gated at their one call site).
+
+#### Verified
+- Hard-reload clear→navigate→read on all 5 required page types plus the newly-identified series-schedule route: Home (0), Schedule (0), live match (0), completed match (0, no regression), upcoming match (0, down from 9), series-schedule page (0). Screenshots confirm correct timezone-converted local time and countdown, no blank/NaN/stuck state, appearing within a fraction of a second of mount.
+
+#### Scope
+- `components/InfoTab.tsx`, `components/ScheduleRow.tsx`, `package.json` version bump. No calculation logic changed.

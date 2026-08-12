@@ -838,3 +838,15 @@
 | Version | Highlight |
 |---|---|
 | **v1.0.164** | Fixed the Live tab's bowler chip silently disappearing on `ipl2026-m37-kkrvmi`: its `bowlingCard` used a different name convention ("Jasprit Bumrah", "P. Krishna") than its ball data ("J Bumrah", "P Krishna"), and the old lookup only checked `playerName` via fragile `.includes()` substring matching. Now matches via `samePlayer(id, name, entryId, entryName)` — the same id-or-name predicate used platform-wide for ball-to-card joins — and falls back to computing the bowler's live figures straight from `live.balls` via `deriveBowlingCardFromBalls()` if that still misses, mirroring the batter chips' existing balls-derived fallback. `kkrvmi`'s bowlingCard `playerName` values also normalized to match its `playerId`/ball-data short form (12 string values, both innings). Cyan/green coloring thresholds unchanged (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.194)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.194** | Platform-wide fix for real, user-reproduced React hydration errors (#425/#418/#423) on every page showing "now"-relative text (countdowns, Today/Tomorrow, elapsed time). New shared `lib/useClientNow()` hook: every render-time "now" calculation across Home, Schedule, and match pages now renders a placeholder during SSR/first hydration and swaps in the real value post-mount, instead of calling `Date.now()`/`new Date()` directly during a render pass that also runs on the server. No countdown/date-label math changed, only when it's allowed to run (DECISIONS-LOG.md) |
+
+## Changelog additions (v1.0.195)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.195** | Fixed the one page v1.0.194 didn't fully cover: an upcoming match page still threw the same hydration errors post-deploy. Root cause, confirmed by diffing server-rendered HTML against the hydrated DOM live: not `Date.now()` drift, but `toLocaleDateString`/`toLocaleTimeString` calls with no explicit `timeZone` — Vercel (UTC) and a visitor's browser format the same instant differently. Gated `InfoTab.tsx`'s Date & Time card body and `ScheduleRow.tsx`'s upcoming-row time (reachable via the statically-prerendered series-schedule page) behind mount, same pattern as v1.0.194. Full re-audit of every remaining `toLocale*` call site in the app confirmed no other reachable-during-hydration case exists (DECISIONS-LOG.md) |
