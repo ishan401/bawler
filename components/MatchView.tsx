@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import type { Match, MatchEvent, InsightV2, Ball, WinProbPoint } from "@/lib/types";
 import { calculateWinProbForMatch, totalBallsForFormat, getLeadingTeamFromOverride } from "@/lib/winProb";
 import { ballsPerSet, absoluteBallNumber, inningsProgressLabel, situationLabel } from "@/lib/formatUtils";
@@ -198,12 +197,13 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // second copy for content to lag behind. Seeded directly from
   // `defaultTab` on every genuine mount, with no sessionStorage restore
   // and no other persisted value of any kind (v1.0.196). `restoreTab` IS
-  // used below, but only by the v1.0.198 pathname-keyed effect that
-  // re-applies `defaultTab` on every navigation arrival (including a
-  // Router-Cache-served browser back/forward restore that skips this
-  // line's own initializer entirely) -- it is never called from a click
-  // or swipe handler, so it still can't play a switch animation or yank
-  // scroll the way a real `switchTab` call would.
+  // used below, but only by the v1.0.198 native `popstate` listener that
+  // re-applies `defaultTab` after a genuine browser back/forward (a
+  // Router-Cache-served restore that skips this line's own initializer
+  // entirely, and that no React effect can hook into -- see that
+  // listener's own comment) -- it is never called from a click or swipe
+  // handler, so it still can't play a switch animation or yank scroll
+  // the way a real `switchTab` call would.
   const { activeTab: tab, direction, switchTab, restoreTab } = useTabSwitcher<TabKey>(defaultTab, {
     order: TABS_ORDER,
   });
@@ -217,39 +217,49 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // Score, browser-Back to Home, browser-Forward into the same match --
   // it reopened on Score, not Live -- with sessionStorage never touched.
   //
-  // Cause: Next.js App Router's client-side Router Cache. Browser
-  // back/forward navigation restores an already-rendered route segment
-  // (including this component's live React state, e.g. `activeTab`)
-  // straight from that cache instead of unmounting and remounting
-  // MatchView -- so `useTabSwitcher(defaultTab, ...)`'s initializer,
-  // which only runs on a genuine mount, never gets a chance to re-seed
-  // `activeTab` from a freshly computed `defaultTab`. This is exactly
-  // the "page component not unmounting when navigating Home and back"
-  // mechanism called out up front as a candidate cause -- it just wasn't
-  // the ind-page-link path (which Next does fully remount for), only the
-  // browser-native History API path.
+  // Cause: Next.js App Router's client-side Router Cache (its "Client
+  // Cache" -- see Next's own staleTimes docs, which state outright that
+  // back/forward restoration is NOT affected by that config, specifically
+  // "to prevent losing the browser scroll position"). A first attempted
+  // fix here tried a `usePathname()`-keyed effect calling `restoreTab`,
+  // on the theory that `usePathname()` would re-evaluate on every
+  // navigation including a cache-served one -- deployed and re-tested
+  // live, and it did NOT fix the bug: the tab bar still showed the
+  // pre-navigation tab after forward-navigating back in, and
+  // `read_network_requests` showed ZERO requests fired during that
+  // forward navigation. That proves the restore isn't just skipping our
+  // effect's dependency change -- Next is splicing the previously
+  // committed tree back in directly, without running this component's
+  // render (or its hooks) again at all, so no effect of ours can run
+  // during it, no matter what it depends on.
   //
-  // Fix: `usePathname()` re-evaluates on every navigation Next's router
-  // dispatches, INCLUDING a Router-Cache-served back/forward restore of
-  // an already-mounted instance (unlike the mount-only `useState`
-  // initializer above, which a cache hit skips entirely). So this effect
-  // fires on every arrival at this match's URL -- fresh mount, in-app
-  // link navigation, AND cached back/forward restore alike -- and
-  // unconditionally forces `activeTab` back to the current, freshly
-  // computed `defaultTab`, using `restoreTab` (not `switchTab`) since
-  // this is that hook's documented escape hatch for a silent, non-user-
-  // triggered correction, not a real switch (no scroll reset, no
-  // direction/animation). It does NOT depend on `defaultTab` itself
-  // being stable across renders, since it's a plain `const` recomputed
-  // fresh every render from `match.status` -- only `pathname` needs to
-  // change for this to re-run, and it does not change when the user taps
-  // a tab (that's local state, not a navigation), so normal in-page
-  // switching is completely unaffected.
-  const pathname = usePathname();
+  // Fix: a plain native `popstate` listener, which fires on genuine
+  // browser Back/Forward and ONLY that -- not on this app's own Link/
+  // router.push navigation (those use `history.pushState`, which never
+  // dispatches `popstate`), and not on an in-page tab tap (no History
+  // API call happens at all). Since Next's own cache-restore isn't a
+  // React render our hooks can hook into, this deliberately steps
+  // outside React's render cycle instead of trying to catch it inside
+  // one: `restoreTab(defaultTab)` runs a tick after the browser's
+  // `popstate` dispatch (the 0ms `setTimeout` lets whatever Next does
+  // synchronously in the same dispatch -- including its cache splice --
+  // finish first), so this always runs LAST and wins regardless of
+  // whether Next's own restore happened to leave a stale tab in place.
+  // `restoreTab`, not `switchTab`, since this is still a silent,
+  // non-user-triggered correction (no scroll reset, no switch
+  // animation) -- the listener is attached for this component's entire
+  // mounted lifetime (cleaned up on unmount) and reads `defaultTab`
+  // fresh via the ref below, not a stale closure over its value at
+  // attach time.
+  const defaultTabRef = useRef(defaultTab);
+  defaultTabRef.current = defaultTab;
   useEffect(() => {
-    restoreTab(defaultTab);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+    const handlePopState = () => {
+      setTimeout(() => restoreTab(defaultTabRef.current), 0);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [restoreTab]);
 
   // v1.0.196 -- no longer persists to sessionStorage. This used to be a
   // thin wrapper that also wrote the new tab to a per-match sessionStorage
