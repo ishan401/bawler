@@ -138,7 +138,13 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   // fresh visit, so the fix removes that carryover entirely rather than
   // trying to make its staleness check smarter -- `defaultTab` is derived
   // fresh from `match.status` every time this component mounts, full stop.
-  const defaultTab: TabKey = isUpcoming ? "info" : isFinished ? "digest" : "live";
+  // v1.0.196 -- isFinished's default changed from "digest" to "scorecard"
+  // (Score), per explicit updated spec: a completed match should open on
+  // its final scorecard, not its narrative recap. TABS_ORDER's left-to-
+  // right tab-bar ORDER is untouched (Digest still renders first/leftmost
+  // for a finished match) -- this only changes which tab is pre-selected
+  // on a fresh visit; tapping Digest still works exactly as before.
+  const defaultTab: TabKey = isUpcoming ? "info" : isFinished ? "scorecard" : "live";
 
   // Every tab this match can show, in display order -- computed here (not
   // down where it used to live, next to the old swipe-gesture code) because
