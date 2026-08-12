@@ -4039,3 +4039,28 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 | **v1.0.196** | Fixed match pages reopening on a stale tab instead of the correct fresh default: removed the `matchTab:${match.id}` sessionStorage read/write entirely from `MatchView.tsx`. Fully fixes every case except genuine browser Back/Forward (DECISIONS-LOG.md) |
 | **v1.0.197–198** | Second, independent root cause found for the same symptom via browser Back/Forward specifically: Next.js's Client Router Cache can restore a previously-committed tab without re-running the page's render or hooks. A `popstate`-listener-based fix was attempted and, after live console-log verification, proven to never actually fire during a genuine cache-restore (DECISIONS-LOG.md) |
 | **v1.0.199** | Replaced the non-functional `popstate` listener with a `setInterval`-based `window.location.pathname` watcher, independent of any event Next's router might intercept. Measurably better than v1.0.198 and verified working across a full walkthrough of live/completed/upcoming matches, cross-match independence, and in-page-switching regression — with an honestly disclosed residual limitation for a subset of true Router-Cache-preserved Back/Forward restores that no application-level code was able to detect (DECISIONS-LOG.md) |
+
+## v1.0.200 — Onboarding step 2 rebuilt as swipe-card player picker; team-step interstitial deleted
+
+#### Part 1 — flat list to swipe cards
+- `components/onboarding/PlayerPickStep.tsx` rewritten: one player per card instead of a scrollable list, matching step 1's exact style (3-card fanned stack, drag + tap X/checkmark, entrance animation). New `components/onboarding/PlayerCard.tsx` reuses `PlayerAvatar` for the avatar and the existing `PlayerProfile.bio` field for the blurb (`line-clamp-3`) -- no new copy field invented.
+- Checkmark still calls the unchanged `toggleFollowPlayer()` helper, so Filter/Home/For You/Moments keep reading the same `followPrefs.players` store as before -- only the picker's presentation changed.
+- Search bar, step 2's own Skip button, and the "N of 5 players" progress text are all preserved/matched to step 1's conventions; finishing or skipping card 5 auto-advances to the quiz, as before.
+
+#### Part 2 — capped 5-player deck, two scenarios
+- New `buildOnboardingPlayerDeck()` in `lib/onboardingPlayers.ts`, dispatching to:
+  - `buildRoundRobinDeck()` -- round-robins across followed teams in followed order, one queue per team (reusing `getRelevantPlayers()`'s existing sort, no new ranking), skipping exhausted teams, capped at 5, never padded with unrelated players.
+  - `buildFallbackDeck()` -- fixed, non-random, one player per curated nation (`CURATED_NATION_CODES`, moved to a shared export in `lib/onboardingTeams.ts`), alphabetical-by-surname (`parsePlayerName().surname`) since `PlayerProfile` has no captain/marquee flag.
+- **Exact Scenario B fallback deck:** R Ashwin (India), P Cummins (Australia), J Buttler (England), T Boult (New Zealand), D Miller (South Africa) -- confirmed via script and twice live, identical both times.
+
+#### Part 3 — interstitial removed
+- `components/onboarding/LockedPreview.tsx` deleted entirely, along with its `lockedPreviewShown` plumbing in `OnboardingFlow.tsx` and the `phase` state machine in `TeamPickerStep.tsx`. Skip on step 1 now goes straight to step 2, no intermediate screen.
+
+#### Confirmed untouched
+- Step 1's own cards/progress bar/X-checkmark behavior; step 2's own Skip behavior; quiz/reveal/checklist steps; `lib/followPrefs.ts`'s storage mechanism.
+
+#### Verified
+- All 10 required live scenarios passed (1-team follow, 3-team round-robin in order, small-pool no-padding, skip-step-1 no-interstitial + deterministic fallback x2, search-and-follow independent of deck, Home/Filter reflect the follow, step-2-Skip no interstitial, mixed-swipe auto-advance, full regression, zero new console errors across two complete fresh runs).
+
+#### Scope
+- `lib/onboardingTeams.ts`, `lib/onboardingPlayers.ts`, `components/onboarding/PlayerCard.tsx` (new), `components/onboarding/PlayerPickStep.tsx` (rewritten), `components/onboarding/TeamPickerStep.tsx`, `components/onboarding/OnboardingFlow.tsx`, `components/onboarding/LockedPreview.tsx` (deleted), `package.json` version bump.

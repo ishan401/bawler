@@ -795,6 +795,12 @@
 |---|---|
 | **v1.0.172** | Bug fix caught during v1.0.171's own live-verification pass: the team swipe step's front card could get stuck permanently invisible (rendered 520px off-screen at opacity 0) after certain dismiss sequences -- root cause was `SwipeCard` reusing the same component instance (and its stale exit-animation state) across teams in the front stack slot. Fixed by keying `SwipeCard` per-team (`key={t.code}`) so a fresh instance mounts for every new card, regardless of dismiss method. No change to follow/skip logic, persistence, or any other onboarding behavior (DECISIONS-LOG.md) |
 
+## Changelog additions (v1.0.200)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.200** | Onboarding step 2 (player picker) rebuilt from a flat list into swipe cards matching step 1's exact visual style (same 3-card stack, drag/tap X-checkmark, reused `PlayerAvatar` + existing `bio` field, no new copy fields). The deck is now capped at 5: round-robin across followed teams in followed order (reusing each team's existing sort, no new ranking) when >=1 team is followed, or a fixed non-random 5-player fallback (one per curated nation, alphabetical-by-surname since no captain flag exists in the data model) when 0 teams are followed -- verified identical on repeat. The team-step's post-skip "Follow a team to unlock this" interstitial was deleted outright (component + all plumbing), so Skip on step 1 now goes directly to step 2 with zero intermediate screen. Search-and-follow, step 2's own Skip, the quiz/reveal/checklist, and the underlying follow-state storage are all unchanged. 10/10 required live verification scenarios passed, zero new console errors (DECISIONS-LOG.md) |
+
 ## Changelog additions (v1.0.171)
 
 | Version | Highlight |
