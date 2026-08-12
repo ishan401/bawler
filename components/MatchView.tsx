@@ -254,19 +254,11 @@ export default function MatchView({ match, insights: insightsProp }: MatchViewPr
   const defaultTabRef = useRef(defaultTab);
   defaultTabRef.current = defaultTab;
   useEffect(() => {
-    console.log("[DEBUG-198] popstate listener attached for", match.id);
     const handlePopState = () => {
-      console.log("[DEBUG-198] popstate fired, restoring to", defaultTabRef.current);
-      setTimeout(() => {
-        console.log("[DEBUG-198] setTimeout firing restoreTab", defaultTabRef.current);
-        restoreTab(defaultTabRef.current);
-      }, 0);
+      setTimeout(() => restoreTab(defaultTabRef.current), 0);
     };
     window.addEventListener("popstate", handlePopState);
-    return () => {
-      console.log("[DEBUG-198] popstate listener removed for", match.id);
-      window.removeEventListener("popstate", handlePopState);
-    };
+    return () => window.removeEventListener("popstate", handlePopState);
   }, [restoreTab]);
 
   // v1.0.196 -- no longer persists to sessionStorage. This used to be a
