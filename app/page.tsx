@@ -21,6 +21,7 @@ import {
   isForYouMatch,
   followedMatchSide,
   getForYouReason,
+  getFeaturedForYouReason,
   type FollowPrefs,
   type MatchQualification,
 } from "@/lib/followPrefs";
@@ -438,14 +439,36 @@ export default function Home() {
       const reason = getForYouReason(m, followPrefs);
       if (reason) liveReasons.set(m.id, reason);
     }
-    if (liveIds.size > 0) return { liveIds, liveReasons, upcoming: null };
 
-    // No live qualifiers -- fall back to the single soonest UPCOMING
-    // qualifying match. Gap 1 (v1.0.91): when several different follow
-    // categories each have a candidate, don't just take whichever happens
-    // to be chronologically soonest -- prefer the most specific follow
-    // type first (bestFollowRank, above), and only break ties between
-    // equally-specific candidates by soonest start time.
+    // v1.0.192 BUG FIX -- this used to be `if (liveIds.size > 0) return
+    // { liveIds, liveReasons, upcoming: null };` right here, which made
+    // the presence of ANY qualifying live match ANYWHERE (other than the
+    // global hero) short-circuit the whole function before the upcoming
+    // pool below was ever computed -- even when that live match had
+    // nothing to do with a DIFFERENT followed nation/team's own, unrelated,
+    // genuinely upcoming fixture. Confirmed live: following India alone (or
+    // England alone) made the live India-vs-England Test qualify as a
+    // non-hero live match, which killed the completely separate upcoming
+    // Australia-vs-India (or England-vs-South-Africa) featured-card slot
+    // outright; following a SECOND nation alongside an already-working one
+    // (e.g. adding India to an already-followed Australia) reintroduced
+    // that same live qualifier and made a previously-showing card vanish
+    // for BOTH nations. The live-badge pool (liveIds/liveReasons, feeding
+    // the inline "for you" tag via forYouLiveIds/forYouLiveReasons below --
+    // a separate, already-correct mechanism, untouched here) and this
+    // dedicated featured-card's upcoming pool are two genuinely independent
+    // slots and must never gate each other. upcoming candidates are now
+    // ALWAYS computed from the full `active` pool below, regardless of
+    // what liveIds contains. A followed nation/team's own live fixture
+    // still can never itself become the upcoming pick -- not because of
+    // any liveIds check, but simply because it isn't a member of
+    // ALL_UPCOMING_MATCHES in the first place (see upcomingIds below).
+    //
+    // Gap 1 (v1.0.91, unchanged): when several different follow categories
+    // each have a candidate, don't just take whichever happens to be
+    // chronologically soonest -- prefer the most specific follow type
+    // first (bestFollowRank, above), and only break ties between equally-
+    // specific candidates by soonest start time.
     const upcomingIds = new Set(ALL_UPCOMING_MATCHES.map(m => m.id));
     const upcomingCandidates = active.filter(a => upcomingIds.has(a.m.id));
     if (upcomingCandidates.length === 0) return { liveIds, liveReasons, upcoming: null };
@@ -707,9 +730,15 @@ export default function Home() {
  */
 function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boolean; followPrefs: FollowPrefs }) {
   // v1.0.149 -- "Because you follow {name}" reason line. Falls back to no
-  // extra line at all (not a placeholder) when getForYouReason() can't
-  // resolve a specific entity -- see lib/followPrefs.ts.
-  const reason = getForYouReason(match, followPrefs);
+  // extra line at all (not a placeholder) when the reason can't resolve a
+  // specific entity -- see lib/followPrefs.ts.
+  //
+  // v1.0.192 -- this card is the ONLY caller of getFeaturedForYouReason()
+  // (not the shared getForYouReason(), which the live-match inline "for
+  // you" tag uses instead, unchanged) -- see that function's own comment
+  // for why the two-sides-followed wording deliberately differs ("...and
+  // India" here vs "...both ... and India" there).
+  const reason = getFeaturedForYouReason(match, followPrefs);
   // v1.0.58 -- this card only (Live/Spotlight/grid keep their own existing
   // team-order conventions): always put the followed team on the left, so
   // its color dot and name never end up disconnected from each other by

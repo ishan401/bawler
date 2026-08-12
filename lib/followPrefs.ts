@@ -370,16 +370,29 @@ export function isForYouMatch(q: MatchQualification): boolean {
  * render the plain "for you" label with no reason line in that case,
  * never a placeholder or undefined text.
  */
-export function getForYouReason(match: Match, prefs: FollowPrefs): string | null {
+// v1.0.192 -- shared by getForYouReason() (below, used by the LIVE-match
+// inline "for you" tag -- LiveCarousel/LiveMatchCard/ForYouMarker's reason
+// lines, plus the Spotlight dedup marker; unchanged output, still says
+// "both") and getFeaturedForYouReason() (below that, used ONLY by the
+// dedicated Home featured "for you" card, ForYouRow) -- identical
+// team>nation resolution logic, the only difference is how the two-sides-
+// followed case is worded, via the `join` callback each caller supplies.
+// Extracted so the featured card's wording (spec'd as plain "Because you
+// follow {A} and {B}", no "both") could be introduced WITHOUT changing a
+// single character of the already-confirmed-working inline tag's text.
+function resolveForYouReason(
+  match: Match,
+  prefs: FollowPrefs,
+  join: (nameA: string, nameB: string) => string
+): string | null {
   const singleReason = (name: string) => `Because you follow ${name}`;
-  const bothReason = (nameA: string, nameB: string) => `Because you follow both ${nameA} and ${nameB}`;
 
   // 1. Team -- franchise teams only (national teams are matched under
   // Nation below; see validTeamIds()/sanitizeFollowPrefs above).
   {
     const teamA = prefs.teams.includes(match.teamA.code);
     const teamB = prefs.teams.includes(match.teamB.code);
-    if (teamA && teamB) return bothReason(match.teamA.shortName, match.teamB.shortName);
+    if (teamA && teamB) return join(match.teamA.shortName, match.teamB.shortName);
     if (teamA) return singleReason(match.teamA.shortName);
     if (teamB) return singleReason(match.teamB.shortName);
   }
@@ -390,12 +403,37 @@ export function getForYouReason(match: Match, prefs: FollowPrefs): string | null
     const nationB = nationOf(match.teamB.code, match.teamB.country, match.teamB.type);
     const matchesA = !!nationA && prefs.nations.includes(nationA);
     const matchesB = !!nationB && prefs.nations.includes(nationB);
-    if (matchesA && matchesB) return bothReason(match.teamA.fullName, match.teamB.fullName);
+    if (matchesA && matchesB) return join(match.teamA.fullName, match.teamB.fullName);
     if (matchesA) return singleReason(match.teamA.fullName);
     if (matchesB) return singleReason(match.teamB.fullName);
   }
 
   return null;
+}
+
+export function getForYouReason(match: Match, prefs: FollowPrefs): string | null {
+  return resolveForYouReason(match, prefs, (nameA, nameB) => `Because you follow both ${nameA} and ${nameB}`);
+}
+
+/**
+ * v1.0.192 -- dedicated reason resolver for the Home featured "for you"
+ * card ONLY (app/page.tsx's forYouResult -> ForYouRow). Same team>nation
+ * resolution as getForYouReason() above (and reads exactly the same
+ * followed nation(s)/team(s) against BOTH sides of the match -- not just
+ * one), but renders the two-sides-followed case as "Because you follow
+ * {A} and {B}" (no "both"), matching the exact wording spec'd for this
+ * card, e.g. "AUS vs IND" with both followed -> "Because you follow
+ * Australia and India". {A}/{B} are always in the same left-to-right
+ * order as the match's own teamA/teamB (i.e. the match header's display
+ * order), never re-sorted by follow-category or alphabetically.
+ * getForYouReason() above (the live-match inline tag's resolver) is
+ * intentionally NOT reused/aliased here and keeps its original "both"
+ * wording untouched -- this is a separate function specifically so this
+ * card's wording change can never affect that already-confirmed-working
+ * mechanism.
+ */
+export function getFeaturedForYouReason(match: Match, prefs: FollowPrefs): string | null {
+  return resolveForYouReason(match, prefs, (nameA, nameB) => `Because you follow ${nameA} and ${nameB}`);
 }
 
 /** True if `match` is relevant to ANY of the user's followed selections
