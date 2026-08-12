@@ -14,17 +14,19 @@ import { getTeamSchedule, type ScheduleEntry } from "./teamSchedule";
 import { getCurrentInnings } from "./matchStatus";
 import { formatScore, inningsProgressLabel } from "./formatUtils";
 
-// The 16-team curated roster: the 6 national sides that actually have
-// live/upcoming/recent matches in this mock dataset, then the 10 IPL
-// franchises. Fixed, deterministic order -- not shuffled -- so "3 of 16"
-// and the underlying deck are stable and testable run to run.
-const CURATED_NATION_CODES = ["IND", "AUS", "ENG", "PAK", "NZ", "SA"] as const;
-const CURATED_FRANCHISE_CODES = ["MI", "CSK", "KKR", "RCB", "DC", "SRH", "PBKS", "RR", "LSG", "GT"] as const;
+// v1.0.187: the curated roster was cut from 16 teams (6 national sides +
+// 10 IPL franchises) down to exactly these 5 national sides, in this
+// exact order -- product decision to keep the team-picker step short.
+// Franchise teams are no longer part of onboarding's team-picker deck at
+// all; a user who wants to follow a franchise team does so afterward via
+// the Filter tab (see components/SelectMoreNudge.tsx, which nudges toward
+// exactly that on first Home arrival). Fixed, deterministic order -- not
+// shuffled -- so "3 of 5" and the underlying deck are stable and testable
+// run to run.
+const CURATED_NATION_CODES = ["IND", "AUS", "ENG", "NZ", "SA"] as const;
 
 export function getOnboardingTeams(): Team[] {
-  const nations = CURATED_NATION_CODES.map(code => NATIONAL_TEAMS[code]).filter((t): t is Team => Boolean(t));
-  const franchises = CURATED_FRANCHISE_CODES.map(code => TEAMS[code]).filter((t): t is Team => Boolean(t));
-  return [...nations, ...franchises];
+  return CURATED_NATION_CODES.map(code => NATIONAL_TEAMS[code]).filter((t): t is Team => Boolean(t));
 }
 
 /** True for a national team (follows into FollowPrefs.nations by country

@@ -11,6 +11,7 @@ import type { Match } from "@/lib/types";
 import LiveCarousel from "@/components/LiveCarousel";
 import { PastMatchCard, FutureMatchCard, SpotlightMatchCard } from "@/components/MatchCard";
 import FirstSessionQuest from "@/components/FirstSessionQuest";
+import SelectMoreNudge from "@/components/SelectMoreNudge";
 import {
   emptyFollowPrefs,
   getFollowPrefs,
@@ -32,6 +33,7 @@ import CarouselDots from "@/components/CarouselDots";
 import YourPlayersStrip from "@/components/YourPlayersStrip";
 import { useRouter } from "next/navigation";
 import { shouldShowOnboarding } from "@/lib/onboarding";
+import { hasSeenSelectMoreNudge } from "@/lib/selectMoreNudge";
 
 // ── Popularity sort ──────────────────────────────────────────────────────────
 const COMP_POP: Record<string, number> = {
@@ -194,6 +196,25 @@ export default function Home() {
       setRedirectPending(false);
     }
   }, [router]);
+
+  // ---- "Select more" one-time coachmark (v1.0.187) ----
+  // Fires exactly once, ever, on this browser/device's first-ever real
+  // arrival at Home -- whichever way onboarding was resolved (completed,
+  // partially answered, or skipped outright). Gated on BOTH `isBooting`
+  // and `redirectPending` being false, not just mount -- otherwise a
+  // brand-new user would get this timer started while still sitting on
+  // the boot skeleton, or (worse) a moment before being redirected away
+  // to /onboarding entirely, well before "Home's initial render" the
+  // build spec means. Re-derives hasSeenSelectMoreNudge() fresh once
+  // those gates clear rather than caching an earlier read, since this
+  // effect can legitimately re-run more than once as those flags settle.
+  const [showSelectMoreNudge, setShowSelectMoreNudge] = useState(false);
+  useEffect(() => {
+    if (isBooting || redirectPending) return;
+    if (hasSeenSelectMoreNudge()) return;
+    const t = window.setTimeout(() => setShowSelectMoreNudge(true), 800);
+    return () => window.clearTimeout(t);
+  }, [isBooting, redirectPending]);
 
   // ---- Pull-to-refresh ----
   const [pullY, setPullY] = useState(0);
@@ -644,6 +665,11 @@ export default function Home() {
           -- fixed-position, non-modal, renders null on its own once
           dismissed/complete/never-initialized. */}
       <FirstSessionQuest />
+
+      {/* v1.0.187: one-time "Select more" coachmark pointing at the
+          Filter tab -- see lib/selectMoreNudge.ts for the one-time-ever
+          gating and SelectMoreNudge.tsx for the non-modal bubble itself. */}
+      {showSelectMoreNudge && <SelectMoreNudge />}
     </main>
   );
 }

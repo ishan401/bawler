@@ -7,7 +7,6 @@ import { useClearValueAfterDuration } from "@/lib/animationCleanup";
 import SwipeCard, { type SwipeCardHandle } from "./SwipeCard";
 import TeamCard, { FLAG_ISO } from "./TeamCard";
 import TeamMomentCard from "./TeamMomentCard";
-import RivalPrompt from "./RivalPrompt";
 import LockedPreview from "./LockedPreview";
 
 // v1.0.185 -- found during the platform-wide GPU-compositing audit
@@ -57,12 +56,12 @@ const STACK_SLOT_STYLE = [
   { rotate: 8, translateX: 14, scale: 0.92, opacity: 0.5 },
 ] as const;
 const FRONT_ENTER_MS = 200;
-// Small circular chip per followed team, shown below the "X of 16 teams"
+// Small circular chip per followed team, shown below the "X of 5 teams"
 // row. Caps at 5 real chips + a "+N" badge once more than 6 are followed.
 const CHIP_INLINE_CAP = 6;
 const CHIP_SHOWN_WHEN_CAPPED = 5;
 
-type Phase = "card" | "moment" | "rival" | "locked-preview";
+type Phase = "card" | "moment" | "locked-preview";
 
 /** Persists a team follow into the SAME shared FollowPrefs store the rest
  * of the app's FOR YOU logic already reads -- national teams go into
@@ -77,12 +76,6 @@ function followTeam(team: Team) {
   } else {
     if (!prefs.teams.includes(id)) prefs.teams = [...prefs.teams, id];
   }
-  setFollowPrefs(prefs);
-}
-
-function setRivalTeam(team: Team) {
-  const prefs = getFollowPrefs();
-  prefs.rivalTeam = team.code;
   setFollowPrefs(prefs);
 }
 
@@ -106,7 +99,6 @@ export default function TeamPickerStep({
   const [phase, setPhase] = useState<Phase>("card");
   const [moment, setMoment] = useState<TeamMoment | null>(null);
   const [followedTeams, setFollowedTeams] = useState<Team[]>([]);
-  const [rivalAsked, setRivalAsked] = useState(false);
   // Bug fix (post-v1.0.165 live-browser report): the swipe gesture itself
   // works correctly (confirmed via real Chrome mouse-drag testing -- a
   // drag past SWIPE_THRESHOLD_PX genuinely calls onSwipeRight/onSwipeLeft
@@ -167,7 +159,7 @@ export default function TeamPickerStep({
   );
 
   function handleSkip(team: Team) {
-    void team; // left-swipe: no follow, no moment, no rival prompt
+    void team; // left-swipe: no follow, no moment card
     advanceOrFinish(followedTeams);
   }
 
@@ -184,17 +176,13 @@ export default function TeamPickerStep({
     }
   }
 
+  // v1.0.187: this used to branch into a one-time "Who do you love to
+  // hate?" rival prompt before advancing (see RivalPrompt.tsx, deleted --
+  // the rival-question step was removed from onboarding entirely, per
+  // product decision). Now goes straight to the next card/step, exactly
+  // like a plain skip would.
   function afterMomentOrSkip(followedSoFar: Team[]) {
-    if (!rivalAsked) {
-      setPhase("rival");
-    } else {
-      advanceOrFinish(followedSoFar);
-    }
-  }
-
-  function handleRivalResolved() {
-    setRivalAsked(true);
-    advanceOrFinish(followedTeams);
+    advanceOrFinish(followedSoFar);
   }
 
   /** Called by the step-level "Skip" link/the flow's own skip affordance --
@@ -219,9 +207,9 @@ export default function TeamPickerStep({
   }
 
   if (!current) {
-    // Defensive -- getOnboardingTeams() always returns 16 real teams
-    // today, but guard against an empty curated list anyway rather than
-    // rendering nothing with no way forward.
+    // Defensive -- getOnboardingTeams() always returns 5 real teams
+    // today (v1.0.187), but guard against an empty curated list anyway
+    // rather than rendering nothing with no way forward.
     onComplete(followedTeams);
     return null;
   }
@@ -234,7 +222,7 @@ export default function TeamPickerStep({
   // follow-progress chips right below it) are fixed-height chrome at the
   // TOP of this step, deliberately kept OUTSIDE the `flex-1 justify-center`
   // wrapper below -- only the actual phase content (card stack, moment
-  // card, or rival prompt) should be vertically centered in the remaining
+  // card) should be vertically centered in the remaining
   // space, per the "center the primary card" build spec. `flex-1` on this
   // root div is what lets it fill 100% of OnboardingFlow's own content
   // area, giving the inner centering wrapper real space to center within.
@@ -332,10 +320,10 @@ export default function TeamPickerStep({
                       passes through the front slot, so its internal
                       dx/dragging/exiting state survives from the outgoing
                       card into the incoming one. That's invisible whenever a
-                      follow happens to route through the "moment" or "rival"
+                      follow happens to route through the "moment"
                       phase in between (the whole phase==="card" tree
                       unmounts and remounts fresh) -- but a plain skip (or any
-                      follow with neither a moment nor a rival prompt pending)
+                      follow with no moment pending)
                       stays on phase "card" the entire time, so the same
                       SwipeCard instance carries its exiting="left"/"right"
                       state forward and the next team's card renders
@@ -403,16 +391,6 @@ export default function TeamPickerStep({
         <TeamMomentCard moment={moment} onContinue={() => afterMomentOrSkip(followedTeams)} />
       )}
 
-      {phase === "rival" && (
-        <RivalPrompt
-          candidates={teams.filter(t => t.code !== current.code).slice(0, 6)}
-          onPick={t => {
-            setRivalTeam(t);
-            handleRivalResolved();
-          }}
-          onSkip={handleRivalResolved}
-        />
-      )}
       </div>
     </div>
   );

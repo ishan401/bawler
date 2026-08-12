@@ -446,3 +446,17 @@
   height: 100%;
   background: rgba(63, 184, 184, 0.6);
 }
+
+/* "Select more" Home coachmark (v1.0.187) -- reuses the exact v1.0.186
+   onboarding-card token values (background/blur/border/shadow), but at
+   its own spec'd 14px radius rather than the 24px primary-card radius,
+   so it isn't just `.onboarding-card` with an override. See
+   components/SelectMoreNudge.tsx. */
+.select-more-nudge {
+  background: rgba(50, 62, 94, 0.38);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}

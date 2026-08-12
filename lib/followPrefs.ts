@@ -48,32 +48,30 @@ export interface FollowPrefs {
   // consult it, so introducing it cannot change match targeting, only
   // the wording of the reason line.
   defaultFormats: MatchFormat[];
-  // v1.0.165: one purely-for-fun "rival" team code, captured by the
-  // onboarding flow's "Who do you love to hate?" prompt. Never a
-  // follow signal itself -- qualifyMatch()/getForYouReason() below must
-  // never read this field, it exists only to enrich future rivalry-
-  // framing copy elsewhere in the app. A single Team.code (national or
-  // franchise), or undefined if never set/skipped.
-  rivalTeam?: string;
 }
 
-// rivalTeam and defaultFormats are deliberately excluded -- neither is
-// one of the six real Filter-sheet categories (buildOptions() in
-// FollowSheet.tsx switches exhaustively over FollowCategory). rivalTeam
-// has no corresponding UI section, by design -- it's only ever set by
-// onboarding's one-tap "who do you love to hate?" prompt. defaultFormats
-// (v1.0.182) is a read-only annotation on top of `formats` (which
-// entries in it are auto-assigned vs. explicit) -- it's never rendered,
-// checked, or toggled as its own category; the Follow sheet's "formats"
-// toggle handler updates it as a side effect instead (see toggle() in
-// FollowSheet.tsx).
-export type FollowCategory = Exclude<keyof FollowPrefs, "rivalTeam" | "defaultFormats">;
+// v1.0.187: the onboarding "Who do you love to hate?" rival-question step
+// (and the `rivalTeam` field it used to write here) was removed entirely
+// -- grep-confirmed it had zero downstream consumers anywhere in the app
+// (qualifyMatch()/getForYouReason() never read it, and no "your rivalry"
+// banner or similar ever existed), so rather than leave a permanently-
+// undefined field around, the whole mechanism was deleted rather than
+// just its producer. See DECISIONS-LOG.md.
+//
+// defaultFormats is deliberately excluded -- it isn't one of the six real
+// Filter-sheet categories (buildOptions() in FollowSheet.tsx switches
+// exhaustively over FollowCategory). It's a read-only annotation on top
+// of `formats` (which entries in it are auto-assigned vs. explicit) --
+// never rendered, checked, or toggled as its own category; the Follow
+// sheet's "formats" toggle handler updates it as a side effect instead
+// (see toggle() in FollowSheet.tsx).
+export type FollowCategory = Exclude<keyof FollowPrefs, "defaultFormats">;
 
 const STORAGE_KEY = "bawler:followPrefs";
 const CHANGE_EVENT = "bawler:follow-prefs-changed";
 
 export function emptyFollowPrefs(): FollowPrefs {
-  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [], defaultFormats: [], rivalTeam: undefined };
+  return { nations: [], teams: [], tournaments: [], series: [], players: [], formats: [], defaultFormats: [] };
 }
 
 // ----------------------------------------------------------------------------
@@ -118,11 +116,6 @@ function validPlayerIds(): Set<string> {
 }
 const VALID_FORMATS = new Set<MatchFormat>(["T20", "T20I", "ODI", "Test", "Hundred"]);
 
-function validRivalTeamCode(code: string | undefined): string | undefined {
-  if (!code) return undefined;
-  return Object.values(ALL_TEAMS).some(t => t.code === code) ? code : undefined;
-}
-
 export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
   const nations = validNationIds();
   const teams = validTeamIds();
@@ -144,7 +137,6 @@ export function sanitizeFollowPrefs(prefs: FollowPrefs): FollowPrefs {
     players: prefs.players.filter(id => players.has(id)),
     formats,
     defaultFormats,
-    rivalTeam: validRivalTeamCode(prefs.rivalTeam),
   };
 }
 
@@ -163,8 +155,7 @@ function prefsEqual(a: FollowPrefs, b: FollowPrefs): boolean {
     a.series.every(id => b.series.includes(id)) &&
     a.players.every(id => b.players.includes(id)) &&
     a.formats.every(f => b.formats.includes(f)) &&
-    a.defaultFormats.every(f => b.defaultFormats.includes(f)) &&
-    (a.rivalTeam ?? null) === (b.rivalTeam ?? null)
+    a.defaultFormats.every(f => b.defaultFormats.includes(f))
   );
 }
 
