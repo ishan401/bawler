@@ -8,6 +8,7 @@ import { formatPlayerName } from "@/lib/playerName";
 import { resolveTeamAccentColor } from "@/lib/teamAccentColor";
 import { getRecentForm, getPlayerAchievements, type RecentFormSeries, type RecentFormPoint, type AchievementLine } from "@/lib/playerForm";
 import { getFavouritePlayers, onFavouritesChanged, toggleFavouritePlayer } from "@/lib/playerFavourites";
+import { useClientNow } from "@/lib/useClientNow";
 import { CYAN } from "@/lib/tokens";
 import { useTabSwitcher } from "@/lib/useTabSwitcher";
 import RecentFormGraph from "./RecentFormGraph";
@@ -50,9 +51,15 @@ function formatDate(dob?: string): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-function age(dob?: string): string {
+// v1.0.194 -- takes `now` as an explicit parameter instead of reading
+// Date.now() internally; see lib/useClientNow.ts for the rationale. In
+// practice this almost never actually flips the displayed year (it would
+// require hydration to straddle the exact millisecond of a birthday), but
+// it's still a genuine render-time Date.now() call, so it gets the same
+// fix as every other one in this pass for consistency.
+function age(dob: string | undefined, now: number): string {
   if (!dob) return "";
-  const diff = Date.now() - new Date(dob).getTime();
+  const diff = now - new Date(dob).getTime();
   const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
   return `Age ${years}`;
 }
@@ -207,6 +214,9 @@ export function usePlayerFormState(
 export default function PlayerProfileView({ player }: Props) {
   const router = useRouter();
   const roleColor = ROLE_COLORS[player.role];
+  // v1.0.194 -- the age() call in the hero info row below needs this;
+  // null until mounted. See age()'s comment above.
+  const clientNow = useClientNow();
 
   // Determine which format tabs exist
   const tabs: FormatKey[] = (["test", "odi", "t20i", "franchise"] as FormatKey[]).filter(f => {
@@ -345,7 +355,7 @@ export default function PlayerProfileView({ player }: Props) {
           {/* Personal info row */}
           <div className="flex flex-wrap gap-2 text-xs text-text-secondary">
             {player.dateOfBirth && (
-              <span>{formatDate(player.dateOfBirth)} · {age(player.dateOfBirth)}</span>
+              <span>{formatDate(player.dateOfBirth)}{clientNow !== null && <> · {age(player.dateOfBirth, clientNow)}</>}</span>
             )}
             {player.battingStyle && (
               <span className="text-text-dim">Bats: <span className="text-text-primary font-semibold">{player.battingStyle}</span></span>

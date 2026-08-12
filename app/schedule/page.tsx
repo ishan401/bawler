@@ -16,6 +16,7 @@ import {
   type SeriesSummary,
 } from "@/lib/teamSchedule";
 import ScheduleRow, { fmtDate } from "@/components/ScheduleRow";
+import { useClientNow } from "@/lib/useClientNow";
 import { useTabSwitcher } from "@/lib/useTabSwitcher";
 
 // ============================================================================
@@ -290,6 +291,11 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
  */
 function SeriesSummaryRow({ summary }: { summary: SeriesSummary }) {
   const { competition, isLive, nextEntry, lastCompletedEntry } = summary;
+  // v1.0.194 -- the "next match" date label below (fmtDate, "Today"/
+  // "Tomorrow"/short-date) needs "now"; null until mounted. See
+  // components/ScheduleRow.tsx's file-level comment for the full
+  // rationale.
+  const now = useClientNow();
 
   return (
     <Link
@@ -311,7 +317,7 @@ function SeriesSummaryRow({ summary }: { summary: SeriesSummary }) {
       </div>
 
       <div className="text-right shrink-0">
-        {nextEntry && <div className="text-[9px] text-text-dim">{fmtDate(nextEntry.match.startTimeIso)}</div>}
+        {nextEntry && now !== null && <div className="text-[9px] text-text-dim">{fmtDate(nextEntry.match.startTimeIso, now)}</div>}
       </div>
     </Link>
   );

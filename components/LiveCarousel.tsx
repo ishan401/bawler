@@ -8,6 +8,7 @@ import BottomSheet from "./BottomSheet";
 import MiniStandings from "./MiniStandings";
 import { ALL_LIVE_MATCHES, ALL_PAST_MATCHES, ALL_UPCOMING_MATCHES, ALL_TEAMS } from "@/lib/mockData";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
+import { useClientNow } from "@/lib/useClientNow";
 import CarouselDots from "./CarouselDots";
 
 interface LiveCarouselProps {
@@ -25,8 +26,13 @@ interface LiveCarouselProps {
   forYouReasons?: Map<string, string>;
 }
 
-function fmtCountdown(iso: string): string {
-  const diff = new Date(iso).getTime() - Date.now();
+// v1.0.194 -- takes `now` as an explicit parameter instead of reading
+// Date.now() internally; see lib/useClientNow.ts for the rationale
+// (render-time Date.now() calls diverge between the server's render and
+// the client's hydration render, producing React error #425). Math and
+// output are unchanged.
+function fmtCountdown(iso: string, now: number): string {
+  const diff = new Date(iso).getTime() - now;
   if (diff <= 0) return "Starting soon";
   const days = Math.floor(diff / 86400000);
   const hrs  = Math.floor((diff % 86400000) / 3600000);
@@ -371,6 +377,10 @@ export default function LiveCarousel({ matches, nextMatch, forYouIds, forYouReas
   );
   const [openTeamCode, setOpenTeamCode] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // v1.0.194 -- the "No live matches / Next up" fallback card below calls
+  // fmtCountdown(), which needs "now"; see that function's comment above.
+  // null until mounted.
+  const now = useClientNow();
 
   // Mouse click-drag scroll -- native overflow-x already scrolls via touch
   // swipe and trackpad/wheel, but a plain mouse click-drag does nothing on
@@ -441,7 +451,7 @@ export default function LiveCarousel({ matches, nextMatch, forYouIds, forYouReas
                   </div>
                   <div className="flex flex-col items-center shrink-0">
                     <span className="text-[10px] font-bold text-text-dim">vs</span>
-                    <span className="text-[11px] font-extrabold text-cyan num">{fmtCountdown(nextMatch.startTimeIso)}</span>
+                    <span className="text-[11px] font-extrabold text-cyan num">{now !== null && fmtCountdown(nextMatch.startTimeIso, now)}</span>
                   </div>
                   <div className="flex items-center gap-2 min-w-0 flex-row-reverse">
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ background: nextMatch.teamB.primaryColor }} />
@@ -449,7 +459,7 @@ export default function LiveCarousel({ matches, nextMatch, forYouIds, forYouReas
                   </div>
                 </div>
                 <div className="mt-2 text-[10px] text-text-dim text-center">
-                  {fmtTime(nextMatch.startTimeIso)} · {nextMatch.venue.name}, {nextMatch.venue.city}
+                  {now !== null && <>{fmtTime(nextMatch.startTimeIso)} · {nextMatch.venue.name}, {nextMatch.venue.city}</>}
                 </div>
               </Link>
             </>

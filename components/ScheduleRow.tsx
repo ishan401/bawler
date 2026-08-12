@@ -1,5 +1,23 @@
+"use client";
+
 import Link from "next/link";
 import type { ScheduleEntry } from "@/lib/teamSchedule";
+import { useClientNow } from "@/lib/useClientNow";
+
+// v1.0.194 -- this file gained "use client" here specifically so its own
+// fmtDate() (the "Today"/"Tomorrow" label below) can defer to
+// useClientNow() and never run during a server render. This component is
+// embedded from three places: a genuine Client Component
+// (app/schedule/page.tsx, already hydrated -- this was a real, reproduced
+// hydration mismatch there) and two statically-prerendered Server
+// Components (app/schedule/[competitionId]/page.tsx,
+// app/schedule/series/[competitionId]/page.tsx). For the latter two,
+// "Today"/"Tomorrow" being computed from build-time Date.now() would have
+// gone stale for every visitor until the next rebuild -- a silent
+// wrong-label bug, not a console error, but the same underlying cause.
+// Making this one leaf a Client Component is the standard, sanctioned
+// Next.js pattern for embedding a bit of runtime-fresh UI inside an
+// otherwise-static server page, and fixes both problems the same way.
 
 // ============================================================================
 // ScheduleRow — v1.0.113
@@ -13,6 +31,9 @@ import type { ScheduleEntry } from "@/lib/teamSchedule";
 // ============================================================================
 
 export default function ScheduleRow({ entry, focusTeamCode }: { entry: ScheduleEntry; focusTeamCode?: string }) {
+  // v1.0.194 -- null until mounted; both fmtDate() call sites below render
+  // a stable placeholder (no text) until then. See the file-level comment.
+  const now = useClientNow();
   const { match, bucket, confirmed } = entry;
   const isLive = bucket === "live";
   const isPast = bucket === "past";
@@ -81,10 +102,10 @@ export default function ScheduleRow({ entry, focusTeamCode }: { entry: ScheduleE
         {bucket === "upcoming" && (
           <>
             <div className="text-[10px] font-bold num">{fmtTime(match.startTimeIso)}</div>
-            <div className="text-[9px] text-text-dim">{fmtDate(match.startTimeIso)}</div>
+            <div className="text-[9px] text-text-dim">{now !== null && fmtDate(match.startTimeIso, now)}</div>
           </>
         )}
-        {isPast && <div className="text-[9px] text-text-dim">{fmtDate(match.startTimeIso)}</div>}
+        {isPast && <div className="text-[9px] text-text-dim">{now !== null && fmtDate(match.startTimeIso, now)}</div>}
       </div>
     </Link>
   );
@@ -99,9 +120,11 @@ export function TeamChip({ name, color }: { name: string; color: string }) {
   );
 }
 
-export function fmtDate(iso: string): string {
+// v1.0.194 -- takes `now` as an explicit parameter instead of reading
+// `new Date()` internally; see the file-level comment above.
+export function fmtDate(iso: string, now: number): string {
   const d = new Date(iso);
-  const today = new Date();
+  const today = new Date(now);
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   if (d.toDateString() === today.toDateString()) return "Today";

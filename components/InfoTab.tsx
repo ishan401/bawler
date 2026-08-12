@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { useClientNow } from "@/lib/useClientNow";
 import type { Match } from "@/lib/types";
 import PitchReportCard from "./PitchReportCard";
 import LineupsCard from "./LineupsCard";
@@ -96,10 +97,14 @@ function fmt12(h: number, m: number) {
   return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
 }
 
-function formatMatchTime(iso: string) {
+// v1.0.194 -- takes `now` as an explicit parameter instead of reading
+// `new Date()` internally. dateStr/timeStr/utcStr below never depended on
+// "now" in the first place (they're pure formatting of the match's own
+// start time) -- only `countdown` does, and it's the only one of the four
+// the call site defers to post-mount. See lib/useClientNow.ts for why.
+function formatMatchTime(iso: string, now: number) {
   const d = new Date(iso);
-  const now = new Date();
-  const diffMs = d.getTime() - now.getTime();
+  const diffMs = d.getTime() - now;
   const diffH = Math.round(diffMs / 3600000);
   const diffD = Math.round(diffMs / 86400000);
 
@@ -148,7 +153,11 @@ export default function InfoTab({ match }: InfoTabProps) {
   const weather = CITY_WEATHER[match.venue.city] ?? DEFAULT_WEATHER;
   const rain = getRainLabel(weather.rainChance);
   const isUpcoming = match.status === "upcoming" || match.status === "pre-match";
-  const { dateStr, timeStr, utcStr, countdown } = formatMatchTime(match.startTimeIso);
+  // v1.0.194 -- null until mounted; the countdown badge below renders a
+  // stable placeholder (no text) until then instead of computing it from
+  // `new Date()` during a render pass that also runs on the server.
+  const clientNow = useClientNow();
+  const { dateStr, timeStr, utcStr, countdown } = formatMatchTime(match.startTimeIso, clientNow ?? 0);
 
   return (
     <div className="space-y-4">
@@ -178,7 +187,7 @@ export default function InfoTab({ match }: InfoTabProps) {
               <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
                 style={{ background: isUpcoming ? "#00A0C622" : "#22c55e22",
                          color: isUpcoming ? "#00A0C6" : "#22c55e" }}>
-                {countdown}
+                {clientNow !== null && countdown}
               </span>
             </div>
           </div>

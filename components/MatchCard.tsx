@@ -7,6 +7,7 @@ import SplitTeamBg from "./SplitTeamBg";
 import { calculateWinProbForMatch, calculateProjectedScore } from "@/lib/winProb";
 import { ballsPerSet, formatScore } from "@/lib/formatUtils";
 import { getTeamRanking } from "@/lib/teamData";
+import { useClientNow } from "@/lib/useClientNow";
 
 // ============================================================================
 // Fixed card heights
@@ -42,8 +43,12 @@ function fmtDate(iso: string): string {
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }
-function fmtCountdown(iso: string): string {
-  const diff = new Date(iso).getTime() - Date.now();
+// v1.0.194 -- takes `now` as an explicit parameter instead of reading
+// Date.now() internally; see lib/useClientNow.ts for why (render-time
+// Date.now() calls diverge between the server's render and the client's
+// hydration render, producing React error #425). Math/output unchanged.
+function fmtCountdown(iso: string, now: number): string {
+  const diff = new Date(iso).getTime() - now;
   if (diff <= 0) return "Starting soon";
   const days = Math.floor(diff / 86400000);
   const hrs  = Math.floor((diff % 86400000) / 3600000);
@@ -685,6 +690,11 @@ export function PastMatchCard({ match }: { match: Match }) {
 // above: only an actual winner earns the colored border.
 // ============================================================================
 export function FutureMatchCard({ match }: { match: Match }) {
+  // v1.0.194 -- see fmtCountdown's comment above; null until mounted, in
+  // which case this card's countdown/time line renders an empty
+  // placeholder (matching the server's render exactly) instead of calling
+  // Date.now() during a render pass that also runs server-side.
+  const now = useClientNow();
   return (
     <Link
       href={`/match/${match.id}`}
@@ -698,7 +708,7 @@ export function FutureMatchCard({ match }: { match: Match }) {
           <QuietSide team={match.teamB} alignRight />
         </div>
         <div className="text-[9.5px] text-cyan font-semibold text-center truncate leading-none num">
-          {fmtCountdown(match.startTimeIso)} · {fmtTime(match.startTimeIso)}
+          {now !== null && <>{fmtCountdown(match.startTimeIso, now)} · {fmtTime(match.startTimeIso)}</>}
         </div>
       </div>
     </Link>
@@ -715,6 +725,10 @@ export function FutureMatchCard({ match }: { match: Match }) {
 // star pill (top-left, never stacked on the top-right HighlightBadge).
 // ============================================================================
 export function SpotlightMatchCard({ match, isPast, forYou }: { match: Match; isPast: boolean; forYou?: boolean }) {
+  // v1.0.194 -- called unconditionally (Rules of Hooks) even though only
+  // the upcoming (isPast === false) branch below actually needs it; see
+  // fmtCountdown's comment above for why. null until mounted.
+  const now = useClientNow();
   if (isPast) {
     const winnerCode = match.result?.winner;
     const winnerTeam = winnerCode === match.teamA.code ? match.teamA : match.teamB;
@@ -814,11 +828,11 @@ export function SpotlightMatchCard({ match, isPast, forYou }: { match: Match; is
               <path d="M8 5v3l2 1.5" />
             </svg>
             <span className="text-[9px] font-extrabold text-cyan num leading-none">
-              {fmtCountdown(match.startTimeIso)}
+              {now !== null && fmtCountdown(match.startTimeIso, now)}
             </span>
           </div>
           <span className="text-[8.5px] text-white/50 num truncate leading-none">
-            {fmtTime(match.startTimeIso)} · {match.venue.city}
+            {now !== null && <>{fmtTime(match.startTimeIso)} · {match.venue.city}</>}
           </span>
         </div>
       </div>

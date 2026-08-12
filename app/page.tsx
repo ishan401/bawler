@@ -30,6 +30,7 @@ import { isSpotlightMatch, buildFullMemberLookup, SPOTLIGHT_RECENCY_WINDOW_MS, t
 import { selectHeroMatch } from "@/lib/heroSelection";
 import { APP_VERSION_LABEL } from "@/lib/version";
 import { useCarouselIndex } from "@/lib/useCarouselIndex";
+import { useClientNow } from "@/lib/useClientNow";
 import CarouselDots from "@/components/CarouselDots";
 import YourPlayersStrip from "@/components/YourPlayersStrip";
 import { useRouter } from "next/navigation";
@@ -55,8 +56,16 @@ function byPopularity(matches: Match[]): Match[] {
   return [...matches].sort((a, b) => matchPop(b) - matchPop(a));
 }
 
-function fmtCountdown(iso: string): string {
-  const diff = new Date(iso).getTime() - Date.now();
+// v1.0.194 -- fmtCountdown/fmtForYouDistance now take `now` as an explicit
+// parameter instead of reading Date.now() internally. This is a pure
+// call-site change: the math, thresholds, and output strings are
+// byte-for-byte identical to before -- only the source of "now" moved, so
+// the one and only caller (ForYouRow, below) can supply a client-only
+// value from useClientNow() instead of this function silently reading the
+// clock during a render pass that also runs on the server. See
+// lib/useClientNow.ts for the full hydration-mismatch rationale.
+function fmtCountdown(iso: string, now: number): string {
+  const diff = new Date(iso).getTime() - now;
   if (diff <= 0) return "Starting soon";
   const days = Math.floor(diff / 86400000);
   const hrs  = Math.floor((diff % 86400000) / 3600000);
@@ -84,10 +93,10 @@ function fmtShortDate(iso: string): string {
 // regardless of distance today, so this is presently the only place in
 // the app that makes this distinction.
 const FOR_YOU_COUNTDOWN_MAX_MS = 7 * 86400000;
-function fmtForYouDistance(iso: string): string {
-  const diff = new Date(iso).getTime() - Date.now();
+function fmtForYouDistance(iso: string, now: number): string {
+  const diff = new Date(iso).getTime() - now;
   if (diff > FOR_YOU_COUNTDOWN_MAX_MS) return `Next match: ${fmtShortDate(iso)}`;
-  return `${fmtCountdown(iso)} · ${fmtTime(iso)}`;
+  return `${fmtCountdown(iso, now)} · ${fmtTime(iso)}`;
 }
 
 // Mouse click-drag scroll for the snap-x carousels (spotlight, for-you).
@@ -739,6 +748,17 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
   // for why the two-sides-followed wording deliberately differs ("...and
   // India" here vs "...both ... and India" there).
   const reason = getFeaturedForYouReason(match, followPrefs);
+  // v1.0.194 -- this card's "in Xh Ym"/"Next match: ..." status line is
+  // the only render-time consumer of fmtForYouDistance(), which needs
+  // Date.now(). Reading the clock directly during render would run once
+  // on the server and again on the client at hydration, at two different
+  // real moments, producing a text mismatch (React error #425) -- so
+  // "now" comes from useClientNow() instead, which is null until mounted.
+  // The status line renders a stable, empty placeholder for that brief
+  // window (matching what the server rendered) and fills in with the real
+  // value within a fraction of a second after mount, once, then keeps
+  // itself fresh via the hook's own interval. See lib/useClientNow.ts.
+  const now = useClientNow();
   // v1.0.58 -- this card only (Live/Spotlight/grid keep their own existing
   // team-order conventions): always put the followed team on the left, so
   // its color dot and name never end up disconnected from each other by
@@ -795,7 +815,7 @@ function ForYouRow({ match, isLive, followPrefs }: { match: Match; isLive: boole
           </div>
         </a>
         <div className="text-[10px] text-text-dim text-center truncate">
-          {isLive ? (match.liveStatusOverride ?? "Live now") : fmtForYouDistance(match.startTimeIso)}
+          {isLive ? (match.liveStatusOverride ?? "Live now") : (now === null ? "" : fmtForYouDistance(match.startTimeIso, now))}
         </div>
         {/* "Because you follow {name}" subtitle (v1.0.149) -- same
             text-[10px] text-text-dim secondary-caption style as the status

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ALL_LIVE_MATCHES, ALL_UPCOMING_MATCHES } from "@/lib/mockData";
 import type { Match } from "@/lib/types";
+import ScheduleDateLabel from "@/components/ScheduleDateLabel";
 
 export function generateStaticParams() {
   const ids = new Set([
@@ -83,7 +84,13 @@ function MatchRow({ match, isLive }: { match: Match; isLive: boolean }) {
         ) : (
           <div>
             <div className="text-[10px] font-bold text-text-primary num">{fmtTime(match.startTimeIso)}</div>
-            <div className="text-[9px] text-text-dim">{fmtDate(match.startTimeIso)}</div>
+            {/* v1.0.194 -- was this file's own local fmtDate(), which
+                computed "Today"/"Tomorrow" from `new Date()` at BUILD
+                time (this page is statically prerendered via
+                generateStaticParams()) -- stale for every visitor until
+                the next rebuild. ScheduleDateLabel is a small Client
+                Component leaf so it's computed fresh per visit instead. */}
+            <div className="text-[9px] text-text-dim"><ScheduleDateLabel iso={match.startTimeIso} /></div>
           </div>
         )}
       </div>
@@ -100,15 +107,6 @@ function TeamChip({ name, color }: { name: string; color: string }) {
   );
 }
 
-function fmtDate(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === tomorrow.toDateString()) return "Tomorrow";
-  return d.toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-}
 function fmtTime(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
 }
