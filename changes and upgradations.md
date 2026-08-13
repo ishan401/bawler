@@ -3,6 +3,106 @@
 All notable changes to Bawler are documented here.
 Format: `[version] YYYY-MM-DD — description`
 
+## v1.0.200 — Onboarding step 2 rebuilt as swipe-card player picker; team-step interstitial deleted
+
+#### Part 1 — flat list to swipe cards
+- `components/onboarding/PlayerPickStep.tsx` rewritten: one player per card instead of a scrollable list, matching step 1's exact style (3-card fanned stack, drag + tap X/checkmark, entrance animation). New `components/onboarding/PlayerCard.tsx` reuses `PlayerAvatar` for the avatar and the existing `PlayerProfile.bio` field for the blurb (`line-clamp-3`) -- no new copy field invented.
+- Checkmark still calls the unchanged `toggleFollowPlayer()` helper, so Filter/Home/For You/Moments keep reading the same `followPrefs.players` store as before -- only the picker's presentation changed.
+- Search bar, step 2's own Skip button, and the "N of 5 players" progress text are all preserved/matched to step 1's conventions; finishing or skipping card 5 auto-advances to the quiz, as before.
+
+#### Part 2 — capped 5-player deck, two scenarios
+- New `buildOnboardingPlayerDeck()` in `lib/onboardingPlayers.ts`, dispatching to:
+  - `buildRoundRobinDeck()` -- round-robins across followed teams in followed order, one queue per team (reusing `getRelevantPlayers()`'s existing sort, no new ranking), skipping exhausted teams, capped at 5, never padded with unrelated players.
+  - `buildFallbackDeck()` -- fixed, non-random, one player per curated nation (`CURATED_NATION_CODES`, moved to a shared export in `lib/onboardingTeams.ts`), alphabetical-by-surname (`parsePlayerName().surname`) since `PlayerProfile` has no captain/marquee flag.
+- **Exact Scenario B fallback deck:** R Ashwin (India), P Cummins (Australia), J Buttler (England), T Boult (New Zealand), D Miller (South Africa) -- confirmed via script and twice live, identical both times.
+
+#### Part 3 — interstitial removed
+- `components/onboarding/LockedPreview.tsx` deleted entirely, along with its `lockedPreviewShown` plumbing in `OnboardingFlow.tsx` and the `phase` state machine in `TeamPickerStep.tsx`. Skip on step 1 now goes straight to step 2, no intermediate screen.
+
+#### Confirmed untouched
+- Step 1's own cards/progress bar/X-checkmark behavior; step 2's own Skip behavior; quiz/reveal/checklist steps; `lib/followPrefs.ts`'s storage mechanism.
+
+#### Verified
+- All 10 required live scenarios passed (1-team follow, 3-team round-robin in order, small-pool no-padding, skip-step-1 no-interstitial + deterministic fallback x2, search-and-follow independent of deck, Home/Filter reflect the follow, step-2-Skip no interstitial, mixed-swipe auto-advance, full regression, zero new console errors across two complete fresh runs).
+
+#### Scope
+- `lib/onboardingTeams.ts`, `lib/onboardingPlayers.ts`, `components/onboarding/PlayerCard.tsx` (new), `components/onboarding/PlayerPickStep.tsx` (rewritten), `components/onboarding/TeamPickerStep.tsx`, `components/onboarding/OnboardingFlow.tsx`, `components/onboarding/LockedPreview.tsx` (deleted), `package.json` version bump.
+
+## Changelog additions (v1.0.196–199)
+
+| Version | Highlight |
+|---|---|
+| **v1.0.196** | Fixed match pages reopening on a stale tab instead of the correct fresh default: removed the `matchTab:${match.id}` sessionStorage read/write entirely from `MatchView.tsx`. Fully fixes every case except genuine browser Back/Forward (DECISIONS-LOG.md) |
+| **v1.0.197–198** | Second, independent root cause found for the same symptom via browser Back/Forward specifically: Next.js's Client Router Cache can restore a previously-committed tab without re-running the page's render or hooks. A `popstate`-listener-based fix was attempted and, after live console-log verification, proven to never actually fire during a genuine cache-restore (DECISIONS-LOG.md) |
+| **v1.0.199** | Replaced the non-functional `popstate` listener with a `setInterval`-based `window.location.pathname` watcher, independent of any event Next's router might intercept. Measurably better than v1.0.198 and verified working across a full walkthrough of live/completed/upcoming matches, cross-match independence, and in-page-switching regression — with an honestly disclosed residual limitation for a subset of true Router-Cache-preserved Back/Forward restores that no application-level code was able to detect (DECISIONS-LOG.md) |
+
+## v1.0.195 — Fixing the v1.0.194 gap: timezone, not Date.now() drift
+
+#### Root cause
+- `components/InfoTab.tsx`'s `dateStr`/`timeStr` used `toLocaleDateString`/`toLocaleTimeString` with no explicit `timeZone` — resolves to the runtime's local timezone. Server (Vercel, UTC) and a visitor's browser format the same instant differently. Confirmed live: server HTML showed "10:38 am local", client DOM showed "04:08 pm local", same match, same UTC instant.
+
+#### Fixed — `components/InfoTab.tsx`
+- Gated `dateStr`/`timeStr`/`utcStr` (whole Date & Time card body, as one unit) behind `clientNow !== null`, same pattern as the `countdown` value already used.
+
+#### Fixed — `components/ScheduleRow.tsx`
+- `fmtTime(match.startTimeIso)` (upcoming-row branch) was ungated while the neighboring `fmtDate()` call already was. Reachable via `app/schedule/series/[competitionId]/page.tsx` (SSG, embeds `ScheduleRow` directly). Gated the same way.
+
+#### Audited, no fix needed
+- `MatchCard.tsx`'s `SpotlightMatchCard` (never renders during initial hydration — `fullMemberLookup`-gated `useMemo`), `LiveCarousel.tsx`'s sheets (both `view !== "none"`-gated), `app/schedule/[competitionId]/page.tsx` + `.../[teamCode]/page.tsx` (plain Server Components, never hydrated — flagged as a separate, non-error staleness/timezone bug, out of scope), `lib/teamSchedule.ts`'s month/year-only label, `PlayerProfileView.tsx`'s DOB formatting, `app/page.tsx`'s `fmtTime`/`fmtShortDate` (fully gated at their one call site).
+
+#### Verified
+- Hard-reload clear→navigate→read on all 5 required page types plus the newly-identified series-schedule route: Home (0), Schedule (0), live match (0), completed match (0, no regression), upcoming match (0, down from 9), series-schedule page (0). Screenshots confirm correct timezone-converted local time and countdown, no blank/NaN/stuck state, appearing within a fraction of a second of mount.
+
+#### Scope
+- `components/InfoTab.tsx`, `components/ScheduleRow.tsx`, `package.json` version bump. No calculation logic changed.
+
+## v1.0.194 — Platform-wide hydration error fix (Date.now()-based mock timestamps)
+
+#### Fixed — new `lib/useClientNow.ts`
+- Shared hook: `useState<number | null>(null)`, set via `useEffect` on mount (optional tick interval). Single "now" source for every render-time countdown/elapsed/today-tomorrow calculation platform-wide.
+- Every call site changed to accept `now` as a parameter, gated on `useClientNow() !== null` — SSR/first hydration render a placeholder (usually nothing), real value swaps in within a fraction of a second of mount. `suppressHydrationWarning` never used.
+
+#### Fixed — call sites
+- `app/page.tsx` (Home countdown + "For You" featured card), `components/MatchCard.tsx` (`FutureMatchCard`, `SpotlightMatchCard`), `components/LiveCarousel.tsx` (fallback card), `components/InfoTab.tsx` (countdown badge), `components/PlayerProfileView.tsx` (age-from-DOB), `components/ScheduleRow.tsx` (gained `"use client"`), new `components/ScheduleDateLabel.tsx` leaf for the statically-prerendered `app/schedule/[competitionId]/page.tsx`, `app/schedule/page.tsx`'s `SeriesSummaryRow` (a second, separate call into `ScheduleRow`'s `fmtDate`, caught by `tsc` after the signature change).
+
+#### Confirmed safe, untouched
+- `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx` — zero `Date.now()`/`new Date(` of their own.
+- `lib/teamSchedule.ts`, `lib/transformers.ts`, `components/onboarding/QuizStep.tsx`, dead code (`InsightFeed.tsx`/`InsightsPanel.tsx`), and several pure-formatting-only files.
+
+#### Verified, with an honest gap
+- `tsc --noEmit` / `npm run build` clean. Post-deploy: 0 errors on Home/Schedule/live match — but an upcoming match page still failed. See v1.0.195.
+
+#### Scope
+- 11 files changed, `lib/useClientNow.ts` + `components/ScheduleDateLabel.tsx` new, `package.json` version bump.
+
+## [1.0.193] 2026-08-12
+
+### Fixed: match-page fixed header — over count added, LIVE/PRE status labels removed, LIVE tab restricted to in-progress matches
+
+#### Context
+- Three related gaps in the fixed header shared by every match page: the sticky score row showed no over count (Home's cards already do); the top-right status label showed "LIVE"/"PRE" text that the design no longer wants (FINAL should stay); and the LIVE tab (plus a non-functional Score tab) incorrectly appeared on upcoming matches, which have no live content behind either.
+
+#### Fixed — `components/ScoreBar.tsx`
+- Added `" (overs)"` (exact Home-card format) after each team's runs/wickets figure, inside the existing `lastInnA`/`lastInnB` conditional blocks — renders on LIVE and FINAL, never PRE, with zero new gating logic.
+- Status-label div changed from always-rendered (cycling LIVE/PRE/FINAL text) to `{isPost && (<div>FINAL</div>)}` — LIVE and PRE now render nothing in that slot, no reserved space; FINAL is byte-for-byte unchanged in position/styling.
+- Disclosed, not fixed (pre-existing, out of scope): this header has never rendered a compound multi-innings score ("199/10 & 28/2") — `lastInnA`/`lastInnB` only ever surface the single most recent innings per team.
+
+#### Fixed — `components/MatchTabs.tsx` (rewritten) + `components/MatchView.tsx`
+- Root cause: `MatchTabs.tsx` derived its own tab set independently (unaware of "upcoming"), separately from `MatchView.tsx`'s already-correct-for-live/finished `TABS_ORDER` — two different derivations of the same thing, neither taught about the PRE state.
+- `MatchTabs.tsx` no longer derives anything; it renders exactly the ordered `tabs` array it's passed.
+- `TABS_ORDER` gained an `isUpcoming` branch: PRE now shows only Info (+ Table where eligible) — no Live, no Score, no Digest. LIVE and FINAL tab sets unchanged.
+- SessionStorage tab-restore staleness check generalized to "is the saved tab a member of `TABS_ORDER`" — covers the PRE case and falls back to that state's own default tab (Score/Info/Live) automatically.
+- `showTable`/`tableComp.hasStandings` (Table-tab eligibility) untouched.
+
+#### Verified
+- `tsc --noEmit` / `npm run build` clean.
+- Screenshots across live T20I/Test(multi-innings)/IPL/PSL, completed T20I/IPL, and upcoming T20I/IPL (no upcoming Test exists in the mocked schedule) confirmed all three parts; Table-eligibility cross-checked unchanged across all 3 states for both an eligible (IPL) and non-eligible (T20I/ODI bilateral) competition.
+- Phone width: the automation tool's `resize_window` did not actually change the real viewport in this environment; verified instead at the code level that `.phone-frame`'s unconditional `max-width: 430px` plus zero responsive Tailwind classes in all three touched files mean every desktop screenshot already taken is representative of true phone-width rendering.
+- Console check surfaced a pre-existing, unrelated hydration issue (React error #425) on LIVE/PRE pages, root-caused to `lib/mockData.ts`'s `Date.now()`-based `startTimeIso`/`timestampIso` fields (untouched by this commit) differing between server render and client hydration — disclosed, not fixed, as out of scope for this round.
+
+#### Scope
+- `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx`, `package.json` + `README.md` (version bump). `lib/useTabSwitcher.ts`, `lib/mockData.ts`, and Table-eligibility logic are unchanged.
+
 ## [1.0.192] 2026-08-12
 
 ### Home featured "For You" card: fixed live-match short-circuit blocking the upcoming pick
@@ -3964,103 +4064,3 @@ wpTeamA = 1 - wpTeamB; // no second penalty
 
 #### Scope
 - `app/globals.css`, `package.json` + `README.md` (version bump). No component, hook, or animation-timing logic touched -- `useTabSwitcher.ts`, the book-enter/exit transitions, `BallGIF.tsx`'s clip-swap interval, and the checklist catch-up animation are all unchanged.
-
-## [1.0.193] 2026-08-12
-
-### Fixed: match-page fixed header — over count added, LIVE/PRE status labels removed, LIVE tab restricted to in-progress matches
-
-#### Context
-- Three related gaps in the fixed header shared by every match page: the sticky score row showed no over count (Home's cards already do); the top-right status label showed "LIVE"/"PRE" text that the design no longer wants (FINAL should stay); and the LIVE tab (plus a non-functional Score tab) incorrectly appeared on upcoming matches, which have no live content behind either.
-
-#### Fixed — `components/ScoreBar.tsx`
-- Added `" (overs)"` (exact Home-card format) after each team's runs/wickets figure, inside the existing `lastInnA`/`lastInnB` conditional blocks — renders on LIVE and FINAL, never PRE, with zero new gating logic.
-- Status-label div changed from always-rendered (cycling LIVE/PRE/FINAL text) to `{isPost && (<div>FINAL</div>)}` — LIVE and PRE now render nothing in that slot, no reserved space; FINAL is byte-for-byte unchanged in position/styling.
-- Disclosed, not fixed (pre-existing, out of scope): this header has never rendered a compound multi-innings score ("199/10 & 28/2") — `lastInnA`/`lastInnB` only ever surface the single most recent innings per team.
-
-#### Fixed — `components/MatchTabs.tsx` (rewritten) + `components/MatchView.tsx`
-- Root cause: `MatchTabs.tsx` derived its own tab set independently (unaware of "upcoming"), separately from `MatchView.tsx`'s already-correct-for-live/finished `TABS_ORDER` — two different derivations of the same thing, neither taught about the PRE state.
-- `MatchTabs.tsx` no longer derives anything; it renders exactly the ordered `tabs` array it's passed.
-- `TABS_ORDER` gained an `isUpcoming` branch: PRE now shows only Info (+ Table where eligible) — no Live, no Score, no Digest. LIVE and FINAL tab sets unchanged.
-- SessionStorage tab-restore staleness check generalized to "is the saved tab a member of `TABS_ORDER`" — covers the PRE case and falls back to that state's own default tab (Score/Info/Live) automatically.
-- `showTable`/`tableComp.hasStandings` (Table-tab eligibility) untouched.
-
-#### Verified
-- `tsc --noEmit` / `npm run build` clean.
-- Screenshots across live T20I/Test(multi-innings)/IPL/PSL, completed T20I/IPL, and upcoming T20I/IPL (no upcoming Test exists in the mocked schedule) confirmed all three parts; Table-eligibility cross-checked unchanged across all 3 states for both an eligible (IPL) and non-eligible (T20I/ODI bilateral) competition.
-- Phone width: the automation tool's `resize_window` did not actually change the real viewport in this environment; verified instead at the code level that `.phone-frame`'s unconditional `max-width: 430px` plus zero responsive Tailwind classes in all three touched files mean every desktop screenshot already taken is representative of true phone-width rendering.
-- Console check surfaced a pre-existing, unrelated hydration issue (React error #425) on LIVE/PRE pages, root-caused to `lib/mockData.ts`'s `Date.now()`-based `startTimeIso`/`timestampIso` fields (untouched by this commit) differing between server render and client hydration — disclosed, not fixed, as out of scope for this round.
-
-#### Scope
-- `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx`, `package.json` + `README.md` (version bump). `lib/useTabSwitcher.ts`, `lib/mockData.ts`, and Table-eligibility logic are unchanged.
-
-## v1.0.194 — Platform-wide hydration error fix (Date.now()-based mock timestamps)
-
-#### Fixed — new `lib/useClientNow.ts`
-- Shared hook: `useState<number | null>(null)`, set via `useEffect` on mount (optional tick interval). Single "now" source for every render-time countdown/elapsed/today-tomorrow calculation platform-wide.
-- Every call site changed to accept `now` as a parameter, gated on `useClientNow() !== null` — SSR/first hydration render a placeholder (usually nothing), real value swaps in within a fraction of a second of mount. `suppressHydrationWarning` never used.
-
-#### Fixed — call sites
-- `app/page.tsx` (Home countdown + "For You" featured card), `components/MatchCard.tsx` (`FutureMatchCard`, `SpotlightMatchCard`), `components/LiveCarousel.tsx` (fallback card), `components/InfoTab.tsx` (countdown badge), `components/PlayerProfileView.tsx` (age-from-DOB), `components/ScheduleRow.tsx` (gained `"use client"`), new `components/ScheduleDateLabel.tsx` leaf for the statically-prerendered `app/schedule/[competitionId]/page.tsx`, `app/schedule/page.tsx`'s `SeriesSummaryRow` (a second, separate call into `ScheduleRow`'s `fmtDate`, caught by `tsc` after the signature change).
-
-#### Confirmed safe, untouched
-- `components/ScoreBar.tsx`, `components/MatchTabs.tsx`, `components/MatchView.tsx` — zero `Date.now()`/`new Date(` of their own.
-- `lib/teamSchedule.ts`, `lib/transformers.ts`, `components/onboarding/QuizStep.tsx`, dead code (`InsightFeed.tsx`/`InsightsPanel.tsx`), and several pure-formatting-only files.
-
-#### Verified, with an honest gap
-- `tsc --noEmit` / `npm run build` clean. Post-deploy: 0 errors on Home/Schedule/live match — but an upcoming match page still failed. See v1.0.195.
-
-#### Scope
-- 11 files changed, `lib/useClientNow.ts` + `components/ScheduleDateLabel.tsx` new, `package.json` version bump.
-
-## v1.0.195 — Fixing the v1.0.194 gap: timezone, not Date.now() drift
-
-#### Root cause
-- `components/InfoTab.tsx`'s `dateStr`/`timeStr` used `toLocaleDateString`/`toLocaleTimeString` with no explicit `timeZone` — resolves to the runtime's local timezone. Server (Vercel, UTC) and a visitor's browser format the same instant differently. Confirmed live: server HTML showed "10:38 am local", client DOM showed "04:08 pm local", same match, same UTC instant.
-
-#### Fixed — `components/InfoTab.tsx`
-- Gated `dateStr`/`timeStr`/`utcStr` (whole Date & Time card body, as one unit) behind `clientNow !== null`, same pattern as the `countdown` value already used.
-
-#### Fixed — `components/ScheduleRow.tsx`
-- `fmtTime(match.startTimeIso)` (upcoming-row branch) was ungated while the neighboring `fmtDate()` call already was. Reachable via `app/schedule/series/[competitionId]/page.tsx` (SSG, embeds `ScheduleRow` directly). Gated the same way.
-
-#### Audited, no fix needed
-- `MatchCard.tsx`'s `SpotlightMatchCard` (never renders during initial hydration — `fullMemberLookup`-gated `useMemo`), `LiveCarousel.tsx`'s sheets (both `view !== "none"`-gated), `app/schedule/[competitionId]/page.tsx` + `.../[teamCode]/page.tsx` (plain Server Components, never hydrated — flagged as a separate, non-error staleness/timezone bug, out of scope), `lib/teamSchedule.ts`'s month/year-only label, `PlayerProfileView.tsx`'s DOB formatting, `app/page.tsx`'s `fmtTime`/`fmtShortDate` (fully gated at their one call site).
-
-#### Verified
-- Hard-reload clear→navigate→read on all 5 required page types plus the newly-identified series-schedule route: Home (0), Schedule (0), live match (0), completed match (0, no regression), upcoming match (0, down from 9), series-schedule page (0). Screenshots confirm correct timezone-converted local time and countdown, no blank/NaN/stuck state, appearing within a fraction of a second of mount.
-
-#### Scope
-- `components/InfoTab.tsx`, `components/ScheduleRow.tsx`, `package.json` version bump. No calculation logic changed.
-
-## Changelog additions (v1.0.196–199)
-
-| Version | Highlight |
-|---|---|
-| **v1.0.196** | Fixed match pages reopening on a stale tab instead of the correct fresh default: removed the `matchTab:${match.id}` sessionStorage read/write entirely from `MatchView.tsx`. Fully fixes every case except genuine browser Back/Forward (DECISIONS-LOG.md) |
-| **v1.0.197–198** | Second, independent root cause found for the same symptom via browser Back/Forward specifically: Next.js's Client Router Cache can restore a previously-committed tab without re-running the page's render or hooks. A `popstate`-listener-based fix was attempted and, after live console-log verification, proven to never actually fire during a genuine cache-restore (DECISIONS-LOG.md) |
-| **v1.0.199** | Replaced the non-functional `popstate` listener with a `setInterval`-based `window.location.pathname` watcher, independent of any event Next's router might intercept. Measurably better than v1.0.198 and verified working across a full walkthrough of live/completed/upcoming matches, cross-match independence, and in-page-switching regression — with an honestly disclosed residual limitation for a subset of true Router-Cache-preserved Back/Forward restores that no application-level code was able to detect (DECISIONS-LOG.md) |
-
-## v1.0.200 — Onboarding step 2 rebuilt as swipe-card player picker; team-step interstitial deleted
-
-#### Part 1 — flat list to swipe cards
-- `components/onboarding/PlayerPickStep.tsx` rewritten: one player per card instead of a scrollable list, matching step 1's exact style (3-card fanned stack, drag + tap X/checkmark, entrance animation). New `components/onboarding/PlayerCard.tsx` reuses `PlayerAvatar` for the avatar and the existing `PlayerProfile.bio` field for the blurb (`line-clamp-3`) -- no new copy field invented.
-- Checkmark still calls the unchanged `toggleFollowPlayer()` helper, so Filter/Home/For You/Moments keep reading the same `followPrefs.players` store as before -- only the picker's presentation changed.
-- Search bar, step 2's own Skip button, and the "N of 5 players" progress text are all preserved/matched to step 1's conventions; finishing or skipping card 5 auto-advances to the quiz, as before.
-
-#### Part 2 — capped 5-player deck, two scenarios
-- New `buildOnboardingPlayerDeck()` in `lib/onboardingPlayers.ts`, dispatching to:
-  - `buildRoundRobinDeck()` -- round-robins across followed teams in followed order, one queue per team (reusing `getRelevantPlayers()`'s existing sort, no new ranking), skipping exhausted teams, capped at 5, never padded with unrelated players.
-  - `buildFallbackDeck()` -- fixed, non-random, one player per curated nation (`CURATED_NATION_CODES`, moved to a shared export in `lib/onboardingTeams.ts`), alphabetical-by-surname (`parsePlayerName().surname`) since `PlayerProfile` has no captain/marquee flag.
-- **Exact Scenario B fallback deck:** R Ashwin (India), P Cummins (Australia), J Buttler (England), T Boult (New Zealand), D Miller (South Africa) -- confirmed via script and twice live, identical both times.
-
-#### Part 3 — interstitial removed
-- `components/onboarding/LockedPreview.tsx` deleted entirely, along with its `lockedPreviewShown` plumbing in `OnboardingFlow.tsx` and the `phase` state machine in `TeamPickerStep.tsx`. Skip on step 1 now goes straight to step 2, no intermediate screen.
-
-#### Confirmed untouched
-- Step 1's own cards/progress bar/X-checkmark behavior; step 2's own Skip behavior; quiz/reveal/checklist steps; `lib/followPrefs.ts`'s storage mechanism.
-
-#### Verified
-- All 10 required live scenarios passed (1-team follow, 3-team round-robin in order, small-pool no-padding, skip-step-1 no-interstitial + deterministic fallback x2, search-and-follow independent of deck, Home/Filter reflect the follow, step-2-Skip no interstitial, mixed-swipe auto-advance, full regression, zero new console errors across two complete fresh runs).
-
-#### Scope
-- `lib/onboardingTeams.ts`, `lib/onboardingPlayers.ts`, `components/onboarding/PlayerCard.tsx` (new), `components/onboarding/PlayerPickStep.tsx` (rewritten), `components/onboarding/TeamPickerStep.tsx`, `components/onboarding/OnboardingFlow.tsx`, `components/onboarding/LockedPreview.tsx` (deleted), `package.json` version bump.
